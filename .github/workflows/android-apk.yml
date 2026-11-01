@@ -50,11 +50,12 @@ jobs:
       - name: Stamp version
         run: |
           VERSION=$(grep -oP '^config/version="\K[^"]+' project.godot)
-          BUILD=${{ github.run_number }}
+          IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
+          CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))   # 0.5.0 -> 500
           sed -i "s|^version/name=.*|version/name=\"$VERSION\"|" export_presets.cfg
-          sed -i "s|^version/code=.*|version/code=$BUILD|" export_presets.cfg
-          echo "APK_NAME=shardsight-v$VERSION-build$BUILD" >> "$GITHUB_ENV"
-          echo "Version $VERSION, build $BUILD"
+          sed -i "s|^version/code=.*|version/code=$CODE|" export_presets.cfg
+          echo "APK_NAME=shardsight-v$VERSION" >> "$GITHUB_ENV"
+          echo "Version $VERSION (code $CODE)"
 
       - name: Import and export debug APK
         run: |

@@ -18,4 +18,4 @@ Open the folder in Godot 4.3 and press Play. For Android, install the export tem
 and the Android SDK, then Project > Export > Android.
 
 CI (`.github/workflows/android-apk.yml`) exports a debug APK on every push and uploads it
-as `shardsight-v<version>-build<run>`. The version is `application/config/version` in `project.godot`; see CHANGELOG.md.
+as `shardsight-v<version>`. The version is `application/config/version` in `project.godot`; see CHANGELOG.md.

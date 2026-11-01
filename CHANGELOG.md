@@ -1,7 +1,7 @@
 # Changelog
 
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
-into the Android `version/name` and uses the workflow run number as `version/code`.
+into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
 ## 0.5.0
 - Magery: six spells (Magic Arrow, Heal, Harm, Fireball, Lightning, Greater Heal) with mana,
