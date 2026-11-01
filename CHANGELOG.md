@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.6.2
+- Event log has no background panel; text uses a thick black outline instead.
+
 ## 0.6.1
 - Event log moved into a dark translucent panel with larger text.
 
