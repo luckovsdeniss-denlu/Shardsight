@@ -4,6 +4,7 @@ extends Node2D
 
 const SPEED := 5.0 * World.TILE  # pixels per second
 
+var version: String = ProjectSettings.get_setting("application/config/version", "dev")
 var world := World.new()
 var hero := Hero.new()
 var pos := Vector2.ZERO
@@ -58,8 +59,8 @@ func _process(delta: float) -> void:
 			budget = 0.0
 	cam.position = pos
 	var tile := world.to_tile(pos)
-	hud.text = "HP %d   Stam %d   Mana %d\nTile %d, %d   Hit chance 100 vs 100: %d%%" % [
-		hero.max_hp(), hero.max_stamina(), hero.max_mana(), tile.x, tile.y,
+	hud.text = "Shardsight v%s\nHP %d   Stam %d   Mana %d\nTile %d, %d   Hit chance 100 vs 100: %d%%" % [
+		version, hero.max_hp(), hero.max_stamina(), hero.max_mana(), tile.x, tile.y,
 		roundi(Rules.hit_chance(100.0, 100.0) * 100.0)]
 	queue_redraw()
 

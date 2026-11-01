@@ -47,13 +47,22 @@ jobs:
           export/android/debug_keystore_pass = "android"
           SETTINGS
 
+      - name: Stamp version
+        run: |
+          VERSION=$(grep -oP '^config/version="\K[^"]+' project.godot)
+          BUILD=${{ github.run_number }}
+          sed -i "s|^version/name=.*|version/name=\"$VERSION\"|" export_presets.cfg
+          sed -i "s|^version/code=.*|version/code=$BUILD|" export_presets.cfg
+          echo "APK_NAME=shardsight-v$VERSION-build$BUILD" >> "$GITHUB_ENV"
+          echo "Version $VERSION, build $BUILD"
+
       - name: Import and export debug APK
         run: |
           mkdir -p build
           godot --headless --import || true
-          godot --headless --verbose --export-debug "Android" build/shardsight.apk
+          godot --headless --verbose --export-debug "Android" "build/$APK_NAME.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: shardsight-debug-apk
-          path: build/shardsight.apk
+          name: ${{ env.APK_NAME }}
+          path: build/${{ env.APK_NAME }}.apk
