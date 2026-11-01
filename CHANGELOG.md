@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and uses the workflow run number as `version/code`.
 
+## 0.3.0
+- Character acts on its own: idles, then wanders to random reachable tiles nearby.
+  Tapping takes over for a few seconds; an on-screen button toggles Auto mode.
+
 ## 0.2.0
 - Now 3D: tile map built from 3D meshes (ground, walls, water, trees), third-person camera,
   tap/drag on the ground picks a tile, A* routes around obstacles.

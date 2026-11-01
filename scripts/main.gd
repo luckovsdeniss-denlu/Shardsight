@@ -4,6 +4,8 @@ extends Node3D
 
 const SPEED := 5.0  # metres per second
 const CAM_OFFSET := Vector3(0.0, 9.0, 7.0)
+const WANDER_RADIUS := 8       # tiles
+const MANUAL_PAUSE := 4.0      # seconds auto mode waits after a tap
 
 var version: String = ProjectSettings.get_setting("application/config/version", "dev")
 var world := World.new()
@@ -14,6 +16,10 @@ var marker := MeshInstance3D.new()
 var hud := Label.new()
 var path: Array[Vector3] = []
 var held := false
+var auto := true              # the character acts on its own
+var idle_time := 0.0          # seconds standing still (negative = extra pause)
+var wait_time := 1.5          # how long to idle before the next wander
+var auto_button := Button.new()
 
 
 func _ready() -> void:
@@ -31,6 +37,13 @@ func _ready() -> void:
 	hud.position = Vector2(16, 12)
 	hud.add_theme_font_size_override("font_size", 28)
 	layer.add_child(hud)
+
+	auto_button.custom_minimum_size = Vector2(240, 80)
+	auto_button.add_theme_font_size_override("font_size", 28)
+	auto_button.pressed.connect(_toggle_auto)
+	layer.add_child(auto_button)
+	auto_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
+	_update_button()
 
 	player.position = world.tile_center(Vector2i(5, 5))
 	_follow_camera()
@@ -100,16 +113,55 @@ func _walk_to_screen(screen: Vector2) -> void:
 		cam.project_ray_origin(screen), cam.project_ray_normal(screen))
 	if hit == null:
 		return
-	var dest: Vector3 = hit
+	idle_time = -MANUAL_PAUSE  # player input wins; auto resumes after a pause
+	_go_to(hit)
+
+
+## Sets a path to `dest`. Returns false if the tile is blocked or unreachable.
+func _go_to(dest: Vector3) -> bool:
 	if world.is_blocked(world.to_tile(dest)):
+		return false
+	var p := world.find_path(player.position, dest)
+	if p.is_empty():
+		return false
+	path = p
+	marker.visible = true
+	marker.position = path[path.size() - 1] + Vector3(0.0, 0.03, 0.0)
+	return true
+
+
+func _toggle_auto() -> void:
+	auto = not auto
+	idle_time = 0.0
+	_update_button()
+
+
+func _update_button() -> void:
+	auto_button.text = "Auto: ON" if auto else "Auto: OFF"
+
+
+## Autonomous behaviour: stand idle for a moment, then walk to a random reachable tile nearby.
+func _think(delta: float) -> void:
+	if not auto:
 		return
-	path = world.find_path(player.position, dest)
-	marker.visible = not path.is_empty()
-	if marker.visible:
-		marker.position = path[path.size() - 1] + Vector3(0.0, 0.03, 0.0)
+	if not path.is_empty():
+		idle_time = minf(idle_time, 0.0)  # keep any manual pause while walking
+		return
+	idle_time += delta
+	if idle_time < wait_time:
+		return
+	var here := world.to_tile(player.position)
+	for _i in range(12):
+		var c := here + Vector2i(
+			randi_range(-WANDER_RADIUS, WANDER_RADIUS), randi_range(-WANDER_RADIUS, WANDER_RADIUS))
+		if c != here and _go_to(world.tile_center(c)):
+			break
+	idle_time = 0.0
+	wait_time = randf_range(1.0, 3.5)
 
 
 func _process(delta: float) -> void:
+	_think(delta)
 	var budget := SPEED * delta
 	while budget > 0.0 and not path.is_empty():
 		var to_next := path[0] - player.position
@@ -128,8 +180,11 @@ func _process(delta: float) -> void:
 	_follow_camera()
 
 	var tile := world.to_tile(player.position)
-	hud.text = "Shardsight v%s\nHP %d   Stam %d   Mana %d\nTile %d, %d   Hit chance 100 vs 100: %d%%" % [
-		version, hero.max_hp(), hero.max_stamina(), hero.max_mana(), tile.x, tile.y,
+	var mode := "manual"
+	if auto:
+		mode = "walking" if not path.is_empty() else "idle"
+	hud.text = "Shardsight v%s   [%s]\nHP %d   Stam %d   Mana %d\nTile %d, %d   Hit chance 100 vs 100: %d%%" % [
+		version, mode, hero.max_hp(), hero.max_stamina(), hero.max_mana(), tile.x, tile.y,
 		roundi(Rules.hit_chance(100.0, 100.0) * 100.0)]
 
 

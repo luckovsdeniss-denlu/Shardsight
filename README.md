@@ -6,7 +6,7 @@ Android game inspired by classic Ultima Online mechanics (stats, skills, open-wo
 - `scripts/rules.gd`: stat/skill caps and combat formulas from the mechanics reference.
 - `scripts/hero.gd`: 3 stats, skills 0..100, no classes or levels.
 - `scripts/world.gd`: ASCII tile map (grass, wall, water, tree): collision lookup, A* pathfinding, 3D mesh building.
-- `scripts/main.gd`: third-person camera; tap or drag on the ground to walk, routing around blocked tiles.
+- `scripts/main.gd`: third-person camera; the hero wanders on its own (Auto button toggles); tap or drag the ground to take over, routing around blocked tiles.
 - `export_presets.cfg`: Android preset (arm64, debug-signed).
 
 ## Run / build
