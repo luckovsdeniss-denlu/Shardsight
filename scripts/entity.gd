@@ -12,6 +12,8 @@ const RECOVER_HP := 0.9
 const HEAL_RANGE := 2.5
 const HEAL_PER_SEC := 4.0
 const REGEN_PER_SEC := 0.4
+const SPELL_RANGE := 7.0
+const CAST_RECOVERY := 0.8     # seconds between casts
 
 var kind: int = Kind.PLAYER
 var display_name := "?"
@@ -27,6 +29,7 @@ var leash := 8
 var aggro_range := 5.0
 var respawn_time := 8.0
 var ai_enabled := true         # for players: false = only obeys taps
+var is_hero := false           # the player's own character (gets spell feedback in the log)
 
 var game
 var world: World
@@ -41,6 +44,14 @@ var idle_timer := 1.0
 var pause := 0.0
 var repath_timer := 0.0
 var start_skills := {}
+var mana := 0.0
+var reagents := 0.0
+var restocking := false
+var casting_id := ""
+var cast_timer := 0.0
+var cast_target: Entity = null
+var cast_cd := 0.0
+var _med_timer := 0.0
 var label: Label3D
 var _last_text := ""
 
@@ -70,6 +81,8 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	home = world.tile_center(tile)
 	position = home
 	hp = float(stats.max_hp())
+	mana = float(stats.max_mana())
+	reagents = float(cfg.get("reagents", 0))
 
 
 func _build_visual(color: Color, s: float) -> void:
@@ -109,11 +122,19 @@ func tick(delta: float) -> void:
 			_respawn()
 		return
 	swing_cd = maxf(swing_cd - delta, 0.0)
+	cast_cd = maxf(cast_cd - delta, 0.0)
 	pause = maxf(pause - delta, 0.0)
 	repath_timer -= delta
 	hp = minf(hp + REGEN_PER_SEC * delta, float(stats.max_hp()))
+	_regen_mana(delta)
 	if role == "healer":
 		_heal_aura(delta)
+	elif role == "merchant":
+		_restock_aura(delta)
+	if casting_id != "":
+		_cast_step(delta)
+		_refresh_label()
+		return
 	_think(delta)
 	_follow_path(delta)
 	_fight()
@@ -134,7 +155,7 @@ func _think(delta: float) -> void:
 			pause = 3.0
 			go_to(home)
 	elif kind == Kind.PLAYER and autonomous and pause <= 0.0:
-		if _recover():
+		if _recover() or _resupply():
 			return
 		if target == null:
 			target = _nearest(Kind.MONSTER, aggro_range)
@@ -158,6 +179,11 @@ func _recover() -> bool:
 	if not recovering:
 		return false
 	target = null
+	if casting_id == "" and cast_cd <= 0.0:
+		var heal_id := _best_spell("heal")
+		if heal_id != "":
+			start_cast(heal_id, self)
+			return true
 	var healer := _find_role("healer")
 	if healer != null and position.distance_to(healer.position) > 2.0 and path.is_empty():
 		go_to(healer.position)
@@ -165,7 +191,10 @@ func _recover() -> bool:
 
 
 func _chase() -> void:
-	if position.distance_to(target.position) > MELEE_RANGE:
+	var reach := MELEE_RANGE
+	if (kind != Kind.PLAYER or ai_enabled) and _best_spell("attack") != "":
+		reach = SPELL_RANGE            # casters keep their distance
+	if position.distance_to(target.position) > reach:
 		if repath_timer <= 0.0 or path.is_empty():
 			repath_timer = 0.4
 			var p: Array[Vector3] = world.find_path(position, target.position)
@@ -241,9 +270,12 @@ func _face(v: Vector3) -> void:
 # --- combat ----------------------------------------------------------------
 
 func _fight() -> void:
-	if target == null or swing_cd > 0.0:
+	if target == null:
 		return
-	if position.distance_to(target.position) > MELEE_RANGE:
+	var d := position.distance_to(target.position)
+	if (kind != Kind.PLAYER or ai_enabled) and _try_auto_cast(d):
+		return
+	if swing_cd > 0.0 or d > MELEE_RANGE:
 		return
 	swing_cd = Rules.swing_seconds(stats.max_stamina(), weapon_speed)
 	var atk: float = stats.skills.get(Hero.Skill.SWORDSMANSHIP, 0.0)
@@ -272,6 +304,8 @@ func take_damage(amount: float, from: Entity) -> void:
 	if dead or kind == Kind.NPC:
 		return
 	hp -= amount
+	if casting_id != "":
+		_fizzle("disrupted")      # taking damage breaks a spell in progress
 	_pop("-%d" % maxi(1, roundi(amount)), Color(1.0, 0.45, 0.4))
 	if target == null and not recovering:
 		target = from                  # fight back
@@ -282,6 +316,7 @@ func take_damage(amount: float, from: Entity) -> void:
 func _die(killer: Entity) -> void:
 	dead = true
 	hp = 0.0
+	casting_id = ""
 	target = null
 	recovering = false
 	path.clear()
@@ -295,6 +330,7 @@ func _respawn() -> void:
 	visible = true
 	position = home
 	hp = float(stats.max_hp())
+	mana = float(stats.max_mana())
 	pause = 2.0
 	swing_cd = 1.0
 	if kind == Kind.PLAYER:
@@ -319,6 +355,8 @@ func _heal_aura(delta: float) -> void:
 func state_text() -> String:
 	if dead:
 		return "dead"
+	if casting_id != "":
+		return "casting " + String(Spells.LIST[casting_id]["name"])
 	if target != null:
 		return "fighting " + target.display_name
 	if recovering:
@@ -352,3 +390,195 @@ func _pop(text: String, color: Color) -> void:
 	var tw := l.create_tween()
 	tw.tween_property(l, "position:y", l.position.y + 0.9, 0.8)
 	tw.tween_callback(l.queue_free)
+
+
+# --- magery ----------------------------------------------------------------
+
+func _skill(s: int) -> float:
+	return float(stats.skills.get(s, 0.0))
+
+
+func can_cast(id: String) -> bool:
+	if dead or casting_id != "":
+		return false
+	var sp: Dictionary = Spells.LIST[id]
+	return mana >= float(sp["mana"]) and reagents >= float(sp["reagents"]) \
+		and _skill(Hero.Skill.MAGERY) >= float(sp["min"])
+
+
+func _why_not(id: String) -> String:
+	var sp: Dictionary = Spells.LIST[id]
+	if _skill(Hero.Skill.MAGERY) < float(sp["min"]):
+		return "Your Magery is too low for %s." % sp["name"]
+	if mana < float(sp["mana"]):
+		return "Not enough mana."
+	return "Not enough reagents."
+
+
+## Begin casting. Mana and reagents are spent up front, as in the classic game.
+func start_cast(id: String, tgt: Entity) -> bool:
+	if dead or casting_id != "" or cast_cd > 0.0 or tgt == null:
+		return false
+	if not can_cast(id):
+		if is_hero:
+			game.log_event(_why_not(id))
+		return false
+	if tgt != self and position.distance_to(tgt.position) > SPELL_RANGE:
+		if is_hero:
+			game.log_event("That is too far away.")
+		return false
+	var sp: Dictionary = Spells.LIST[id]
+	mana -= float(sp["mana"])
+	reagents -= float(sp["reagents"])
+	casting_id = id
+	cast_target = tgt
+	cast_timer = 0.5 + 0.25 * float(sp["circle"])
+	path.clear()
+	_pop(String(sp["words"]), Color(0.7, 0.85, 1.0))
+	return true
+
+
+## Used by the on-screen spell buttons. Attack spells pick the current or nearest monster.
+func cast_manual(id: String) -> void:
+	var sp: Dictionary = Spells.LIST[id]
+	var tgt: Entity = self
+	if String(sp["kind"]) == "attack":
+		tgt = target if target != null else _nearest(Kind.MONSTER, SPELL_RANGE)
+		if tgt == null:
+			game.log_event("No target in range.")
+			return
+		target = tgt
+	start_cast(id, tgt)
+
+
+func _cast_step(delta: float) -> void:
+	cast_timer -= delta
+	if cast_target != null and cast_target != self:
+		_face(cast_target.position - position)
+	if cast_timer <= 0.0:
+		_finish_cast()
+
+
+func _fizzle(reason: String) -> void:
+	casting_id = ""
+	cast_target = null
+	cast_cd = CAST_RECOVERY
+	_pop(reason, Color(0.75, 0.75, 0.75))
+
+
+func _finish_cast() -> void:
+	var sp: Dictionary = Spells.LIST[casting_id]
+	var tgt := cast_target
+	casting_id = ""
+	cast_target = null
+	cast_cd = CAST_RECOVERY
+	if tgt == null or tgt.dead or (tgt != self and position.distance_to(tgt.position) > SPELL_RANGE + 1.0):
+		_pop("fizzle", Color(0.75, 0.75, 0.75))
+		return
+	if randf() >= Rules.cast_chance(_skill(Hero.Skill.MAGERY), float(sp["min"])):
+		_pop("fizzle", Color(0.75, 0.75, 0.75))
+		return
+	var amount := randf_range(float(sp["min_dmg"]), float(sp["max_dmg"]))
+	if String(sp["kind"]) == "heal":
+		tgt.hp = minf(tgt.hp + amount, float(tgt.stats.max_hp()))
+		tgt._pop("+%d" % roundi(amount), Color(0.5, 1.0, 0.5))
+	else:
+		_bolt(tgt.position, sp["color"])
+		amount *= Rules.spell_damage_multiplier(_skill(Hero.Skill.EVALUATING_INTELLECT))
+		if randf() < Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)):
+			amount *= 0.5
+			tgt._pop("resisted", Color(0.7, 0.9, 1.0))
+			if tgt.kind == Kind.PLAYER:
+				tgt.stats.try_gain(Hero.Skill.RESISTING_SPELLS)
+		tgt.take_damage(amount, self)
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.EVALUATING_INTELLECT)
+	if kind == Kind.PLAYER:
+		stats.try_gain(Hero.Skill.MAGERY)
+
+
+## Heals itself when hurt, otherwise casts the best affordable attack spell in range.
+func _try_auto_cast(d: float) -> bool:
+	if casting_id != "" or cast_cd > 0.0:
+		return false
+	if hp < float(stats.max_hp()) * 0.5:
+		var heal_id := _best_spell("heal")
+		if heal_id != "":
+			return start_cast(heal_id, self)
+	if d <= SPELL_RANGE:
+		var attack_id := _best_spell("attack")
+		if attack_id != "":
+			return start_cast(attack_id, target)
+	return false
+
+
+## Best affordable spell of a kind: highest expected effect per mana, ignoring long shots.
+func _best_spell(k: String) -> String:
+	var best := ""
+	var best_score := 0.0
+	var magery := _skill(Hero.Skill.MAGERY)
+	for id in Spells.ORDER:
+		var sp: Dictionary = Spells.LIST[id]
+		if String(sp["kind"]) != k or not can_cast(id):
+			continue
+		var chance := Rules.cast_chance(magery, float(sp["min"]))
+		if chance < 0.2:
+			continue
+		var avg := (float(sp["min_dmg"]) + float(sp["max_dmg"])) / 2.0
+		var score := chance * avg / float(sp["mana"])
+		if score > best_score:
+			best_score = score
+			best = id
+	return best
+
+
+func _regen_mana(delta: float) -> void:
+	var resting := path.is_empty() and target == null and casting_id == ""
+	var max_mana := float(stats.max_mana())
+	mana = minf(mana + Rules.mana_regen(_skill(Hero.Skill.MEDITATION), resting) * delta, max_mana)
+	if resting and mana < max_mana and kind == Kind.PLAYER:
+		_med_timer += delta
+		if _med_timer >= 1.0:
+			_med_timer = 0.0
+			stats.try_gain(Hero.Skill.MEDITATION)   # resting while drained trains Meditation
+
+
+## Mages walk to the merchant when their reagents run low.
+func _resupply() -> bool:
+	if _skill(Hero.Skill.MAGERY) < 0.1:
+		return false
+	if reagents < 3.0:
+		restocking = true
+	elif reagents >= 15.0:
+		restocking = false
+	if not restocking:
+		return false
+	target = null
+	var m := _find_role("merchant")
+	if m != null and position.distance_to(m.position) > 2.0 and path.is_empty():
+		go_to(m.position)
+	return true
+
+
+func _restock_aura(delta: float) -> void:
+	var list: Array = game.creatures
+	for item in list:
+		var other := item as Entity
+		if other.dead or other.kind != Kind.PLAYER:
+			continue
+		if position.distance_to(other.position) <= HEAL_RANGE:
+			other.reagents = minf(other.reagents + 3.0 * delta, 30.0)
+
+
+func _bolt(to: Vector3, color: Color) -> void:
+	var m := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.15
+	s.height = 0.3
+	m.mesh = s
+	m.material_override = World._mat(color)
+	get_parent().add_child(m)
+	m.position = position + Vector3(0.0, 1.0, 0.0)
+	var tw := m.create_tween()
+	tw.tween_property(m, "position", to + Vector3(0.0, 1.0, 0.0), 0.25)
+	tw.tween_callback(m.queue_free)

@@ -1,7 +1,10 @@
 class_name Hero
 ## No classes or levels: three stats, skills 0..100, hard caps.
 
-enum Skill { SWORDSMANSHIP, TACTICS, ANATOMY, MAGERY, MEDITATION, HEALING, WRESTLING }
+enum Skill {
+	SWORDSMANSHIP, TACTICS, ANATOMY, MAGERY, MEDITATION, HEALING, WRESTLING,
+	EVALUATING_INTELLECT, RESISTING_SPELLS,
+}
 
 var strength := 25
 var dexterity := 20

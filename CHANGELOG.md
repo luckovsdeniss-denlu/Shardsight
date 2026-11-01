@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and uses the workflow run number as `version/code`.
 
+## 0.5.0
+- Magery: six spells (Magic Arrow, Heal, Harm, Fireball, Lightning, Greater Heal) with mana,
+  minimum skill and reagent costs from the reference (`scripts/spells.gd`). Spoken words of power,
+  cast time, fizzle on taking damage, cast chance rising with Magery.
+- Evaluating Intellect raises spell damage; Resisting Spells can halve it; Meditation speeds up
+  mana regeneration (resting doubles it). All rise with use.
+- On-screen spell buttons; casters (AI mage Selene, the Evil Mage) keep their distance, heal when
+  hurt and fall back to melee when out of mana. Merchant Bran restocks reagents.
+- The hero now starts as a battle mage: Swordsmanship 50, Tactics 30, Magery 30.
+
 ## 0.4.0
 - Population: the hero, two computer-played players, two NPCs (healer, merchant) and
   monsters (rats, wolf, orcs), all built on one `Entity` class (`scripts/entity.gd`).

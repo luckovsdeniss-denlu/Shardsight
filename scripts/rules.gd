@@ -29,3 +29,27 @@ static func tactics_multiplier(tactics: float) -> float:
 ## and Anatomy (~Anatomy/2 %). Multiply the weapon's base damage roll by this.
 static func damage_multiplier(strength: float, tactics: float, anatomy: float) -> float:
 	return tactics_multiplier(tactics) * (1.0 + 0.2 * strength / 100.0) * (1.0 + anatomy / 200.0)
+
+
+## Approximate: success rises from the circle's minimum skill to a sure cast about 40 points
+## above it. Below the minimum the spell cannot be attempted.
+static func cast_chance(magery: float, min_skill: float) -> float:
+	if magery < min_skill:
+		return 0.0
+	return clampf((magery - min_skill) / 40.0, 0.05, 1.0)
+
+
+## Approximate: Evaluating Intellect raises spell damage, up to +50% at 100.
+static func spell_damage_multiplier(eval_int: float) -> float:
+	return 1.0 + eval_int / 200.0
+
+
+## Approximate: Resisting Spells lets the target halve spell damage (up to a 50% chance).
+static func resist_chance(resisting: float) -> float:
+	return clampf(resisting / 200.0, 0.0, 0.5)
+
+
+## Mana per second. Meditation speeds it up; standing still ("active meditation") doubles it.
+static func mana_regen(meditation: float, resting: bool) -> float:
+	var rate := 0.3 * (1.0 + meditation / 50.0)
+	return rate * 2.0 if resting else rate

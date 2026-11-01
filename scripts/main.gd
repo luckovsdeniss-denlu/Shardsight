@@ -16,6 +16,7 @@ var marker := MeshInstance3D.new()
 var hud := Label.new()
 var log_label := Label.new()
 var auto_button := Button.new()
+var spell_buttons := {}
 var log_lines: Array[String] = []
 var held := false
 var auto := true
@@ -51,6 +52,23 @@ func _ready() -> void:
 	auto_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
 	_update_button()
 
+	var bar := VBoxContainer.new()
+	layer.add_child(bar)
+	bar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	bar.offset_right = -16.0
+	bar.offset_bottom = -16.0
+	for id in Spells.ORDER:
+		var sp: Dictionary = Spells.LIST[id]
+		var b := Button.new()
+		b.text = "%s  %d" % [sp["name"], sp["mana"]]
+		b.custom_minimum_size = Vector2(260, 60)
+		b.add_theme_font_size_override("font_size", 24)
+		b.pressed.connect(_on_spell.bind(id))
+		bar.add_child(b)
+		spell_buttons[id] = b
+
 	log_event("Welcome to Shardsight. Tap a monster to attack it.")
 	_follow_camera()
 
@@ -62,8 +80,10 @@ func _spawn_all() -> void:
 	var red := Color("c0392b")       # monsters: hostile
 
 	hero = _spawn(Entity.Kind.PLAYER, "Hero", Bestiary.HERO, gold, Vector2i(5, 5))
+	hero.is_hero = true
 	_spawn(Entity.Kind.PLAYER, "Aldric", Bestiary.WARRIOR, blue, Vector2i(10, 10))
 	_spawn(Entity.Kind.PLAYER, "Mira", Bestiary.FIGHTER, blue, Vector2i(20, 18))
+	_spawn(Entity.Kind.PLAYER, "Selene", Bestiary.MAGE, blue, Vector2i(18, 8))
 
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
@@ -73,6 +93,7 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.MONSTER, "Wolf", Bestiary.WOLF, red, Vector2i(25, 14))
 	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(27, 20))
 	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(16, 20))
+	_spawn(Entity.Kind.MONSTER, "Evil Mage", Bestiary.EVIL_MAGE, red, Vector2i(14, 22))
 
 
 func _spawn(kind: int, label_text: String, cfg: Dictionary, color: Color, tile: Vector2i) -> Entity:
@@ -162,6 +183,13 @@ func _creature_near(p: Vector3) -> Entity:
 	return best
 
 
+func _on_spell(id: String) -> void:
+	if hero.dead:
+		return
+	hero.pause = MANUAL_PAUSE
+	hero.cast_manual(id)
+
+
 func _toggle_auto() -> void:
 	auto = not auto
 	hero.ai_enabled = auto
@@ -183,6 +211,9 @@ func _process(delta: float) -> void:
 	else:
 		marker.visible = true
 		marker.position = hero.path[hero.path.size() - 1] + Vector3(0.0, 0.03, 0.0)
+	for id in spell_buttons:
+		var b: Button = spell_buttons[id]
+		b.disabled = hero.dead or not hero.can_cast(id)
 	_follow_camera()
 	_update_hud()
 
@@ -190,11 +221,13 @@ func _process(delta: float) -> void:
 func _update_hud() -> void:
 	var s := hero.stats
 	var tile := world.to_tile(hero.position)
-	hud.text = "Shardsight v%s   [%s]\nHP %d/%d   Stam %d   Mana %d   Tile %d,%d\nSword %.1f   Tactics %.1f   Anatomy %.1f   (%.1f/%d)" % [
-		version, hero.state_text(), ceili(hero.hp), s.max_hp(), s.max_stamina(), s.max_mana(),
-		tile.x, tile.y,
+	hud.text = "Shardsight v%s   [%s]\nHP %d/%d   Mana %d/%d   Reagents %d   Stam %d   Tile %d,%d\nSword %.1f  Tactics %.1f  Anatomy %.1f  Magery %.1f  Eval %.1f  Med %.1f  (%.1f/%d)" % [
+		version, hero.state_text(), ceili(hero.hp), s.max_hp(), floori(hero.mana), s.max_mana(),
+		floori(hero.reagents), s.max_stamina(), tile.x, tile.y,
 		s.skills[Hero.Skill.SWORDSMANSHIP], s.skills[Hero.Skill.TACTICS],
-		s.skills[Hero.Skill.ANATOMY], s.skill_total(), Rules.SKILL_CAP_TOTAL]
+		s.skills[Hero.Skill.ANATOMY], s.skills[Hero.Skill.MAGERY],
+		s.skills[Hero.Skill.EVALUATING_INTELLECT], s.skills[Hero.Skill.MEDITATION],
+		s.skill_total(), Rules.SKILL_CAP_TOTAL]
 
 
 func _follow_camera() -> void:
