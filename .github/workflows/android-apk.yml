@@ -51,7 +51,7 @@ jobs:
         run: |
           mkdir -p build
           godot --headless --import || true
-          godot --headless --export-debug "Android" build/shardsight.apk
+          godot --headless --verbose --export-debug "Android" build/shardsight.apk
 
       - uses: actions/upload-artifact@v4
         with:
