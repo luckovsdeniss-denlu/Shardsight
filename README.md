@@ -5,7 +5,8 @@ Built with Godot 4.3 (GDScript, GL Compatibility renderer).
 
 - `scripts/rules.gd`: stat/skill caps and combat formulas from the mechanics reference.
 - `scripts/hero.gd`: 3 stats, skills 0..100, no classes or levels.
-- `scripts/main.gd`: placeholder world, a tile grid where you tap to move.
+- `scripts/world.gd`: ASCII tile map (grass, wall, water, tree), collision lookup, A* pathfinding.
+- `scripts/main.gd`: tap or drag to walk; routes around blocked tiles.
 - `export_presets.cfg`: Android preset (arm64, debug-signed).
 
 ## Run / build
