@@ -47,6 +47,7 @@ var cols := 0
 var rows := 0
 var tiles: Array[int] = []
 var astar := AStarGrid2D.new()
+var astar_outside := AStarGrid2D.new()   # same grid, but the guarded town is walled off
 
 
 func _init() -> void:
@@ -60,10 +61,18 @@ func _init() -> void:
 	astar.cell_size = Vector2(TILE, TILE)
 	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 	astar.update()
+	astar_outside.region = astar.region
+	astar_outside.cell_size = astar.cell_size
+	astar_outside.diagonal_mode = astar.diagonal_mode
+	astar_outside.update()
 	for y in range(rows):
 		for x in range(cols):
-			if is_blocked(Vector2i(x, y)):
-				astar.set_point_solid(Vector2i(x, y), true)
+			var c := Vector2i(x, y)
+			if is_blocked(c):
+				astar.set_point_solid(c, true)
+				astar_outside.set_point_solid(c, true)
+			elif is_town(c):
+				astar_outside.set_point_solid(c, true)
 
 
 static func _parse(ch: String) -> int:
@@ -101,13 +110,18 @@ func tile_center(c: Vector2i) -> Vector3:
 
 ## Waypoints (tile centres) from the tile under `from_p` to the tile under `to_p`,
 ## not including the start tile. Empty if the target is blocked or unreachable.
-func find_path(from_p: Vector3, to_p: Vector3) -> Array[Vector3]:
+## With `avoid_town`, the path never enters the guarded town (for monsters and outlaws, whom
+## the guards would kill). Someone already inside town may still path out of it.
+func find_path(from_p: Vector3, to_p: Vector3, avoid_town := false) -> Array[Vector3]:
 	var out: Array[Vector3] = []
 	var a := to_tile(from_p)
 	var b := to_tile(to_p)
 	if is_blocked(a) or is_blocked(b) or a == b:
 		return out
-	var ids := astar.get_id_path(a, b)
+	if avoid_town and is_town(b):
+		return out
+	var grid := astar_outside if avoid_town and not is_town(a) else astar
+	var ids := grid.get_id_path(a, b)
 	for i in range(1, ids.size()):
 		out.append(tile_center(ids[i]))
 	return out

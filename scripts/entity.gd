@@ -212,8 +212,8 @@ func _think(delta: float) -> void:
 	if kind == Kind.MONSTER:
 		if target == null and pause <= 0.0:
 			target = _nearest(Kind.PLAYER, aggro_range)
-		elif target != null and position.distance_to(home) > leash + aggro_range * 1.5:
-			target = null       # gave up: too far from its lair
+		elif target != null and (target._in_town() or position.distance_to(home) > leash + aggro_range * 1.5):
+			target = null       # gave up: prey fled into the guarded town, or too far from its lair
 			pause = 3.0
 			go_to(home)
 	elif kind == Kind.PLAYER and autonomous and pause <= 0.0:
@@ -264,7 +264,7 @@ func _chase() -> void:
 	if position.distance_to(target.position) > reach:
 		if repath_timer <= 0.0 or path.is_empty():
 			repath_timer = 0.4
-			var p: Array[Vector3] = world.find_path(position, target.position)
+			var p: Array[Vector3] = world.find_path(position, target.position, _avoids_town())
 			path = p
 	else:
 		path.clear()
@@ -281,7 +281,7 @@ func _wander() -> void:
 
 ## Walk to `dest`. Returns false if it is blocked or unreachable.
 func go_to(dest: Vector3) -> bool:
-	var p: Array[Vector3] = world.find_path(position, dest)
+	var p: Array[Vector3] = world.find_path(position, dest, _avoids_town())
 	if p.is_empty():
 		return false
 	path = p
@@ -1041,6 +1041,14 @@ func _settle_crimes(killer: Entity) -> void:
 
 func _in_town() -> bool:
 	return world.is_town(world.to_tile(position))
+
+
+## Monsters, criminals and murderers keep out of the guarded town (the guards would kill them).
+## Ghosts may pass: they are on their way to the healer.
+func _avoids_town() -> bool:
+	if dead:
+		return false
+	return kind == Kind.MONSTER or (kind == Kind.PLAYER and notoriety() != Notoriety.BLUE)
 
 
 ## Players fight monsters and criminals; player killers also prey on innocents.

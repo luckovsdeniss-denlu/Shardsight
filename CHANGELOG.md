@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.10.1
+- Fix: the wolf's lair sat one tile from the guarded town, so it kept wandering in, being struck
+  down, respawning and walking back: endless "A guard strikes down Wolf" and wolf corpses piling
+  up in town. The lair moved away, and monsters, criminals and murderers now never path into
+  town (a second pathfinding grid walls it off for them) and stop chasing prey that reaches it.
+
 ## 0.10.0
 - Reputation: names are blue (innocent), grey (criminal) or red (murderer; monsters are always
   red) and the label colour follows. Hitting an innocent player makes you a criminal for a
