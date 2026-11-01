@@ -20,6 +20,12 @@ var auto_button := Button.new()
 var log_lines: Array[String] = []
 var held := false
 var auto := true
+var paused := false
+var menu: Control
+var reset_button: Button
+var reset_armed := false
+var save_timer := 0.0
+var skip_save := false
 
 
 func _ready() -> void:
@@ -58,15 +64,100 @@ func _ready() -> void:
 	log_label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	column.add_child(log_label)
 
+	var corner := VBoxContainer.new()
+	corner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	layer.add_child(corner)
 	auto_button.custom_minimum_size = Vector2(240, 80)
 	auto_button.add_theme_font_size_override("font_size", 28)
 	auto_button.pressed.connect(_toggle_auto)
-	layer.add_child(auto_button)
-	auto_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
+	corner.add_child(auto_button)
+	corner.add_child(_menu_button("Menu", _open_menu))
+	corner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
 	_update_button()
+	_build_menu(layer)
 
-	log_event("Welcome to Shardsight. Tap a monster to attack it.")
+	if SaveGame.load_into(hero):
+		log_event("Welcome back. Your progress was loaded.")
+	else:
+		log_event("Welcome to Shardsight. Tap a monster to attack it.")
 	_follow_camera()
+
+
+func _menu_button(text: String, callback: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(240, 80)
+	b.add_theme_font_size_override("font_size", 28)
+	b.pressed.connect(callback)
+	return b
+
+
+func _build_menu(layer: CanvasLayer) -> void:
+	menu = CenterContainer.new()
+	menu.visible = false
+	menu.mouse_filter = Control.MOUSE_FILTER_STOP     # swallow taps while the menu is open
+	layer.add_child(menu)
+	menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var panel := PanelContainer.new()
+	menu.add_child(panel)
+	var pad := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		pad.add_theme_constant_override("margin_" + side, 24)
+	panel.add_child(pad)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
+	pad.add_child(box)
+	var title := Label.new()
+	title.text = "Shardsight v%s" % version
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 34)
+	box.add_child(title)
+	box.add_child(_menu_button("Resume", _resume))
+	box.add_child(_menu_button("Save now", _save_now))
+	reset_button = _menu_button("Reset progress", _reset_progress)
+	box.add_child(reset_button)
+
+
+func _open_menu() -> void:
+	paused = true
+	menu.visible = true
+	reset_armed = false
+	reset_button.text = "Reset progress"
+	_autosave()
+
+
+func _resume() -> void:
+	paused = false
+	menu.visible = false
+
+
+func _save_now() -> void:
+	if SaveGame.save(hero):
+		log_event("Progress saved.")
+	else:
+		log_event("Could not save.")
+
+
+func _reset_progress() -> void:
+	if not reset_armed:
+		reset_armed = true
+		reset_button.text = "Really reset? Tap again"
+		return
+	skip_save = true
+	SaveGame.erase()
+	get_tree().reload_current_scene()
+
+
+func _autosave() -> void:
+	if not skip_save and hero != null:
+		SaveGame.save(hero)
+
+
+## Save when the game is closed or sent to the background (Android may kill it there).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED \
+			or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_autosave()
 
 
 func _spawn_all() -> void:
@@ -146,6 +237,8 @@ func log_event(text: String) -> void:
 # --- input -----------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	if paused:
+		return
 	var button := event as InputEventMouseButton
 	if button != null and button.button_index == MOUSE_BUTTON_LEFT:
 		held = button.pressed
@@ -221,6 +314,13 @@ func _update_button() -> void:
 # --- frame -----------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	if paused:
+		_update_hud()
+		return
+	save_timer += delta
+	if save_timer >= 20.0:
+		save_timer = 0.0
+		_autosave()
 	for e in creatures:
 		e.tick(delta)
 	for c in corpses.duplicate():

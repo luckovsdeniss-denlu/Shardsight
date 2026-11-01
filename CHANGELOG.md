@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.8.0
+- Save and load (`scripts/save_game.gd`): skills, stats, gold, reagents, bag and equipment persist
+  between sessions. Autosaves every 20 s, when you open the menu, and when the app is closed or
+  sent to the background. The world and other characters start fresh.
+- Menu button: pauses the game; Resume, Save now, Reset progress (asks twice).
+- CI can sign with a fixed key from repository secrets (see `SIGNING.md`), so builds update in
+  place. Without the secrets it falls back to a throwaway key as before.
+- `ROADMAP.md` lists the planned versions.
+
 ## 0.7.0
 - Equipment (`scripts/gear.gd`): five weapons (dagger, kryss, longsword, broadsword, halberd)
   and four armors (leather, studded, chainmail, platemail) with speed/damage/rating and Strength

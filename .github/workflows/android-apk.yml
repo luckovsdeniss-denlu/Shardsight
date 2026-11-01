@@ -31,11 +31,22 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "build-tools;34.0.0" "platforms;android-34"
 
-      - name: Debug keystore and Godot editor settings
+      - name: Signing key and Godot editor settings
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
-            -keystore "$RUNNER_TEMP/debug.keystore" -storepass android \
-            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ]; then
+            echo "Using the fixed signing key from repository secrets"
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/debug.keystore"
+            PASS="$KS_PASS"
+          else
+            echo "No signing secrets set: generating a throwaway key (see SIGNING.md)"
+            PASS=android
+            keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass "$PASS" \
+              -keystore "$RUNNER_TEMP/debug.keystore" -storepass "$PASS" \
+              -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          fi
           mkdir -p ~/.config/godot
           cat > ~/.config/godot/editor_settings-4.3.tres <<SETTINGS
           [gd_resource type="EditorSettings" format=3]
@@ -44,7 +55,7 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           export/android/debug_keystore = "$RUNNER_TEMP/debug.keystore"
           export/android/debug_keystore_user = "androiddebugkey"
-          export/android/debug_keystore_pass = "android"
+          export/android/debug_keystore_pass = "$PASS"
           SETTINGS
 
       - name: Stamp version
