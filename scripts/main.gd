@@ -24,6 +24,8 @@ var paused := false
 var menu: Control
 var skills_panel: Control
 var skills_box: VBoxContainer
+var craft_panel: Control
+var craft_box: VBoxContainer
 var reset_button: Button
 var reset_armed := false
 var save_timer := 0.0
@@ -78,6 +80,7 @@ func _ready() -> void:
 	_update_button()
 	_build_menu(layer)
 	_build_skills_panel(layer)
+	_build_craft_panel(layer)
 
 	if SaveGame.load_into(hero):
 		log_event("Welcome back. Your progress was loaded.")
@@ -117,6 +120,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(title)
 	box.add_child(_menu_button("Resume", _resume))
 	box.add_child(_menu_button("Skills", _open_skills))
+	box.add_child(_menu_button("Craft", _open_craft))
 	box.add_child(_menu_button("Save now", _save_now))
 	reset_button = _menu_button("Reset progress", _reset_progress)
 	box.add_child(reset_button)
@@ -136,7 +140,94 @@ func _build_skills_panel(layer: CanvasLayer) -> void:
 	panel.add_child(pad)
 	skills_box = VBoxContainer.new()
 	skills_box.add_theme_constant_override("separation", 6)
-	pad.add_child(skills_box)
+	pad.add_child(_scroll_wrap(skills_box))
+
+
+## Long lists scroll (drag on a phone) so they fit the screen.
+func _scroll_wrap(box: VBoxContainer) -> ScrollContainer:
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(880, 560)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(box)
+	return scroll
+
+
+func _build_craft_panel(layer: CanvasLayer) -> void:
+	craft_panel = CenterContainer.new()
+	craft_panel.visible = false
+	craft_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(craft_panel)
+	craft_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var panel := PanelContainer.new()
+	craft_panel.add_child(panel)
+	var pad := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		pad.add_theme_constant_override("margin_" + side, 20)
+	panel.add_child(pad)
+	craft_box = VBoxContainer.new()
+	craft_box.add_theme_constant_override("separation", 6)
+	pad.add_child(_scroll_wrap(craft_box))
+
+
+## Recipes with what they need. Blacksmithy and smelting need the forge in the smith's house;
+## Tailoring and Carpentry work anywhere.
+func _refresh_craft() -> void:
+	for c in craft_box.get_children():
+		craft_box.remove_child(c)
+		c.queue_free()
+	var inv := hero.inventory
+	var title := Label.new()
+	title.text = "Crafting   (%s)\nIngots %d   Ore %d   Logs %d   Wolf Pelts %d" % [
+		"at the forge" if world.near_forge(hero.position) else "the forge is in the smith's house",
+		Crafting.ingot_count(inv), Crafting.ore_count(inv), Crafting.count(inv, "log"),
+		Crafting.count(inv, "wolf_pelt")]
+	title.add_theme_font_size_override("font_size", 26)
+	craft_box.add_child(title)
+	var smelt := _menu_button("Smelt ore", _on_smelt)
+	smelt.disabled = Crafting.ore_count(inv) == 0 or not world.near_forge(hero.position)
+	craft_box.add_child(smelt)
+	for id in Crafting.ORDER:
+		var r: Dictionary = Crafting.RECIPES[id]
+		var row := HBoxContainer.new()
+		var info := Label.new()
+		var skill := int(r["skill"])
+		info.text = "%s\n%s · %s %d · %d%%" % [
+			Items.item_name(id), Items.mats_text(r["mats"]), Hero.skill_name(skill), int(r["min"]),
+			roundi(Rules.craft_chance(float(hero.stats.skills[skill]), float(r["min"])) * 100.0)]
+		info.custom_minimum_size = Vector2(620, 0)
+		info.add_theme_font_size_override("font_size", 22)
+		row.add_child(info)
+		var make := Button.new()
+		make.text = "Make"
+		make.custom_minimum_size = Vector2(160, 56)
+		make.add_theme_font_size_override("font_size", 24)
+		make.disabled = hero.craft_problem(id) != ""
+		make.pressed.connect(_on_craft.bind(id))
+		row.add_child(make)
+		craft_box.add_child(row)
+	craft_box.add_child(_menu_button("Back", _close_craft))
+
+
+func _on_craft(id: String) -> void:
+	hero.craft(id)
+	_refresh_craft()
+
+
+func _on_smelt() -> void:
+	hero.smelt_all()
+	_refresh_craft()
+
+
+func _open_craft() -> void:
+	menu.visible = false
+	craft_panel.visible = true
+	_refresh_craft()
+
+
+func _close_craft() -> void:
+	craft_panel.visible = false
+	menu.visible = true
 
 
 ## Rebuilds the skills list. Lock arrows: Up = may rise, Down = may be lost when the 700-point
@@ -342,12 +433,18 @@ func _tap(screen: Vector2) -> void:
 	hero.target = null
 	hero.recovering = false
 	hero.loot_target = null
+	hero.gather_tile = Vector2i(-1, -1)
+	hero.crafting_trip = false
 	var c := _corpse_near(dest)
 	if c != null and e == null:
 		if c.can_loot(hero):
 			hero.start_looting(c)
 		else:
 			log_event("That corpse is not yours to loot.")
+		return
+	var tile := world.to_tile(dest)
+	if e == null and world.resource_kind(tile) != "":
+		hero.start_gathering(tile)      # tap a rock to mine it, a tree to chop it
 		return
 	hero.go_to(e.position if e != null else dest)
 
@@ -446,6 +543,10 @@ func _update_hud() -> void:
 	var bag: Array[String] = []
 	for id in hero.inventory:
 		bag.append("%s x%d" % [Items.item_name(id), int(hero.inventory[id])])
+	if bag.size() > 6:
+		var extra := bag.size() - 6
+		bag.resize(6)
+		bag.append("+%d more" % extra)
 	var bag_text := ", ".join(bag) if not bag.is_empty() else "empty"
 	hud.text = "Shardsight v%s   [%s]   %s\nHP %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s" % [
 		version, hero.state_text(), hero.notoriety_text(), ceili(hero.hp), s.max_hp(), floori(hero.mana), s.max_mana(),

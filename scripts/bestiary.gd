@@ -1,12 +1,12 @@
 class_name Bestiary
 ## Stat blocks for everything that walks the map.
-## Keys: pk (preys on innocents), weapon/wear/shield (starting gear ids from Gear), bandages, str/dex/int, skills, reagents, gold (carried), loot (monster drops), dmg_min/dmg_max (weapon roll), wspeed (weapon speed 20..60),
+## Keys: pk (preys on innocents), crafter (gathers and crafts when idle), weapon/wear/shield (starting gear ids from Gear), bandages, str/dex/int, skills, reagents, gold (carried), loot (monster drops), dmg_min/dmg_max (weapon roll), wspeed (weapon speed 20..60),
 ## move (m/s), armor, leash (wander radius in tiles), aggro (m), respawn (s), role, scale.
 
 const HERO := {
 	"str": 25, "dex": 20, "int": 20, "wspeed": 45, "dmg_min": 5, "dmg_max": 10,
 	"move": 4.0, "leash": 8, "aggro": 5.0, "respawn": 5.0,
-	"reagents": 30, "gold": 20, "weapon": "dagger", "bandages": 5,
+	"reagents": 30, "gold": 20, "weapon": "dagger", "bandages": 5, "crafter": true,
 	"skills": {Hero.Skill.SWORDSMANSHIP: 50.0, Hero.Skill.TACTICS: 30.0, Hero.Skill.MAGERY: 30.0},
 }
 

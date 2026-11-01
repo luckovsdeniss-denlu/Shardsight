@@ -1,10 +1,11 @@
 class_name World
 ## Tile map: ASCII layout, collision lookup, A* pathfinding and 3D mesh building.
 ## Tile (x, y) maps to world (x, 0, y): the map lies on the XZ plane.
-## Legend: . grass   # wall   ~ water   T tree. Only grass is walkable.
+## Legend: . grass   # wall   ~ water   T tree (wood)   R rock (ore)   F forge.
+## Only grass is walkable.
 
 const TILE := 1.0  # one tile = one metre in 3D
-enum Tile { GRASS, WALL, WATER, TREE }
+enum Tile { GRASS, WALL, WATER, TREE, ROCK, FORGE }
 
 ## The guarded town: no player-versus-player here, and guards strike down criminals,
 ## murderers and monsters on sight. Everything else is open wilderness.
@@ -14,40 +15,48 @@ const LAYOUT := [
 	"################################",
 	"#..............................#",
 	"#..............................#",
-	"#..TT....T..........#########..#",
+	"#..TT....T.......RR.#########..#",
 	"#..T................#.......#..#",
-	"#.............TT....#.......#..#",
+	"#.............TT....#F......#..#",
 	"#..............T....#.......#..#",
 	"#...................#.......#..#",
-	"#...................#.......#..#",
-	"#...................####.####..#",
+	"#.R.................#.......#..#",
+	"#.RR................####.####..#",
 	"#..............................#",
 	"#..............................#",
 	"#.............##TT.#####.......#",
 	"#..............................#",
-	"#......~~~~~...................#",
+	"#......~~~~~R..................#",
 	"#.....~~~~~~~.........TT.......#",
 	"#.....~~~~~~~..........T.......#",
 	"#......~~~~~...................#",
 	"#..............................#",
 	"#.T.......................TT...#",
-	"#.TT...........................#",
-	"#..............................#",
-	"#..............................#",
-	"################################"
+	"#.TT.....RR....................#",
+	"#..........................RR..#",
+	"#...........................R..#",
+	"################################",
 ]
 const COLORS := {
 	Tile.GRASS: Color("2f5d34"),
 	Tile.WALL: Color("6b6f7a"),
 	Tile.WATER: Color("2a5f9e"),
 	Tile.TREE: Color("2f5d34"),
+	Tile.ROCK: Color("7a7268"),
+	Tile.FORGE: Color("3b3b3b"),
 }
+
+const HARVEST_PER_NODE := 6      # a rock or tree gives this many tries before it is exhausted
+const REGROW_MS := 60000         # ... and then it recovers after a minute
 
 var cols := 0
 var rows := 0
 var tiles: Array[int] = []
 var astar := AStarGrid2D.new()
 var astar_outside := AStarGrid2D.new()   # same grid, but the guarded town is walled off
+var forge_tile := Vector2i(-1, -1)
+var _harvest_left := {}          # tile -> tries left
+var _regrow_at := {}             # tile -> Time.get_ticks_msec() when an exhausted node recovers
 
 
 func _init() -> void:
@@ -57,6 +66,8 @@ func _init() -> void:
 	for y in range(rows):
 		for x in range(cols):
 			tiles[y * cols + x] = _parse(String(LAYOUT[y])[x])
+			if tiles[y * cols + x] == Tile.FORGE:
+				forge_tile = Vector2i(x, y)
 	astar.region = Rect2i(0, 0, cols, rows)
 	astar.cell_size = Vector2(TILE, TILE)
 	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
@@ -83,6 +94,10 @@ static func _parse(ch: String) -> int:
 			return Tile.WATER
 		"T":
 			return Tile.TREE
+		"R":
+			return Tile.ROCK
+		"F":
+			return Tile.FORGE
 		_:
 			return Tile.GRASS
 
@@ -96,6 +111,77 @@ func in_bounds(c: Vector2i) -> bool:
 
 
 ## Collision: anything that is not grass, and everything outside the map, blocks.
+## "ore" for rocks, "wood" for trees, "" for anything else.
+func resource_kind(c: Vector2i) -> String:
+	if not in_bounds(c):
+		return ""
+	match tiles[c.y * cols + c.x]:
+		Tile.ROCK:
+			return "ore"
+		Tile.TREE:
+			return "wood"
+	return ""
+
+
+func can_harvest(c: Vector2i) -> bool:
+	if resource_kind(c) == "":
+		return false
+	if _regrow_at.has(c):
+		if Time.get_ticks_msec() < int(_regrow_at[c]):
+			return false
+		_regrow_at.erase(c)
+		_harvest_left.erase(c)
+	return true
+
+
+func take_harvest(c: Vector2i) -> void:
+	var left := int(_harvest_left.get(c, HARVEST_PER_NODE)) - 1
+	if left <= 0:
+		_harvest_left.erase(c)
+		_regrow_at[c] = Time.get_ticks_msec() + REGROW_MS
+	else:
+		_harvest_left[c] = left
+
+
+## The walkable neighbour of `c` (including diagonals) closest to `from_p`, or (-1, -1).
+func stand_tile_for(c: Vector2i, from_p: Vector3) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_d := INF
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var n := c + Vector2i(dx, dy)
+			if (dx == 0 and dy == 0) or is_blocked(n):
+				continue
+			var d := tile_center(n).distance_to(from_p)
+			if d < best_d:
+				best = n
+				best_d = d
+	return best
+
+
+## Closest harvestable node of `kind` within `radius` tiles that has somewhere to stand.
+func find_harvest_near(p: Vector3, kind: String, radius: int) -> Vector2i:
+	var here := to_tile(p)
+	var best := Vector2i(-1, -1)
+	var best_d := INF
+	for dy in range(-radius, radius + 1):
+		for dx in range(-radius, radius + 1):
+			var c := here + Vector2i(dx, dy)
+			if resource_kind(c) != kind or not can_harvest(c):
+				continue
+			if stand_tile_for(c, p).x < 0:
+				continue
+			var d := tile_center(c).distance_to(p)
+			if d < best_d:
+				best = c
+				best_d = d
+	return best
+
+
+func near_forge(p: Vector3) -> bool:
+	return forge_tile.x >= 0 and p.distance_to(tile_center(forge_tile)) <= 2.0
+
+
 func is_blocked(c: Vector2i) -> bool:
 	return not in_bounds(c) or tiles[c.y * cols + c.x] != Tile.GRASS
 
@@ -168,6 +254,17 @@ func build(parent: Node3D) -> void:
 	var water_mat := _mat(COLORS[Tile.WATER])
 	var trunk_mat := _mat(Color("5a3d1e"))
 	var crown_mat := _mat(Color("1d4a22"))
+	var rock_mesh := SphereMesh.new()
+	rock_mesh.radius = 0.48
+	rock_mesh.height = 0.7
+	var rock_mat := _mat(COLORS[Tile.ROCK])
+	var forge_mesh := BoxMesh.new()
+	forge_mesh.size = Vector3(0.9, 0.8, 0.9)
+	var coals_mesh := BoxMesh.new()
+	coals_mesh.size = Vector3(0.6, 0.08, 0.6)
+	var coals_mat := _mat(Color(1.0, 0.45, 0.1))
+	coals_mat.emission_enabled = true
+	coals_mat.emission = Color(1.0, 0.4, 0.05)
 
 	for y in range(rows):
 		for x in range(cols):
@@ -180,3 +277,8 @@ func build(parent: Node3D) -> void:
 				Tile.TREE:
 					_add(parent, trunk_mesh, trunk_mat, c + Vector3(0, 0.35, 0))
 					_add(parent, crown_mesh, crown_mat, c + Vector3(0, 1.0, 0))
+				Tile.ROCK:
+					_add(parent, rock_mesh, rock_mat, c + Vector3(0, 0.3, 0))
+				Tile.FORGE:
+					_add(parent, forge_mesh, _mat(COLORS[Tile.FORGE]), c + Vector3(0, 0.4, 0))
+					_add(parent, coals_mesh, coals_mat, c + Vector3(0, 0.84, 0))

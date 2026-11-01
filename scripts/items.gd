@@ -9,7 +9,28 @@ const LIST := {
 }
 
 
+## Crafting materials: ore and ingots of every metal, logs and wolf pelts (hides).
+static func is_material(id: String) -> bool:
+	if id == "log" or id == "wolf_pelt":
+		return true
+	if id.begins_with("ore_"):
+		return not Crafting.tier(id.trim_prefix("ore_")).is_empty()
+	if id.begins_with("ingot_"):
+		return not Crafting.tier(id.trim_prefix("ingot_")).is_empty()
+	return false
+
+
+static func is_known(id: String) -> bool:
+	return Gear.LIST.has(id) or LIST.has(id) or is_material(id)
+
+
 static func item_name(id: String) -> String:
+	if id == "log":
+		return "Log"
+	if id.begins_with("ore_") and is_material(id):
+		return String(Crafting.tier(id.trim_prefix("ore_"))["name"]) + " Ore"
+	if id.begins_with("ingot_") and is_material(id):
+		return String(Crafting.tier(id.trim_prefix("ingot_"))["name"]) + " Ingot"
 	if Gear.LIST.has(id):
 		return String(Gear.LIST[id]["name"])
 	return String(LIST[id]["name"])
@@ -17,6 +38,28 @@ static func item_name(id: String) -> String:
 
 ## What the merchant pays: full value for trophies, half for used gear.
 static func value(id: String) -> int:
+	if id == "log":
+		return 1
+	if id.begins_with("ore_") and is_material(id):
+		return int(Crafting.tier(id.trim_prefix("ore_"))["value"])
+	if id.begins_with("ingot_") and is_material(id):
+		return int(Crafting.tier(id.trim_prefix("ingot_"))["value"]) * 2
 	if Gear.LIST.has(id):
 		return maxi(1, int(Gear.LIST[id]["value"]) / 2)
 	return int(LIST[id]["value"])
+
+
+static func material_count(inv: Dictionary) -> int:
+	var n := 0
+	for id in inv:
+		if is_material(id):
+			n += int(inv[id])
+	return n
+
+
+static func mats_text(mats: Dictionary) -> String:
+	var parts: Array[String] = []
+	for k in mats:
+		var label := "ingots" if k == "ingot" else item_name(k)
+		parts.append("%d %s" % [int(mats[k]), label])
+	return ", ".join(parts)

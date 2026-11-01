@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.11.0
+- Gathering: rocks (Mining) and trees (Lumberjacking). Tap a rock or tree to work it; each
+  gives a few tries, then recovers after a minute. Rarer ore (Dull Copper ... Valorite, the
+  classic tiers) turns up only with enough Mining.
+- Forge in the smith's house (next to the merchant): smelt ore into ingots (a failed smelt loses
+  the ore). Blacksmithy makes weapons, shields and metal armor from ingots; Tailoring makes
+  leather and studded armor from wolf pelts; Carpentry makes wooden shields from logs. A failed
+  craft wastes half the materials. All five skills rise with use.
+- Menu > Craft lists every recipe with materials, required skill and chance, and a Make button.
+- In Auto the hero gathers when idle, carries materials to the forge, smelts, crafts upgrades
+  (or practises on cheap items) and sells the spares to the merchant. Crafters keep materials.
+- Skills and Craft screens scroll so they fit the screen; the HUD bag line is shortened.
+
 ## 0.10.1
 - Fix: the wolf's lair sat one tile from the guarded town, so it kept wandering in, being struck
   down, respawning and walking back: endless "A guard strikes down Wolf" and wolf corpses piling

@@ -69,3 +69,20 @@ static func bandage_heal(healing: float, anatomy: float) -> float:
 ## Approximate: with a shield, Parry / 2 % chance (at most) to block part or all of a hit.
 static func parry_chance(parrying: float) -> float:
 	return clampf(parrying / 200.0, 0.0, 0.5)
+
+
+## Approximate: gathering (Mining, Lumberjacking) succeeds more often with skill.
+static func gather_chance(skill: float) -> float:
+	return clampf(0.5 + skill / 200.0, 0.5, 0.95)
+
+
+## Approximate: smelting uses Mining; rarer ore is harder. Failure loses the ore.
+static func smelt_chance(mining: float, ore_min: float) -> float:
+	return clampf(0.6 + (mining - ore_min) / 100.0, 0.1, 1.0)
+
+
+## Approximate: 50% at the recipe's minimum skill, sure 25 points above it.
+static func craft_chance(skill: float, min_skill: float) -> float:
+	if skill < min_skill:
+		return 0.0
+	return clampf(0.5 + (skill - min_skill) / 50.0, 0.0, 1.0)

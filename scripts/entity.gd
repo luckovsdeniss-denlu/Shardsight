@@ -21,6 +21,9 @@ const REAGENT_PRICE := 2       # gold per reagent at the merchant
 const MAX_REAGENTS := 60.0
 const BANDAGE_PRICE := 2
 const MAX_BANDAGES := 10
+const MARKET_RANGE := 4.0          # the merchant trades with players this close
+const GATHER_TIME := 2.0           # seconds per swing of the pickaxe or hatchet
+const CARRY_MATERIALS := 30        # gatherers stop when carrying this many materials
 const CRIMINAL_SECONDS := 60.0     # grey after attacking an innocent
 const MURDER_WINDOW := 30.0        # an innocent dying this soon after your attack is a murder
 const MURDER_DECAY := 180.0        # seconds for one murder count to fade
@@ -89,6 +92,10 @@ var attackers := {}            # attacker instance id -> seconds left in which o
 var is_pk := false             # a player killer: hunts innocent players in the wilderness
 var ghost := false
 var died_red := false
+var crafter := false           # gathers and crafts when idle (the hero)
+var gather_tile := Vector2i(-1, -1)
+var gather_timer := 0.0
+var crafting_trip := false
 
 
 func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, tile: Vector2i) -> void:
@@ -125,6 +132,7 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	shield_id = String(cfg.get("shield", ""))
 	bandages = int(cfg.get("bandages", 0))
 	is_pk = bool(cfg.get("pk", false))
+	crafter = bool(cfg.get("crafter", false))
 	stats.skill_gained.connect(_on_skill_gained)
 	stats.stat_gained.connect(_on_stat_gained)
 
@@ -229,10 +237,15 @@ func _think(delta: float) -> void:
 			return
 		if autonomous and pause <= 0.0 and _seek_loot():
 			return
+		if autonomous and pause <= 0.0 and crafter and _craft_trip():
+			return
+		if _gather_step(delta):
+			return
 	if autonomous and pause <= 0.0 and path.is_empty():
 		idle_timer -= delta
 		if idle_timer <= 0.0:
-			_wander()
+			if not (crafter and randf() < 0.5 and _start_gathering_nearby()):
+				_wander()
 			idle_timer = randf_range(1.5, 4.0)
 
 
@@ -423,6 +436,8 @@ func _die(killer: Entity) -> void:
 	target = null
 	recovering = false
 	path.clear()
+	gather_tile = Vector2i(-1, -1)
+	crafting_trip = false
 	died_red = kind == Kind.PLAYER and notoriety() == Notoriety.RED
 	_settle_crimes(killer)
 	game.spawn_corpse(self)
@@ -482,6 +497,10 @@ func state_text() -> String:
 		return "casting " + String(Spells.LIST[casting_id]["name"])
 	if loot_target != null:
 		return "looting"
+	if target == null and gather_tile.x >= 0:
+		return "mining" if world.resource_kind(gather_tile) == "ore" else "chopping wood"
+	if target == null and crafting_trip:
+		return "going to the forge"
 	if target != null:
 		return "fighting " + target.display_name
 	if recovering:
@@ -701,7 +720,7 @@ func _market_aura(delta: float) -> void:
 		var other := item as Entity
 		if other.dead or other.kind != Kind.PLAYER:
 			continue
-		if position.distance_to(other.position) <= HEAL_RANGE:
+		if position.distance_to(other.position) <= MARKET_RANGE:
 			other.trade(delta)
 
 
@@ -712,6 +731,8 @@ func trade(delta: float) -> void:
 	for id in inventory.keys():
 		if _is_usable_upgrade(id):
 			continue                       # keep gear we are about to wear
+		if crafter and Items.is_material(id):
+			continue                       # crafters keep their ore, ingots, logs and hides
 		earned += Items.value(id) * int(inventory[id])
 		inventory.erase(id)
 	if earned > 0:
@@ -1117,3 +1138,188 @@ func _resurrect_free(healer: Entity) -> void:
 	swing_cd = 1.0
 	path.clear()
 	game.log_event("%s resurrects %s." % [healer.display_name, display_name])
+
+
+# --- gathering and crafting ------------------------------------------------
+
+## Mine a rock or chop a tree (used for taps; crafters also choose nodes themselves).
+func start_gathering(t: Vector2i) -> void:
+	gather_tile = t
+	gather_timer = GATHER_TIME
+	target = null
+	loot_target = null
+	path.clear()
+
+
+## Returns true while walking to or working a rock or tree.
+func _gather_step(delta: float) -> bool:
+	if gather_tile.x < 0:
+		return false
+	if not world.can_harvest(gather_tile) or Items.material_count(inventory) >= CARRY_MATERIALS:
+		if is_hero and not world.can_harvest(gather_tile):
+			game.log_event("There is nothing left to gather here for now.")
+		gather_tile = Vector2i(-1, -1)
+		return false
+	var spot := world.tile_center(gather_tile)
+	if position.distance_to(spot) > 1.6:
+		if path.is_empty():
+			var stand := world.stand_tile_for(gather_tile, position)
+			if stand.x < 0 or not go_to(world.tile_center(stand)):
+				gather_tile = Vector2i(-1, -1)      # nowhere to stand
+				return false
+		return true
+	path.clear()
+	_face(spot - position)
+	gather_timer -= delta
+	if gather_timer <= 0.0:
+		gather_timer = GATHER_TIME
+		_harvest_once()
+	return true
+
+
+func _harvest_once() -> void:
+	var is_ore := world.resource_kind(gather_tile) == "ore"
+	var skill: int = Hero.Skill.MINING if is_ore else Hero.Skill.LUMBERJACKING
+	world.take_harvest(gather_tile)
+	if randf() >= Rules.gather_chance(_skill(skill)):
+		_pop("nothing", Color(0.75, 0.75, 0.75))
+		return
+	var id := Crafting.roll_ore(_skill(skill)) if is_ore else "log"
+	inventory[id] = int(inventory.get(id, 0)) + 1
+	_pop("+1 " + Items.item_name(id), Color(0.9, 0.85, 0.6))
+	if kind == Kind.PLAYER:
+		stats.try_gain(skill)
+
+
+## Crafters pick whichever they have less of: ore or wood.
+func _start_gathering_nearby() -> bool:
+	if Items.material_count(inventory) >= CARRY_MATERIALS:
+		return false
+	var metal := Crafting.ore_count(inventory) + Crafting.ingot_count(inventory)
+	var want := "ore" if metal <= Crafting.count(inventory, "log") else "wood"
+	var t := world.find_harvest_near(position, want, 10)
+	if t.x < 0:
+		t = world.find_harvest_near(position, "wood" if want == "ore" else "ore", 10)
+	if t.x < 0:
+		return false
+	start_gathering(t)
+	return true
+
+
+func _has_craft_load() -> bool:
+	return Crafting.ore_count(inventory) >= 8 or Crafting.ingot_count(inventory) >= 6 \
+		or Crafting.count(inventory, "wolf_pelt") >= 3 or Crafting.count(inventory, "log") >= 5
+
+
+## With enough materials, walk to the forge, smelt and craft. Returns true while busy.
+func _craft_trip() -> bool:
+	if not crafting_trip and _has_craft_load() and gather_tile.x < 0:
+		crafting_trip = true
+	if not crafting_trip:
+		return false
+	if world.near_forge(position):
+		crafting_trip = false
+		craft_at_forge()
+		return true
+	if path.is_empty():
+		var stand := world.stand_tile_for(world.forge_tile, position)
+		if stand.x < 0 or not go_to(world.tile_center(stand)):
+			crafting_trip = false
+			return false
+	return true
+
+
+## At the forge: smelt all ore, then craft upgrades first and otherwise practise on the
+## cheapest recipe you can make. Spare pieces get sold to the merchant next door.
+func craft_at_forge() -> void:
+	smelt_all()
+	for _i in range(20):
+		var id := _pick_recipe()
+		if id == "":
+			break
+		craft(id)
+
+
+func _pick_recipe() -> String:
+	for id in Crafting.ORDER:
+		if craft_problem(id) == "" and _is_usable_upgrade(id) and not inventory.has(id):
+			return id
+	var best := ""
+	var best_cost := 1 << 30
+	for id in Crafting.ORDER:
+		if craft_problem(id) != "":
+			continue
+		var r: Dictionary = Crafting.RECIPES[id]
+		if _skill(int(r["skill"])) >= Rules.SKILL_MAX:
+			continue
+		var cost := 0
+		var mats: Dictionary = r["mats"]
+		for k in mats:
+			cost += int(mats[k])
+		if cost < best_cost:
+			best_cost = cost
+			best = id
+	return best
+
+
+## Why a recipe can't be made right now, or "" if it can.
+func craft_problem(id: String) -> String:
+	var r: Dictionary = Crafting.RECIPES[id]
+	var skill := int(r["skill"])
+	if _skill(skill) < float(r["min"]):
+		return "needs %s %d" % [Hero.skill_name(skill), int(r["min"])]
+	if not Crafting.has_mats(inventory, r["mats"]):
+		return "needs " + Items.mats_text(r["mats"])
+	if skill == Hero.Skill.BLACKSMITHY and not world.near_forge(position):
+		return "needs the forge"
+	return ""
+
+
+## Success uses all the materials and gives the item; failure wastes half of them.
+func craft(id: String) -> void:
+	var problem := craft_problem(id)
+	var item_label := Items.item_name(id)
+	if problem != "":
+		if is_hero:
+			game.log_event("You can't make a %s: %s." % [item_label, problem])
+		return
+	var r: Dictionary = Crafting.RECIPES[id]
+	var skill := int(r["skill"])
+	if randf() < Rules.craft_chance(_skill(skill), float(r["min"])):
+		Crafting.take_mats(inventory, r["mats"], 1.0)
+		inventory[id] = int(inventory.get(id, 0)) + 1
+		if kind == Kind.PLAYER:
+			stats.try_gain(skill)
+		if is_hero:
+			game.log_event("You make a %s." % item_label)
+	else:
+		Crafting.take_mats(inventory, r["mats"], 0.5)
+		if is_hero:
+			game.log_event("You fail to make a %s and lose some materials." % item_label)
+
+
+## Turns ore into ingots at the forge (Mining). A failed smelt loses the ore.
+func smelt_all() -> void:
+	if not world.near_forge(position):
+		if is_hero:
+			game.log_event("You need to stand at the forge to smelt.")
+		return
+	var made := 0
+	var lost := 0
+	for t in Crafting.ORE_TIERS:
+		var ore := "ore_" + String(t["id"])
+		var n := Crafting.count(inventory, ore)
+		if n <= 0:
+			continue
+		inventory.erase(ore)
+		for _i in range(n):
+			if randf() < Rules.smelt_chance(_skill(Hero.Skill.MINING), float(t["min"])):
+				var ingot := "ingot_" + String(t["id"])
+				inventory[ingot] = int(inventory.get(ingot, 0)) + 1
+				made += 1
+			else:
+				lost += 1
+	if made > 0 and kind == Kind.PLAYER:
+		stats.try_gain(Hero.Skill.MINING)
+	if is_hero and made + lost > 0:
+		game.log_event("You smelt %d ingots (%d ore lost)." % [made, lost])

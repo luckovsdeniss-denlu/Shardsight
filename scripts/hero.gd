@@ -8,6 +8,7 @@ signal stat_gained(stat_name: String, value: int)
 enum Skill {
 	SWORDSMANSHIP, TACTICS, ANATOMY, MAGERY, MEDITATION, HEALING, WRESTLING,
 	EVALUATING_INTELLECT, RESISTING_SPELLS, PARRYING,
+	MINING, LUMBERJACKING, BLACKSMITHY, TAILORING, CARPENTRY,
 }
 enum Lock { UP, DOWN, LOCKED }   # up: may rise; down: may be lost near the cap; locked: frozen
 enum Stat { STR, DEX, INT }
@@ -18,6 +19,8 @@ const STAT_OF := {
 	Skill.ANATOMY: Stat.STR, Skill.PARRYING: Stat.DEX, Skill.HEALING: Stat.DEX,
 	Skill.MAGERY: Stat.INT, Skill.MEDITATION: Stat.INT,
 	Skill.EVALUATING_INTELLECT: Stat.INT, Skill.RESISTING_SPELLS: Stat.INT,
+	Skill.MINING: Stat.STR, Skill.LUMBERJACKING: Stat.STR, Skill.BLACKSMITHY: Stat.STR,
+	Skill.TAILORING: Stat.DEX, Skill.CARPENTRY: Stat.STR,
 }
 const STAT_GAIN_CHANCE := 0.06   # per skill gain: stats rise much slower than skills
 

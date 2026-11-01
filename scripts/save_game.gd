@@ -88,7 +88,7 @@ static func load_into(hero: Entity) -> bool:
 	var inv: Dictionary = d.get("inventory", {})
 	for key in inv:
 		var item_id := String(key)
-		if Gear.LIST.has(item_id) or Items.LIST.has(item_id):
+		if Items.is_known(item_id):
 			hero.inventory[item_id] = maxi(1, int(inv[key]))
 
 	var w := String(d.get("weapon", hero.weapon))
