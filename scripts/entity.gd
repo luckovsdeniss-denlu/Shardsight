@@ -18,6 +18,8 @@ const LOOT_RANGE := 1.6
 const LOOT_SEEK := 9.0         # how far players look for corpses
 const REAGENT_PRICE := 2       # gold per reagent at the merchant
 const MAX_REAGENTS := 60.0
+const BANDAGE_PRICE := 2
+const MAX_BANDAGES := 10
 
 var kind: int = Kind.PLAYER
 var display_name := "?"
@@ -62,6 +64,9 @@ var loot_cfg := {}             # what a monster drops
 var loot_target: Corpse = null
 var weapon := ""               # equipped weapon id (see Gear); "" = bare hands
 var armor_id := ""             # equipped armor id
+var shield_id := ""            # equipped shield id (needs a free hand)
+var bandages := 0
+var bandage_timer := 0.0
 var _gear_timer := 0.0
 var _trade_timer := 0.0
 var label: Label3D
@@ -99,6 +104,10 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	loot_cfg = cfg.get("loot", {})
 	weapon = String(cfg.get("weapon", ""))
 	armor_id = String(cfg.get("wear", ""))
+	shield_id = String(cfg.get("shield", ""))
+	bandages = int(cfg.get("bandages", 0))
+	stats.skill_gained.connect(_on_skill_gained)
+	stats.stat_gained.connect(_on_stat_gained)
 
 
 func _build_visual(color: Color, s: float) -> void:
@@ -151,6 +160,12 @@ func tick(delta: float) -> void:
 		_cast_step(delta)
 		_refresh_label()
 		return
+	if bandage_timer > 0.0:
+		bandage_timer -= delta
+		if bandage_timer <= 0.0:
+			_finish_bandage()
+		_refresh_label()
+		return
 	_gear_timer -= delta
 	if _gear_timer <= 0.0:
 		_gear_timer = 1.0
@@ -167,6 +182,8 @@ func tick(delta: float) -> void:
 func _think(delta: float) -> void:
 	if target != null and (not is_instance_valid(target) or target.dead):
 		target = null
+	if kind == Kind.PLAYER and _try_bandage():
+		return
 	var autonomous := kind != Kind.PLAYER or ai_enabled
 	if kind == Kind.MONSTER:
 		if target == null and pause <= 0.0:
@@ -329,6 +346,12 @@ func _fight() -> void:
 
 ## Armor soaks a random half-to-all of its rating, but a hit always does at least 1.
 func _absorb(amount: float) -> float:
+	if shield_id != "":
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.PARRYING)     # every attack at a shield-bearer trains it
+		if randf() < Rules.parry_chance(_skill(Hero.Skill.PARRYING)):
+			amount *= 1.0 - float(Gear.LIST[shield_id]["block"])
+			_pop("parried", Color(0.8, 0.9, 1.0))
 	var rating := _armor_rating()
 	if rating <= 0.0:
 		return amount
@@ -349,6 +372,9 @@ func take_damage(amount: float, from: Entity) -> void:
 	hp -= amount
 	if casting_id != "":
 		_fizzle("disrupted")      # taking damage breaks a spell in progress
+	if bandage_timer > 0.0:
+		bandage_timer = 0.0
+		_pop("interrupted", Color(0.75, 0.75, 0.75))
 	_pop("-%d" % maxi(1, roundi(amount)), Color(1.0, 0.45, 0.4))
 	if target == null and not recovering:
 		target = from                  # fight back
@@ -360,6 +386,7 @@ func _die(killer: Entity) -> void:
 	dead = true
 	hp = 0.0
 	casting_id = ""
+	bandage_timer = 0.0
 	loot_target = null
 	target = null
 	recovering = false
@@ -580,7 +607,7 @@ func _best_spell(k: String) -> String:
 
 
 func _regen_mana(delta: float) -> void:
-	var metal := Gear.is_metal(armor_id)      # metal armor kills Meditation's benefit
+	var metal := Gear.is_metal(armor_id) or Gear.is_metal(shield_id)   # metal kills Meditation
 	var resting := path.is_empty() and target == null and casting_id == "" and not metal
 	var max_mana := float(stats.max_mana())
 	var med := 0.0 if metal else _skill(Hero.Skill.MEDITATION)
@@ -634,6 +661,9 @@ func trade(delta: float) -> void:
 	_trade_timer += delta
 	if _trade_timer >= 0.5:
 		_trade_timer = 0.0
+		if bandages < MAX_BANDAGES and gold >= BANDAGE_PRICE:
+			gold -= BANDAGE_PRICE
+			bandages += 1
 		if reagents < 30.0 and gold >= REAGENT_PRICE * 2:
 			gold -= REAGENT_PRICE * 2
 			reagents = minf(reagents + 2.0, MAX_REAGENTS)
@@ -748,6 +778,12 @@ func _can_use(id: String) -> bool:
 	# Mages stay in cloth: metal armor would ruin their Meditation.
 	if Gear.is_metal(id) and _skill(Hero.Skill.MAGERY) >= 30.0:
 		return false
+	# Two-handed weapons and shields are mutually exclusive.
+	var g: Dictionary = Gear.LIST[id]
+	if String(g["slot"]) == "shield" and weapon != "" and bool(Gear.LIST[weapon].get("two_handed", false)):
+		return false
+	if bool(g.get("two_handed", false)) and shield_id != "":
+		return false
 	return true
 
 
@@ -757,8 +793,18 @@ func _is_usable_upgrade(id: String) -> bool:
 	return Gear.score(id) > _equipped_score(String(Gear.LIST[id]["slot"]))
 
 
+func _equipped_id(slot: String) -> String:
+	match slot:
+		"weapon":
+			return weapon
+		"shield":
+			return shield_id
+		_:
+			return armor_id
+
+
 func _equipped_score(slot: String) -> float:
-	return Gear.score(weapon if slot == "weapon" else armor_id)
+	return Gear.score(_equipped_id(slot))
 
 
 ## Equips any carried piece that beats what is worn (and the old piece goes into the bag).
@@ -770,14 +816,17 @@ func _manage_gear() -> void:
 
 func _equip(id: String) -> void:
 	var slot := String(Gear.LIST[id]["slot"])
-	var old := weapon if slot == "weapon" else armor_id
+	var old := _equipped_id(slot)
 	inventory[id] = int(inventory.get(id, 0)) - 1
 	if int(inventory[id]) <= 0:
 		inventory.erase(id)
-	if slot == "weapon":
-		weapon = id
-	else:
-		armor_id = id
+	match slot:
+		"weapon":
+			weapon = id
+		"shield":
+			shield_id = id
+		_:
+			armor_id = id
 	if old != "":
 		inventory[old] = int(inventory.get(old, 0)) + 1
 	if is_hero:
@@ -814,4 +863,49 @@ func gear_text() -> String:
 	var a := "none"
 	if armor_id != "":
 		a = "%s (AR %d)" % [Gear.LIST[armor_id]["name"], int(Gear.LIST[armor_id]["rating"])]
-	return "Weapon: %s   Armor: %s" % [w, a]
+	var s := "none"
+	if shield_id != "":
+		s = String(Gear.LIST[shield_id]["name"])
+	return "Weapon: %s   Armor: %s   Shield: %s" % [w, a, s]
+
+
+# --- healing ---------------------------------------------------------------
+
+## Players bandage themselves when hurt and no monster is close. Bandages take a few seconds
+## (faster with Healing) and are interrupted by taking damage.
+func _try_bandage() -> bool:
+	if bandages <= 0 or casting_id != "" or bandage_timer > 0.0:
+		return false
+	if hp >= float(stats.max_hp()) * 0.6:
+		return false
+	if _nearest(Kind.MONSTER, 2.5) != null:
+		return false
+	bandages -= 1
+	bandage_timer = maxf(2.0, 5.0 - _skill(Hero.Skill.HEALING) / 40.0)
+	path.clear()
+	_pop("bandaging", Color(0.6, 1.0, 0.6))
+	return true
+
+
+func _finish_bandage() -> void:
+	var healing := _skill(Hero.Skill.HEALING)
+	var anatomy := _skill(Hero.Skill.ANATOMY)
+	if randf() < Rules.bandage_chance(healing):
+		var amount := Rules.bandage_heal(healing, anatomy)
+		hp = minf(hp + amount, float(stats.max_hp()))
+		_pop("+%d" % roundi(amount), Color(0.5, 1.0, 0.5))
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.HEALING)
+			stats.try_gain(Hero.Skill.ANATOMY)
+	else:
+		_pop("bandage failed", Color(0.75, 0.75, 0.75))
+
+
+func _on_skill_gained(skill_name: String, value: float) -> void:
+	if is_hero:
+		game.log_event("Your %s increases to %.1f." % [skill_name, value])
+
+
+func _on_stat_gained(stat_name: String, value: int) -> void:
+	if is_hero:
+		game.log_event("Your %s increases to %d." % [stat_name, value])

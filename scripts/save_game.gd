@@ -19,6 +19,9 @@ static func save(hero: Entity) -> bool:
 	var skills := {}
 	for s in hero.stats.skills:
 		skills[str(s)] = hero.stats.skills[s]
+	var locks := {}
+	for s in hero.stats.locks:
+		locks[str(s)] = hero.stats.locks[s]
 	var tile := hero.world.to_tile(hero.position)
 	var data := {
 		"format": FORMAT,
@@ -27,6 +30,9 @@ static func save(hero: Entity) -> bool:
 		"dex": hero.stats.dexterity,
 		"int": hero.stats.intelligence,
 		"skills": skills,
+		"locks": locks,
+		"bandages": hero.bandages,
+		"shield": hero.shield_id,
 		"gold": hero.gold,
 		"reagents": hero.reagents,
 		"inventory": hero.inventory,
@@ -65,6 +71,13 @@ static func load_into(hero: Entity) -> bool:
 		if hero.stats.skills.has(id):
 			hero.stats.skills[id] = clampf(float(skills[key]), 0.0, float(Rules.SKILL_MAX))
 
+	var locks: Dictionary = d.get("locks", {})
+	for key in locks:
+		var id := int(key)
+		if hero.stats.locks.has(id):
+			hero.stats.locks[id] = clampi(int(locks[key]), 0, 2)
+
+	hero.bandages = clampi(int(d.get("bandages", hero.bandages)), 0, Entity.MAX_BANDAGES)
 	hero.gold = maxi(0, int(d.get("gold", 0)))
 	hero.reagents = clampf(float(d.get("reagents", hero.reagents)), 0.0, Entity.MAX_REAGENTS)
 
@@ -79,6 +92,8 @@ static func load_into(hero: Entity) -> bool:
 	hero.weapon = w if Gear.LIST.has(w) and String(Gear.LIST[w]["slot"]) == "weapon" else ""
 	var a := String(d.get("armor", hero.armor_id))
 	hero.armor_id = a if Gear.LIST.has(a) and String(Gear.LIST[a]["slot"]) == "armor" else ""
+	var sh := String(d.get("shield", hero.shield_id))
+	hero.shield_id = sh if Gear.LIST.has(sh) and String(Gear.LIST[sh]["slot"]) == "shield" else ""
 
 	var t: Array = d.get("tile", [])
 	if t.size() == 2:

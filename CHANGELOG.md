@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.9.0
+- Stats rise with use: each skill is tied to Strength, Dexterity or Intelligence and slowly raises
+  it (max 100 each, 225 total). At the stat cap, raising one lowers another.
+- Skills screen (Menu > Skills): all skills with values and Up / Down / Locked arrows. At the
+  700-point cap a gain is paid for by a skill marked Down; with none, the gain is refused.
+- Healing and Anatomy: players bandage themselves when hurt and nothing is close. Bandages take
+  a few seconds, are interrupted by damage and are sold by the merchant. Healing and Anatomy
+  rise with use.
+- Parrying and shields (wooden, bronze, heater): a chance to block most of a melee hit. Two-handed
+  weapons (halberd) cannot be used with a shield; metal shields also spoil Meditation.
+- Log messages when a skill or stat rises. HUD shows stats and bandages.
+- Save files remember skill locks, bandages and shield.
+
 ## 0.8.0
 - Save and load (`scripts/save_game.gd`): skills, stats, gold, reagents, bag and equipment persist
   between sessions. Autosaves every 20 s, when you open the menu, and when the app is closed or

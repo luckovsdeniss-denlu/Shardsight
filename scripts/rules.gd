@@ -4,6 +4,7 @@ class_name Rules
 
 const STAT_CAP := 225
 const STAT_MIN := 10
+const STAT_MAX := 100           # per stat
 const STAT_MAX_AT_CREATION := 45
 const STAT_POINTS_AT_CREATION := 65
 const SKILL_CAP_TOTAL := 700  # "template": seven skills at 100
@@ -53,3 +54,18 @@ static func resist_chance(resisting: float) -> float:
 static func mana_regen(meditation: float, resting: bool) -> float:
 	var rate := 0.3 * (1.0 + meditation / 50.0)
 	return rate * 2.0 if resting else rate
+
+
+## Approximate: bandages succeed more often with Healing; interrupted by taking damage.
+static func bandage_chance(healing: float) -> float:
+	return clampf(0.3 + healing / 150.0, 0.3, 0.95)
+
+
+## Approximate: Healing and Anatomy both add to what a bandage restores.
+static func bandage_heal(healing: float, anatomy: float) -> float:
+	return 3.0 + healing / 20.0 + anatomy / 20.0
+
+
+## Approximate: with a shield, Parry / 2 % chance (at most) to block part or all of a hit.
+static func parry_chance(parrying: float) -> float:
+	return clampf(parrying / 200.0, 0.0, 0.5)

@@ -22,6 +22,8 @@ var held := false
 var auto := true
 var paused := false
 var menu: Control
+var skills_panel: Control
+var skills_box: VBoxContainer
 var reset_button: Button
 var reset_armed := false
 var save_timer := 0.0
@@ -75,6 +77,7 @@ func _ready() -> void:
 	corner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
 	_update_button()
 	_build_menu(layer)
+	_build_skills_panel(layer)
 
 	if SaveGame.load_into(hero):
 		log_event("Welcome back. Your progress was loaded.")
@@ -113,9 +116,78 @@ func _build_menu(layer: CanvasLayer) -> void:
 	title.add_theme_font_size_override("font_size", 34)
 	box.add_child(title)
 	box.add_child(_menu_button("Resume", _resume))
+	box.add_child(_menu_button("Skills", _open_skills))
 	box.add_child(_menu_button("Save now", _save_now))
 	reset_button = _menu_button("Reset progress", _reset_progress)
 	box.add_child(reset_button)
+
+
+func _build_skills_panel(layer: CanvasLayer) -> void:
+	skills_panel = CenterContainer.new()
+	skills_panel.visible = false
+	skills_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(skills_panel)
+	skills_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var panel := PanelContainer.new()
+	skills_panel.add_child(panel)
+	var pad := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		pad.add_theme_constant_override("margin_" + side, 20)
+	panel.add_child(pad)
+	skills_box = VBoxContainer.new()
+	skills_box.add_theme_constant_override("separation", 6)
+	pad.add_child(skills_box)
+
+
+## Rebuilds the skills list. Lock arrows: Up = may rise, Down = may be lost when the 700-point
+## cap is reached (so another skill can rise), Locked = frozen.
+func _refresh_skills() -> void:
+	for c in skills_box.get_children():
+		skills_box.remove_child(c)
+		c.queue_free()
+	var s := hero.stats
+	var title := Label.new()
+	title.text = "Str %d   Dex %d   Int %d   (%d/%d)\nSkills %.1f / %d" % [
+		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
+		s.skill_total(), Rules.SKILL_CAP_TOTAL]
+	title.add_theme_font_size_override("font_size", 28)
+	skills_box.add_child(title)
+	for skill in Hero.Skill.values():
+		var row := HBoxContainer.new()
+		var name_label := Label.new()
+		name_label.text = Hero.skill_name(skill)
+		name_label.custom_minimum_size = Vector2(380, 0)
+		name_label.add_theme_font_size_override("font_size", 26)
+		row.add_child(name_label)
+		var value_label := Label.new()
+		value_label.text = "%.1f" % float(s.skills[skill])
+		value_label.custom_minimum_size = Vector2(110, 0)
+		value_label.add_theme_font_size_override("font_size", 26)
+		row.add_child(value_label)
+		var lock_button := Button.new()
+		lock_button.text = ["Up", "Down", "Locked"][int(s.locks[skill])]
+		lock_button.custom_minimum_size = Vector2(170, 50)
+		lock_button.add_theme_font_size_override("font_size", 24)
+		lock_button.pressed.connect(_cycle_lock.bind(skill))
+		row.add_child(lock_button)
+		skills_box.add_child(row)
+	skills_box.add_child(_menu_button("Back", _close_skills))
+
+
+func _cycle_lock(skill: int) -> void:
+	hero.stats.locks[skill] = (int(hero.stats.locks[skill]) + 1) % 3
+	_refresh_skills()
+
+
+func _open_skills() -> void:
+	menu.visible = false
+	skills_panel.visible = true
+	_refresh_skills()
+
+
+func _close_skills() -> void:
+	skills_panel.visible = false
+	menu.visible = true
 
 
 func _open_menu() -> void:
@@ -344,13 +416,11 @@ func _update_hud() -> void:
 	for id in hero.inventory:
 		bag.append("%s x%d" % [Items.item_name(id), int(hero.inventory[id])])
 	var bag_text := ", ".join(bag) if not bag.is_empty() else "empty"
-	hud.text = "Shardsight v%s   [%s]\nHP %d/%d   Mana %d/%d   Reagents %d   Gold %d   Tile %d,%d\nSword %.1f  Tactics %.1f  Anatomy %.1f  Magery %.1f  Eval %.1f  Med %.1f  (%.1f/%d)\n%s\nBag: %s" % [
+	hud.text = "Shardsight v%s   [%s]\nHP %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s" % [
 		version, hero.state_text(), ceili(hero.hp), s.max_hp(), floori(hero.mana), s.max_mana(),
-		floori(hero.reagents), hero.gold, tile.x, tile.y,
-		s.skills[Hero.Skill.SWORDSMANSHIP], s.skills[Hero.Skill.TACTICS],
-		s.skills[Hero.Skill.ANATOMY], s.skills[Hero.Skill.MAGERY],
-		s.skills[Hero.Skill.EVALUATING_INTELLECT], s.skills[Hero.Skill.MEDITATION],
-		s.skill_total(), Rules.SKILL_CAP_TOTAL, hero.gear_text(), bag_text]
+		floori(hero.reagents), hero.bandages, hero.gold,
+		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
+		s.skill_total(), Rules.SKILL_CAP_TOTAL, tile.x, tile.y, hero.gear_text(), bag_text]
 
 
 func _follow_camera() -> void:
