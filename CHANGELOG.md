@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.7.0
+- Equipment (`scripts/gear.gd`): five weapons (dagger, kryss, longsword, broadsword, halberd)
+  and four armors (leather, studded, chainmail, platemail) with speed/damage/rating and Strength
+  requirements. Weapon speed feeds the swing timer; armor rating soaks damage.
+- Gear drops from monsters; characters equip whatever beats what they wear, if Strength allows.
+  Mages avoid metal armor, which also removes Meditation's benefit.
+- The merchant buys spare gear at half price and sells upgrades.
+- HUD shows weapon and armor. Everyone starts with their own kit.
+
 ## 0.6.3
 - Event log is pinned to the lower-left corner with container layout (more reliable than anchors).
 

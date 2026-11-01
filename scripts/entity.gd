@@ -60,6 +60,9 @@ var gold := 0
 var inventory := {}            # trophy item id -> count
 var loot_cfg := {}             # what a monster drops
 var loot_target: Corpse = null
+var weapon := ""               # equipped weapon id (see Gear); "" = bare hands
+var armor_id := ""             # equipped armor id
+var _gear_timer := 0.0
 var _trade_timer := 0.0
 var label: Label3D
 var _last_text := ""
@@ -94,6 +97,8 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	reagents = float(cfg.get("reagents", 0))
 	gold = int(cfg.get("gold", 0))
 	loot_cfg = cfg.get("loot", {})
+	weapon = String(cfg.get("weapon", ""))
+	armor_id = String(cfg.get("wear", ""))
 
 
 func _build_visual(color: Color, s: float) -> void:
@@ -146,6 +151,11 @@ func tick(delta: float) -> void:
 		_cast_step(delta)
 		_refresh_label()
 		return
+	_gear_timer -= delta
+	if _gear_timer <= 0.0:
+		_gear_timer = 1.0
+		if target == null:
+			_manage_gear()
 	_think(delta)
 	_follow_path(delta)
 	_fight()
@@ -293,13 +303,21 @@ func _fight() -> void:
 		return
 	if swing_cd > 0.0 or d > MELEE_RANGE:
 		return
-	swing_cd = Rules.swing_seconds(stats.max_stamina(), weapon_speed)
+	var ws := weapon_speed
+	var lo := dmg_min
+	var hi := dmg_max
+	if weapon != "":
+		var w: Dictionary = Gear.LIST[weapon]
+		ws = int(w["speed"])
+		lo = float(w["min"])
+		hi = float(w["max"])
+	swing_cd = Rules.swing_seconds(stats.max_stamina(), ws)
 	var atk: float = stats.skills.get(Hero.Skill.SWORDSMANSHIP, 0.0)
 	var def: float = target.stats.skills.get(Hero.Skill.SWORDSMANSHIP, 0.0)
 	if randf() < Rules.hit_chance(atk, def):
 		var tactics: float = stats.skills.get(Hero.Skill.TACTICS, 0.0)
 		var anatomy: float = stats.skills.get(Hero.Skill.ANATOMY, 0.0)
-		var dmg := randf_range(dmg_min, dmg_max) * Rules.damage_multiplier(
+		var dmg := randf_range(lo, hi) * Rules.damage_multiplier(
 			float(stats.strength), tactics, anatomy)
 		target.take_damage(target._absorb(dmg), self)
 		if kind == Kind.PLAYER:
@@ -311,9 +329,18 @@ func _fight() -> void:
 
 ## Armor soaks a random half-to-all of its rating, but a hit always does at least 1.
 func _absorb(amount: float) -> float:
-	if armor <= 0.0:
+	var rating := _armor_rating()
+	if rating <= 0.0:
 		return amount
-	return maxf(1.0, amount - randf_range(0.5, 1.0) * armor)
+	return maxf(1.0, amount - randf_range(0.5, 1.0) * rating)
+
+
+## Natural armor (monster hide) plus whatever is worn.
+func _armor_rating() -> float:
+	var worn := 0.0
+	if armor_id != "":
+		worn = float(Gear.LIST[armor_id]["rating"])
+	return armor + worn
 
 
 func take_damage(amount: float, from: Entity) -> void:
@@ -553,9 +580,11 @@ func _best_spell(k: String) -> String:
 
 
 func _regen_mana(delta: float) -> void:
-	var resting := path.is_empty() and target == null and casting_id == ""
+	var metal := Gear.is_metal(armor_id)      # metal armor kills Meditation's benefit
+	var resting := path.is_empty() and target == null and casting_id == "" and not metal
 	var max_mana := float(stats.max_mana())
-	mana = minf(mana + Rules.mana_regen(_skill(Hero.Skill.MEDITATION), resting) * delta, max_mana)
+	var med := 0.0 if metal else _skill(Hero.Skill.MEDITATION)
+	mana = minf(mana + Rules.mana_regen(med, resting) * delta, max_mana)
 	if resting and mana < max_mana and kind == Kind.PLAYER:
 		_med_timer += delta
 		if _med_timer >= 1.0:
@@ -593,19 +622,22 @@ func _market_aura(delta: float) -> void:
 
 func trade(delta: float) -> void:
 	var earned := 0
-	for id in inventory:
+	for id in inventory.keys():
+		if _is_usable_upgrade(id):
+			continue                       # keep gear we are about to wear
 		earned += Items.value(id) * int(inventory[id])
+		inventory.erase(id)
 	if earned > 0:
 		gold += earned
-		inventory.clear()
 		if is_hero:
-			game.log_event("You sell your loot for %d gold." % earned)
+			game.log_event("You sell your spare loot for %d gold." % earned)
 	_trade_timer += delta
 	if _trade_timer >= 0.5:
 		_trade_timer = 0.0
 		if reagents < 30.0 and gold >= REAGENT_PRICE * 2:
 			gold -= REAGENT_PRICE * 2
 			reagents = minf(reagents + 2.0, MAX_REAGENTS)
+		_buy_gear()
 
 
 func _bolt(to: Vector3, color: Color) -> void:
@@ -706,3 +738,80 @@ func _seek_loot() -> bool:
 		return false
 	loot_target = best
 	return true
+
+
+# --- equipment -------------------------------------------------------------
+
+func _can_use(id: String) -> bool:
+	if stats.strength < int(Gear.LIST[id]["str"]):
+		return false
+	# Mages stay in cloth: metal armor would ruin their Meditation.
+	if Gear.is_metal(id) and _skill(Hero.Skill.MAGERY) >= 30.0:
+		return false
+	return true
+
+
+func _is_usable_upgrade(id: String) -> bool:
+	if not Gear.LIST.has(id) or not _can_use(id):
+		return false
+	return Gear.score(id) > _equipped_score(String(Gear.LIST[id]["slot"]))
+
+
+func _equipped_score(slot: String) -> float:
+	return Gear.score(weapon if slot == "weapon" else armor_id)
+
+
+## Equips any carried piece that beats what is worn (and the old piece goes into the bag).
+func _manage_gear() -> void:
+	for id in inventory.keys():
+		if _is_usable_upgrade(id):
+			_equip(id)
+
+
+func _equip(id: String) -> void:
+	var slot := String(Gear.LIST[id]["slot"])
+	var old := weapon if slot == "weapon" else armor_id
+	inventory[id] = int(inventory.get(id, 0)) - 1
+	if int(inventory[id]) <= 0:
+		inventory.erase(id)
+	if slot == "weapon":
+		weapon = id
+	else:
+		armor_id = id
+	if old != "":
+		inventory[old] = int(inventory.get(old, 0)) + 1
+	if is_hero:
+		game.log_event("You equip the %s." % Items.item_name(id))
+
+
+## At the merchant: buy the best usable upgrade we can afford, keeping a little gold spare.
+func _buy_gear() -> void:
+	var best := ""
+	var best_gain := 0.0
+	for id in Gear.ORDER:
+		var g: Dictionary = Gear.LIST[id]
+		var price := int(g["value"])
+		if price + 8 > gold or not _can_use(id) or inventory.has(id):
+			continue
+		var gain := Gear.score(id) - _equipped_score(String(g["slot"]))
+		if gain > best_gain:
+			best_gain = gain
+			best = id
+	if best == "":
+		return
+	gold -= int(Gear.LIST[best]["value"])
+	inventory[best] = int(inventory.get(best, 0)) + 1
+	_manage_gear()
+	if is_hero:
+		game.log_event("You buy a %s for %d gold." % [Items.item_name(best), int(Gear.LIST[best]["value"])])
+
+
+func gear_text() -> String:
+	var w := "fists"
+	if weapon != "":
+		var g: Dictionary = Gear.LIST[weapon]
+		w = "%s %d-%d" % [g["name"], int(g["min"]), int(g["max"])]
+	var a := "none"
+	if armor_id != "":
+		a = "%s (AR %d)" % [Gear.LIST[armor_id]["name"], int(Gear.LIST[armor_id]["rating"])]
+	return "Weapon: %s   Armor: %s" % [w, a]

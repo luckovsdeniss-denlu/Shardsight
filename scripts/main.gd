@@ -244,13 +244,13 @@ func _update_hud() -> void:
 	for id in hero.inventory:
 		bag.append("%s x%d" % [Items.item_name(id), int(hero.inventory[id])])
 	var bag_text := ", ".join(bag) if not bag.is_empty() else "empty"
-	hud.text = "Shardsight v%s   [%s]\nHP %d/%d   Mana %d/%d   Reagents %d   Gold %d   Tile %d,%d\nSword %.1f  Tactics %.1f  Anatomy %.1f  Magery %.1f  Eval %.1f  Med %.1f  (%.1f/%d)\nBag: %s" % [
+	hud.text = "Shardsight v%s   [%s]\nHP %d/%d   Mana %d/%d   Reagents %d   Gold %d   Tile %d,%d\nSword %.1f  Tactics %.1f  Anatomy %.1f  Magery %.1f  Eval %.1f  Med %.1f  (%.1f/%d)\n%s\nBag: %s" % [
 		version, hero.state_text(), ceili(hero.hp), s.max_hp(), floori(hero.mana), s.max_mana(),
 		floori(hero.reagents), hero.gold, tile.x, tile.y,
 		s.skills[Hero.Skill.SWORDSMANSHIP], s.skills[Hero.Skill.TACTICS],
 		s.skills[Hero.Skill.ANATOMY], s.skills[Hero.Skill.MAGERY],
 		s.skills[Hero.Skill.EVALUATING_INTELLECT], s.skills[Hero.Skill.MEDITATION],
-		s.skill_total(), Rules.SKILL_CAP_TOTAL, bag_text]
+		s.skill_total(), Rules.SKILL_CAP_TOTAL, hero.gear_text(), bag_text]
 
 
 func _follow_camera() -> void:

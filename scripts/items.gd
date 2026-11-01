@@ -1,5 +1,5 @@
 class_name Items
-## Trophy items dropped by monsters. They have no use except selling to the merchant.
+## Trophy items dropped by monsters (no use except selling). Gear ids from Gear also work as items.
 
 const LIST := {
 	"rat_tail": {"name": "Rat Tail", "value": 3},
@@ -10,8 +10,13 @@ const LIST := {
 
 
 static func item_name(id: String) -> String:
+	if Gear.LIST.has(id):
+		return String(Gear.LIST[id]["name"])
 	return String(LIST[id]["name"])
 
 
+## What the merchant pays: full value for trophies, half for used gear.
 static func value(id: String) -> int:
+	if Gear.LIST.has(id):
+		return maxi(1, int(Gear.LIST[id]["value"]) / 2)
 	return int(LIST[id]["value"])
