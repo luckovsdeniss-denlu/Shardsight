@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.6.1
+- Event log moved into a dark translucent panel with larger text.
+
 ## 0.6.0
 - Looting: dead monsters and players leave a corpse (`scripts/corpse.gd`) with gold, reagents and
   trophy items (`scripts/items.gd`); monster loot tables live in `scripts/bestiary.gd`.

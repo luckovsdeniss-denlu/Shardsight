@@ -5,7 +5,7 @@ extends Node3D
 
 const CAM_OFFSET := Vector3(0.0, 9.0, 7.0)
 const MANUAL_PAUSE := 4.0      # seconds auto mode waits after a tap
-const LOG_LINES := 5
+const LOG_LINES := 6
 
 var version: String = ProjectSettings.get_setting("application/config/version", "dev")
 var world := World.new()
@@ -38,12 +38,23 @@ func _ready() -> void:
 	hud.add_theme_font_size_override("font_size", 26)
 	layer.add_child(hud)
 
-	log_label.add_theme_font_size_override("font_size", 24)
-	layer.add_child(log_label)
-	log_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	log_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	log_label.offset_left = 16.0
-	log_label.offset_bottom = -16.0
+	# Event log: a dark translucent panel along the bottom so the text stays readable.
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.0, 0.0, 0.0, 0.62)
+	style.set_corner_radius_all(12)
+	style.set_content_margin_all(14.0)
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(840, 0)
+	log_label.add_theme_font_size_override("font_size", 28)
+	log_label.custom_minimum_size = Vector2(810, 0)
+	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	panel.add_child(log_label)
+	layer.add_child(panel)
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	panel.offset_left = 16.0
+	panel.offset_bottom = -16.0
 
 	auto_button.custom_minimum_size = Vector2(240, 80)
 	auto_button.add_theme_font_size_override("font_size", 28)
