@@ -5,6 +5,7 @@ extends Node3D
 ## `game` is the main scene: it provides `world`, `creatures` and `log_event()`.
 
 enum Kind { PLAYER, NPC, MONSTER }
+enum Notoriety { BLUE, GREY, RED }   # innocent, criminal, murderer (monsters are always red)
 
 const MELEE_RANGE := 1.5
 const FLEE_HP := 0.35          # players retreat to a healer below this HP fraction
@@ -20,6 +21,13 @@ const REAGENT_PRICE := 2       # gold per reagent at the merchant
 const MAX_REAGENTS := 60.0
 const BANDAGE_PRICE := 2
 const MAX_BANDAGES := 10
+const CRIMINAL_SECONDS := 60.0     # grey after attacking an innocent
+const MURDER_WINDOW := 30.0        # an innocent dying this soon after your attack is a murder
+const MURDER_DECAY := 180.0        # seconds for one murder count to fade
+const MURDERER_COUNTS := 5         # this many counts turn you red
+const BOUNTY_PER_COUNT := 25       # gold on a murderer's head, per count
+const GHOST_TIMEOUT := 60.0        # a shrine raises ghosts after this long
+const RED_GHOST_TIMEOUT := 30.0
 
 var kind: int = Kind.PLAYER
 var display_name := "?"
@@ -71,6 +79,16 @@ var _gear_timer := 0.0
 var _trade_timer := 0.0
 var label: Label3D
 var _last_text := ""
+var body: MeshInstance3D
+var nose: MeshInstance3D
+var base_label_color := Color.WHITE
+var murder_counts := 0
+var murder_timer := 0.0
+var criminal_timer := 0.0
+var attackers := {}            # attacker instance id -> seconds left in which our death is murder
+var is_pk := false             # a player killer: hunts innocent players in the wilderness
+var ghost := false
+var died_red := false
 
 
 func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, tile: Vector2i) -> void:
@@ -106,12 +124,13 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	armor_id = String(cfg.get("wear", ""))
 	shield_id = String(cfg.get("shield", ""))
 	bandages = int(cfg.get("bandages", 0))
+	is_pk = bool(cfg.get("pk", false))
 	stats.skill_gained.connect(_on_skill_gained)
 	stats.stat_gained.connect(_on_stat_gained)
 
 
 func _build_visual(color: Color, s: float) -> void:
-	var body := MeshInstance3D.new()
+	body = MeshInstance3D.new()
 	var capsule := CapsuleMesh.new()
 	capsule.radius = 0.3
 	capsule.height = 1.2
@@ -121,7 +140,7 @@ func _build_visual(color: Color, s: float) -> void:
 	body.scale = Vector3.ONE * s
 	add_child(body)
 	# A small "nose" so the facing direction is visible.
-	var nose := MeshInstance3D.new()
+	nose = MeshInstance3D.new()
 	var nose_mesh := BoxMesh.new()
 	nose_mesh.size = Vector3(0.16, 0.16, 0.28)
 	nose.mesh = nose_mesh
@@ -135,17 +154,22 @@ func _build_visual(color: Color, s: float) -> void:
 	label.font_size = 40
 	label.outline_size = 12
 	label.no_depth_test = true
-	label.modulate = color.lightened(0.35)
+	base_label_color = color.lightened(0.35)
+	label.modulate = base_label_color
 	label.position = Vector3(0.0, 1.5 * s + 0.25, 0.0)
 	add_child(label)
 
 
 func tick(delta: float) -> void:
 	if dead:
-		dead_timer -= delta
-		if dead_timer <= 0.0:
-			_respawn()
+		if ghost:
+			_ghost_tick(delta)
+		else:
+			dead_timer -= delta
+			if dead_timer <= 0.0:
+				_respawn()
 		return
+	_tick_reputation(delta)
 	swing_cd = maxf(swing_cd - delta, 0.0)
 	cast_cd = maxf(cast_cd - delta, 0.0)
 	pause = maxf(pause - delta, 0.0)
@@ -196,7 +220,7 @@ func _think(delta: float) -> void:
 		if _recover() or _resupply():
 			return
 		if target == null:
-			target = _nearest(Kind.MONSTER, aggro_range)
+			target = _pick_target()
 	if target != null:
 		_chase()
 		return
@@ -369,6 +393,14 @@ func _armor_rating() -> float:
 func take_damage(amount: float, from: Entity) -> void:
 	if dead or kind == Kind.NPC:
 		return
+	# Hitting an innocent player makes the attacker a criminal and, if the victim dies soon
+	# after, a murderer. The victim can fight back freely.
+	if from.kind == Kind.PLAYER and kind == Kind.PLAYER and notoriety() == Notoriety.BLUE:
+		from.criminal_timer = CRIMINAL_SECONDS
+		var aid := from.get_instance_id()
+		if not attackers.has(aid):
+			game.log_event("%s attacks %s!" % [from.display_name, display_name])
+		attackers[aid] = MURDER_WINDOW
 	hp -= amount
 	if casting_id != "":
 		_fizzle("disrupted")      # taking damage breaks a spell in progress
@@ -391,14 +423,23 @@ func _die(killer: Entity) -> void:
 	target = null
 	recovering = false
 	path.clear()
-	dead_timer = respawn_time
-	visible = false
+	died_red = kind == Kind.PLAYER and notoriety() == Notoriety.RED
+	_settle_crimes(killer)
 	game.spawn_corpse(self)
 	game.log_event("%s was slain by %s" % [display_name, killer.display_name])
+	if kind == Kind.PLAYER:
+		ghost = true                   # players become ghosts and look for a healer
+		dead_timer = RED_GHOST_TIMEOUT if died_red else GHOST_TIMEOUT
+		_set_ghost_look(true)
+	else:
+		dead_timer = respawn_time
+		visible = false
 
 
 func _respawn() -> void:
 	dead = false
+	ghost = false
+	_set_ghost_look(false)
 	visible = true
 	position = home
 	hp = float(stats.max_hp())
@@ -406,10 +447,18 @@ func _respawn() -> void:
 	pause = 2.0
 	swing_cd = 1.0
 	if kind == Kind.PLAYER:
-		# Instant resurrection: -10% to skills, never below the starting values.
+		# Raised at a shrine: -10% to skills (-20% to stats and skills for murderers),
+		# never below the starting values.
+		var keep := 0.8 if died_red else 0.9
 		for s in stats.skills:
-			stats.skills[s] = maxf(float(start_skills.get(s, 0.0)), float(stats.skills[s]) * 0.9)
-		game.log_event("%s was resurrected (-10%% skills)" % display_name)
+			stats.skills[s] = maxf(float(start_skills.get(s, 0.0)), float(stats.skills[s]) * keep)
+		if died_red:
+			for st in [Hero.Stat.STR, Hero.Stat.DEX, Hero.Stat.INT]:
+				stats.set_stat(st, maxi(Rules.STAT_MIN, roundi(stats.get_stat(st) * 0.8)))
+			game.log_event("%s was raised at a shrine (murderer: -20%% stats and skills)." % display_name)
+		else:
+			game.log_event("%s was raised at a shrine (-10%% skills)." % display_name)
+	died_red = false
 
 
 func _heal_aura(delta: float) -> void:
@@ -418,6 +467,8 @@ func _heal_aura(delta: float) -> void:
 		var e := item as Entity
 		if e.dead or e.kind == Kind.MONSTER:
 			continue
+		if e.kind == Kind.PLAYER and e.notoriety() == Notoriety.RED:
+			continue                       # healers shun murderers
 		if position.distance_to(e.position) <= HEAL_RANGE:
 			e.hp = minf(e.hp + HEAL_PER_SEC * delta, float(e.stats.max_hp()))
 
@@ -426,7 +477,7 @@ func _heal_aura(delta: float) -> void:
 
 func state_text() -> String:
 	if dead:
-		return "dead"
+		return "ghost" if ghost else "dead"
 	if casting_id != "":
 		return "casting " + String(Spells.LIST[casting_id]["name"])
 	if loot_target != null:
@@ -444,6 +495,13 @@ func _refresh_label() -> void:
 	var text := "%s\nHP %d/%d" % [display_name, ceili(hp), stats.max_hp()]
 	if kind == Kind.NPC:
 		text = "%s\n(%s)" % [display_name, role]
+	elif ghost:
+		text = "%s\n(ghost)" % display_name
+	elif kind == Kind.PLAYER and notoriety() == Notoriety.RED:
+		text += " (murderer)"
+	elif kind == Kind.PLAYER and notoriety() == Notoriety.GREY:
+		text += " (criminal)"
+	label.modulate = _name_color()
 	if text != _last_text:
 		_last_text = text
 		label.text = text
@@ -648,6 +706,8 @@ func _market_aura(delta: float) -> void:
 
 
 func trade(delta: float) -> void:
+	if notoriety() != Notoriety.BLUE:
+		return                             # criminals and murderers are refused service
 	var earned := 0
 	for id in inventory.keys():
 		if _is_usable_upgrade(id):
@@ -909,3 +969,143 @@ func _on_skill_gained(skill_name: String, value: float) -> void:
 func _on_stat_gained(stat_name: String, value: int) -> void:
 	if is_hero:
 		game.log_event("Your %s increases to %d." % [stat_name, value])
+
+
+# --- reputation ------------------------------------------------------------
+
+## Blue = innocent, grey = criminal (attacked an innocent recently), red = murderer
+## (five murder counts) or a monster.
+func notoriety() -> int:
+	if kind == Kind.MONSTER:
+		return Notoriety.RED
+	if kind == Kind.PLAYER:
+		if murder_counts >= MURDERER_COUNTS:
+			return Notoriety.RED
+		if criminal_timer > 0.0:
+			return Notoriety.GREY
+	return Notoriety.BLUE
+
+
+func notoriety_text() -> String:
+	match notoriety():
+		Notoriety.RED:
+			return "Murderer (%d)" % murder_counts
+		Notoriety.GREY:
+			return "Criminal (%d)" % murder_counts
+	return "Innocent (%d)" % murder_counts
+
+
+func _name_color() -> Color:
+	if kind == Kind.PLAYER:
+		match notoriety():
+			Notoriety.RED:
+				return Color(1.0, 0.3, 0.3)
+			Notoriety.GREY:
+				return Color(0.75, 0.75, 0.75)
+	return base_label_color
+
+
+func _tick_reputation(delta: float) -> void:
+	criminal_timer = maxf(criminal_timer - delta, 0.0)
+	if murder_counts > 0:
+		murder_timer -= delta
+		if murder_timer <= 0.0:
+			murder_counts -= 1             # counts fade while you behave
+			murder_timer = MURDER_DECAY
+	for id in attackers.keys():
+		attackers[id] = float(attackers[id]) - delta
+		if float(attackers[id]) <= 0.0:
+			attackers.erase(id)
+
+
+func _add_murder(victim: Entity) -> void:
+	murder_counts += 1
+	murder_timer = MURDER_DECAY
+	game.log_event("%s is guilty of murdering %s." % [display_name, victim.display_name])
+	if murder_counts == MURDERER_COUNTS:
+		game.log_event("%s is now a murderer!" % display_name)
+
+
+## On death: pay the bounty on a murderer and charge anyone who recently hit an innocent us.
+func _settle_crimes(killer: Entity) -> void:
+	if died_red and killer.kind == Kind.PLAYER and murder_counts > 0:
+		var bounty := murder_counts * BOUNTY_PER_COUNT
+		killer.gold += bounty
+		game.log_event("%s collects a %d gold bounty on %s." % [killer.display_name, bounty, display_name])
+	for id in attackers.keys():
+		var a := instance_from_id(int(id)) as Entity
+		if a != null and not a.dead:
+			a._add_murder(self)
+	attackers.clear()
+
+
+func _in_town() -> bool:
+	return world.is_town(world.to_tile(position))
+
+
+## Players fight monsters and criminals; player killers also prey on innocents.
+## Nobody fights other players inside the guarded town.
+func _is_fair_target(e: Entity) -> bool:
+	if e.kind == Kind.MONSTER:
+		return true
+	if e.kind != Kind.PLAYER or _in_town() or e._in_town():
+		return false
+	if is_pk:
+		return true
+	return e.notoriety() != Notoriety.BLUE
+
+
+func _pick_target() -> Entity:
+	var best: Entity = null
+	var best_d := aggro_range
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e == self or e.dead:
+			continue
+		var d := position.distance_to(e.position)
+		if d <= best_d and _is_fair_target(e):
+			best = e
+			best_d = d
+	return best
+
+
+# --- ghosts ----------------------------------------------------------------
+
+func _set_ghost_look(on: bool) -> void:
+	var t := 0.65 if on else 0.0
+	body.transparency = t
+	nose.transparency = t
+
+
+## A dead player drifts to the healer, who raises them for free. Murderers are refused and
+## wait for the shrine; everyone else is raised at the shrine after a while, at a price.
+func _ghost_tick(delta: float) -> void:
+	dead_timer -= delta
+	if dead_timer <= 0.0:
+		_respawn()
+		return
+	if died_red:
+		return
+	var healer := _find_role("healer")
+	if healer == null:
+		return
+	if position.distance_to(healer.position) <= HEAL_RANGE:
+		_resurrect_free(healer)
+		return
+	if path.is_empty():
+		go_to(healer.position)
+	_follow_path(delta)
+	_refresh_label()
+
+
+func _resurrect_free(healer: Entity) -> void:
+	dead = false
+	ghost = false
+	_set_ghost_look(false)
+	hp = float(stats.max_hp()) * 0.5
+	mana = float(stats.max_mana())
+	pause = 1.0
+	swing_cd = 1.0
+	path.clear()
+	game.log_event("%s resurrects %s." % [healer.display_name, display_name])

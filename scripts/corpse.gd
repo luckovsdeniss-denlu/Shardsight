@@ -1,13 +1,13 @@
 class_name Corpse
 extends Node3D
 ## What a creature leaves behind: gold, reagents and trophy items for anyone to loot.
-## Monster corpses (and your own) are fair game; other players' corpses are not.
+## Monster, criminal and murderer corpses (and your own) are fair game; innocents' are not.
 
 const LIFETIME := 60.0           # seconds before a corpse rots away
 const PLAYER_LIFETIME := 120.0   # player corpses last longer so they can be recovered
 
 var owner_name := ""
-var owner_is_monster := true
+var owner_open := true       # monsters, criminals and murderers: anyone may loot
 var owner_id := 0
 var gold := 0
 var reagents := 0
@@ -17,10 +17,10 @@ var label: Label3D
 var _last_text := ""
 
 
-func setup(p_name: String, p_is_monster: bool, p_is_player: bool, p_owner_id: int,
+func setup(p_name: String, p_open: bool, p_is_player: bool, p_owner_id: int,
 		pos: Vector3, loot: Dictionary) -> void:
 	owner_name = p_name
-	owner_is_monster = p_is_monster
+	owner_open = p_open
 	owner_id = p_owner_id
 	position = pos
 	gold = int(loot["gold"])
@@ -53,7 +53,7 @@ func is_empty() -> bool:
 
 
 func can_loot(by: Node3D) -> bool:
-	return owner_is_monster or by.get_instance_id() == owner_id
+	return owner_open or by.get_instance_id() == owner_id
 
 
 ## Removes and returns everything: {"gold": int, "reagents": int, "items": {id: count}}.

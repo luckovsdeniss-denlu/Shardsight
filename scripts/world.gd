@@ -6,6 +6,10 @@ class_name World
 const TILE := 1.0  # one tile = one metre in 3D
 enum Tile { GRASS, WALL, WATER, TREE }
 
+## The guarded town: no player-versus-player here, and guards strike down criminals,
+## murderers and monsters on sight. Everything else is open wilderness.
+const TOWN := Rect2i(19, 2, 11, 12)
+
 const LAYOUT := [
 	"################################",
 	"#..............................#",
@@ -74,6 +78,10 @@ static func _parse(ch: String) -> int:
 			return Tile.GRASS
 
 
+func is_town(c: Vector2i) -> bool:
+	return TOWN.has_point(c)
+
+
 func in_bounds(c: Vector2i) -> bool:
 	return c.x >= 0 and c.y >= 0 and c.x < cols and c.y < rows
 
@@ -125,6 +133,11 @@ func build(parent: Node3D) -> void:
 	ground_mesh.size = Vector2(cols, rows) * TILE
 	_add(parent, ground_mesh, _mat(COLORS[Tile.GRASS]),
 		Vector3(cols, 0.0, rows) * TILE / 2.0)
+
+	var town_mesh := PlaneMesh.new()
+	town_mesh.size = Vector2(TOWN.size) * TILE
+	_add(parent, town_mesh, _mat(Color("8a7f5a")),
+		Vector3(TOWN.position.x + TOWN.size.x / 2.0, 0.01, TOWN.position.y + TOWN.size.y / 2.0) * TILE)
 
 	var wall_mesh := BoxMesh.new()
 	wall_mesh.size = Vector3(TILE, 1.6, TILE)

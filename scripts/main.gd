@@ -243,9 +243,12 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.PLAYER, "Aldric", Bestiary.WARRIOR, blue, Vector2i(10, 10))
 	_spawn(Entity.Kind.PLAYER, "Mira", Bestiary.FIGHTER, blue, Vector2i(20, 18))
 	_spawn(Entity.Kind.PLAYER, "Selene", Bestiary.MAGE, blue, Vector2i(18, 8))
+	_spawn(Entity.Kind.PLAYER, "Vex", Bestiary.PKILLER, blue, Vector2i(15, 16))   # a player killer
 
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
+	_spawn(Entity.Kind.NPC, "Town Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(20, 11))
+	_spawn(Entity.Kind.NPC, "Town Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(28, 11))
 
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(12, 8))
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(6, 11))
@@ -266,8 +269,9 @@ func _spawn(kind: int, label_text: String, cfg: Dictionary, color: Color, tile: 
 func spawn_corpse(victim: Entity) -> void:
 	var c := Corpse.new()
 	add_child(c)
-	c.setup(victim.display_name, victim.kind == Entity.Kind.MONSTER,
-		victim.kind == Entity.Kind.PLAYER, victim.get_instance_id(), victim.position, victim.make_loot())
+	var open_to_all := victim.notoriety() != Entity.Notoriety.BLUE   # monsters, criminals, murderers
+	c.setup(victim.display_name, open_to_all, victim.kind == Entity.Kind.PLAYER,
+		victim.get_instance_id(), victim.position, victim.make_loot())
 	corpses.append(c)
 
 
@@ -359,6 +363,32 @@ func _corpse_near(p: Vector3) -> Corpse:
 	return best
 
 
+## Inside the guarded town, guards instantly kill monsters, criminals and murderers.
+func _guards_strike() -> void:
+	for e in creatures:
+		if e.dead or e.kind == Entity.Kind.NPC:
+			continue
+		if not world.is_town(world.to_tile(e.position)):
+			continue
+		if e.kind == Entity.Kind.MONSTER or e.notoriety() != Entity.Notoriety.BLUE:
+			var guard := _nearest_guard(e.position)
+			if guard != null:
+				log_event("A guard strikes down %s." % e.display_name)
+				e.take_damage(9999.0, guard)
+
+
+func _nearest_guard(p: Vector3) -> Entity:
+	var best: Entity = null
+	var best_d := INF
+	for e in creatures:
+		if e.role == "guard":
+			var d := e.position.distance_to(p)
+			if d < best_d:
+				best = e
+				best_d = d
+	return best
+
+
 func _creature_near(p: Vector3) -> Entity:
 	var best: Entity = null
 	var best_d := 1.0
@@ -395,6 +425,7 @@ func _process(delta: float) -> void:
 		_autosave()
 	for e in creatures:
 		e.tick(delta)
+	_guards_strike()
 	for c in corpses.duplicate():
 		c.tick(delta)
 		if c.life <= 0.0:
@@ -416,8 +447,8 @@ func _update_hud() -> void:
 	for id in hero.inventory:
 		bag.append("%s x%d" % [Items.item_name(id), int(hero.inventory[id])])
 	var bag_text := ", ".join(bag) if not bag.is_empty() else "empty"
-	hud.text = "Shardsight v%s   [%s]\nHP %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s" % [
-		version, hero.state_text(), ceili(hero.hp), s.max_hp(), floori(hero.mana), s.max_mana(),
+	hud.text = "Shardsight v%s   [%s]   %s\nHP %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s" % [
+		version, hero.state_text(), hero.notoriety_text(), ceili(hero.hp), s.max_hp(), floori(hero.mana), s.max_mana(),
 		floori(hero.reagents), hero.bandages, hero.gold,
 		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
 		s.skill_total(), Rules.SKILL_CAP_TOTAL, tile.x, tile.y, hero.gear_text(), bag_text]

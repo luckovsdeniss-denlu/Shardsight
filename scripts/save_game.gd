@@ -32,6 +32,7 @@ static func save(hero: Entity) -> bool:
 		"skills": skills,
 		"locks": locks,
 		"bandages": hero.bandages,
+		"murders": hero.murder_counts,
 		"shield": hero.shield_id,
 		"gold": hero.gold,
 		"reagents": hero.reagents,
@@ -77,6 +78,8 @@ static func load_into(hero: Entity) -> bool:
 		if hero.stats.locks.has(id):
 			hero.stats.locks[id] = clampi(int(locks[key]), 0, 2)
 
+	hero.murder_counts = clampi(int(d.get("murders", 0)), 0, 99)
+	hero.murder_timer = Entity.MURDER_DECAY
 	hero.bandages = clampi(int(d.get("bandages", hero.bandages)), 0, Entity.MAX_BANDAGES)
 	hero.gold = maxi(0, int(d.get("gold", 0)))
 	hero.reagents = clampf(float(d.get("reagents", hero.reagents)), 0.0, Entity.MAX_REAGENTS)

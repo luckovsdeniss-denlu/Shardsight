@@ -3,6 +3,22 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.10.0
+- Reputation: names are blue (innocent), grey (criminal) or red (murderer; monsters are always
+  red) and the label colour follows. Hitting an innocent player makes you a criminal for a
+  minute; if they die within 30 s of your hit you are guilty of murder, even without the killing
+  blow. Five murder counts make you a murderer; counts fade over time.
+- Guarded town (the tan area with the house): no player-versus-player, and guards instantly kill
+  monsters, criminals and murderers that enter. Murderers and criminals cannot trade or be
+  healed by the healer.
+- Outside town is open wilderness. A player killer, Vex, hunts innocents there; ordinary
+  players fight criminals and murderers on sight and collect a bounty (25 gold per count) from
+  a murderer they kill. Corpses of criminals and murderers can be looted by anyone.
+- Death: players become ghosts and walk to the healer for a free resurrection. A murderer is
+  refused and raised at a shrine after 30 s with -20% to stats and skills; anyone the healer
+  has not reached within 60 s is raised at a shrine with -10% skills.
+- HUD shows your reputation. Murder counts are saved.
+
 ## 0.9.0
 - Stats rise with use: each skill is tied to Strength, Dexterity or Intelligence and slowly raises
   it (max 100 each, 225 total). At the stat cap, raising one lowers another.

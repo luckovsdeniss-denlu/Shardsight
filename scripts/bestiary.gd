@@ -1,6 +1,6 @@
 class_name Bestiary
 ## Stat blocks for everything that walks the map.
-## Keys: weapon/wear/shield (starting gear ids from Gear), bandages, str/dex/int, skills, reagents, gold (carried), loot (monster drops), dmg_min/dmg_max (weapon roll), wspeed (weapon speed 20..60),
+## Keys: pk (preys on innocents), weapon/wear/shield (starting gear ids from Gear), bandages, str/dex/int, skills, reagents, gold (carried), loot (monster drops), dmg_min/dmg_max (weapon roll), wspeed (weapon speed 20..60),
 ## move (m/s), armor, leash (wander radius in tiles), aggro (m), respawn (s), role, scale.
 
 const HERO := {
@@ -39,8 +39,20 @@ const MAGE := {
 	},
 }
 
+# A player killer: preys on innocent players in the wilderness.
+const PKILLER := {
+	"str": 30, "dex": 30, "int": 10, "wspeed": 58, "dmg_min": 1, "dmg_max": 2,
+	"move": 3.7, "leash": 9, "aggro": 7.0, "respawn": 8.0, "pk": true, "gold": 30,
+	"weapon": "kryss", "wear": "leather_armor", "bandages": 5,
+	"skills": {
+		Hero.Skill.SWORDSMANSHIP: 55.0, Hero.Skill.TACTICS: 45.0, Hero.Skill.ANATOMY: 30.0,
+		Hero.Skill.HEALING: 20.0,
+	},
+}
+
 # Peaceful NPCs.
 const MERCHANT := {"str": 20, "dex": 15, "int": 30, "move": 1.5, "leash": 2, "role": "merchant"}
+const GUARD := {"str": 60, "dex": 40, "int": 10, "move": 1.5, "leash": 2, "role": "guard"}
 const HEALER := {"str": 25, "dex": 15, "int": 35, "move": 1.5, "leash": 2, "role": "healer"}
 
 # Hostile monsters.
