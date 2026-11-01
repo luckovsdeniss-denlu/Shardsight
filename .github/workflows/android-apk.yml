@@ -78,3 +78,18 @@ jobs:
         with:
           name: ${{ env.APK_NAME }}
           path: build/${{ env.APK_NAME }}.apk
+
+      # Godot packages scripts even when they contain errors, so a green export alone proves
+      # little. Run the game headless for a while and fail on any script error.
+      - name: Smoke test (run the game headless, fail on script errors)
+        run: |
+          set +e
+          timeout 120 godot --headless --quit-after 1800 > smoke.log 2>&1
+          code=$?
+          set -e
+          echo "godot exited with $code"
+          tail -n 40 smoke.log
+          if grep -nE "SCRIPT ERROR|Parse Error|Failed to load script|Compile Error" smoke.log; then
+            echo "::error::Script errors while running the game (see above)"
+            exit 1
+          fi
