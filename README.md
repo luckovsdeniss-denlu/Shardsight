@@ -4,9 +4,11 @@ Android game inspired by classic Ultima Online mechanics (stats, skills, open-wo
 3D game built with Godot 4.3 (GDScript, GL Compatibility renderer).
 
 - `scripts/rules.gd`: stat/skill caps and combat formulas from the mechanics reference.
+- `scripts/entity.gd`: every creature (hero, players, NPCs, monsters): AI, movement, combat.
+- `scripts/bestiary.gd`: stat blocks.
 - `scripts/hero.gd`: 3 stats, skills 0..100, no classes or levels.
 - `scripts/world.gd`: ASCII tile map (grass, wall, water, tree): collision lookup, A* pathfinding, 3D mesh building.
-- `scripts/main.gd`: third-person camera; the hero wanders on its own (Auto button toggles); tap or drag the ground to take over, routing around blocked tiles.
+- `scripts/main.gd`: third-person camera; spawns the world; the hero acts on its own (Auto button toggles); tap the ground to walk, tap a monster to attack.
 - `export_presets.cfg`: Android preset (arm64, debug-signed).
 
 ## Run / build

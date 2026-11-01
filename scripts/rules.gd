@@ -23,3 +23,9 @@ static func swing_seconds(stamina: int, weapon_speed: int) -> float:
 ## Tactics scales damage by (-50% + Tactics/200): 0 halves it, 100 gives full.
 static func tactics_multiplier(tactics: float) -> float:
 	return 0.5 + tactics / 200.0
+
+
+## Reconstruction: damage scaling from Tactics (-50%..0), Strength (~+20% at 100)
+## and Anatomy (~Anatomy/2 %). Multiply the weapon's base damage roll by this.
+static func damage_multiplier(strength: float, tactics: float, anatomy: float) -> float:
+	return tactics_multiplier(tactics) * (1.0 + 0.2 * strength / 100.0) * (1.0 + anatomy / 200.0)

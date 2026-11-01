@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and uses the workflow run number as `version/code`.
 
+## 0.4.0
+- Population: the hero, two computer-played players, two NPCs (healer, merchant) and
+  monsters (rats, wolf, orcs), all built on one `Entity` class (`scripts/entity.gd`).
+- Combat uses the reference formulas: hit chance, swing speed, Tactics/Strength/Anatomy damage,
+  armor soak. Tap a monster to attack it.
+- Skills rise by use; dying resurrects at spawn with -10% skills (never below starting values).
+- Monsters aggro on players, chase, give up past their leash and respawn. Hurt players retreat to
+  the healer, who heals everyone nearby. Stat blocks live in `scripts/bestiary.gd`.
+- HUD shows skills; on-screen event log; floating damage numbers.
+
 ## 0.3.0
 - Character acts on its own: idles, then wanders to random reachable tiles nearby.
   Tapping takes over for a few seconds; an on-screen button toggles Auto mode.
