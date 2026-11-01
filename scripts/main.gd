@@ -16,7 +16,6 @@ var marker := MeshInstance3D.new()
 var hud := Label.new()
 var log_label := Label.new()
 var auto_button := Button.new()
-var spell_buttons := {}
 var log_lines: Array[String] = []
 var held := false
 var auto := true
@@ -51,23 +50,6 @@ func _ready() -> void:
 	layer.add_child(auto_button)
 	auto_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
 	_update_button()
-
-	var bar := VBoxContainer.new()
-	layer.add_child(bar)
-	bar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	bar.offset_right = -16.0
-	bar.offset_bottom = -16.0
-	for id in Spells.ORDER:
-		var sp: Dictionary = Spells.LIST[id]
-		var b := Button.new()
-		b.text = "%s  %d" % [sp["name"], sp["mana"]]
-		b.custom_minimum_size = Vector2(260, 60)
-		b.add_theme_font_size_override("font_size", 24)
-		b.pressed.connect(_on_spell.bind(id))
-		bar.add_child(b)
-		spell_buttons[id] = b
 
 	log_event("Welcome to Shardsight. Tap a monster to attack it.")
 	_follow_camera()
@@ -183,13 +165,6 @@ func _creature_near(p: Vector3) -> Entity:
 	return best
 
 
-func _on_spell(id: String) -> void:
-	if hero.dead:
-		return
-	hero.pause = MANUAL_PAUSE
-	hero.cast_manual(id)
-
-
 func _toggle_auto() -> void:
 	auto = not auto
 	hero.ai_enabled = auto
@@ -211,9 +186,6 @@ func _process(delta: float) -> void:
 	else:
 		marker.visible = true
 		marker.position = hero.path[hero.path.size() - 1] + Vector3(0.0, 0.03, 0.0)
-	for id in spell_buttons:
-		var b: Button = spell_buttons[id]
-		b.disabled = hero.dead or not hero.can_cast(id)
 	_follow_camera()
 	_update_hud()
 

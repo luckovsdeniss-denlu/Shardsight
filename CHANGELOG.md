@@ -9,7 +9,7 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
   cast time, fizzle on taking damage, cast chance rising with Magery.
 - Evaluating Intellect raises spell damage; Resisting Spells can halve it; Meditation speeds up
   mana regeneration (resting doubles it). All rise with use.
-- On-screen spell buttons; casters (AI mage Selene, the Evil Mage) keep their distance, heal when
+- Casters (AI mage Selene, the Evil Mage) keep their distance, heal when
   hurt and fall back to melee when out of mana. Merchant Bran restocks reagents.
 - The hero now starts as a battle mage: Swordsmanship 50, Tactics 30, Magery 30.
 
