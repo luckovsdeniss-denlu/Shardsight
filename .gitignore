@@ -1,8 +1,7 @@
-.gradle/
+.godot/
 build/
-local.properties
-*.iml
-.idea/
-captures/
+.import/
+*.translation
+export_credentials.cfg
 *.keystore
 *.jks
