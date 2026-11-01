@@ -1,12 +1,10 @@
 # Shardsight
 
-Android game inspired by classic Ultima Online mechanics (stats, skills, open-world rules),
-using the phone's compass, gyroscope, GPS and microphone.
+Android game inspired by classic Ultima Online mechanics (stats, skills, open-world rules).
 
 - Native Kotlin, no third-party dependencies. minSdk 26, targetSdk 34.
 - `core/Rules.kt`: stat/skill caps and combat formulas from the mechanics reference.
-- `sensors/SensorHub.kt`: heading, gyro, GPS fix and mic loudness.
-- `GameView.kt`: SurfaceView render loop (placeholder world + sensor HUD).
+- `GameView.kt`: SurfaceView render loop (tile grid, tap to move).
 
 ## Build
 
