@@ -38,17 +38,25 @@ func _ready() -> void:
 	hud.add_theme_font_size_override("font_size", 26)
 	layer.add_child(hud)
 
-	# Event log: no background, just a thick outline so the text stays readable.
+	# Event log: pinned to the lower-left corner. The containers are full-screen but ignore
+	# the mouse, so taps still reach the game. No background; a thick outline keeps it readable.
+	var margin := MarginContainer.new()
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 16)
+	layer.add_child(margin)
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var column := VBoxContainer.new()
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.alignment = BoxContainer.ALIGNMENT_END
+	margin.add_child(column)
 	log_label.add_theme_font_size_override("font_size", 28)
 	log_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	log_label.add_theme_constant_override("outline_size", 8)
-	log_label.custom_minimum_size = Vector2(810, 0)
+	log_label.custom_minimum_size = Vector2(700, 0)
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	layer.add_child(log_label)
-	log_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	log_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	log_label.offset_left = 16.0
-	log_label.offset_bottom = -16.0
+	log_label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	column.add_child(log_label)
 
 	auto_button.custom_minimum_size = Vector2(240, 80)
 	auto_button.add_theme_font_size_override("font_size", 28)
