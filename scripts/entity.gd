@@ -14,6 +14,10 @@ const HEAL_PER_SEC := 4.0
 const REGEN_PER_SEC := 0.4
 const SPELL_RANGE := 7.0
 const CAST_RECOVERY := 0.8     # seconds between casts
+const LOOT_RANGE := 1.6
+const LOOT_SEEK := 9.0         # how far players look for corpses
+const REAGENT_PRICE := 2       # gold per reagent at the merchant
+const MAX_REAGENTS := 60.0
 
 var kind: int = Kind.PLAYER
 var display_name := "?"
@@ -52,6 +56,11 @@ var cast_timer := 0.0
 var cast_target: Entity = null
 var cast_cd := 0.0
 var _med_timer := 0.0
+var gold := 0
+var inventory := {}            # trophy item id -> count
+var loot_cfg := {}             # what a monster drops
+var loot_target: Corpse = null
+var _trade_timer := 0.0
 var label: Label3D
 var _last_text := ""
 
@@ -83,6 +92,8 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	hp = float(stats.max_hp())
 	mana = float(stats.max_mana())
 	reagents = float(cfg.get("reagents", 0))
+	gold = int(cfg.get("gold", 0))
+	loot_cfg = cfg.get("loot", {})
 
 
 func _build_visual(color: Color, s: float) -> void:
@@ -130,7 +141,7 @@ func tick(delta: float) -> void:
 	if role == "healer":
 		_heal_aura(delta)
 	elif role == "merchant":
-		_restock_aura(delta)
+		_market_aura(delta)
 	if casting_id != "":
 		_cast_step(delta)
 		_refresh_label()
@@ -162,6 +173,11 @@ func _think(delta: float) -> void:
 	if target != null:
 		_chase()
 		return
+	if kind == Kind.PLAYER:
+		if _loot_step():
+			return
+		if autonomous and pause <= 0.0 and _seek_loot():
+			return
 	if autonomous and pause <= 0.0 and path.is_empty():
 		idle_timer -= delta
 		if idle_timer <= 0.0:
@@ -317,11 +333,13 @@ func _die(killer: Entity) -> void:
 	dead = true
 	hp = 0.0
 	casting_id = ""
+	loot_target = null
 	target = null
 	recovering = false
 	path.clear()
 	dead_timer = respawn_time
 	visible = false
+	game.spawn_corpse(self)
 	game.log_event("%s was slain by %s" % [display_name, killer.display_name])
 
 
@@ -357,6 +375,8 @@ func state_text() -> String:
 		return "dead"
 	if casting_id != "":
 		return "casting " + String(Spells.LIST[casting_id]["name"])
+	if loot_target != null:
+		return "looting"
 	if target != null:
 		return "fighting " + target.display_name
 	if recovering:
@@ -547,9 +567,9 @@ func _regen_mana(delta: float) -> void:
 func _resupply() -> bool:
 	if _skill(Hero.Skill.MAGERY) < 0.1:
 		return false
-	if reagents < 3.0:
+	if reagents < 3.0 and gold >= REAGENT_PRICE * 2:
 		restocking = true
-	elif reagents >= 15.0:
+	elif reagents >= 15.0 or gold < REAGENT_PRICE * 2:
 		restocking = false
 	if not restocking:
 		return false
@@ -560,14 +580,32 @@ func _resupply() -> bool:
 	return true
 
 
-func _restock_aura(delta: float) -> void:
+## The merchant buys trophies and sells reagents to players standing nearby.
+func _market_aura(delta: float) -> void:
 	var list: Array = game.creatures
 	for item in list:
 		var other := item as Entity
 		if other.dead or other.kind != Kind.PLAYER:
 			continue
 		if position.distance_to(other.position) <= HEAL_RANGE:
-			other.reagents = minf(other.reagents + 3.0 * delta, 30.0)
+			other.trade(delta)
+
+
+func trade(delta: float) -> void:
+	var earned := 0
+	for id in inventory:
+		earned += Items.value(id) * int(inventory[id])
+	if earned > 0:
+		gold += earned
+		inventory.clear()
+		if is_hero:
+			game.log_event("You sell your loot for %d gold." % earned)
+	_trade_timer += delta
+	if _trade_timer >= 0.5:
+		_trade_timer = 0.0
+		if reagents < 30.0 and gold >= REAGENT_PRICE * 2:
+			gold -= REAGENT_PRICE * 2
+			reagents = minf(reagents + 2.0, MAX_REAGENTS)
 
 
 func _bolt(to: Vector3, color: Color) -> void:
@@ -582,3 +620,89 @@ func _bolt(to: Vector3, color: Color) -> void:
 	var tw := m.create_tween()
 	tw.tween_property(m, "position", to + Vector3(0.0, 1.0, 0.0), 0.25)
 	tw.tween_callback(m.queue_free)
+
+
+# --- looting ---------------------------------------------------------------
+
+## What this creature leaves in its corpse. Monsters roll their loot table;
+## players lose all gold and trophies and half their reagents.
+func make_loot() -> Dictionary:
+	var items := {}
+	var dropped_gold := 0
+	var dropped_reagents := 0
+	if kind == Kind.MONSTER:
+		dropped_gold = randi_range(int(loot_cfg.get("gold_min", 0)), int(loot_cfg.get("gold_max", 0)))
+		dropped_reagents = randi_range(0, int(loot_cfg.get("reagents", 0)))
+		for d in loot_cfg.get("drops", []):
+			if randf() < float(d[1]):
+				items[d[0]] = int(items.get(d[0], 0)) + 1
+	elif kind == Kind.PLAYER:
+		dropped_gold = gold
+		gold = 0
+		dropped_reagents = floori(reagents / 2.0)
+		reagents -= dropped_reagents
+		items = inventory.duplicate()
+		inventory.clear()
+	return {"gold": dropped_gold, "reagents": dropped_reagents, "items": items}
+
+
+## Walk to a corpse and loot it (used for taps; AI players choose corpses themselves).
+func start_looting(c: Corpse) -> void:
+	loot_target = c
+	target = null
+
+
+## Returns true while walking to or looting a corpse.
+func _loot_step() -> bool:
+	if loot_target == null:
+		return false
+	if not is_instance_valid(loot_target) or loot_target.is_empty():
+		loot_target = null
+		return false
+	if position.distance_to(loot_target.position) > LOOT_RANGE:
+		if path.is_empty() and not go_to(loot_target.position):
+			loot_target = null        # unreachable
+			return false
+		return true
+	path.clear()
+	_take(loot_target)
+	loot_target = null
+	return true
+
+
+func _take(c: Corpse) -> void:
+	var got: Dictionary = c.take_all()
+	gold += int(got["gold"])
+	reagents = minf(reagents + float(got["reagents"]), MAX_REAGENTS)
+	var parts: Array[String] = []
+	if int(got["gold"]) > 0:
+		parts.append("%d gold" % int(got["gold"]))
+	if int(got["reagents"]) > 0:
+		parts.append("%d reagents" % int(got["reagents"]))
+	var found: Dictionary = got["items"]
+	for id in found:
+		inventory[id] = int(inventory.get(id, 0)) + int(found[id])
+		parts.append("%s x%d" % [Items.item_name(id), int(found[id])])
+	if is_hero and not parts.is_empty():
+		game.log_event("You loot: " + ", ".join(parts))
+
+
+## Picks the nearest corpse worth looting, unless a monster is close.
+func _seek_loot() -> bool:
+	if _nearest(Kind.MONSTER, 4.0) != null:
+		return false
+	var best: Corpse = null
+	var best_d := LOOT_SEEK
+	var list: Array = game.corpses
+	for item in list:
+		var c := item as Corpse
+		if c.is_empty() or not c.can_loot(self):
+			continue
+		var d := position.distance_to(c.position)
+		if d <= best_d:
+			best = c
+			best_d = d
+	if best == null:
+		return false
+	loot_target = best
+	return true

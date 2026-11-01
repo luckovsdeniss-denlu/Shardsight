@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.6.0
+- Looting: dead monsters and players leave a corpse (`scripts/corpse.gd`) with gold, reagents and
+  trophy items (`scripts/items.gd`); monster loot tables live in `scripts/bestiary.gd`.
+- Players loot monster corpses (and their own) automatically when nothing hostile is near; tap a
+  corpse to loot it yourself. Other players' corpses are off limits.
+- Dying drops all your gold and trophies and half your reagents into your corpse (it lasts
+  120 s, monsters' 60 s), so you can go back for it.
+- The merchant now buys trophies and sells reagents for gold; mages restock only if they can pay.
+- HUD shows gold and your bag. Version bumped to 0.6.0.
+- Removed the on-screen spell buttons (spells are cast automatically).
+
 ## 0.5.0
 - Magery: six spells (Magic Arrow, Heal, Harm, Fireball, Lightning, Greater Heal) with mana,
   minimum skill and reagent costs from the reference (`scripts/spells.gd`). Spoken words of power,

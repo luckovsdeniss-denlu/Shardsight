@@ -10,6 +10,7 @@ const LOG_LINES := 5
 var version: String = ProjectSettings.get_setting("application/config/version", "dev")
 var world := World.new()
 var creatures: Array[Entity] = []
+var corpses: Array[Corpse] = []
 var hero: Entity
 var cam := Camera3D.new()
 var marker := MeshInstance3D.new()
@@ -86,6 +87,14 @@ func _spawn(kind: int, label_text: String, cfg: Dictionary, color: Color, tile: 
 	return e
 
 
+func spawn_corpse(victim: Entity) -> void:
+	var c := Corpse.new()
+	add_child(c)
+	c.setup(victim.display_name, victim.kind == Entity.Kind.MONSTER,
+		victim.kind == Entity.Kind.PLAYER, victim.get_instance_id(), victim.position, victim.make_loot())
+	corpses.append(c)
+
+
 func _build_environment() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
@@ -146,10 +155,30 @@ func _tap(screen: Vector2) -> void:
 	var e := _creature_near(dest)
 	if e != null and e.kind == Entity.Kind.MONSTER:
 		hero.target = e
+		hero.loot_target = null
 		return
 	hero.target = null
 	hero.recovering = false
+	hero.loot_target = null
+	var c := _corpse_near(dest)
+	if c != null and e == null:
+		if c.can_loot(hero):
+			hero.start_looting(c)
+		else:
+			log_event("That corpse is not yours to loot.")
+		return
 	hero.go_to(e.position if e != null else dest)
+
+
+func _corpse_near(p: Vector3) -> Corpse:
+	var best: Corpse = null
+	var best_d := 1.0
+	for c in corpses:
+		var d := c.position.distance_to(p)
+		if d <= best_d:
+			best = c
+			best_d = d
+	return best
 
 
 func _creature_near(p: Vector3) -> Entity:
@@ -181,6 +210,11 @@ func _update_button() -> void:
 func _process(delta: float) -> void:
 	for e in creatures:
 		e.tick(delta)
+	for c in corpses.duplicate():
+		c.tick(delta)
+		if c.life <= 0.0:
+			corpses.erase(c)
+			c.queue_free()
 	if hero.dead or hero.path.is_empty():
 		marker.visible = false
 	else:
@@ -193,13 +227,17 @@ func _process(delta: float) -> void:
 func _update_hud() -> void:
 	var s := hero.stats
 	var tile := world.to_tile(hero.position)
-	hud.text = "Shardsight v%s   [%s]\nHP %d/%d   Mana %d/%d   Reagents %d   Stam %d   Tile %d,%d\nSword %.1f  Tactics %.1f  Anatomy %.1f  Magery %.1f  Eval %.1f  Med %.1f  (%.1f/%d)" % [
+	var bag: Array[String] = []
+	for id in hero.inventory:
+		bag.append("%s x%d" % [Items.item_name(id), int(hero.inventory[id])])
+	var bag_text := ", ".join(bag) if not bag.is_empty() else "empty"
+	hud.text = "Shardsight v%s   [%s]\nHP %d/%d   Mana %d/%d   Reagents %d   Gold %d   Tile %d,%d\nSword %.1f  Tactics %.1f  Anatomy %.1f  Magery %.1f  Eval %.1f  Med %.1f  (%.1f/%d)\nBag: %s" % [
 		version, hero.state_text(), ceili(hero.hp), s.max_hp(), floori(hero.mana), s.max_mana(),
-		floori(hero.reagents), s.max_stamina(), tile.x, tile.y,
+		floori(hero.reagents), hero.gold, tile.x, tile.y,
 		s.skills[Hero.Skill.SWORDSMANSHIP], s.skills[Hero.Skill.TACTICS],
 		s.skills[Hero.Skill.ANATOMY], s.skills[Hero.Skill.MAGERY],
 		s.skills[Hero.Skill.EVALUATING_INTELLECT], s.skills[Hero.Skill.MEDITATION],
-		s.skill_total(), Rules.SKILL_CAP_TOTAL]
+		s.skill_total(), Rules.SKILL_CAP_TOTAL, bag_text]
 
 
 func _follow_camera() -> void:
