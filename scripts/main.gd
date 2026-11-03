@@ -579,6 +579,7 @@ func _quest_text() -> String:
 func on_kill(killer: Entity, victim: Entity) -> void:
 	if killer != null and killer.is_hero:
 		count("kills")
+		count("hero_killed_" + victim.display_name)
 	if killer == null or not killer.is_hero or not property.quest_active:
 		return
 	var q: Dictionary = Quests.LIST[property.quest_index]

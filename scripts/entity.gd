@@ -463,6 +463,7 @@ func _die(killer: Entity) -> void:
 	game.on_kill(killer, self)
 	if is_hero:
 		game.count("hero_deaths")
+		game.count("hero_killed_by_" + killer.display_name)
 	game.sound("death", position)
 	if kind == Kind.PLAYER:
 		ghost = true                   # players become ghosts and look for a healer
