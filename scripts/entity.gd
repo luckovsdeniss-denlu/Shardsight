@@ -461,6 +461,8 @@ func _die(killer: Entity) -> void:
 	game.spawn_corpse(self)
 	game.log_event("%s was slain by %s" % [display_name, killer.display_name])
 	game.on_kill(killer, self)
+	if is_hero:
+		game.count("hero_deaths")
 	game.sound("death", position)
 	if kind == Kind.PLAYER:
 		ghost = true                   # players become ghosts and look for a healer
@@ -609,6 +611,8 @@ func start_cast(id: String, tgt: Entity) -> bool:
 	path.clear()
 	_pop(String(sp["words"]), Color(0.7, 0.85, 1.0))
 	game.sound("cast", position)
+	if is_hero:
+		game.count("spells_cast")
 	return true
 
 
@@ -866,6 +870,7 @@ func _take(c: Corpse) -> void:
 	if is_hero and not parts.is_empty():
 		game.log_event("You loot: " + ", ".join(parts))
 		game.sound("loot", position)
+		game.count("loot")
 
 
 ## Picks the nearest corpse worth looting, unless a monster is close.
@@ -1013,6 +1018,8 @@ func _finish_bandage() -> void:
 		var amount := Rules.bandage_heal(healing, anatomy)
 		hp = minf(hp + amount, float(stats.max_hp()))
 		_pop("+%d" % roundi(amount), Color(0.5, 1.0, 0.5))
+		if is_hero:
+			game.count("bandaged")
 		if kind == Kind.PLAYER:
 			stats.try_gain(Hero.Skill.HEALING)
 			stats.try_gain(Hero.Skill.ANATOMY)
@@ -1231,6 +1238,8 @@ func _harvest_once() -> void:
 	inventory[id] = int(inventory.get(id, 0)) + 1
 	_pop("+1 " + Items.item_name(id), Color(0.9, 0.85, 0.6))
 	game.sound("gather", position)
+	if is_hero:
+		game.count("gathered")
 	if kind == Kind.PLAYER:
 		stats.try_gain(skill)
 
@@ -1336,6 +1345,7 @@ func craft(id: String) -> void:
 			stats.try_gain(skill)
 		if is_hero:
 			game.log_event("You make a %s." % item_label)
+			game.count("crafted")
 	else:
 		Crafting.take_mats(inventory, r["mats"], 0.5)
 		if is_hero:

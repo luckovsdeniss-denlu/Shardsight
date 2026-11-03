@@ -50,6 +50,25 @@ var reset_armed := false
 var save_timer := 0.0
 var skip_save := false
 
+# Automated play-test (CI): `godot --headless --fixed-fps 20 -- --autotest` plays a fresh game
+# in Auto mode for AUTOTEST_SECONDS of game time, checks invariants, prints a report and quits.
+const AUTOTEST_SECONDS := 900.0
+var autotest: bool = "--autotest" in OS.get_cmdline_user_args()
+var autotest_time := 0.0
+var counters := {}
+var problems: Array[String] = []
+var _check_timer := 0.0
+var _start_skill_total := 0.0
+
+const TIPS := [
+	"Tip: tap the ground to walk, tap a monster to attack it, tap a corpse to loot it.",
+	"Tip: with Auto on, your hero fights, loots, gathers, crafts and banks by itself.",
+	"Tip: Menu has Skills, Craft, Bank & House, Travel, Settings and Help.",
+	"Tip: pinch with two fingers to zoom, twist them to turn the camera.",
+]
+var _tips_left: Array = []
+var _tip_timer := 8.0
+
 
 func _ready() -> void:
 	world.build(self)
@@ -108,11 +127,16 @@ func _ready() -> void:
 	settings_panel = _make_overlay(layer)
 	settings_box = settings_panel.get_meta("box")
 
-	if SaveGame.load_into(hero, property):
+	if autotest:
+		skip_save = true                     # a fresh game; never touch the real save
+		_start_skill_total = hero.stats.skill_total()
+		print("AUTOTEST start: %d game-seconds" % int(AUTOTEST_SECONDS))
+	elif SaveGame.load_into(hero, property):
 		log_event("Welcome back. Your progress was loaded.")
 		_restore_house()
 	else:
 		log_event("Welcome to Shardsight. Tap a monster to attack it.")
+		_tips_left = TIPS.duplicate()        # first launch: a few tips over the first minute
 	if property.rune.x < 0:
 		property.rune = DEFAULT_RUNE         # a starting rune marked in town, for Recall
 	_follow_camera()
@@ -153,6 +177,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(_menu_button("Bank & House", _open_property))
 	box.add_child(_menu_button("Travel", _open_travel))
 	box.add_child(_menu_button("Settings", _open_settings))
+	box.add_child(_menu_button("Help", _open_help))
 	box.add_child(_menu_button("Save now", _save_now))
 	reset_button = _menu_button("Reset progress", _reset_progress)
 	box.add_child(reset_button)
@@ -403,6 +428,7 @@ func bank_deposit(e: Entity, amount: int) -> void:
 		return
 	e.gold -= amount
 	property.bank_gold += amount
+	count("banked", amount)
 	log_event("You deposit %d gold. Bank balance: %d." % [amount, property.bank_gold])
 
 
@@ -551,6 +577,8 @@ func _quest_text() -> String:
 
 ## Called by Entity._die for every death.
 func on_kill(killer: Entity, victim: Entity) -> void:
+	if killer != null and killer.is_hero:
+		count("kills")
 	if killer == null or not killer.is_hero or not property.quest_active:
 		return
 	var q: Dictionary = Quests.LIST[property.quest_index]
@@ -677,6 +705,90 @@ func _open_travel() -> void:
 func _close_travel() -> void:
 	travel_panel.visible = false
 	menu.visible = true
+
+
+# --- automated play-test ---------------------------------------------------
+
+## Counts something for the play-test report (does nothing in normal play).
+func count(key: String, n := 1) -> void:
+	if autotest:
+		counters[key] = int(counters.get(key, 0)) + n
+
+
+func _note_problem(msg: String) -> void:
+	if not problems.has(msg) and problems.size() < 20:
+		problems.append(msg)
+
+
+func _autotest_tick(delta: float) -> void:
+	autotest_time += delta
+	_check_timer -= delta
+	if _check_timer <= 0.0:
+		_check_timer = 1.0
+		_check_invariants()
+	if autotest_time >= AUTOTEST_SECONDS:
+		_autotest_finish()
+
+
+## Things that must never happen, whatever the AI does.
+func _check_invariants() -> void:
+	for e in creatures:
+		if e.dead:
+			continue
+		var p := e.position
+		if is_nan(p.x) or is_nan(p.z):
+			_note_problem("%s has an invalid position" % e.display_name)
+		elif world.is_blocked(world.to_tile(p)):
+			_note_problem("%s is inside a wall at %s" % [e.display_name, world.to_tile(p)])
+		if e.hp > float(e.stats.max_hp()) + 0.01:
+			_note_problem("%s has more HP than its maximum" % e.display_name)
+		if e.gold < 0 or e.reagents < 0.0 or e.bandages < 0:
+			_note_problem("%s has negative gold, reagents or bandages" % e.display_name)
+	if property.bank_gold < 0:
+		_note_problem("the bank balance is negative")
+
+
+func _autotest_finish() -> void:
+	counters["game_minutes"] = int(autotest_time / 60.0)
+	counters["skill_points_gained"] = snappedf(hero.stats.skill_total() - _start_skill_total, 0.1)
+	counters["hero_gold"] = hero.gold
+	counters["bank_gold"] = property.bank_gold
+	print("AUTOTEST REPORT " + JSON.stringify(counters))
+	if int(counters.get("kills", 0)) == 0:
+		_note_problem("the hero killed nothing")
+	if int(counters.get("loot", 0)) == 0:
+		_note_problem("the hero looted nothing")
+	if float(counters["skill_points_gained"]) <= 0.0:
+		_note_problem("none of the hero's skills rose")
+	for p in problems:
+		print("AUTOTEST FAIL: " + p)
+	if problems.is_empty():
+		print("AUTOTEST PASS")
+	get_tree().quit(0 if problems.is_empty() else 1)
+
+
+# --- help ------------------------------------------------------------------
+
+func _open_help() -> void:
+	menu.visible = false
+	settings_panel.visible = true
+	for c in settings_box.get_children():
+		settings_box.remove_child(c)
+		c.queue_free()
+	var title := _info("How to play")
+	title.add_theme_font_size_override("font_size", 30)
+	settings_box.add_child(title)
+	for line in [
+		"Tap the ground to walk there. Tap a monster to attack it, a corpse to loot it, a rock to mine it, a tree to chop it.",
+		"Auto (top right) lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
+		"Names: blue innocent, grey criminal, red murderer or monster. Guards in the tan towns kill monsters, criminals and murderers on sight.",
+		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked for the 700-point cap.",
+		"Die and you become a ghost: walk to a healer to be raised for free. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
+		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
+		"Menu also has Craft, Bank & House, Travel (Recall, Mark, Gate Travel) and Settings (sound, camera).",
+	]:
+		settings_box.add_child(_info("• " + String(line)))
+	settings_box.add_child(_menu_button("Back", _close_settings))
 
 
 func _open_menu() -> void:
@@ -951,6 +1063,13 @@ func _process(delta: float) -> void:
 	if paused:
 		_update_hud()
 		return
+	if autotest:
+		_autotest_tick(delta)
+	if not _tips_left.is_empty():
+		_tip_timer -= delta
+		if _tip_timer <= 0.0:
+			_tip_timer = 15.0
+			log_event(String(_tips_left.pop_front()))
 	save_timer += delta
 	if save_timer >= 20.0:
 		save_timer = 0.0

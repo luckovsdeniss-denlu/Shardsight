@@ -93,3 +93,24 @@ jobs:
             echo "::error::Script errors while running the game (see above)"
             exit 1
           fi
+
+      # A longer automated play: a fresh game in Auto mode for 15 game-minutes (fixed 20 fps,
+      # as fast as the runner allows). Fails if the hero never fights, loots or improves, if
+      # anyone ends up inside a wall, or on any script error.
+      - name: Play-test (15 game-minutes of Auto mode)
+        run: |
+          set +e
+          timeout 900 godot --headless --fixed-fps 20 --quit-after 20000 -- --autotest > playtest.log 2>&1
+          code=$?
+          set -e
+          echo "godot exited with $code"
+          grep -E "AUTOTEST" playtest.log || true
+          if grep -nE "SCRIPT ERROR|Parse Error|Failed to load script|Compile Error" playtest.log; then
+            echo "::error::Script errors during the play-test (see above)"
+            exit 1
+          fi
+          if grep -q "AUTOTEST FAIL" playtest.log || ! grep -q "AUTOTEST PASS" playtest.log; then
+            echo "::error::The play-test failed or did not finish"
+            tail -n 60 playtest.log
+            exit 1
+          fi

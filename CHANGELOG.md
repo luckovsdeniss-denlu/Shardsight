@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.15.0
+- Automated play-test in CI: a fresh game plays itself in Auto mode for 15 game-minutes (headless,
+  fixed 20 fps). It fails the build if the hero never kills, loots or gains skill, if anyone
+  ends up inside a wall or with an invalid position, more HP than its maximum or negative gold,
+  or on any script error, and prints a report (kills, loot, crafting, banking, deaths ...).
+- Menu > Help explains the controls and rules; a new game shows a few tips in the log.
+- ROADMAP.md has a second roadmap for everything else (still no multiplayer).
+
 ## 0.14.0
 - Sound (`scripts/sfx.gd`): small effects synthesized in code (no audio files) for hits, spells,
   deaths, loot, skill gains and gathering, played near the hero. Toggle in Menu > Settings.
