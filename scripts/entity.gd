@@ -96,6 +96,7 @@ var crafter := false           # gathers and crafts when idle (the hero)
 var gather_tile := Vector2i(-1, -1)
 var gather_timer := 0.0
 var crafting_trip := false
+var banking := false
 
 
 func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, tile: Vector2i) -> void:
@@ -238,6 +239,8 @@ func _think(delta: float) -> void:
 		if autonomous and pause <= 0.0 and _seek_loot():
 			return
 		if autonomous and pause <= 0.0 and crafter and _craft_trip():
+			return
+		if autonomous and pause <= 0.0 and is_hero and _bank_trip():
 			return
 		if _gather_step(delta):
 			return
@@ -438,6 +441,7 @@ func _die(killer: Entity) -> void:
 	path.clear()
 	gather_tile = Vector2i(-1, -1)
 	crafting_trip = false
+	banking = false
 	died_red = kind == Kind.PLAYER and notoriety() == Notoriety.RED
 	_settle_crimes(killer)
 	game.spawn_corpse(self)
@@ -501,6 +505,8 @@ func state_text() -> String:
 		return "mining" if world.resource_kind(gather_tile) == "ore" else "chopping wood"
 	if target == null and crafting_trip:
 		return "going to the forge"
+	if target == null and banking:
+		return "going to the bank"
 	if target != null:
 		return "fighting " + target.display_name
 	if recovering:
@@ -1323,3 +1329,29 @@ func smelt_all() -> void:
 		stats.try_gain(Hero.Skill.MINING)
 	if is_hero and made + lost > 0:
 		game.log_event("You smelt %d ingots (%d ore lost)." % [made, lost])
+
+
+# --- banking ---------------------------------------------------------------
+
+## The hero banks spare gold (everything above a little pocket money) so dying can't lose it.
+## Criminals and murderers are refused at the bank.
+func _bank_trip() -> bool:
+	if notoriety() != Notoriety.BLUE:
+		banking = false
+		return false
+	if not banking and gold >= Property.POCKET_GOLD + 100:
+		banking = true
+	if not banking:
+		return false
+	var banker := _find_role("banker")
+	if banker == null:
+		banking = false
+		return false
+	if position.distance_to(banker.position) <= 3.0:
+		banking = false
+		game.bank_deposit(self, gold - Property.POCKET_GOLD)
+		return true
+	if path.is_empty() and not go_to(banker.position):
+		banking = false
+		return false
+	return true

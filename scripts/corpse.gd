@@ -15,6 +15,7 @@ var items := {}
 var life := LIFETIME
 var label: Label3D
 var _last_text := ""
+var title := ""                  # overrides "<name>'s corpse" (e.g. house ruins)
 
 
 func setup(p_name: String, p_open: bool, p_is_player: bool, p_owner_id: int,
@@ -66,12 +67,18 @@ func take_all() -> Dictionary:
 	return out
 
 
+func set_title(t: String) -> void:
+	title = t
+	_last_text = ""
+	_refresh_label()
+
+
 func tick(delta: float) -> void:
 	life -= delta
 
 
 func _refresh_label() -> void:
-	var text := "%s's corpse" % owner_name
+	var text := title if title != "" else "%s's corpse" % owner_name
 	if not is_empty():
 		text += "\n(loot)"
 	if text != _last_text:

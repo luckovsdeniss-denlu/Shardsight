@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.12.0
+- Bank (`scripts/property.gd`): Oswin the banker in town keeps your gold and items safe from
+  death and theft. Menu > Bank & House: deposit or withdraw gold, deposit your bag, take items
+  out. Criminals and murderers are refused. In Auto the hero banks gold above 50 on its own.
+- Houses: buy a deed for 1500 gold (paid from the bank, like the classic large purchases), then
+  place it on open ground outside town. A 3x3 house with a door and a private chest; placement
+  never cuts off part of the map or covers anyone.
+- Decay: coming within 6 tiles keeps a house standing. Stay away 7 real days and it collapses:
+  its chest spills into ruins anyone can loot (Like new ... In danger of collapsing).
+- Bank, deed and house (with chest) are saved.
+
 ## 0.11.0
 - Gathering: rocks (Mining) and trees (Lumberjacking). Tap a rock or tree to work it; each
   gives a few tries, then recovers after a minute. Rarer ore (Dull Copper ... Valorite, the

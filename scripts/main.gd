@@ -26,6 +26,9 @@ var skills_panel: Control
 var skills_box: VBoxContainer
 var craft_panel: Control
 var craft_box: VBoxContainer
+var property := Property.new()
+var property_panel: Control
+var property_box: VBoxContainer
 var reset_button: Button
 var reset_armed := false
 var save_timer := 0.0
@@ -81,9 +84,11 @@ func _ready() -> void:
 	_build_menu(layer)
 	_build_skills_panel(layer)
 	_build_craft_panel(layer)
+	_build_property_panel(layer)
 
-	if SaveGame.load_into(hero):
+	if SaveGame.load_into(hero, property):
 		log_event("Welcome back. Your progress was loaded.")
+		_restore_house()
 	else:
 		log_event("Welcome to Shardsight. Tap a monster to attack it.")
 	_follow_camera()
@@ -121,6 +126,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(_menu_button("Resume", _resume))
 	box.add_child(_menu_button("Skills", _open_skills))
 	box.add_child(_menu_button("Craft", _open_craft))
+	box.add_child(_menu_button("Bank & House", _open_property))
 	box.add_child(_menu_button("Save now", _save_now))
 	reset_button = _menu_button("Reset progress", _reset_progress)
 	box.add_child(reset_button)
@@ -281,6 +287,210 @@ func _close_skills() -> void:
 	menu.visible = true
 
 
+# --- bank and house --------------------------------------------------------
+
+func _build_property_panel(layer: CanvasLayer) -> void:
+	property_panel = CenterContainer.new()
+	property_panel.visible = false
+	property_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(property_panel)
+	property_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var panel := PanelContainer.new()
+	property_panel.add_child(panel)
+	var pad := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		pad.add_theme_constant_override("margin_" + side, 20)
+	panel.add_child(pad)
+	property_box = VBoxContainer.new()
+	property_box.add_theme_constant_override("separation", 8)
+	pad.add_child(_scroll_wrap(property_box))
+
+
+func _hero_at_bank() -> bool:
+	if hero.dead or hero.notoriety() != Entity.Notoriety.BLUE:
+		return false
+	for e in creatures:
+		if e.role == "banker" and e.position.distance_to(hero.position) <= 3.0:
+			return true
+	return false
+
+
+func _hero_at_house() -> bool:
+	return property.has_house() and not hero.dead \
+		and hero.position.distance_to(world.tile_center(property.house_center_tile())) <= 1.6
+
+
+func _info(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(840, 0)
+	l.add_theme_font_size_override("font_size", 24)
+	return l
+
+
+func _action(text: String, callback: Callable, enabled: bool) -> Button:
+	var b := _menu_button(text, callback)
+	b.disabled = not enabled
+	return b
+
+
+## Banking needs the banker (in town); the chest needs you inside your house.
+func _refresh_property() -> void:
+	for c in property_box.get_children():
+		property_box.remove_child(c)
+		c.queue_free()
+	var at_bank := _hero_at_bank()
+	var at_house := _hero_at_house()
+	var title := _info("Bank & House")
+	title.add_theme_font_size_override("font_size", 30)
+	property_box.add_child(title)
+	property_box.add_child(_info("Gold: %d carried, %d in the bank. %s" % [
+		hero.gold, property.bank_gold,
+		"You are at the bank." if at_bank else "Banking needs Oswin the banker, in town."]))
+	property_box.add_child(_info("Bank box: " + Property.items_text(property.bank_items)))
+	property_box.add_child(_action("Deposit all gold", _on_deposit_gold, at_bank and hero.gold > 0))
+	property_box.add_child(_action("Withdraw 100 gold", _on_withdraw_gold, at_bank and property.bank_gold > 0))
+	property_box.add_child(_action("Deposit bag", _on_deposit_bag, at_bank and not hero.inventory.is_empty()))
+	property_box.add_child(_action("Take all from the bank", _on_withdraw_items, at_bank and not property.bank_items.is_empty()))
+
+	if property.has_house():
+		var o := property.house_origin
+		property_box.add_child(_info("Your house at %d,%d: %s. Coming near it keeps it standing; after %d days away it collapses and its chest spills out for anyone." % [
+			o.x, o.y, property.condition(), int(Property.COLLAPSE_DAYS)]))
+		property_box.add_child(_info("Chest: " + Property.items_text(property.house_chest)))
+		property_box.add_child(_action("Store bag in the chest", _on_chest_store, at_house and not hero.inventory.is_empty()))
+		property_box.add_child(_action("Take all from the chest", _on_chest_take, at_house and not property.house_chest.is_empty()))
+	elif property.has_deed:
+		property_box.add_child(_info("You own a house deed. Stand on open ground outside town and place it."))
+		property_box.add_child(_action("Place house here", _on_place_house, not hero.dead and not hero._in_town()))
+	else:
+		property_box.add_child(_info("A house deed costs %d gold, paid from the bank." % Property.DEED_PRICE))
+		property_box.add_child(_action("Buy a house deed", _on_buy_deed, at_bank and property.bank_gold >= Property.DEED_PRICE))
+	property_box.add_child(_menu_button("Back", _close_property))
+
+
+## Also used by the hero's automatic bank trips.
+func bank_deposit(e: Entity, amount: int) -> void:
+	amount = mini(amount, e.gold)
+	if amount <= 0:
+		return
+	e.gold -= amount
+	property.bank_gold += amount
+	log_event("You deposit %d gold. Bank balance: %d." % [amount, property.bank_gold])
+
+
+func _on_deposit_gold() -> void:
+	bank_deposit(hero, hero.gold)
+	_refresh_property()
+
+
+func _on_withdraw_gold() -> void:
+	var amount := mini(100, property.bank_gold)
+	property.bank_gold -= amount
+	hero.gold += amount
+	log_event("You withdraw %d gold." % amount)
+	_refresh_property()
+
+
+func _on_deposit_bag() -> void:
+	Property.merge(property.bank_items, hero.inventory)
+	hero.inventory.clear()
+	log_event("You put your bag in the bank box.")
+	_refresh_property()
+
+
+func _on_withdraw_items() -> void:
+	Property.merge(hero.inventory, property.bank_items)
+	property.bank_items.clear()
+	log_event("You take everything out of the bank box.")
+	_refresh_property()
+
+
+func _on_chest_store() -> void:
+	Property.merge(property.house_chest, hero.inventory)
+	hero.inventory.clear()
+	log_event("You store your bag in the house chest.")
+	_refresh_property()
+
+
+func _on_chest_take() -> void:
+	Property.merge(hero.inventory, property.house_chest)
+	property.house_chest.clear()
+	log_event("You take everything from the house chest.")
+	_refresh_property()
+
+
+func _on_buy_deed() -> void:
+	property.bank_gold -= Property.DEED_PRICE
+	property.has_deed = true
+	log_event("You buy a house deed for %d gold from the bank." % Property.DEED_PRICE)
+	_refresh_property()
+
+
+## Tiles a new house must not cover: everyone's position and home, and corpses.
+func _occupied_tiles() -> Dictionary:
+	var occupied := {}
+	for e in creatures:
+		occupied[world.to_tile(e.position)] = true
+		occupied[world.to_tile(e.home)] = true
+	for c in corpses:
+		occupied[world.to_tile(c.position)] = true
+	return occupied
+
+
+func _on_place_house() -> void:
+	var o := world.find_house_spot(world.to_tile(hero.position), _occupied_tiles())
+	if o.x < 0:
+		log_event("There is no room for a house here. Try open ground.")
+		return
+	world.place_house(self, o)
+	property.house_origin = o
+	property.house_chest = {}
+	property.has_deed = false
+	property.refresh()
+	log_event("You place your house. Its chest is safe storage; visit it to keep it standing.")
+	_refresh_property()
+
+
+## On load: rebuild the saved house, or let it collapse if it was neglected too long.
+func _restore_house() -> void:
+	if not property.has_house():
+		return
+	var center := world.tile_center(property.house_center_tile())
+	if property.should_collapse():
+		var ruins := Corpse.new()
+		add_child(ruins)
+		ruins.setup("House", true, false, 0, center,
+			{"gold": 0, "reagents": 0, "items": property.house_chest.duplicate()})
+		ruins.set_title("Ruins of your house")
+		ruins.life = 600.0
+		corpses.append(ruins)
+		property.clear_house()
+		log_event("Your neglected house has collapsed! Its contents lie in the ruins for anyone to take.")
+		return
+	var occupied := _occupied_tiles()
+	occupied.erase(world.to_tile(hero.position))      # the hero may be standing inside it
+	if not world.can_place_house(property.house_origin, occupied):
+		Property.merge(property.bank_items, property.house_chest)
+		property.clear_house()
+		property.has_deed = true
+		log_event("Your house could not be rebuilt here; its deed and chest went to the bank.")
+		return
+	world.place_house(self, property.house_origin)
+
+
+func _open_property() -> void:
+	menu.visible = false
+	property_panel.visible = true
+	_refresh_property()
+
+
+func _close_property() -> void:
+	property_panel.visible = false
+	menu.visible = true
+
+
 func _open_menu() -> void:
 	paused = true
 	menu.visible = true
@@ -295,7 +505,7 @@ func _resume() -> void:
 
 
 func _save_now() -> void:
-	if SaveGame.save(hero):
+	if SaveGame.save(hero, property):
 		log_event("Progress saved.")
 	else:
 		log_event("Could not save.")
@@ -313,7 +523,7 @@ func _reset_progress() -> void:
 
 func _autosave() -> void:
 	if not skip_save and hero != null:
-		SaveGame.save(hero)
+		SaveGame.save(hero, property)
 
 
 ## Save when the game is closed or sent to the background (Android may kill it there).
@@ -338,6 +548,7 @@ func _spawn_all() -> void:
 
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
+	_spawn(Entity.Kind.NPC, "Oswin", Bestiary.BANKER, cream, Vector2i(26, 12))
 	_spawn(Entity.Kind.NPC, "Town Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(20, 11))
 	_spawn(Entity.Kind.NPC, "Town Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(28, 11))
 
@@ -523,6 +734,9 @@ func _process(delta: float) -> void:
 	for e in creatures:
 		e.tick(delta)
 	_guards_strike()
+	if property.has_house() and not hero.dead \
+			and hero.position.distance_to(world.tile_center(property.house_center_tile())) <= 6.0:
+		property.refresh()             # being near the house keeps it from decaying
 	for c in corpses.duplicate():
 		c.tick(delta)
 		if c.life <= 0.0:

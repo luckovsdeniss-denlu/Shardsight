@@ -1,5 +1,5 @@
 class_name SaveGame
-## Saves the hero to user://shardsight_save.json (readable JSON). The world, monsters and the
+## Saves the hero (with bank and house) to user://shardsight_save.json (readable JSON). The world, monsters and the
 ## other characters are not saved; they start fresh each launch.
 
 const PATH := "user://shardsight_save.json"
@@ -15,7 +15,7 @@ static func erase() -> void:
 		DirAccess.remove_absolute(PATH)
 
 
-static func save(hero: Entity) -> bool:
+static func save(hero: Entity, property: Property) -> bool:
 	var skills := {}
 	for s in hero.stats.skills:
 		skills[str(s)] = hero.stats.skills[s]
@@ -33,6 +33,7 @@ static func save(hero: Entity) -> bool:
 		"locks": locks,
 		"bandages": hero.bandages,
 		"murders": hero.murder_counts,
+		"property": property.to_dict(),
 		"shield": hero.shield_id,
 		"gold": hero.gold,
 		"reagents": hero.reagents,
@@ -49,7 +50,7 @@ static func save(hero: Entity) -> bool:
 
 
 ## Loads a save into the hero. Everything is validated; bad or old data is ignored.
-static func load_into(hero: Entity) -> bool:
+static func load_into(hero: Entity, property: Property) -> bool:
 	if not exists():
 		return false
 	var f := FileAccess.open(PATH, FileAccess.READ)
@@ -103,6 +104,9 @@ static func load_into(hero: Entity) -> bool:
 		var c := Vector2i(int(t[0]), int(t[1]))
 		if not hero.world.is_blocked(c):
 			hero.position = hero.world.tile_center(c)
+	var prop: Variant = d.get("property", {})
+	if typeof(prop) == TYPE_DICTIONARY:
+		property.load_dict(prop)
 	hero.hp = float(hero.stats.max_hp())
 	hero.mana = float(hero.stats.max_mana())
 	return true
