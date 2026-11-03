@@ -171,6 +171,7 @@ func _build_visual(color: Color, s: float) -> void:
 
 
 func tick(delta: float) -> void:
+	_tick_reputation(delta)              # flags and counts keep fading even while dead
 	if dead:
 		if ghost:
 			_ghost_tick(delta)
@@ -179,7 +180,6 @@ func tick(delta: float) -> void:
 			if dead_timer <= 0.0:
 				_respawn()
 		return
-	_tick_reputation(delta)
 	gate_cd = maxf(gate_cd - delta, 0.0)
 	swing_cd = maxf(swing_cd - delta, 0.0)
 	cast_cd = maxf(cast_cd - delta, 0.0)
@@ -1141,6 +1141,8 @@ func _ghost_tick(delta: float) -> void:
 		return
 	if died_red:
 		return
+	if notoriety() != Notoriety.BLUE:
+		return       # healers turn criminals away (and the guards would kill them on sight)
 	var healer := _nearest_role("healer")
 	if healer == null:
 		return

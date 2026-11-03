@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.13.1
+- Fix: guards killed the same criminal over and over, flooding the log. A criminal ghost walked
+  to the healer in town, was resurrected still flagged (the flag didn't count down while dead),
+  was struck down at once and resurrected again, every frame or two. Healers now turn criminal
+  ghosts away until the flag wears off (or the shrine raises them outside town), flags keep
+  fading while dead, and a guard kill logs one line instead of two.
+
 ## 0.13.0
 - Bigger world: the map now runs 52 tiles east. An outpost town (guarded, with healer Brother
   Aldo) sits by a walled dungeon of dark halls. Ghosts walk to the nearest healer.

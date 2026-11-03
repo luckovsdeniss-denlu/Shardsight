@@ -863,8 +863,7 @@ func _guards_strike() -> void:
 		if e.kind == Entity.Kind.MONSTER or e.notoriety() != Entity.Notoriety.BLUE:
 			var guard := _nearest_guard(e.position)
 			if guard != null:
-				log_event("A guard strikes down %s." % e.display_name)
-				e.take_damage(9999.0, guard)
+				e.take_damage(9999.0, guard)     # the death message names the guard
 
 
 func _nearest_guard(p: Vector3) -> Entity:
