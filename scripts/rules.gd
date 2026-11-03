@@ -86,3 +86,25 @@ static func craft_chance(skill: float, min_skill: float) -> float:
 	if skill < min_skill:
 		return 0.0
 	return clampf(0.5 + (skill - min_skill) / 50.0, 0.0, 1.0)
+
+
+## Poison strengths: 0 none, 1 lesser, 2 regular, 3 greater. Damage per 2-second tick.
+const POISON_DAMAGE := [0.0, 1.5, 3.0, 5.0]
+const POISON_NAMES := ["", "lesser", "regular", "greater"]
+
+
+## Approximate: how strong a poison a caster's Poison spell inflicts.
+static func spell_poison_level(magery: float) -> int:
+	if magery >= 90.0:
+		return 3
+	return 2 if magery >= 60.0 else 1
+
+
+## Approximate: Cure gets harder against stronger poison.
+static func cure_chance(magery: float, level: int) -> float:
+	return clampf(0.4 + magery / 100.0 - 0.2 * (level - 1), 0.05, 1.0)
+
+
+## Reference: with 60 Anatomy (and Healing to match) bandages can cure poison.
+static func bandage_can_cure(healing: float, anatomy: float) -> bool:
+	return healing >= 60.0 and anatomy >= 60.0

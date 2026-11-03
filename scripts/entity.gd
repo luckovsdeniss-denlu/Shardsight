@@ -26,6 +26,10 @@ const MARKET_RANGE := 4.0          # the merchant trades with players this close
 const GATHER_TIME := 2.0           # seconds per swing of the pickaxe or hatchet
 const CARRY_MATERIALS := 30        # gatherers stop when carrying this many materials
 const SWING_ANIM := 0.22           # seconds of the attack lunge
+const STAMINA_REGEN := 0.4         # per second
+const SWING_STAMINA := 0.6         # each swing tires you a little (slower swings when drained)
+const POTION_DELAY := 8.0          # seconds between potions
+const POTION_PRICE := 15
 const CRIMINAL_SECONDS := 60.0     # grey after attacking an innocent
 const MURDER_WINDOW := 30.0        # an innocent dying this soon after your attack is a murder
 const MURDER_DECAY := 180.0        # seconds for one murder count to fade
@@ -93,6 +97,13 @@ var criminal_timer := 0.0
 var attackers := {}            # attacker instance id -> seconds left in which our death is murder
 var is_pk := false             # a player killer: hunts innocent players in the wilderness
 var danger := 1.0              # how tough a monster is (players compare it with their power)
+var stamina := 0.0
+var poison_level := 0          # 0 none, 1 lesser, 2 regular, 3 greater
+var poison_time := 0.0
+var poison_tick := 0.0
+var poisoner: Entity = null
+var poison_cfg := []           # [level, chance] if this creature poisons on hit
+var potion_cd := 0.0
 var ghost := false
 var died_red := false
 var crafter := false           # gathers and crafts when idle (the hero)
@@ -142,6 +153,8 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	bandages = int(cfg.get("bandages", 0))
 	is_pk = bool(cfg.get("pk", false))
 	danger = float(cfg.get("danger", 1.0))
+	poison_cfg = cfg.get("poison", [])
+	stamina = float(stats.max_stamina())
 	crafter = bool(cfg.get("crafter", false))
 	stats.skill_gained.connect(_on_skill_gained)
 	stats.stat_gained.connect(_on_stat_gained)
@@ -200,6 +213,12 @@ func tick(delta: float) -> void:
 	repath_timer -= delta
 	hp = minf(hp + REGEN_PER_SEC * delta, float(stats.max_hp()))
 	_regen_mana(delta)
+	stamina = minf(stamina + STAMINA_REGEN * delta, float(stats.max_stamina()))
+	potion_cd = maxf(potion_cd - delta, 0.0)
+	if poison_level > 0:
+		_poison_step(delta)
+		if dead:
+			return
 	if role == "healer":
 		_heal_aura(delta)
 	elif role == "merchant":
@@ -230,7 +249,7 @@ func tick(delta: float) -> void:
 func _think(delta: float) -> void:
 	if target != null and (not is_instance_valid(target) or target.dead):
 		target = null
-	if kind == Kind.PLAYER and _try_bandage():
+	if kind == Kind.PLAYER and (_try_potion() or _try_bandage()):
 		return
 	var autonomous := kind != Kind.PLAYER or ai_enabled
 	if kind == Kind.MONSTER:
@@ -383,7 +402,8 @@ func _fight() -> void:
 		ws = int(w["speed"])
 		lo = float(w["min"])
 		hi = float(w["max"])
-	swing_cd = Rules.swing_seconds(stats.max_stamina(), ws)
+	swing_cd = Rules.swing_seconds(maxi(1, int(stamina)), ws)   # tired fighters swing slower
+	stamina = maxf(stamina - SWING_STAMINA, 0.0)
 	swing_anim = SWING_ANIM
 	var atk: float = stats.skills.get(Hero.Skill.SWORDSMANSHIP, 0.0)
 	var def: float = target.stats.skills.get(Hero.Skill.SWORDSMANSHIP, 0.0)
@@ -393,6 +413,8 @@ func _fight() -> void:
 		var dmg := randf_range(lo, hi) * Rules.damage_multiplier(
 			float(stats.strength), tactics, anatomy)
 		target.take_damage(target._absorb(dmg), self)
+		if poison_cfg.size() == 2 and not target.dead and randf() < float(poison_cfg[1]):
+			target.apply_poison(int(poison_cfg[0]), self)
 		if kind == Kind.PLAYER:
 			stats.try_gain(Hero.Skill.SWORDSMANSHIP)
 			stats.try_gain(Hero.Skill.TACTICS)
@@ -450,6 +472,7 @@ func take_damage(amount: float, from: Entity) -> void:
 func _die(killer: Entity) -> void:
 	dead = true
 	hp = 0.0
+	poison_level = 0
 	casting_id = ""
 	bandage_timer = 0.0
 	loot_target = null
@@ -548,6 +571,8 @@ func _refresh_label() -> void:
 		text += " (murderer)"
 	elif kind == Kind.PLAYER and notoriety() == Notoriety.GREY:
 		text += " (criminal)"
+	if poison_level > 0 and not ghost:
+		text += "\n(poisoned)"
 	label.modulate = _name_color()
 	if text != _last_text:
 		_last_text = text
@@ -662,6 +687,22 @@ func _finish_cast() -> void:
 		_pop("fizzle", Color(0.75, 0.75, 0.75))
 		return
 	var spell_kind := String(sp["kind"])
+	if spell_kind == "cure":
+		if randf() < Rules.cure_chance(_skill(Hero.Skill.MAGERY), poison_level):
+			_cure("cured")
+		else:
+			_pop("cure failed", Color(0.75, 0.75, 0.75))
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.MAGERY)
+		return
+	if spell_kind == "poison":
+		if randf() < Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)):
+			tgt._pop("resisted", Color(0.7, 0.9, 1.0))
+		else:
+			tgt.apply_poison(Rules.spell_poison_level(_skill(Hero.Skill.MAGERY)), self)
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.MAGERY)
+		return
 	if spell_kind == "travel" or spell_kind == "area":
 		if spell_kind == "travel":
 			_travel(id)
@@ -693,6 +734,14 @@ func _finish_cast() -> void:
 func _try_auto_cast(d: float) -> bool:
 	if casting_id != "" or cast_cd > 0.0:
 		return false
+	if poison_level > 0:
+		var cure_id := _best_spell("cure")
+		if cure_id != "":
+			return start_cast(cure_id, self)
+	if target != null and target.poison_level == 0 and d <= SPELL_RANGE and randf() < 0.3:
+		var poison_id := _best_spell("poison")
+		if poison_id != "":
+			return start_cast(poison_id, target)
 	if hp < float(stats.max_hp()) * 0.5:
 		var heal_id := _best_spell("heal")
 		if heal_id != "":
@@ -720,7 +769,7 @@ func _best_spell(k: String) -> String:
 		var chance := Rules.cast_chance(magery, float(sp["min"]))
 		if chance < 0.2:
 			continue
-		var avg := (float(sp["min_dmg"]) + float(sp["max_dmg"])) / 2.0
+		var avg := maxf((float(sp["min_dmg"]) + float(sp["max_dmg"])) / 2.0, 1.0)   # cure/poison: no damage
 		var score := chance * avg / float(sp["mana"])
 		if score > best_score:
 			best_score = score
@@ -776,6 +825,8 @@ func trade(delta: float) -> void:
 	for id in inventory.keys():
 		if _is_usable_upgrade(id):
 			continue                       # keep gear we are about to wear
+		if Items.is_potion(id):
+			continue                       # potions are kept for emergencies
 		if crafter and Items.is_material(id):
 			continue                       # crafters keep their ore, ingots, logs and hides
 		earned += Items.value(id) * int(inventory[id])
@@ -787,6 +838,12 @@ func trade(delta: float) -> void:
 	_trade_timer += delta
 	if _trade_timer >= 0.5:
 		_trade_timer = 0.0
+		if Crafting.count(inventory, "potion_heal") < 2 and gold >= POTION_PRICE + 20:
+			gold -= POTION_PRICE
+			inventory["potion_heal"] = Crafting.count(inventory, "potion_heal") + 1
+		elif Crafting.count(inventory, "potion_cure") < 1 and gold >= POTION_PRICE + 20:
+			gold -= POTION_PRICE
+			inventory["potion_cure"] = 1
 		if bandages < MAX_BANDAGES and gold >= BANDAGE_PRICE:
 			gold -= BANDAGE_PRICE
 			bandages += 1
@@ -1004,7 +1061,8 @@ func gear_text() -> String:
 func _try_bandage() -> bool:
 	if bandages <= 0 or casting_id != "" or bandage_timer > 0.0:
 		return false
-	if hp >= float(stats.max_hp()) * 0.6:
+	var can_cure := poison_level > 0 and Rules.bandage_can_cure(_skill(Hero.Skill.HEALING), _skill(Hero.Skill.ANATOMY))
+	if hp >= float(stats.max_hp()) * 0.6 and not can_cure:
 		return false
 	if _nearest(Kind.MONSTER, 2.5) != null:
 		return false
@@ -1018,7 +1076,12 @@ func _try_bandage() -> bool:
 func _finish_bandage() -> void:
 	var healing := _skill(Hero.Skill.HEALING)
 	var anatomy := _skill(Hero.Skill.ANATOMY)
-	if randf() < Rules.bandage_chance(healing):
+	if poison_level > 0 and Rules.bandage_can_cure(healing, anatomy) and randf() < Rules.bandage_chance(healing):
+		_cure("cured")                 # a skilled healer's bandage draws out the poison
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.HEALING)
+			stats.try_gain(Hero.Skill.ANATOMY)
+	elif randf() < Rules.bandage_chance(healing):
 		var amount := Rules.bandage_heal(healing, anatomy)
 		hp = minf(hp + amount, float(stats.max_hp()))
 		_pop("+%d" % roundi(amount), Color(0.5, 1.0, 0.5))
@@ -1317,6 +1380,10 @@ func craft_at_forge() -> void:
 
 
 func _pick_recipe() -> String:
+	if reagents >= 12.0:
+		for id in Crafting.POTIONS:
+			if Crafting.count(inventory, id) < 3 and craft_problem(id) == "":
+				return id
 	for id in Crafting.ORDER:
 		if craft_problem(id) == "" and _is_usable_upgrade(id) and not inventory.has(id):
 			return id
@@ -1326,8 +1393,8 @@ func _pick_recipe() -> String:
 		if craft_problem(id) != "":
 			continue
 		var r: Dictionary = Crafting.RECIPES[id]
-		if _skill(int(r["skill"])) >= Rules.SKILL_MAX:
-			continue
+		if _skill(int(r["skill"])) >= Rules.SKILL_MAX or Items.is_potion(id):
+			continue                       # potions are brewed only when needed (above)
 		var cost := 0
 		var mats: Dictionary = r["mats"]
 		for k in mats:
@@ -1344,7 +1411,7 @@ func craft_problem(id: String) -> String:
 	var skill := int(r["skill"])
 	if _skill(skill) < float(r["min"]):
 		return "needs %s %d" % [Hero.skill_name(skill), int(r["min"])]
-	if not Crafting.has_mats(inventory, r["mats"]):
+	if not _has_mats(r["mats"]):
 		return "needs " + Items.mats_text(r["mats"])
 	if skill == Hero.Skill.BLACKSMITHY and not world.near_forge(position):
 		return "needs the forge"
@@ -1362,7 +1429,7 @@ func craft(id: String) -> void:
 	var r: Dictionary = Crafting.RECIPES[id]
 	var skill := int(r["skill"])
 	if randf() < Rules.craft_chance(_skill(skill), float(r["min"])):
-		Crafting.take_mats(inventory, r["mats"], 1.0)
+		_take_mats(r["mats"], 1.0)
 		inventory[id] = int(inventory.get(id, 0)) + 1
 		if kind == Kind.PLAYER:
 			stats.try_gain(skill)
@@ -1370,7 +1437,7 @@ func craft(id: String) -> void:
 			game.log_event("You make a %s." % item_label)
 			game.count("crafted")
 	else:
-		Crafting.take_mats(inventory, r["mats"], 0.5)
+		_take_mats(r["mats"], 0.5)
 		if is_hero:
 			game.log_event("You fail to make a %s and lose some materials." % item_label)
 
@@ -1560,3 +1627,99 @@ func _animate(delta: float) -> void:
 		tilt += 0.25 * k
 	rig.position = Vector3(0.0, y, z)
 	rig.rotation.x = -tilt
+
+
+# --- poison and potions ----------------------------------------------------
+
+## A stronger poison replaces a weaker one; it wears off on its own after a while.
+func apply_poison(level: int, from: Entity) -> void:
+	if dead or kind == Kind.NPC or level <= poison_level:
+		return
+	poison_level = clampi(level, 1, 3)
+	poison_time = 20.0 + 10.0 * poison_level
+	poison_tick = 2.0
+	poisoner = from
+	_pop("%s poison!" % Rules.POISON_NAMES[poison_level], Color(0.4, 1.0, 0.3))
+	if is_hero:
+		game.count("poisoned")
+
+
+func _poison_step(delta: float) -> void:
+	poison_time -= delta
+	poison_tick -= delta
+	if poison_tick <= 0.0:
+		poison_tick = 2.0
+		var dmg: float = Rules.POISON_DAMAGE[poison_level]
+		hp -= dmg
+		_pop("-%d" % maxi(1, roundi(dmg)), Color(0.4, 1.0, 0.3))
+		if casting_id != "":
+			_fizzle("disrupted")
+		if hp <= 0.0:
+			_die(poisoner if poisoner != null and is_instance_valid(poisoner) else self)
+			return
+	if poison_time <= 0.0:
+		_cure("the poison wears off")
+
+
+func _cure(message: String) -> void:
+	if poison_level > 0 and is_hero:
+		game.count("cured")
+	poison_level = 0
+	poisoner = null
+	_pop(message, Color(0.6, 1.0, 0.6))
+
+
+## Players drink a potion when it matters: cure when poisoned (and no Cure spell to hand),
+## heal when badly hurt, refresh when worn out. One potion every few seconds.
+func _try_potion() -> bool:
+	if potion_cd > 0.0 or casting_id != "":
+		return false
+	var drink := ""
+	if poison_level > 0 and Crafting.count(inventory, "potion_cure") > 0 and _best_spell("cure") == "":
+		drink = "potion_cure"
+	elif hp < float(stats.max_hp()) * 0.4:
+		for id in ["potion_greater_heal", "potion_heal"]:
+			if Crafting.count(inventory, id) > 0:
+				drink = id
+				break
+	elif stamina < float(stats.max_stamina()) * 0.3 and Crafting.count(inventory, "potion_refresh") > 0:
+		drink = "potion_refresh"
+	if drink == "":
+		return false
+	Crafting.take_mats(inventory, {drink: 1}, 1.0)
+	potion_cd = POTION_DELAY
+	match drink:
+		"potion_cure":
+			if poison_level < 3 or randf() < 0.5:
+				_cure("cured")
+			else:
+				_pop("the poison is too strong", Color(0.75, 0.75, 0.75))
+		"potion_heal", "potion_greater_heal":
+			var amount := randf_range(8.0, 12.0) if drink == "potion_heal" else randf_range(18.0, 25.0)
+			hp = minf(hp + amount, float(stats.max_hp()))
+			_pop("+%d" % roundi(amount), Color(0.5, 1.0, 0.5))
+		"potion_refresh":
+			stamina = float(stats.max_stamina())
+			_pop("refreshed", Color(0.6, 0.8, 1.0))
+	if is_hero:
+		game.count("potions_drunk")
+		game.log_event("You drink a %s." % Items.item_name(drink))
+	return false                         # drinking is instant: carry on with the turn
+
+
+## Materials for a recipe: "reagent" comes from the reagent pouch, the rest from the bag.
+func _has_mats(mats: Dictionary) -> bool:
+	var bag := mats.duplicate()
+	if bag.has("reagent"):
+		if reagents < float(bag["reagent"]):
+			return false
+		bag.erase("reagent")
+	return Crafting.has_mats(inventory, bag)
+
+
+func _take_mats(mats: Dictionary, fraction: float) -> void:
+	var bag := mats.duplicate()
+	if bag.has("reagent"):
+		reagents = maxf(reagents - ceili(int(bag["reagent"]) * fraction), 0.0)
+		bag.erase("reagent")
+	Crafting.take_mats(inventory, bag, fraction)

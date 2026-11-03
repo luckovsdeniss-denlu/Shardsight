@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.16.0
+- Poison: lesser, regular and greater, each draining HP every 2 s until cured or worn off (it can
+  kill). A new giant spider (in the woods north of the start) and zombies poison on hit; casters
+  gain the Poison spell (circle 3), stronger with more Magery.
+- Cures: the Cure spell (circle 2; harder against stronger poison); bandages cure poison once
+  Healing and Anatomy are both 60 (from the reference); cure potions.
+- Alchemy (new skill): brew Refresh, Cure, Heal and Greater Heal potions from reagents (Menu >
+  Craft, no forge needed). Players drink potions when it matters (cure when poisoned, heal below
+  40% HP, refresh when worn out), one every 8 s. The merchant sells heal and cure potions;
+  potions are never sold off. Auto crafters brew when low and rich in reagents.
+- Stamina is now a pool: each swing costs a little and it regenerates, so a tired fighter swings
+  slower (the reference's stamina-based swing speed). HUD shows stamina and poison.
+
 ## 0.15.1
 - Balance, from the play-test reports (the hero died 7 times against 5 kills in one run, mostly
   to the Evil Mage and to Vex):

@@ -6,6 +6,11 @@ const LIST := {
 	"wolf_pelt": {"name": "Wolf Pelt", "value": 8},
 	"orc_ear": {"name": "Orc Ear", "value": 10},
 	"mage_robe": {"name": "Mage Robe", "value": 20},
+	# Potions (Alchemy, or bought from the merchant). Kept, never sold.
+	"potion_heal": {"name": "Heal Potion", "value": 15, "potion": true},
+	"potion_greater_heal": {"name": "Greater Heal Potion", "value": 30, "potion": true},
+	"potion_cure": {"name": "Cure Potion", "value": 15, "potion": true},
+	"potion_refresh": {"name": "Refresh Potion", "value": 10, "potion": true},
 }
 
 
@@ -18,6 +23,10 @@ static func is_material(id: String) -> bool:
 	if id.begins_with("ingot_"):
 		return not Crafting.tier(id.trim_prefix("ingot_")).is_empty()
 	return false
+
+
+static func is_potion(id: String) -> bool:
+	return LIST.has(id) and bool(LIST[id].get("potion", false))
 
 
 static func is_known(id: String) -> bool:
@@ -60,6 +69,6 @@ static func material_count(inv: Dictionary) -> int:
 static func mats_text(mats: Dictionary) -> String:
 	var parts: Array[String] = []
 	for k in mats:
-		var label := "ingots" if k == "ingot" else item_name(k)
+		var label := "ingots" if k == "ingot" else ("reagents" if k == "reagent" else item_name(k))
 		parts.append("%d %s" % [int(mats[k]), label])
 	return ", ".join(parts)

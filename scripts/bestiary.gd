@@ -1,6 +1,6 @@
 class_name Bestiary
 ## Stat blocks for everything that walks the map.
-## Keys: danger (monster toughness: players only start fights they can win), pk (preys on innocents), crafter (gathers and crafts when idle), weapon/wear/shield (starting gear ids from Gear), bandages, str/dex/int, skills, reagents, gold (carried), loot (monster drops), dmg_min/dmg_max (weapon roll), wspeed (weapon speed 20..60),
+## Keys: poison ([level, chance per hit]), danger (monster toughness: players only start fights they can win), pk (preys on innocents), crafter (gathers and crafts when idle), weapon/wear/shield (starting gear ids from Gear), bandages, str/dex/int, skills, reagents, gold (carried), loot (monster drops), dmg_min/dmg_max (weapon roll), wspeed (weapon speed 20..60),
 ## move (m/s), armor, leash (wander radius in tiles), aggro (m), respawn (s), role, scale.
 
 const HERO := {
@@ -99,6 +99,7 @@ const SKELETON := {
 	"skills": {Hero.Skill.SWORDSMANSHIP: 65.0, Hero.Skill.TACTICS: 60.0, Hero.Skill.ANATOMY: 30.0},
 }
 const ZOMBIE := {
+	"poison": [2, 0.25],
 	"danger": 4,
 	"str": 55, "dex": 20, "int": 5, "wspeed": 25, "dmg_min": 5, "dmg_max": 12,
 	"move": 1.8, "leash": 4, "aggro": 4.0, "respawn": 20.0, "armor": 1.0, "scale": 1.05,
@@ -121,4 +122,13 @@ const LICH := {
 		Hero.Skill.SWORDSMANSHIP: 40.0, Hero.Skill.MAGERY: 90.0, Hero.Skill.EVALUATING_INTELLECT: 80.0,
 		Hero.Skill.MEDITATION: 80.0, Hero.Skill.RESISTING_SPELLS: 70.0,
 	},
+}
+
+# Poisons on hit (lesser poison). Lives in the woods north of the start.
+const GIANT_SPIDER := {
+	"danger": 2, "poison": [1, 0.35],
+	"str": 22, "dex": 40, "int": 5, "wspeed": 45, "dmg_min": 2, "dmg_max": 5,
+	"move": 3.0, "leash": 5, "aggro": 4.0, "respawn": 15.0, "scale": 0.7,
+	"loot": {"gold_min": 3, "gold_max": 10, "reagents": 2, "drops": [["potion_cure", 0.15]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 45.0, Hero.Skill.TACTICS: 30.0},
 }

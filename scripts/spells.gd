@@ -1,11 +1,12 @@
 class_name Spells
 ## Magery spells. Circle, mana and minimum Magery follow the mechanics reference (all 8 circles;
 ## 7 and 8 are "about" figures there). Damage/heal ranges and reagent counts are tuning guesses.
-## Kinds: attack (one target), heal (self), area (everything hostile around the caster),
+## Kinds: attack (one target), heal (self), cure (self, removes poison), poison (one target),
+## area (everything hostile around the caster),
 ## travel (Recall, Mark, Gate Travel: cast from Menu > Travel, never chosen by the AI).
 
 const ORDER := [
-	"magic_arrow", "heal", "harm", "fireball", "lightning", "greater_heal",
+	"magic_arrow", "heal", "harm", "cure", "fireball", "poison", "lightning", "greater_heal",
 	"mind_blast", "energy_bolt", "explosion", "flamestrike", "earthquake",
 	"recall", "mark", "gate_travel",
 ]
@@ -26,6 +27,16 @@ const LIST := {
 		"name": "Harm", "words": "An Mani", "circle": 2, "mana": 6, "min": 0.1,
 		"reagents": 1, "kind": "attack", "min_dmg": 4.0, "max_dmg": 9.0,
 		"color": Color(0.5, 0.8, 1.0),
+	},
+	"cure": {
+		"name": "Cure", "words": "An Nox", "circle": 2, "mana": 6, "min": 0.1,
+		"reagents": 2, "kind": "cure", "min_dmg": 0.0, "max_dmg": 0.0,
+		"color": Color(0.6, 1.0, 0.6),
+	},
+	"poison": {
+		"name": "Poison", "words": "In Nox", "circle": 3, "mana": 9, "min": 10.1,
+		"reagents": 2, "kind": "poison", "min_dmg": 0.0, "max_dmg": 0.0,
+		"color": Color(0.4, 0.9, 0.3),
 	},
 	"fireball": {
 		"name": "Fireball", "words": "Vas Flam", "circle": 3, "mana": 9, "min": 10.1,

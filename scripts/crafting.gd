@@ -15,7 +15,8 @@ const ORE_TIERS := [
 	{"id": "valorite", "name": "Valorite", "min": 99.0, "value": 16},
 ]
 
-## "ingot" means ingots of any metal (the cheapest are used first).
+## "ingot" means ingots of any metal (the cheapest are used first); "reagent" means the
+## character's reagent pouch (used by Alchemy).
 const RECIPES := {
 	"dagger": {"skill": Hero.Skill.BLACKSMITHY, "min": 0.0, "mats": {"ingot": 3}},
 	"kryss": {"skill": Hero.Skill.BLACKSMITHY, "min": 25.0, "mats": {"ingot": 8}},
@@ -29,10 +30,16 @@ const RECIPES := {
 	"leather_armor": {"skill": Hero.Skill.TAILORING, "min": 0.0, "mats": {"wolf_pelt": 3}},
 	"studded_armor": {"skill": Hero.Skill.TAILORING, "min": 35.0, "mats": {"wolf_pelt": 5}},
 	"wooden_shield": {"skill": Hero.Skill.CARPENTRY, "min": 0.0, "mats": {"log": 5}},
+	"potion_refresh": {"skill": Hero.Skill.ALCHEMY, "min": 0.0, "mats": {"reagent": 1}},
+	"potion_cure": {"skill": Hero.Skill.ALCHEMY, "min": 0.0, "mats": {"reagent": 2}},
+	"potion_heal": {"skill": Hero.Skill.ALCHEMY, "min": 15.0, "mats": {"reagent": 2}},
+	"potion_greater_heal": {"skill": Hero.Skill.ALCHEMY, "min": 55.0, "mats": {"reagent": 4}},
 }
+const POTIONS := ["potion_greater_heal", "potion_heal", "potion_cure", "potion_refresh"]
 const ORDER := [
 	"dagger", "kryss", "longsword", "broadsword", "halberd", "bronze_shield", "heater_shield",
 	"chainmail", "platemail", "leather_armor", "studded_armor", "wooden_shield",
+	"potion_refresh", "potion_cure", "potion_heal", "potion_greater_heal",
 ]
 
 

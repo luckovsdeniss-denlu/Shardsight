@@ -864,6 +864,7 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(12, 8))
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(6, 11))
 	_spawn(Entity.Kind.MONSTER, "Wolf", Bestiary.WOLF, red, Vector2i(26, 18))
+	_spawn(Entity.Kind.MONSTER, "Giant Spider", Bestiary.GIANT_SPIDER, Color("3a3a2a"), Vector2i(11, 4))
 	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(27, 20))
 	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(16, 20))
 	_spawn(Entity.Kind.MONSTER, "Evil Mage", Bestiary.EVIL_MAGE, red, Vector2i(14, 22))
@@ -1114,8 +1115,9 @@ func _update_hud() -> void:
 		bag.resize(6)
 		bag.append("+%d more" % extra)
 	var bag_text := ", ".join(bag) if not bag.is_empty() else "empty"
-	hud.text = "Shardsight v%s   [%s]   %s   %s\nHP %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s\n%s" % [
-		version, hero.state_text(), hero.notoriety_text(), _clock_text(), ceili(hero.hp), s.max_hp(), floori(hero.mana), s.max_mana(),
+	hud.text = "Shardsight v%s   [%s]   %s   %s\nHP %d/%d%s   Stam %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s\n%s" % [
+		version, hero.state_text(), hero.notoriety_text(), _clock_text(), ceili(hero.hp), s.max_hp(), _poison_text(), int(hero.stamina), s.max_stamina(),
+		floori(hero.mana), s.max_mana(),
 		floori(hero.reagents), hero.bandages, hero.gold,
 		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
 		s.skill_total(), Rules.SKILL_CAP_TOTAL, tile.x, tile.y, hero.gear_text(), bag_text,
@@ -1155,6 +1157,12 @@ func _apply_daylight() -> void:
 	sun.rotation_degrees = Vector3(-20.0 - 50.0 * maxf(sun_height, 0.0), day_time * 360.0, 0.0)
 	env.background_color = Color("0d1426").lerp(Color("87a8c9"), light)
 	env.ambient_light_energy = lerpf(0.45, 0.8, light)
+
+
+func _poison_text() -> String:
+	if hero.poison_level <= 0:
+		return ""
+	return " (%s poison)" % Rules.POISON_NAMES[hero.poison_level]
 
 
 func _clock_text() -> String:
