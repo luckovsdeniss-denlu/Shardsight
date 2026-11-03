@@ -8,6 +8,7 @@ const MANUAL_PAUSE := 4.0      # seconds auto mode waits after a tap
 const LOG_LINES := 6
 const DEFAULT_RUNE := Vector2i(25, 13)
 const GATE_SECONDS := 20.0
+const DAY_SECONDS := 480.0       # one full day and night
 
 var version: String = ProjectSettings.get_setting("application/config/version", "dev")
 var world := World.new()
@@ -33,6 +34,16 @@ var property_panel: Control
 var property_box: VBoxContainer
 var travel_panel: Control
 var travel_box: VBoxContainer
+var settings_panel: Control
+var settings_box: VBoxContainer
+var sfx := Sfx.new()
+var minimap := Minimap.new()
+var env: Environment
+var sun: DirectionalLight3D
+var day_time := 0.35             # 0 = midnight, 0.5 = noon
+var touches := {}                # screen touch index -> position (for pinch and twist)
+var _pinch_dist := 0.0
+var _pinch_angle := 0.0
 var gates: Array[Dictionary] = []      # {"a": Vector3, "b": Vector3, "life": float, "nodes": [Node3D]}
 var reset_button: Button
 var reset_armed := false
@@ -84,6 +95,8 @@ func _ready() -> void:
 	auto_button.pressed.connect(_toggle_auto)
 	corner.add_child(auto_button)
 	corner.add_child(_menu_button("Menu", _open_menu))
+	minimap.setup(self, world)
+	corner.add_child(minimap)
 	corner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
 	_update_button()
 	_build_menu(layer)
@@ -92,6 +105,8 @@ func _ready() -> void:
 	_build_property_panel(layer)
 	travel_panel = _make_overlay(layer)
 	travel_box = travel_panel.get_meta("box")
+	settings_panel = _make_overlay(layer)
+	settings_box = settings_panel.get_meta("box")
 
 	if SaveGame.load_into(hero, property):
 		log_event("Welcome back. Your progress was loaded.")
@@ -137,6 +152,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(_menu_button("Craft", _open_craft))
 	box.add_child(_menu_button("Bank & House", _open_property))
 	box.add_child(_menu_button("Travel", _open_travel))
+	box.add_child(_menu_button("Settings", _open_settings))
 	box.add_child(_menu_button("Save now", _save_now))
 	reset_button = _menu_button("Reset progress", _reset_progress)
 	box.add_child(reset_button)
@@ -760,7 +776,8 @@ func spawn_corpse(victim: Entity) -> void:
 
 
 func _build_environment() -> void:
-	var env := Environment.new()
+	add_child(sfx)
+	env = Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color("87a8c9")
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -770,7 +787,7 @@ func _build_environment() -> void:
 	we.environment = env
 	add_child(we)
 
-	var sun := DirectionalLight3D.new()
+	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-55.0, 30.0, 0.0)
 	sun.shadow_enabled = true
 	add_child(sun)
@@ -798,6 +815,32 @@ func log_event(text: String) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if paused:
+		return
+	# Two fingers: pinch to zoom, twist to turn the camera. Taps are ignored meanwhile.
+	if event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		if st.pressed:
+			touches[st.index] = st.position
+		else:
+			touches.erase(st.index)
+		_pinch_dist = 0.0
+		if touches.size() >= 2:
+			held = false
+	elif event is InputEventScreenDrag:
+		var sd := event as InputEventScreenDrag
+		touches[sd.index] = sd.position
+		if touches.size() >= 2:
+			_pinch()
+			return
+	if event is InputEventMagnifyGesture:
+		_zoom((event as InputEventMagnifyGesture).factor)
+		return
+	var wheel := event as InputEventMouseButton
+	if wheel != null and wheel.pressed and \
+			(wheel.button_index == MOUSE_BUTTON_WHEEL_UP or wheel.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+		_zoom(1.1 if wheel.button_index == MOUSE_BUTTON_WHEEL_UP else 0.9)
+		return
+	if touches.size() >= 2:
 		return
 	var button := event as InputEventMouseButton
 	if button != null and button.button_index == MOUSE_BUTTON_LEFT:
@@ -916,6 +959,8 @@ func _process(delta: float) -> void:
 		e.tick(delta)
 	_guards_strike()
 	_gates_tick(delta)
+	day_time = fmod(day_time + delta / DAY_SECONDS, 1.0)
+	_apply_daylight()
 	_quest_tick()
 	if property.has_house() and not hero.dead \
 			and hero.position.distance_to(world.tile_center(property.house_center_tile())) <= 6.0:
@@ -945,14 +990,91 @@ func _update_hud() -> void:
 		bag.resize(6)
 		bag.append("+%d more" % extra)
 	var bag_text := ", ".join(bag) if not bag.is_empty() else "empty"
-	hud.text = "Shardsight v%s   [%s]   %s\nHP %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s\n%s" % [
-		version, hero.state_text(), hero.notoriety_text(), ceili(hero.hp), s.max_hp(), floori(hero.mana), s.max_mana(),
+	hud.text = "Shardsight v%s   [%s]   %s   %s\nHP %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s\n%s" % [
+		version, hero.state_text(), hero.notoriety_text(), _clock_text(), ceili(hero.hp), s.max_hp(), floori(hero.mana), s.max_mana(),
 		floori(hero.reagents), hero.bandages, hero.gold,
 		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
 		s.skill_total(), Rules.SKILL_CAP_TOTAL, tile.x, tile.y, hero.gear_text(), bag_text,
 		_quest_text()]
 
 
+## factor > 1 zooms in.
+func _zoom(factor: float) -> void:
+	property.cam_zoom = clampf(property.cam_zoom / factor, 0.5, 1.8)
+
+
+func _pinch() -> void:
+	var keys := touches.keys()
+	var p0: Vector2 = touches[keys[0]]
+	var p1: Vector2 = touches[keys[1]]
+	var dist := p0.distance_to(p1)
+	var angle := (p1 - p0).angle()
+	if _pinch_dist > 0.0 and dist > 1.0:
+		_zoom(dist / _pinch_dist)
+		property.cam_yaw -= wrapf(angle - _pinch_angle, -PI, PI)
+	_pinch_dist = dist
+	_pinch_angle = angle
+
+
+## Sound effects near the hero (within 12 m), if sound is on.
+func sound(sound_name: String, at: Vector3) -> void:
+	if property.sound_on and hero != null and at.distance_to(hero.position) <= 12.0:
+		sfx.play(sound_name)
+
+
+## Moves the sun and dims the sky over the day; nights stay readable.
+func _apply_daylight() -> void:
+	var sun_height := sin((day_time - 0.25) * TAU)          # -1 midnight .. 1 noon
+	var light := clampf(0.5 + 0.5 * sun_height, 0.0, 1.0)
+	sun.light_energy = lerpf(0.25, 1.0, light)
+	sun.light_color = Color(0.6, 0.7, 1.0).lerp(Color(1.0, 0.97, 0.9), light)
+	sun.rotation_degrees = Vector3(-20.0 - 50.0 * maxf(sun_height, 0.0), day_time * 360.0, 0.0)
+	env.background_color = Color("0d1426").lerp(Color("87a8c9"), light)
+	env.ambient_light_energy = lerpf(0.45, 0.8, light)
+
+
+func _clock_text() -> String:
+	var minutes := int(day_time * 24.0 * 60.0)
+	var hour := minutes / 60
+	return "%02d:%02d %s" % [hour, minutes % 60, "day" if hour >= 6 and hour < 20 else "night"]
+
+
+func _refresh_settings() -> void:
+	for c in settings_box.get_children():
+		settings_box.remove_child(c)
+		c.queue_free()
+	var title := _info("Settings")
+	title.add_theme_font_size_override("font_size", 30)
+	settings_box.add_child(title)
+	settings_box.add_child(_menu_button("Sound: " + ("On" if property.sound_on else "Off"), _toggle_sound))
+	settings_box.add_child(_info("Camera: pinch with two fingers to zoom, twist them to turn the view (mouse wheel zooms on a computer)."))
+	settings_box.add_child(_menu_button("Reset camera", _reset_camera))
+	settings_box.add_child(_menu_button("Back", _close_settings))
+
+
+func _toggle_sound() -> void:
+	property.sound_on = not property.sound_on
+	_refresh_settings()
+
+
+func _reset_camera() -> void:
+	property.cam_zoom = 1.0
+	property.cam_yaw = 0.0
+	_follow_camera()
+	log_event("Camera reset.")
+
+
+func _open_settings() -> void:
+	menu.visible = false
+	settings_panel.visible = true
+	_refresh_settings()
+
+
+func _close_settings() -> void:
+	settings_panel.visible = false
+	menu.visible = true
+
+
 func _follow_camera() -> void:
-	cam.position = hero.position + CAM_OFFSET
+	cam.position = hero.position + CAM_OFFSET.rotated(Vector3.UP, property.cam_yaw) * property.cam_zoom
 	cam.look_at(hero.position + Vector3(0.0, 0.5, 0.0), Vector3.UP)

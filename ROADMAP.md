@@ -1,5 +1,7 @@
 # Roadmap (everything except multiplayer)
 
+All planned versions are done as of 0.14. What is missing from each is listed in CHANGELOG.md.
+
 Each version is built and checked before the next starts.
 
 - **0.8 Persistence and menu:** save/load, pause menu, fixed signing key support.

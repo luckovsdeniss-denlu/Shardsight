@@ -1,7 +1,8 @@
 class_name Property
-## The hero's bank box and house (mechanics reference: one bank account per character, reachable
-## at any bank and safe from theft and death; large purchases come straight from the bank;
-## houses give secure storage but decay and fall if neglected, dropping their contents).
+## The hero's bank box, house, rune, quest progress and settings.
+## Mechanics reference: one bank account per character, reachable at any bank and safe from
+## theft and death; large purchases come straight from the bank; houses give secure storage but
+## decay and fall if neglected, dropping their contents.
 
 const DEED_PRICE := 1500          # paid from the bank
 const POCKET_GOLD := 50           # gold the hero keeps on hand when banking automatically
@@ -21,6 +22,9 @@ var rune := Vector2i(-1, -1)           # where Recall and Gate Travel lead (set 
 var quest_index := 0                   # which of Quests.LIST is next or active
 var quest_active := false
 var quest_kills := 0
+var sound_on := true                   # settings
+var cam_zoom := 1.0
+var cam_yaw := 0.0
 
 
 func has_house() -> bool:
@@ -73,6 +77,7 @@ func to_dict() -> Dictionary:
 		"bank_gold": bank_gold, "bank_items": bank_items, "has_deed": has_deed,
 		"rune": [rune.x, rune.y], "quest_index": quest_index, "quest_active": quest_active,
 		"quest_kills": quest_kills,
+		"sound_on": sound_on, "cam_zoom": cam_zoom, "cam_yaw": cam_yaw,
 	}
 	if has_house():
 		d["house"] = {
@@ -93,6 +98,9 @@ func load_dict(d: Dictionary) -> void:
 	quest_index = clampi(int(d.get("quest_index", 0)), 0, Quests.LIST.size() - 1)
 	quest_active = bool(d.get("quest_active", false))
 	quest_kills = maxi(0, int(d.get("quest_kills", 0)))
+	sound_on = bool(d.get("sound_on", true))
+	cam_zoom = clampf(float(d.get("cam_zoom", 1.0)), 0.5, 1.8)
+	cam_yaw = float(d.get("cam_yaw", 0.0))
 	clear_house()
 	var h: Variant = d.get("house", null)
 	if typeof(h) == TYPE_DICTIONARY:

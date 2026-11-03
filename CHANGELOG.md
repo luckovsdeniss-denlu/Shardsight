@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.14.0
+- Sound (`scripts/sfx.gd`): small effects synthesized in code (no audio files) for hits, spells,
+  deaths, loot, skill gains and gathering, played near the hero. Toggle in Menu > Settings.
+- Day and night: an 8-minute cycle; the sun moves and the sky dims, nights stay readable. The
+  HUD shows the time.
+- Minimap (`scripts/minimap.gd`) under the Auto and Menu buttons: terrain, towns, dungeon,
+  houses, and everyone as coloured dots.
+- Camera: pinch with two fingers to zoom, twist them to turn the view (mouse wheel zooms on a
+  computer). Menu > Settings > Reset camera. Zoom, angle and sound are saved.
+- Animation: characters bob when walking, lunge on each swing, float while casting, tilt while
+  chopping or mining, breathe when idle; ghosts drift.
+
 ## 0.13.1
 - Fix: guards killed the same criminal over and over, flooding the log. A criminal ghost walked
   to the healer in town, was resurrected still flagged (the flag didn't count down while dead),

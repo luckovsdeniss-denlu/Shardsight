@@ -24,6 +24,7 @@ const MAX_BANDAGES := 10
 const MARKET_RANGE := 4.0          # the merchant trades with players this close
 const GATHER_TIME := 2.0           # seconds per swing of the pickaxe or hatchet
 const CARRY_MATERIALS := 30        # gatherers stop when carrying this many materials
+const SWING_ANIM := 0.22           # seconds of the attack lunge
 const CRIMINAL_SECONDS := 60.0     # grey after attacking an innocent
 const MURDER_WINDOW := 30.0        # an innocent dying this soon after your attack is a murder
 const MURDER_DECAY := 180.0        # seconds for one murder count to fade
@@ -98,6 +99,10 @@ var gather_timer := 0.0
 var crafting_trip := false
 var banking := false
 var gate_cd := 0.0             # just came through a moongate: don't bounce straight back
+var rig: Node3D                # body + nose, moved by the procedural animation
+var anim_t := 0.0
+var swing_anim := 0.0
+var _last_pos := Vector3.ZERO
 
 
 func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, tile: Vector2i) -> void:
@@ -140,6 +145,9 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 
 
 func _build_visual(color: Color, s: float) -> void:
+	rig = Node3D.new()
+	add_child(rig)
+	anim_t = randf() * 10.0          # so idle creatures don't breathe in lockstep
 	body = MeshInstance3D.new()
 	var capsule := CapsuleMesh.new()
 	capsule.radius = 0.3
@@ -148,7 +156,7 @@ func _build_visual(color: Color, s: float) -> void:
 	body.material_override = World._mat(color)
 	body.position = Vector3(0.0, 0.6 * s, 0.0)
 	body.scale = Vector3.ONE * s
-	add_child(body)
+	rig.add_child(body)
 	# A small "nose" so the facing direction is visible.
 	nose = MeshInstance3D.new()
 	var nose_mesh := BoxMesh.new()
@@ -157,7 +165,7 @@ func _build_visual(color: Color, s: float) -> void:
 	nose.material_override = World._mat(color.darkened(0.45))
 	nose.position = Vector3(0.0, 0.95 * s, -0.32 * s)
 	nose.scale = Vector3.ONE * s
-	add_child(nose)
+	rig.add_child(nose)
 	label = Label3D.new()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.pixel_size = 0.008
@@ -175,11 +183,13 @@ func tick(delta: float) -> void:
 	if dead:
 		if ghost:
 			_ghost_tick(delta)
+			_animate(delta)
 		else:
 			dead_timer -= delta
 			if dead_timer <= 0.0:
 				_respawn()
 		return
+	_animate(delta)
 	gate_cd = maxf(gate_cd - delta, 0.0)
 	swing_cd = maxf(swing_cd - delta, 0.0)
 	cast_cd = maxf(cast_cd - delta, 0.0)
@@ -371,6 +381,7 @@ func _fight() -> void:
 		lo = float(w["min"])
 		hi = float(w["max"])
 	swing_cd = Rules.swing_seconds(stats.max_stamina(), ws)
+	swing_anim = SWING_ANIM
 	var atk: float = stats.skills.get(Hero.Skill.SWORDSMANSHIP, 0.0)
 	var def: float = target.stats.skills.get(Hero.Skill.SWORDSMANSHIP, 0.0)
 	if randf() < Rules.hit_chance(atk, def):
@@ -420,6 +431,7 @@ func take_damage(amount: float, from: Entity) -> void:
 			game.log_event("%s attacks %s!" % [from.display_name, display_name])
 		attackers[aid] = MURDER_WINDOW
 	hp -= amount
+	game.sound("hit", position)
 	if casting_id != "":
 		_fizzle("disrupted")      # taking damage breaks a spell in progress
 	if bandage_timer > 0.0:
@@ -449,6 +461,7 @@ func _die(killer: Entity) -> void:
 	game.spawn_corpse(self)
 	game.log_event("%s was slain by %s" % [display_name, killer.display_name])
 	game.on_kill(killer, self)
+	game.sound("death", position)
 	if kind == Kind.PLAYER:
 		ghost = true                   # players become ghosts and look for a healer
 		dead_timer = RED_GHOST_TIMEOUT if died_red else GHOST_TIMEOUT
@@ -595,6 +608,7 @@ func start_cast(id: String, tgt: Entity) -> bool:
 	cast_timer = 0.5 + 0.25 * float(sp["circle"])
 	path.clear()
 	_pop(String(sp["words"]), Color(0.7, 0.85, 1.0))
+	game.sound("cast", position)
 	return true
 
 
@@ -851,6 +865,7 @@ func _take(c: Corpse) -> void:
 		parts.append("%s x%d" % [Items.item_name(id), int(found[id])])
 	if is_hero and not parts.is_empty():
 		game.log_event("You loot: " + ", ".join(parts))
+		game.sound("loot", position)
 
 
 ## Picks the nearest corpse worth looting, unless a monster is close.
@@ -1008,6 +1023,7 @@ func _finish_bandage() -> void:
 func _on_skill_gained(skill_name: String, value: float) -> void:
 	if is_hero:
 		game.log_event("Your %s increases to %.1f." % [skill_name, value])
+		game.sound("gain", position)
 
 
 func _on_stat_gained(stat_name: String, value: int) -> void:
@@ -1214,6 +1230,7 @@ func _harvest_once() -> void:
 	var id := Crafting.roll_ore(_skill(skill)) if is_ore else "log"
 	inventory[id] = int(inventory.get(id, 0)) + 1
 	_pop("+1 " + Items.item_name(id), Color(0.9, 0.85, 0.6))
+	game.sound("gather", position)
 	if kind == Kind.PLAYER:
 		stats.try_gain(skill)
 
@@ -1480,3 +1497,33 @@ func teleport_to(p: Vector3) -> void:
 	path.clear()
 	target = null
 	gate_cd = 2.0
+
+
+# --- animation -------------------------------------------------------------
+
+## Simple procedural motion: a bob while walking, a lunge on each swing, a float while casting,
+## a chopping tilt while gathering, gentle breathing when idle, and a drifting ghost.
+func _animate(delta: float) -> void:
+	anim_t += delta
+	swing_anim = maxf(swing_anim - delta, 0.0)
+	var moving := position.distance_to(_last_pos) > 0.001
+	_last_pos = position
+	var y := 0.0
+	var tilt := 0.0
+	if ghost:
+		y = 0.25 + sin(anim_t * 2.0) * 0.08
+	elif casting_id != "":
+		y = 0.1 + sin(anim_t * 6.0) * 0.05
+	elif moving:
+		y = absf(sin(anim_t * 11.0)) * 0.09
+	elif gather_tile.x >= 0:
+		tilt = maxf(sin(anim_t * 6.0), 0.0) * 0.35
+	else:
+		y = sin(anim_t * 2.0) * 0.015
+	var z := 0.0
+	if swing_anim > 0.0:
+		var k := sin(swing_anim / SWING_ANIM * PI)
+		z = -0.25 * k
+		tilt += 0.25 * k
+	rig.position = Vector3(0.0, y, z)
+	rig.rotation.x = -tilt
