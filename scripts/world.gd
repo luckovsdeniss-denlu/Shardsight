@@ -7,35 +7,37 @@ class_name World
 const TILE := 1.0  # one tile = one metre in 3D
 enum Tile { GRASS, WALL, WATER, TREE, ROCK, FORGE, HOUSE }
 
-## The guarded town: no player-versus-player here, and guards strike down criminals,
+## The guarded towns: no player-versus-player here, and guards strike down criminals,
 ## murderers and monsters on sight. Everything else is open wilderness.
-const TOWN := Rect2i(19, 2, 11, 12)
+const TOWNS := [Rect2i(19, 2, 11, 12), Rect2i(33, 2, 9, 6)]   # the main town and the outpost
+## The dungeon: dark halls in the east with the toughest monsters. You can't Mark a rune here.
+const DUNGEON := Rect2i(37, 11, 13, 11)
 
 const LAYOUT := [
-	"################################",
-	"#..............................#",
-	"#..............................#",
-	"#..TT....T.......RR.#########..#",
-	"#..T................#.......#..#",
-	"#.............TT....#F......#..#",
-	"#..............T....#.......#..#",
-	"#...................#.......#..#",
-	"#.R.................#.......#..#",
-	"#.RR................####.####..#",
-	"#..............................#",
-	"#..............................#",
-	"#.............##TT.#####.......#",
-	"#..............................#",
-	"#......~~~~~R..................#",
-	"#.....~~~~~~~.........TT.......#",
-	"#.....~~~~~~~..........T.......#",
-	"#......~~~~~...................#",
-	"#..............................#",
-	"#.T.......................TT...#",
-	"#.TT.....RR....................#",
-	"#..........................RR..#",
-	"#...........................R..#",
-	"################################",
+	"####################################################",
+	"#..............................#...................#",
+	"#..............................#...................#",
+	"#..TT....T.......RR.#########..#............TT.....#",
+	"#..T................#.......#...............T......#",
+	"#.............TT....#F......#......................#",
+	"#..............T....#.......#..#................TT.#",
+	"#...................#.......#..#.......RR..........#",
+	"#.R.................#.......#..#...................#",
+	"#.RR................####.####..#...................#",
+	"#..............................#....################",
+	"#..............................#....#.....#.......##",
+	"#.............##TT.#####.......#.T..#.....#.......##",
+	"#..............................#.T..#.....#.......##",
+	"#......~~~~~R..................#....#.....#...#...##",
+	"#.....~~~~~~~.........TT.......#....#.....#...#...##",
+	"#.....~~~~~~~..........T..................#...#...##",
+	"#......~~~~~........................#.....#...#...##",
+	"#..............................#....#.....#...#...##",
+	"#.T.......................TT...#....#.........#...##",
+	"#.TT.....RR....................#....#.........#...##",
+	"#..........................RR..#....#.........#...##",
+	"#...........................R..#....################",
+	"####################################################",
 ]
 const COLORS := {
 	Tile.GRASS: Color("2f5d34"),
@@ -105,7 +107,14 @@ static func _parse(ch: String) -> int:
 
 
 func is_town(c: Vector2i) -> bool:
-	return TOWN.has_point(c)
+	for r in TOWNS:
+		if (r as Rect2i).has_point(c):
+			return true
+	return false
+
+
+func is_dungeon(c: Vector2i) -> bool:
+	return DUNGEON.has_point(c)
 
 
 func in_bounds(c: Vector2i) -> bool:
@@ -279,6 +288,14 @@ func find_house_spot(near: Vector2i, occupied: Dictionary, radius := 6) -> Vecto
 	return Vector2i(-1, -1)
 
 
+## A flat coloured patch over a rectangle of tiles (town paving, dungeon floor).
+func _add_floor(parent: Node3D, r: Rect2i, color: Color) -> void:
+	var mesh := PlaneMesh.new()
+	mesh.size = Vector2(r.size) * TILE
+	_add(parent, mesh, _mat(color),
+		Vector3(r.position.x + r.size.x / 2.0, 0.01, r.position.y + r.size.y / 2.0) * TILE)
+
+
 func is_blocked(c: Vector2i) -> bool:
 	return not in_bounds(c) or tiles[c.y * cols + c.x] != Tile.GRASS
 
@@ -331,10 +348,9 @@ func build(parent: Node3D) -> void:
 	_add(parent, ground_mesh, _mat(COLORS[Tile.GRASS]),
 		Vector3(cols, 0.0, rows) * TILE / 2.0)
 
-	var town_mesh := PlaneMesh.new()
-	town_mesh.size = Vector2(TOWN.size) * TILE
-	_add(parent, town_mesh, _mat(Color("8a7f5a")),
-		Vector3(TOWN.position.x + TOWN.size.x / 2.0, 0.01, TOWN.position.y + TOWN.size.y / 2.0) * TILE)
+	for r in TOWNS:
+		_add_floor(parent, r, Color("8a7f5a"))
+	_add_floor(parent, DUNGEON, Color("2b2622"))
 
 	var wall_mesh := BoxMesh.new()
 	wall_mesh.size = Vector3(TILE, 1.6, TILE)

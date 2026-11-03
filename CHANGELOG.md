@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.13.0
+- Bigger world: the map now runs 52 tiles east. An outpost town (guarded, with healer Brother
+  Aldo) sits by a walled dungeon of dark halls. Ghosts walk to the nearest healer.
+- Dungeon monsters: skeletons, a zombie, an ogre and a lich (a spellcaster with Earthquake),
+  with better gold and gear (broadswords, halberds, heater shields, platemail).
+- Magery circles 5-8: Mind Blast, Energy Bolt, Explosion, Flamestrike and Earthquake (hits every
+  hostile creature around the caster, never innocents). Casters pick them up as Magery grows.
+- Travel magic (Menu > Travel): Recall to your rune, Mark it where you stand (not in the
+  dungeon), Gate Travel opens a two-way moongate for 20 s that anyone, monsters included, can
+  walk through. You start with a rune marked in the town square.
+- Quests: Captain Marcus in town gives kill quests (rats up to the lich) with gold rewards;
+  stand near him to take one and to hand it in. Progress shows in the HUD and is saved, as is
+  your rune.
+
 ## 0.12.0
 - Bank (`scripts/property.gd`): Oswin the banker in town keeps your gold and items safe from
   death and theft. Menu > Bank & House: deposit or withdraw gold, deposit your bag, take items

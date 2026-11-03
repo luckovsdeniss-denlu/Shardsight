@@ -97,6 +97,7 @@ var gather_tile := Vector2i(-1, -1)
 var gather_timer := 0.0
 var crafting_trip := false
 var banking := false
+var gate_cd := 0.0             # just came through a moongate: don't bounce straight back
 
 
 func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, tile: Vector2i) -> void:
@@ -179,6 +180,7 @@ func tick(delta: float) -> void:
 				_respawn()
 		return
 	_tick_reputation(delta)
+	gate_cd = maxf(gate_cd - delta, 0.0)
 	swing_cd = maxf(swing_cd - delta, 0.0)
 	cast_cd = maxf(cast_cd - delta, 0.0)
 	pause = maxf(pause - delta, 0.0)
@@ -267,7 +269,7 @@ func _recover() -> bool:
 		if heal_id != "":
 			start_cast(heal_id, self)
 			return true
-	var healer := _find_role("healer")
+	var healer := _nearest_role("healer")
 	if healer != null and position.distance_to(healer.position) > 2.0 and path.is_empty():
 		go_to(healer.position)
 	return true
@@ -446,6 +448,7 @@ func _die(killer: Entity) -> void:
 	_settle_crimes(killer)
 	game.spawn_corpse(self)
 	game.log_event("%s was slain by %s" % [display_name, killer.display_name])
+	game.on_kill(killer, self)
 	if kind == Kind.PLAYER:
 		ghost = true                   # players become ghosts and look for a healer
 		dead_timer = RED_GHOST_TIMEOUT if died_red else GHOST_TIMEOUT
@@ -624,6 +627,7 @@ func _fizzle(reason: String) -> void:
 
 
 func _finish_cast() -> void:
+	var id := casting_id
 	var sp: Dictionary = Spells.LIST[casting_id]
 	var tgt := cast_target
 	casting_id = ""
@@ -634,6 +638,15 @@ func _finish_cast() -> void:
 		return
 	if randf() >= Rules.cast_chance(_skill(Hero.Skill.MAGERY), float(sp["min"])):
 		_pop("fizzle", Color(0.75, 0.75, 0.75))
+		return
+	var spell_kind := String(sp["kind"])
+	if spell_kind == "travel" or spell_kind == "area":
+		if spell_kind == "travel":
+			_travel(id)
+		else:
+			_area_blast(sp)
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.MAGERY)
 		return
 	var amount := randf_range(float(sp["min_dmg"]), float(sp["max_dmg"]))
 	if String(sp["kind"]) == "heal":
@@ -662,6 +675,10 @@ func _try_auto_cast(d: float) -> bool:
 		var heal_id := _best_spell("heal")
 		if heal_id != "":
 			return start_cast(heal_id, self)
+	if _count_fair_targets(Spells.AREA_RADIUS) >= 2:
+		var area_id := _best_spell("area")
+		if area_id != "":
+			return start_cast(area_id, self)
 	if d <= SPELL_RANGE:
 		var attack_id := _best_spell("attack")
 		if attack_id != "":
@@ -1081,6 +1098,8 @@ func _avoids_town() -> bool:
 ## Players fight monsters and criminals; player killers also prey on innocents.
 ## Nobody fights other players inside the guarded town.
 func _is_fair_target(e: Entity) -> bool:
+	if kind == Kind.MONSTER:
+		return e.kind == Kind.PLAYER       # monsters (and their area spells) hit players only
 	if e.kind == Kind.MONSTER:
 		return true
 	if e.kind != Kind.PLAYER or _in_town() or e._in_town():
@@ -1122,7 +1141,7 @@ func _ghost_tick(delta: float) -> void:
 		return
 	if died_red:
 		return
-	var healer := _find_role("healer")
+	var healer := _nearest_role("healer")
 	if healer == null:
 		return
 	if position.distance_to(healer.position) <= HEAL_RANGE:
@@ -1355,3 +1374,107 @@ func _bank_trip() -> bool:
 		banking = false
 		return false
 	return true
+
+
+func _nearest_role(r: String) -> Entity:
+	var best: Entity = null
+	var best_d := INF
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e.role == r and not e.dead:
+			var d := position.distance_to(e.position)
+			if d < best_d:
+				best = e
+				best_d = d
+	return best
+
+
+# --- area and travel magic -------------------------------------------------
+
+func _count_fair_targets(radius: float) -> int:
+	var n := 0
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e != self and not e.dead and _is_fair_target(e) and position.distance_to(e.position) <= radius:
+			n += 1
+	return n
+
+
+## Earthquake: hurts everything hostile around the caster (never innocents).
+func _area_blast(sp: Dictionary) -> void:
+	_pop(String(sp["name"]) + "!", sp["color"])
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e == self or e.dead or not _is_fair_target(e):
+			continue
+		if position.distance_to(e.position) > Spells.AREA_RADIUS:
+			continue
+		var amount := randf_range(float(sp["min_dmg"]), float(sp["max_dmg"])) \
+			* Rules.spell_damage_multiplier(_skill(Hero.Skill.EVALUATING_INTELLECT))
+		if randf() < Rules.resist_chance(e._skill(Hero.Skill.RESISTING_SPELLS)):
+			amount *= 0.5
+			e._pop("resisted", Color(0.7, 0.9, 1.0))
+		e.take_damage(amount, self)
+
+
+## Why a travel spell can't be cast now, or "" if it can.
+func travel_problem(id: String) -> String:
+	var sp: Dictionary = Spells.LIST[id]
+	if dead:
+		return "you are dead"
+	if _skill(Hero.Skill.MAGERY) < float(sp["min"]):
+		return "it needs Magery %.1f" % float(sp["min"])
+	if mana < float(sp["mana"]):
+		return "not enough mana"
+	if reagents < float(sp["reagents"]):
+		return "not enough reagents"
+	if id == "mark":
+		if world.is_dungeon(world.to_tile(position)):
+			return "runes can't be marked in the dungeon"
+		return ""
+	var rune: Vector2i = game.property.rune
+	if rune.x < 0:
+		return "your rune isn't marked"
+	if world.is_blocked(rune):
+		return "the marked spot is blocked"
+	return ""
+
+
+## Cast from Menu > Travel.
+func cast_travel(id: String) -> void:
+	var problem := travel_problem(id)
+	if problem != "":
+		game.log_event("You can't cast %s: %s." % [Spells.LIST[id]["name"], problem])
+		return
+	target = null
+	loot_target = null
+	gather_tile = Vector2i(-1, -1)
+	start_cast(id, self)
+
+
+func _travel(id: String) -> void:
+	if id == "mark":
+		game.property.rune = world.to_tile(position)
+		game.log_event("You mark your rune here.")
+		return
+	var rune: Vector2i = game.property.rune
+	if rune.x < 0 or world.is_blocked(rune):
+		_pop("fizzle", Color(0.75, 0.75, 0.75))
+		return
+	var dest := world.tile_center(rune)
+	if id == "gate_travel":
+		game.open_gate(world.tile_center(world.to_tile(position)), dest)
+		game.log_event("A moongate opens to your rune. Anyone may follow for a short while.")
+	else:
+		game.log_event("You recall to your rune.")
+	teleport_to(dest)
+
+
+func teleport_to(p: Vector3) -> void:
+	position = p
+	path.clear()
+	target = null
+	gate_cd = 2.0

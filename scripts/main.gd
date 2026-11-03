@@ -6,6 +6,8 @@ extends Node3D
 const CAM_OFFSET := Vector3(0.0, 9.0, 7.0)
 const MANUAL_PAUSE := 4.0      # seconds auto mode waits after a tap
 const LOG_LINES := 6
+const DEFAULT_RUNE := Vector2i(25, 13)
+const GATE_SECONDS := 20.0
 
 var version: String = ProjectSettings.get_setting("application/config/version", "dev")
 var world := World.new()
@@ -29,6 +31,9 @@ var craft_box: VBoxContainer
 var property := Property.new()
 var property_panel: Control
 var property_box: VBoxContainer
+var travel_panel: Control
+var travel_box: VBoxContainer
+var gates: Array[Dictionary] = []      # {"a": Vector3, "b": Vector3, "life": float, "nodes": [Node3D]}
 var reset_button: Button
 var reset_armed := false
 var save_timer := 0.0
@@ -85,12 +90,16 @@ func _ready() -> void:
 	_build_skills_panel(layer)
 	_build_craft_panel(layer)
 	_build_property_panel(layer)
+	travel_panel = _make_overlay(layer)
+	travel_box = travel_panel.get_meta("box")
 
 	if SaveGame.load_into(hero, property):
 		log_event("Welcome back. Your progress was loaded.")
 		_restore_house()
 	else:
 		log_event("Welcome to Shardsight. Tap a monster to attack it.")
+	if property.rune.x < 0:
+		property.rune = DEFAULT_RUNE         # a starting rune marked in town, for Recall
 	_follow_camera()
 
 
@@ -127,6 +136,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(_menu_button("Skills", _open_skills))
 	box.add_child(_menu_button("Craft", _open_craft))
 	box.add_child(_menu_button("Bank & House", _open_property))
+	box.add_child(_menu_button("Travel", _open_travel))
 	box.add_child(_menu_button("Save now", _save_now))
 	reset_button = _menu_button("Reset progress", _reset_progress)
 	box.add_child(reset_button)
@@ -491,6 +501,168 @@ func _close_property() -> void:
 	menu.visible = true
 
 
+## A centred, scrolling panel; the list box inside is stored as meta "box".
+func _make_overlay(layer: CanvasLayer) -> Control:
+	var overlay := CenterContainer.new()
+	overlay.visible = false
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(overlay)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var panel := PanelContainer.new()
+	overlay.add_child(panel)
+	var pad := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		pad.add_theme_constant_override("margin_" + side, 20)
+	panel.add_child(pad)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	pad.add_child(_scroll_wrap(box))
+	overlay.set_meta("box", box)
+	return overlay
+
+
+# --- quests ----------------------------------------------------------------
+
+func _quest_text() -> String:
+	if not property.quest_active:
+		return "Quest: visit %s in town for work." % Quests.GIVER
+	var q: Dictionary = Quests.LIST[property.quest_index]
+	var done := property.quest_kills >= int(q["count"])
+	return "Quest: slay %d %s (%d/%d), reward %d gold%s" % [
+		int(q["count"]), q["target"], mini(property.quest_kills, int(q["count"])), int(q["count"]),
+		int(q["reward"]), " - done, return to %s!" % Quests.GIVER if done else ""]
+
+
+## Called by Entity._die for every death.
+func on_kill(killer: Entity, victim: Entity) -> void:
+	if killer == null or not killer.is_hero or not property.quest_active:
+		return
+	var q: Dictionary = Quests.LIST[property.quest_index]
+	if victim.display_name != String(q["target"]) or property.quest_kills >= int(q["count"]):
+		return
+	property.quest_kills += 1
+	log_event("Quest: %d/%d %s slain." % [property.quest_kills, int(q["count"]), q["target"]])
+	if property.quest_kills >= int(q["count"]):
+		log_event("Quest complete! Return to %s for your reward." % Quests.GIVER)
+
+
+## Standing near the captain hands in a finished quest and takes the next one.
+func _quest_tick() -> void:
+	if hero.dead:
+		return
+	var captain := _role_entity("questgiver")
+	if captain == null or captain.position.distance_to(hero.position) > 3.0:
+		return
+	if property.quest_active:
+		var q: Dictionary = Quests.LIST[property.quest_index]
+		if property.quest_kills < int(q["count"]):
+			return
+		hero.gold += int(q["reward"])
+		log_event("%s: Well done! Here are %d gold." % [Quests.GIVER, int(q["reward"])])
+		property.quest_active = false
+		property.quest_index = (property.quest_index + 1) % Quests.LIST.size()
+	var next: Dictionary = Quests.LIST[property.quest_index]
+	property.quest_active = true
+	property.quest_kills = 0
+	log_event("%s: %s Reward: %d gold." % [Quests.GIVER, next["text"], int(next["reward"])])
+
+
+func _role_entity(r: String) -> Entity:
+	for e in creatures:
+		if e.role == r:
+			return e
+	return null
+
+
+# --- moongates (Gate Travel) -----------------------------------------------
+
+## Opens a two-way gate between two points for a while. Anyone walking into one end comes out
+## of the other (monsters too).
+func open_gate(a: Vector3, b: Vector3) -> void:
+	var nodes: Array[Node3D] = []
+	for p in [a, b]:
+		var gate := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = 0.4
+		mesh.bottom_radius = 0.4
+		mesh.height = 2.0
+		gate.mesh = mesh
+		var mat := World._mat(Color(0.3, 0.5, 1.0))
+		mat.emission_enabled = true
+		mat.emission = Color(0.2, 0.4, 1.0)
+		gate.material_override = mat
+		gate.transparency = 0.4
+		add_child(gate)
+		gate.position = p + Vector3(0.0, 1.0, 0.0)
+		nodes.append(gate)
+	gates.append({"a": a, "b": b, "life": GATE_SECONDS, "nodes": nodes})
+
+
+func _gates_tick(delta: float) -> void:
+	for g in gates.duplicate():
+		g["life"] = float(g["life"]) - delta
+		if float(g["life"]) <= 0.0:
+			for n in g["nodes"]:
+				(n as Node3D).queue_free()
+			gates.erase(g)
+	for e in creatures:
+		if e.dead or e.kind == Entity.Kind.NPC:
+			continue
+		for g in gates:
+			var a: Vector3 = g["a"]
+			var b: Vector3 = g["b"]
+			var at_a := e.position.distance_to(a) < 0.6
+			var at_b := e.position.distance_to(b) < 0.6
+			if not at_a and not at_b:
+				continue
+			if e.gate_cd > 0.0:
+				e.gate_cd = maxf(e.gate_cd, 0.5)   # just arrived: must step out before going back
+			else:
+				e.teleport_to(b if at_a else a)
+			break
+
+
+# --- travel menu -----------------------------------------------------------
+
+func _refresh_travel() -> void:
+	for c in travel_box.get_children():
+		travel_box.remove_child(c)
+		c.queue_free()
+	var title := _info("Travel magic")
+	title.add_theme_font_size_override("font_size", 30)
+	travel_box.add_child(title)
+	var r := property.rune
+	travel_box.add_child(_info("Your rune is marked at %d,%d%s." % [
+		r.x, r.y, " (the town square)" if r == DEFAULT_RUNE else ""]))
+	for id in ["recall", "mark", "gate_travel"]:
+		var sp: Dictionary = Spells.LIST[id]
+		var problem := hero.travel_problem(id)
+		travel_box.add_child(_info("%s: circle %d, %d mana, Magery %.1f, %d%% chance%s" % [
+			sp["name"], int(sp["circle"]), int(sp["mana"]), float(sp["min"]),
+			roundi(Rules.cast_chance(float(hero.stats.skills[Hero.Skill.MAGERY]), float(sp["min"])) * 100.0),
+			"" if problem == "" else " (" + problem + ")"]))
+		travel_box.add_child(_action("Cast " + String(sp["name"]), _on_travel.bind(id), problem == ""))
+	travel_box.add_child(_info("Recall takes you to the rune; Mark moves the rune to where you stand; Gate Travel opens a moongate there that anyone can use for %d seconds." % int(GATE_SECONDS)))
+	travel_box.add_child(_menu_button("Back", _close_travel))
+
+
+func _on_travel(id: String) -> void:
+	hero.cast_travel(id)
+	travel_panel.visible = false
+	_resume()                      # the spell finishes once the game runs again
+
+
+func _open_travel() -> void:
+	menu.visible = false
+	travel_panel.visible = true
+	_refresh_travel()
+
+
+func _close_travel() -> void:
+	travel_panel.visible = false
+	menu.visible = true
+
+
 func _open_menu() -> void:
 	paused = true
 	menu.visible = true
@@ -551,6 +723,10 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.NPC, "Oswin", Bestiary.BANKER, cream, Vector2i(26, 12))
 	_spawn(Entity.Kind.NPC, "Town Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(20, 11))
 	_spawn(Entity.Kind.NPC, "Town Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(28, 11))
+	_spawn(Entity.Kind.NPC, Quests.GIVER, Bestiary.QUESTGIVER, Color("c9a86a"), Vector2i(22, 13))
+	# The outpost, east of the main town, near the dungeon.
+	_spawn(Entity.Kind.NPC, "Brother Aldo", Bestiary.HEALER, cream, Vector2i(35, 4))
+	_spawn(Entity.Kind.NPC, "Outpost Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(38, 6))
 
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(12, 8))
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(6, 11))
@@ -558,6 +734,12 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(27, 20))
 	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(16, 20))
 	_spawn(Entity.Kind.MONSTER, "Evil Mage", Bestiary.EVIL_MAGE, red, Vector2i(14, 22))
+	# The dungeon.
+	_spawn(Entity.Kind.MONSTER, "Skeleton", Bestiary.SKELETON, Color("d8d2c0"), Vector2i(39, 13))
+	_spawn(Entity.Kind.MONSTER, "Skeleton", Bestiary.SKELETON, Color("d8d2c0"), Vector2i(40, 20))
+	_spawn(Entity.Kind.MONSTER, "Zombie", Bestiary.ZOMBIE, Color("6f8f5a"), Vector2i(44, 12))
+	_spawn(Entity.Kind.MONSTER, "Ogre", Bestiary.OGRE, Color("8a6a4a"), Vector2i(44, 20))
+	_spawn(Entity.Kind.MONSTER, "Lich", Bestiary.LICH, Color("6a4a8a"), Vector2i(48, 12))
 
 
 func _spawn(kind: int, label_text: String, cfg: Dictionary, color: Color, tile: Vector2i) -> Entity:
@@ -734,6 +916,8 @@ func _process(delta: float) -> void:
 	for e in creatures:
 		e.tick(delta)
 	_guards_strike()
+	_gates_tick(delta)
+	_quest_tick()
 	if property.has_house() and not hero.dead \
 			and hero.position.distance_to(world.tile_center(property.house_center_tile())) <= 6.0:
 		property.refresh()             # being near the house keeps it from decaying
@@ -762,11 +946,12 @@ func _update_hud() -> void:
 		bag.resize(6)
 		bag.append("+%d more" % extra)
 	var bag_text := ", ".join(bag) if not bag.is_empty() else "empty"
-	hud.text = "Shardsight v%s   [%s]   %s\nHP %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s" % [
+	hud.text = "Shardsight v%s   [%s]   %s\nHP %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s\n%s" % [
 		version, hero.state_text(), hero.notoriety_text(), ceili(hero.hp), s.max_hp(), floori(hero.mana), s.max_mana(),
 		floori(hero.reagents), hero.bandages, hero.gold,
 		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
-		s.skill_total(), Rules.SKILL_CAP_TOTAL, tile.x, tile.y, hero.gear_text(), bag_text]
+		s.skill_total(), Rules.SKILL_CAP_TOTAL, tile.x, tile.y, hero.gear_text(), bag_text,
+		_quest_text()]
 
 
 func _follow_camera() -> void:

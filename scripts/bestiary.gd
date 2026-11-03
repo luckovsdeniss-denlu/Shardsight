@@ -54,6 +54,7 @@ const PKILLER := {
 const MERCHANT := {"str": 20, "dex": 15, "int": 30, "move": 1.5, "leash": 2, "role": "merchant"}
 const GUARD := {"str": 60, "dex": 40, "int": 10, "move": 1.5, "leash": 2, "role": "guard"}
 const BANKER := {"str": 20, "dex": 15, "int": 30, "move": 1.2, "leash": 1, "role": "banker"}
+const QUESTGIVER := {"str": 50, "dex": 30, "int": 20, "move": 1.2, "leash": 1, "role": "questgiver"}
 const HEALER := {"str": 25, "dex": 15, "int": 35, "move": 1.5, "leash": 2, "role": "healer"}
 
 # Hostile monsters.
@@ -82,5 +83,34 @@ const EVIL_MAGE := {
 	"skills": {
 		Hero.Skill.SWORDSMANSHIP: 20.0, Hero.Skill.MAGERY: 55.0, Hero.Skill.EVALUATING_INTELLECT: 40.0,
 		Hero.Skill.MEDITATION: 40.0, Hero.Skill.RESISTING_SPELLS: 30.0,
+	},
+}
+
+# Dungeon dwellers: tougher, and better loot.
+const SKELETON := {
+	"str": 40, "dex": 35, "int": 10, "wspeed": 35, "dmg_min": 4, "dmg_max": 10,
+	"move": 2.6, "leash": 4, "aggro": 5.0, "respawn": 20.0, "armor": 2.0, "scale": 1.0,
+	"loot": {"gold_min": 15, "gold_max": 40, "drops": [["broadsword", 0.12], ["heater_shield", 0.08], ["chainmail", 0.08]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 65.0, Hero.Skill.TACTICS: 60.0, Hero.Skill.ANATOMY: 30.0},
+}
+const ZOMBIE := {
+	"str": 55, "dex": 20, "int": 5, "wspeed": 25, "dmg_min": 5, "dmg_max": 12,
+	"move": 1.8, "leash": 4, "aggro": 4.0, "respawn": 20.0, "armor": 1.0, "scale": 1.05,
+	"loot": {"gold_min": 10, "gold_max": 30, "drops": [["studded_armor", 0.15]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 55.0, Hero.Skill.TACTICS: 55.0},
+}
+const OGRE := {
+	"str": 90, "dex": 40, "int": 15, "wspeed": 25, "dmg_min": 9, "dmg_max": 18,
+	"move": 2.3, "leash": 4, "aggro": 5.0, "respawn": 30.0, "armor": 3.0, "scale": 1.5,
+	"loot": {"gold_min": 40, "gold_max": 90, "drops": [["halberd", 0.15], ["platemail", 0.08]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 75.0, Hero.Skill.TACTICS: 70.0, Hero.Skill.ANATOMY: 50.0},
+}
+const LICH := {
+	"str": 50, "dex": 40, "int": 80, "wspeed": 30, "dmg_min": 3, "dmg_max": 8,
+	"move": 2.2, "leash": 3, "aggro": 7.0, "respawn": 45.0, "reagents": 999, "scale": 1.2,
+	"loot": {"gold_min": 80, "gold_max": 160, "reagents": 12, "drops": [["platemail", 0.15], ["heater_shield", 0.15], ["mage_robe", 0.5]]},
+	"skills": {
+		Hero.Skill.SWORDSMANSHIP: 40.0, Hero.Skill.MAGERY: 90.0, Hero.Skill.EVALUATING_INTELLECT: 80.0,
+		Hero.Skill.MEDITATION: 80.0, Hero.Skill.RESISTING_SPELLS: 70.0,
 	},
 }

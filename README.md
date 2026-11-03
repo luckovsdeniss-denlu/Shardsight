@@ -7,7 +7,9 @@ Android game inspired by classic Ultima Online mechanics (stats, skills, open-wo
 - `scripts/entity.gd`: every creature (hero, players, NPCs, monsters): AI, movement, combat.
 - `scripts/gear.gd`: weapons and armor.
 - `scripts/corpse.gd`, `scripts/items.gd`: looting.
-- `scripts/spells.gd`: Magery spell table.
+- `scripts/spells.gd`: Magery spell table (all 8 circles, travel spells).
+- `scripts/quests.gd`: kill quests.
+- `scripts/property.gd`: bank, house, rune and quest progress.
 - `scripts/bestiary.gd`: stat blocks.
 - `scripts/hero.gd`: 3 stats, skills 0..100, no classes or levels.
 - `scripts/world.gd`: ASCII tile map (grass, wall, water, tree): collision lookup, A* pathfinding, 3D mesh building.

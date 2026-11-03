@@ -17,6 +17,10 @@ var has_deed := false
 var house_origin := Vector2i(-1, -1)   # top-left tile of the 3x3 house
 var house_chest := {}
 var house_last_visit := 0.0            # unix time
+var rune := Vector2i(-1, -1)           # where Recall and Gate Travel lead (set with Mark)
+var quest_index := 0                   # which of Quests.LIST is next or active
+var quest_active := false
+var quest_kills := 0
 
 
 func has_house() -> bool:
@@ -65,7 +69,11 @@ static func items_text(items: Dictionary) -> String:
 
 
 func to_dict() -> Dictionary:
-	var d := {"bank_gold": bank_gold, "bank_items": bank_items, "has_deed": has_deed}
+	var d := {
+		"bank_gold": bank_gold, "bank_items": bank_items, "has_deed": has_deed,
+		"rune": [rune.x, rune.y], "quest_index": quest_index, "quest_active": quest_active,
+		"quest_kills": quest_kills,
+	}
 	if has_house():
 		d["house"] = {
 			"x": house_origin.x, "y": house_origin.y,
@@ -79,6 +87,12 @@ func load_dict(d: Dictionary) -> void:
 	bank_gold = maxi(0, int(d.get("bank_gold", 0)))
 	bank_items = _clean_items(d.get("bank_items", {}))
 	has_deed = bool(d.get("has_deed", false))
+	var r: Variant = d.get("rune", [])
+	if typeof(r) == TYPE_ARRAY and (r as Array).size() == 2:
+		rune = Vector2i(int(r[0]), int(r[1]))
+	quest_index = clampi(int(d.get("quest_index", 0)), 0, Quests.LIST.size() - 1)
+	quest_active = bool(d.get("quest_active", false))
+	quest_kills = maxi(0, int(d.get("quest_kills", 0)))
 	clear_house()
 	var h: Variant = d.get("house", null)
 	if typeof(h) == TYPE_DICTIONARY:
