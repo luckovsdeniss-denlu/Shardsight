@@ -128,6 +128,7 @@ func _ready() -> void:
 	settings_box = settings_panel.get_meta("box")
 
 	if autotest:
+		seed(20261103)                       # same dice every run, so results are comparable
 		skip_save = true                     # a fresh game; never touch the real save
 		_start_skill_total = hero.stats.skill_total()
 		print("AUTOTEST start: %d game-seconds" % int(AUTOTEST_SECONDS))
@@ -761,6 +762,9 @@ func _autotest_finish() -> void:
 		_note_problem("the hero looted nothing")
 	if float(counters["skill_points_gained"]) <= 0.0:
 		_note_problem("none of the hero's skills rose")
+	var deaths := int(counters.get("hero_deaths", 0))
+	if deaths > int(counters.get("kills", 0)):
+		_note_problem("the hero died more often than it killed (%d deaths, %d kills)" % [deaths, int(counters.get("kills", 0))])
 	for p in problems:
 		print("AUTOTEST FAIL: " + p)
 	if problems.is_empty():

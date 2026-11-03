@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.15.1
+- Balance, from the play-test reports (the hero died 7 times against 5 kills in one run, mostly
+  to the Evil Mage and to Vex):
+  - Players in Auto only start fights they can win: monsters have a danger rating (rat 1 ...
+    lich 8), compared with the player's power (best weapon or magic skill / 20 + armor / 4).
+    They still fight back when attacked.
+  - Young players (under 200 skill points) are spared by player killers. The HUD says "young".
+  - Players fall back to a healer at 45% HP (was 35%).
+- Play-test: seeded so runs are repeatable, reports who killed the hero and what it killed, and
+  fails if the hero dies more often than it kills.
+
 ## 0.15.0
 - Automated play-test in CI: a fresh game plays itself in Auto mode for 15 game-minutes (headless,
   fixed 20 fps). It fails the build if the hero never kills, loots or gains skill, if anyone

@@ -8,7 +8,8 @@ enum Kind { PLAYER, NPC, MONSTER }
 enum Notoriety { BLUE, GREY, RED }   # innocent, criminal, murderer (monsters are always red)
 
 const MELEE_RANGE := 1.5
-const FLEE_HP := 0.35          # players retreat to a healer below this HP fraction
+const FLEE_HP := 0.45          # players retreat to a healer below this HP fraction
+const YOUNG_SKILL_TOTAL := 200.0   # below this, a player is "young" and player killers leave them be
 const RECOVER_HP := 0.9
 const HEAL_RANGE := 2.5
 const HEAL_PER_SEC := 4.0
@@ -91,6 +92,7 @@ var murder_timer := 0.0
 var criminal_timer := 0.0
 var attackers := {}            # attacker instance id -> seconds left in which our death is murder
 var is_pk := false             # a player killer: hunts innocent players in the wilderness
+var danger := 1.0              # how tough a monster is (players compare it with their power)
 var ghost := false
 var died_red := false
 var crafter := false           # gathers and crafts when idle (the hero)
@@ -139,6 +141,7 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	shield_id = String(cfg.get("shield", ""))
 	bandages = int(cfg.get("bandages", 0))
 	is_pk = bool(cfg.get("pk", false))
+	danger = float(cfg.get("danger", 1.0))
 	crafter = bool(cfg.get("crafter", false))
 	stats.skill_gained.connect(_on_skill_gained)
 	stats.stat_gained.connect(_on_stat_gained)
@@ -1060,7 +1063,7 @@ func notoriety_text() -> String:
 			return "Murderer (%d)" % murder_counts
 		Notoriety.GREY:
 			return "Criminal (%d)" % murder_counts
-	return "Innocent (%d)" % murder_counts
+	return ("Innocent, young (%d)" if is_young() else "Innocent (%d)") % murder_counts
 
 
 func _name_color() -> Color:
@@ -1129,8 +1132,27 @@ func _is_fair_target(e: Entity) -> bool:
 	if e.kind != Kind.PLAYER or _in_town() or e._in_town():
 		return false
 	if is_pk:
-		return true
+		return not e.is_young()            # young players are left alone
 	return e.notoriety() != Notoriety.BLUE
+
+
+## Young players (under 200 skill points) are spared by player killers.
+func is_young() -> bool:
+	return kind == Kind.PLAYER and stats.skill_total() < YOUNG_SKILL_TOTAL
+
+
+## Rough fighting strength: best weapon or magic skill, plus worn armor.
+func power() -> float:
+	var best := maxf(_skill(Hero.Skill.SWORDSMANSHIP), _skill(Hero.Skill.MAGERY))
+	return best / 20.0 + _armor_rating() / 4.0
+
+
+## Players only pick fights they can win: a monster much tougher than they are is left alone
+## unless it is already attacking them.
+func _worth_fighting(e: Entity) -> bool:
+	if kind != Kind.PLAYER or e.kind != Kind.MONSTER or e.target == self:
+		return true
+	return e.danger <= power() + 0.5
 
 
 func _pick_target() -> Entity:
@@ -1142,7 +1164,7 @@ func _pick_target() -> Entity:
 		if e == self or e.dead:
 			continue
 		var d := position.distance_to(e.position)
-		if d <= best_d and _is_fair_target(e):
+		if d <= best_d and _is_fair_target(e) and _worth_fighting(e):
 			best = e
 			best_d = d
 	return best
