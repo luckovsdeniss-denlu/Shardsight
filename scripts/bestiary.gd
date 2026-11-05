@@ -124,9 +124,9 @@ const LICH := {
 	},
 }
 
-# Poisons on hit (lesser poison). Lives in the woods north of the start.
+# Poisons on hit (lesser poison, 15% a hit). Lives in the south-west woods, away from the start.
 const GIANT_SPIDER := {
-	"danger": 2, "poison": [1, 0.35],
+	"danger": 2, "poison": [1, 0.15],
 	"str": 22, "dex": 40, "int": 5, "wspeed": 45, "dmg_min": 2, "dmg_max": 5,
 	"move": 3.0, "leash": 5, "aggro": 4.0, "respawn": 15.0, "scale": 0.7,
 	"loot": {"gold_min": 5, "gold_max": 14, "reagents": 2, "drops": [["potion_cure", 0.15]]},

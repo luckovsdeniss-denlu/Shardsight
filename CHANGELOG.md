@@ -17,6 +17,10 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
   waited there forever when it couldn't afford them (it now only goes if he will sell); and a
   character re-planning a route between two tiles could clip a wall corner (paths now step back
   onto the grid first).
+- Poison toned down (40 poisonings in the hour-long play-test): the giant spider moved from
+  beside the start to the south-west woods, its poison chance dropped from 35% to 15% a hit,
+  players get 10 s of immunity after any cure, and casters use Poison once as an opener per
+  target instead of repeatedly.
 - Play-test fails if the hero does nothing for 5 game-minutes, and says what it was doing.
 - Play-test report adds gold earned and spent, quests handed in, bounties and time in the
   dungeon, and fails if the hero spends at least as much gold as it earns.

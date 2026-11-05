@@ -105,6 +105,8 @@ var poison_tick := 0.0
 var poisoner: Entity = null
 var poison_cfg := []           # [level, chance] if this creature poisons on hit
 var potion_cd := 0.0
+var poison_immune := 0.0       # seconds of grace after a cure, when no new poison takes hold
+var last_poison_target: Entity = null
 var ghost := false
 var died_red := false
 var crafter := false           # gathers and crafts when idle (the hero)
@@ -216,6 +218,7 @@ func tick(delta: float) -> void:
 	_regen_mana(delta)
 	stamina = minf(stamina + STAMINA_REGEN * delta, float(stats.max_stamina()))
 	potion_cd = maxf(potion_cd - delta, 0.0)
+	poison_immune = maxf(poison_immune - delta, 0.0)
 	if poison_level > 0:
 		_poison_step(delta)
 		if dead:
@@ -739,9 +742,11 @@ func _try_auto_cast(d: float) -> bool:
 		var cure_id := _best_spell("cure")
 		if cure_id != "":
 			return start_cast(cure_id, self)
-	if target != null and target.poison_level == 0 and d <= SPELL_RANGE and randf() < 0.3:
+	# Poison is an opener: cast once at a new target, then move on to damage spells.
+	if target != null and target != last_poison_target and target.poison_level == 0 and d <= SPELL_RANGE:
 		var poison_id := _best_spell("poison")
 		if poison_id != "":
+			last_poison_target = target
 			return start_cast(poison_id, target)
 	if hp < float(stats.max_hp()) * 0.5:
 		var heal_id := _best_spell("heal")
@@ -1647,7 +1652,7 @@ func _animate(delta: float) -> void:
 
 ## A stronger poison replaces a weaker one; it wears off on its own after a while.
 func apply_poison(level: int, from: Entity) -> void:
-	if dead or kind == Kind.NPC or level <= poison_level:
+	if dead or kind == Kind.NPC or level <= poison_level or poison_immune > 0.0:
 		return
 	poison_level = clampi(level, 1, 3)
 	poison_time = 20.0 + 10.0 * poison_level
@@ -1676,6 +1681,7 @@ func _poison_step(delta: float) -> void:
 
 
 func _cure(message: String) -> void:
+	poison_immune = 10.0
 	if poison_level > 0 and is_hero:
 		game.count("cured")
 	poison_level = 0
