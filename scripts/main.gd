@@ -60,6 +60,9 @@ var counters := {}
 var problems: Array[String] = []
 var _check_timer := 0.0
 var _start_skill_total := 0.0
+var _activity := ""                # snapshot of the activity counters, for the stuck check
+var _idle_time := 0.0
+const STUCK_SECONDS := 300.0
 
 const TIPS := [
 	"Tip: tap the ground to walk, tap a monster to attack it, tap a corpse to loot it.",
@@ -739,6 +742,7 @@ func _autotest_tick(delta: float) -> void:
 	if _check_timer <= 0.0:
 		_check_timer = 1.0
 		_check_invariants()
+		_check_stuck(1.0)
 	if autotest_time >= autotest_seconds:
 		_autotest_finish()
 
@@ -759,6 +763,23 @@ func _check_invariants() -> void:
 			_note_problem("%s has negative gold, reagents or bandages" % e.display_name)
 	if property.bank_gold < 0:
 		_note_problem("the bank balance is negative")
+
+
+## The hero must keep doing something: fighting, looting, gathering, casting, healing...
+func _check_stuck(step: float) -> void:
+	var now := ""
+	for k in ["kills", "loot", "gathered", "crafted", "spells_cast", "bandaged", "potions_drunk", "banked", "hero_deaths"]:
+		now += "%d," % int(counters.get(k, 0))
+	now += "%d" % int(hero.stats.skill_total() * 10.0)
+	if now != _activity:
+		_activity = now
+		_idle_time = 0.0
+		return
+	_idle_time += step
+	if _idle_time >= STUCK_SECONDS:
+		_note_problem("the hero did nothing for %d game-minutes (state: %s, at %s, gold %d, reagents %d)" % [
+			int(STUCK_SECONDS / 60.0), hero.state_text(), world.to_tile(hero.position),
+			hero.gold, int(hero.reagents)])
 
 
 func _autotest_finish() -> void:

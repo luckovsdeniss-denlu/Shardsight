@@ -795,9 +795,12 @@ func _regen_mana(delta: float) -> void:
 func _resupply() -> bool:
 	if _skill(Hero.Skill.MAGERY) < 0.1:
 		return false
-	if reagents < 3.0 and gold >= REAGENT_PRICE * 2:
+	# Only go if the merchant will actually sell (he keeps the supply reserve in mind),
+	# otherwise the trip would never end.
+	var affordable := gold >= REAGENT_PRICE * 2 + SUPPLY_RESERVE
+	if reagents < 3.0 and affordable:
 		restocking = true
-	elif reagents >= 15.0 or gold < REAGENT_PRICE * 2:
+	elif reagents >= 15.0 or not affordable:
 		restocking = false
 	if not restocking:
 		return false

@@ -13,6 +13,11 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
   - Crafting trips start with 5 ore, 3 ingots, 3 pelts or 5 logs; banking starts at 120 gold.
   - Spellcasting monsters count as more dangerous, so players stop picking fights with the
     evil mage too early.
+- Fixes found by the hour-long play-test: a mage low on reagents walked to the merchant and
+  waited there forever when it couldn't afford them (it now only goes if he will sell); and a
+  character re-planning a route between two tiles could clip a wall corner (paths now step back
+  onto the grid first).
+- Play-test fails if the hero does nothing for 5 game-minutes, and says what it was doing.
 - Play-test report adds gold earned and spent, quests handed in, bounties and time in the
   dungeon, and fails if the hero spends at least as much gold as it earns.
 

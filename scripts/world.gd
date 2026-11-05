@@ -322,6 +322,8 @@ func find_path(from_p: Vector3, to_p: Vector3, avoid_town := false) -> Array[Vec
 		return out
 	var grid := astar_outside if avoid_town and not is_town(a) else astar
 	var ids := grid.get_id_path(a, b)
+	if ids.size() > 1 and from_p.distance_to(tile_center(a)) > 0.05:
+		out.append(tile_center(a))     # back onto the grid first, so no corner gets clipped
 	for i in range(1, ids.size()):
 		out.append(tile_center(ids[i]))
 	return out
