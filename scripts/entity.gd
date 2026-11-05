@@ -30,6 +30,7 @@ const STAMINA_REGEN := 0.4         # per second
 const SWING_STAMINA := 0.6         # each swing tires you a little (slower swings when drained)
 const POTION_DELAY := 8.0          # seconds between potions
 const POTION_PRICE := 15
+const SUPPLY_RESERVE := 30         # gold kept back when restocking supplies at the merchant
 const CRIMINAL_SECONDS := 60.0     # grey after attacking an innocent
 const MURDER_WINDOW := 30.0        # an innocent dying this soon after your attack is a murder
 const MURDER_DECAY := 180.0        # seconds for one murder count to fade
@@ -832,23 +833,25 @@ func trade(delta: float) -> void:
 		earned += Items.value(id) * int(inventory[id])
 		inventory.erase(id)
 	if earned > 0:
-		gold += earned
+		_earn(earned)
 		if is_hero:
 			game.log_event("You sell your spare loot for %d gold." % earned)
 	_trade_timer += delta
 	if _trade_timer >= 0.5:
 		_trade_timer = 0.0
-		if Crafting.count(inventory, "potion_heal") < 2 and gold >= POTION_PRICE + 20:
-			gold -= POTION_PRICE
-			inventory["potion_heal"] = Crafting.count(inventory, "potion_heal") + 1
-		elif Crafting.count(inventory, "potion_cure") < 1 and gold >= POTION_PRICE + 20:
-			gold -= POTION_PRICE
+		# Restock only what is short, and never dip into the reserve (except for a last
+		# couple of bandages).
+		if Crafting.count(inventory, "potion_heal") < 1 and gold >= POTION_PRICE + SUPPLY_RESERVE:
+			_spend(POTION_PRICE)
+			inventory["potion_heal"] = 1
+		elif poison_level > 0 and Crafting.count(inventory, "potion_cure") < 1 and gold >= POTION_PRICE + SUPPLY_RESERVE:
+			_spend(POTION_PRICE)
 			inventory["potion_cure"] = 1
-		if bandages < MAX_BANDAGES and gold >= BANDAGE_PRICE:
-			gold -= BANDAGE_PRICE
+		if (bandages < 6 and gold >= BANDAGE_PRICE + SUPPLY_RESERVE) or (bandages < 2 and gold >= BANDAGE_PRICE):
+			_spend(BANDAGE_PRICE)
 			bandages += 1
-		if reagents < 30.0 and gold >= REAGENT_PRICE * 2:
-			gold -= REAGENT_PRICE * 2
+		if reagents < 20.0 and gold >= REAGENT_PRICE * 2 + SUPPLY_RESERVE:
+			_spend(REAGENT_PRICE * 2)
 			reagents = minf(reagents + 2.0, MAX_REAGENTS)
 		_buy_gear()
 
@@ -917,7 +920,7 @@ func _loot_step() -> bool:
 
 func _take(c: Corpse) -> void:
 	var got: Dictionary = c.take_all()
-	gold += int(got["gold"])
+	_earn(int(got["gold"]))
 	reagents = minf(reagents + float(got["reagents"]), MAX_REAGENTS)
 	var parts: Array[String] = []
 	if int(got["gold"]) > 0:
@@ -1033,7 +1036,7 @@ func _buy_gear() -> void:
 			best = id
 	if best == "":
 		return
-	gold -= int(Gear.LIST[best]["value"])
+	_spend(int(Gear.LIST[best]["value"]))
 	inventory[best] = int(inventory.get(best, 0)) + 1
 	_manage_gear()
 	if is_hero:
@@ -1164,7 +1167,9 @@ func _add_murder(victim: Entity) -> void:
 func _settle_crimes(killer: Entity) -> void:
 	if died_red and killer.kind == Kind.PLAYER and murder_counts > 0:
 		var bounty := murder_counts * BOUNTY_PER_COUNT
-		killer.gold += bounty
+		killer._earn(bounty)
+		if killer.is_hero:
+			game.count("bounties")
 		game.log_event("%s collects a %d gold bounty on %s." % [killer.display_name, bounty, display_name])
 	for id in attackers.keys():
 		var a := instance_from_id(int(id)) as Entity
@@ -1215,7 +1220,13 @@ func power() -> float:
 func _worth_fighting(e: Entity) -> bool:
 	if kind != Kind.PLAYER or e.kind != Kind.MONSTER or e.target == self:
 		return true
-	return e.danger <= power() + 0.5
+	return e.threat() <= power() + 0.5
+
+
+## A monster's danger, plus extra for spellcasters (they hurt from range, through armor).
+func threat() -> float:
+	var magery := _skill(Hero.Skill.MAGERY)
+	return danger + (1.5 if magery >= 50.0 else (0.75 if magery >= 25.0 else 0.0))
 
 
 func _pick_target() -> Entity:
@@ -1346,7 +1357,7 @@ func _start_gathering_nearby() -> bool:
 
 
 func _has_craft_load() -> bool:
-	return Crafting.ore_count(inventory) >= 8 or Crafting.ingot_count(inventory) >= 6 \
+	return Crafting.ore_count(inventory) >= 5 or Crafting.ingot_count(inventory) >= 3 \
 		or Crafting.count(inventory, "wolf_pelt") >= 3 or Crafting.count(inventory, "log") >= 5
 
 
@@ -1477,7 +1488,7 @@ func _bank_trip() -> bool:
 	if notoriety() != Notoriety.BLUE:
 		banking = false
 		return false
-	if not banking and gold >= Property.POCKET_GOLD + 100:
+	if not banking and gold >= Property.POCKET_GOLD + 70:
 		banking = true
 	if not banking:
 		return false
@@ -1723,3 +1734,19 @@ func _take_mats(mats: Dictionary, fraction: float) -> void:
 		reagents = maxf(reagents - ceili(int(bag["reagent"]) * fraction), 0.0)
 		bag.erase("reagent")
 	Crafting.take_mats(inventory, bag, fraction)
+
+
+# --- gold ------------------------------------------------------------------
+
+func _earn(n: int) -> void:
+	if n <= 0:
+		return
+	gold += n
+	if is_hero:
+		game.count("gold_earned", n)
+
+
+func _spend(n: int) -> void:
+	gold -= n
+	if is_hero:
+		game.count("gold_spent", n)

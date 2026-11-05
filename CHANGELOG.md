@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.16.1
+- Economy, from the one-hour play-test (24 gold after an hour, never banked, 2 items crafted,
+  all 3 deaths to the Evil Mage):
+  - Monsters drop more gold (rats 3-8, spiders 5-14, wolves 6-14, orcs 15-35, the evil mage
+    25-50, dungeon dwellers more).
+  - Restocking keeps a 30-gold reserve and buys only what is short: one heal potion (a cure
+    potion only while poisoned), bandages up to 6, reagents up to 20.
+  - Crafting trips start with 5 ore, 3 ingots, 3 pelts or 5 logs; banking starts at 120 gold.
+  - Spellcasting monsters count as more dangerous, so players stop picking fights with the
+    evil mage too early.
+- Play-test report adds gold earned and spent, quests handed in, bounties and time in the
+  dungeon, and fails if the hero spends at least as much gold as it earns.
+
 ## 0.16.0
 - Poison: lesser, regular and greater, each draining HP every 2 s until cured or worn off (it can
   kill). A new giant spider (in the woods north of the start) and zombies poison on hit; casters

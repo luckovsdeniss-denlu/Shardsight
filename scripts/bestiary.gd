@@ -62,28 +62,28 @@ const RAT := {
 	"danger": 1,
 	"str": 12, "dex": 25, "int": 5, "wspeed": 35, "dmg_min": 1, "dmg_max": 3,
 	"move": 2.6, "leash": 5, "aggro": 4.0, "respawn": 10.0, "scale": 0.5,
-	"loot": {"gold_min": 1, "gold_max": 5, "drops": [["rat_tail", 0.7]]},
+	"loot": {"gold_min": 3, "gold_max": 8, "drops": [["rat_tail", 0.7]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 25.0, Hero.Skill.TACTICS: 20.0},
 }
 const WOLF := {
 	"danger": 2,
 	"str": 28, "dex": 50, "int": 5, "wspeed": 50, "dmg_min": 2, "dmg_max": 6,
 	"move": 3.8, "leash": 6, "aggro": 5.0, "respawn": 12.0, "scale": 0.8, "armor": 1.0,
-	"loot": {"gold_min": 2, "gold_max": 8, "drops": [["wolf_pelt", 0.7], ["leather_armor", 0.12]]},
+	"loot": {"gold_min": 6, "gold_max": 14, "drops": [["wolf_pelt", 0.7], ["leather_armor", 0.12]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 45.0, Hero.Skill.TACTICS: 30.0},
 }
 const ORC := {
 	"danger": 3,
 	"str": 45, "dex": 40, "int": 10, "wspeed": 30, "dmg_min": 3, "dmg_max": 8,
 	"move": 2.2, "leash": 5, "aggro": 5.0, "respawn": 15.0, "scale": 1.15, "armor": 2.0,
-	"loot": {"gold_min": 8, "gold_max": 25, "drops": [["orc_ear", 0.8], ["longsword", 0.15], ["studded_armor", 0.15], ["chainmail", 0.08], ["wooden_shield", 0.12], ["bronze_shield", 0.06]]},
+	"loot": {"gold_min": 15, "gold_max": 35, "drops": [["orc_ear", 0.8], ["longsword", 0.15], ["studded_armor", 0.15], ["chainmail", 0.08], ["wooden_shield", 0.12], ["bronze_shield", 0.06]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 60.0, Hero.Skill.TACTICS: 40.0, Hero.Skill.ANATOMY: 30.0},
 }
 const EVIL_MAGE := {
 	"danger": 4,
 	"str": 25, "dex": 25, "int": 45, "wspeed": 30, "dmg_min": 1, "dmg_max": 3,
 	"move": 2.4, "leash": 5, "aggro": 6.0, "respawn": 20.0, "reagents": 999,
-	"loot": {"gold_min": 10, "gold_max": 30, "reagents": 4, "drops": [["mage_robe", 0.4], ["kryss", 0.15], ["dagger", 0.2]]},
+	"loot": {"gold_min": 25, "gold_max": 50, "reagents": 4, "drops": [["mage_robe", 0.4], ["kryss", 0.15], ["dagger", 0.2]]},
 	"skills": {
 		Hero.Skill.SWORDSMANSHIP: 20.0, Hero.Skill.MAGERY: 55.0, Hero.Skill.EVALUATING_INTELLECT: 40.0,
 		Hero.Skill.MEDITATION: 40.0, Hero.Skill.RESISTING_SPELLS: 30.0,
@@ -95,7 +95,7 @@ const SKELETON := {
 	"danger": 4,
 	"str": 40, "dex": 35, "int": 10, "wspeed": 35, "dmg_min": 4, "dmg_max": 10,
 	"move": 2.6, "leash": 4, "aggro": 5.0, "respawn": 20.0, "armor": 2.0, "scale": 1.0,
-	"loot": {"gold_min": 15, "gold_max": 40, "drops": [["broadsword", 0.12], ["heater_shield", 0.08], ["chainmail", 0.08]]},
+	"loot": {"gold_min": 25, "gold_max": 55, "drops": [["broadsword", 0.12], ["heater_shield", 0.08], ["chainmail", 0.08]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 65.0, Hero.Skill.TACTICS: 60.0, Hero.Skill.ANATOMY: 30.0},
 }
 const ZOMBIE := {
@@ -103,7 +103,7 @@ const ZOMBIE := {
 	"danger": 4,
 	"str": 55, "dex": 20, "int": 5, "wspeed": 25, "dmg_min": 5, "dmg_max": 12,
 	"move": 1.8, "leash": 4, "aggro": 4.0, "respawn": 20.0, "armor": 1.0, "scale": 1.05,
-	"loot": {"gold_min": 10, "gold_max": 30, "drops": [["studded_armor", 0.15]]},
+	"loot": {"gold_min": 20, "gold_max": 45, "drops": [["studded_armor", 0.15]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 55.0, Hero.Skill.TACTICS: 55.0},
 }
 const OGRE := {
@@ -129,6 +129,6 @@ const GIANT_SPIDER := {
 	"danger": 2, "poison": [1, 0.35],
 	"str": 22, "dex": 40, "int": 5, "wspeed": 45, "dmg_min": 2, "dmg_max": 5,
 	"move": 3.0, "leash": 5, "aggro": 4.0, "respawn": 15.0, "scale": 0.7,
-	"loot": {"gold_min": 3, "gold_max": 10, "reagents": 2, "drops": [["potion_cure", 0.15]]},
+	"loot": {"gold_min": 5, "gold_max": 14, "reagents": 2, "drops": [["potion_cure", 0.15]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 45.0, Hero.Skill.TACTICS: 30.0},
 }

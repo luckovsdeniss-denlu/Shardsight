@@ -604,7 +604,8 @@ func _quest_tick() -> void:
 		var q: Dictionary = Quests.LIST[property.quest_index]
 		if property.quest_kills < int(q["count"]):
 			return
-		hero.gold += int(q["reward"])
+		hero._earn(int(q["reward"]))
+		count("quests_completed")
 		log_event("%s: Well done! Here are %d gold." % [Quests.GIVER, int(q["reward"])])
 		property.quest_active = false
 		property.quest_index = (property.quest_index + 1) % Quests.LIST.size()
@@ -732,6 +733,8 @@ func _note_problem(msg: String) -> void:
 
 func _autotest_tick(delta: float) -> void:
 	autotest_time += delta
+	if not hero.dead and world.is_dungeon(world.to_tile(hero.position)):
+		counters["dungeon_seconds"] = float(counters.get("dungeon_seconds", 0.0)) + delta
 	_check_timer -= delta
 	if _check_timer <= 0.0:
 		_check_timer = 1.0
@@ -762,6 +765,7 @@ func _autotest_finish() -> void:
 	counters["game_minutes"] = int(autotest_time / 60.0)
 	counters["skill_points_gained"] = snappedf(hero.stats.skill_total() - _start_skill_total, 0.1)
 	counters["hero_gold"] = hero.gold
+	counters["dungeon_seconds"] = int(float(counters.get("dungeon_seconds", 0.0)))
 	counters["bank_gold"] = property.bank_gold
 	print("AUTOTEST REPORT " + JSON.stringify(counters))
 	if int(counters.get("kills", 0)) == 0:
@@ -770,6 +774,10 @@ func _autotest_finish() -> void:
 		_note_problem("the hero looted nothing")
 	if float(counters["skill_points_gained"]) <= 0.0:
 		_note_problem("none of the hero's skills rose")
+	var earned := int(counters.get("gold_earned", 0))
+	var spent := int(counters.get("gold_spent", 0))
+	if earned <= spent:
+		_note_problem("the hero spent at least as much gold as it earned (%d earned, %d spent)" % [earned, spent])
 	var deaths := int(counters.get("hero_deaths", 0))
 	if deaths > int(counters.get("kills", 0)):
 		_note_problem("the hero died more often than it killed (%d deaths, %d kills)" % [deaths, int(counters.get("kills", 0))])
