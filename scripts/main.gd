@@ -51,9 +51,10 @@ var save_timer := 0.0
 var skip_save := false
 
 # Automated play-test (CI): `godot --headless --fixed-fps 20 -- --autotest` plays a fresh game
-# in Auto mode for AUTOTEST_SECONDS of game time, checks invariants, prints a report and quits.
-const AUTOTEST_SECONDS := 900.0
+# in Auto mode for autotest_seconds of game time (default 15 minutes, or --autotest-seconds=N),
+# checks invariants, prints a report and quits.
 var autotest: bool = "--autotest" in OS.get_cmdline_user_args()
+var autotest_seconds := _autotest_seconds_arg()
 var autotest_time := 0.0
 var counters := {}
 var problems: Array[String] = []
@@ -131,7 +132,7 @@ func _ready() -> void:
 		seed(20261103)                       # same dice every run, so results are comparable
 		skip_save = true                     # a fresh game; never touch the real save
 		_start_skill_total = hero.stats.skill_total()
-		print("AUTOTEST start: %d game-seconds" % int(AUTOTEST_SECONDS))
+		print("AUTOTEST start: %d game-seconds" % int(autotest_seconds))
 	elif SaveGame.load_into(hero, property):
 		log_event("Welcome back. Your progress was loaded.")
 		_restore_house()
@@ -717,6 +718,13 @@ func count(key: String, n := 1) -> void:
 		counters[key] = int(counters.get(key, 0)) + n
 
 
+static func _autotest_seconds_arg() -> float:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--autotest-seconds="):
+			return maxf(60.0, float(a.trim_prefix("--autotest-seconds=")))
+	return 900.0
+
+
 func _note_problem(msg: String) -> void:
 	if not problems.has(msg) and problems.size() < 20:
 		problems.append(msg)
@@ -728,7 +736,7 @@ func _autotest_tick(delta: float) -> void:
 	if _check_timer <= 0.0:
 		_check_timer = 1.0
 		_check_invariants()
-	if autotest_time >= AUTOTEST_SECONDS:
+	if autotest_time >= autotest_seconds:
 		_autotest_finish()
 
 

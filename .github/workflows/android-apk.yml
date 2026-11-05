@@ -5,6 +5,10 @@ on:
     branches: [main, "claude/**"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      playtest_minutes:
+        description: "Play-test length in game-minutes"
+        default: "15"
 
 env:
   GODOT_VERSION: 4.3.0
@@ -97,10 +101,15 @@ jobs:
       # A longer automated play: a fresh game in Auto mode for 15 game-minutes (fixed 20 fps,
       # as fast as the runner allows). Fails if the hero never fights, loots or improves, if
       # anyone ends up inside a wall, or on any script error.
-      - name: Play-test (15 game-minutes of Auto mode)
+      - name: Play-test (Auto mode; 15 game-minutes unless set when run by hand)
+        env:
+          PLAYTEST_MINUTES: ${{ github.event.inputs.playtest_minutes || '15' }}
         run: |
           set +e
-          timeout 900 godot --headless --fixed-fps 20 --quit-after 20000 -- --autotest > playtest.log 2>&1
+          SECS=$(( PLAYTEST_MINUTES * 60 ))
+          FRAMES=$(( SECS * 20 + 2000 ))
+          echo "Play-testing $PLAYTEST_MINUTES game-minutes ($FRAMES frames max)"
+          timeout 3000 godot --headless --fixed-fps 20 --quit-after $FRAMES -- --autotest --autotest-seconds=$SECS > playtest.log 2>&1
           code=$?
           set -e
           echo "godot exited with $code"
