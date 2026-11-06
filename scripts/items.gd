@@ -39,7 +39,7 @@ static func is_instrument(id: String) -> bool:
 	return LIST.has(id) and bool(LIST[id].get("instrument", false))
 
 
-static func is_tool(id: String) -> bool:
+static func is_tool_item(id: String) -> bool:
 	return LIST.has(id) and bool(LIST[id].get("tool", false))
 
 

@@ -966,7 +966,7 @@ func trade(delta: float, s: Shop) -> void:
 			continue                       # potions are kept for emergencies
 		if crafter and Items.is_material(id):
 			continue                       # crafters keep their ore, ingots, logs and hides
-		if Items.is_tool(id) or (id == "log" and int(inventory[id]) <= 2):
+		if Items.is_tool_item(id) or (id == "log" and int(inventory[id]) <= 2):
 			continue                       # tools, and a couple of logs for a campfire
 		# The merchant pays less the more it already holds, and stops when overstocked or broke.
 		var n := int(inventory[id])
