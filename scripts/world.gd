@@ -83,6 +83,7 @@ var astar := AStarGrid2D.new()
 var astar_outside := AStarGrid2D.new()   # same grid, but the guarded town is walled off
 var forge_tile := Vector2i(-1, -1)
 var house_nodes := {}            # house origin -> Node3D holding its meshes
+var decor: Array = []            # the grass tufts and flowers (hidden on Low graphics)
 var _harvest_left := {}          # tile -> tries left
 var _regrow_at := {}             # tile -> Time.get_ticks_msec() when an exhausted node recovers
 
@@ -416,9 +417,9 @@ func _add(parent: Node3D, mesh: Mesh, mat: Material, at: Vector3) -> void:
 
 ## One MultiMeshInstance3D drawing `mesh` once per transform, each tinted by its colour (the
 ## material multiplies its vertex colours by the instance colour).
-func _add_batch(parent: Node3D, mesh: Mesh, mat: Material, xforms: Array[Transform3D], tints: Array[Color]) -> void:
+func _add_batch(parent: Node3D, mesh: Mesh, mat: Material, xforms: Array[Transform3D], tints: Array[Color]) -> MultiMeshInstance3D:
 	if xforms.is_empty():
-		return
+		return null
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
@@ -431,6 +432,7 @@ func _add_batch(parent: Node3D, mesh: Mesh, mat: Material, xforms: Array[Transfo
 	mmi.multimesh = mm
 	mmi.material_override = mat
 	parent.add_child(mmi)
+	return mmi
 
 
 ## A tiling texture made from noise: smooth blobs (grass) or cells (cobbles, flagstones).
@@ -616,5 +618,4 @@ func build(parent: Node3D) -> void:
 	_add_batch(parent, _pine(), vc, pines, pine_tints)
 	_add_batch(parent, _oak(), vc, oaks, oak_tints)
 	_add_batch(parent, _rock_piece(), vc, rocks, rock_tints)
-	_add_batch(parent, _tuft(), vc, tufts, tuft_tints)
-	_add_batch(parent, _flower(), vc, flowers, flower_tints)
+	decor = [_add_batch(parent, _tuft(), vc, tufts, tuft_tints), _add_batch(parent, _flower(), vc, flowers, flower_tints)]

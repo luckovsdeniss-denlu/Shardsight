@@ -106,6 +106,7 @@ var _tip_timer := 8.0
 
 func _ready() -> void:
 	world.build(self)
+	call_deferred("_apply_graphics")         # once the sun and the rain exist
 	_build_environment()
 	_build_marker()
 	_spawn_all()
@@ -195,6 +196,8 @@ func _ready() -> void:
 	bard_box = bard_panel.get_meta("box")
 	animals_box = animals_panel.get_meta("box")
 	settings_box = settings_panel.get_meta("box")
+	if not autotest:
+		_show_title(layer)
 
 	if autotest:
 		seed(20261103)                       # same dice every run, so results are comparable
@@ -2436,6 +2439,48 @@ func near_campfire(p: Vector3) -> bool:
 	return false
 
 
+# --- title screen --------------------------------------------------------------
+
+## The opening card, drawn in code: the name in gold over the dark of the boot splash, a
+## subtitle and the version. It fades after a few seconds, or at once on a tap.
+func _show_title(layer: CanvasLayer) -> void:
+	var card := ColorRect.new()
+	card.color = Color(0.043, 0.055, 0.09, 1.0)
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(card)
+	card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(box)
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var lines := [["SHARDSIGHT", 96, Color(0.85, 0.71, 0.29)],
+		["a world of swords, spells and skill", 30, Color(0.72, 0.8, 0.92)],
+		["v" + String(ProjectSettings.get_setting("application/config/version", "")), 22, Color(0.5, 0.55, 0.62)],
+		["tap to begin", 24, Color(0.85, 0.85, 0.85)]]
+	for l in lines:
+		var lab := Label.new()
+		lab.text = String(l[0])
+		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lab.add_theme_font_size_override("font_size", int(l[1]))
+		lab.add_theme_color_override("font_color", l[2])
+		lab.add_theme_color_override("font_outline_color", Color.BLACK)
+		lab.add_theme_constant_override("outline_size", 10)
+		lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(lab)
+	var close := func() -> void:
+		if not is_instance_valid(card) or card.get_meta("closing", false):
+			return
+		card.set_meta("closing", true)
+		var tw := card.create_tween()
+		tw.tween_property(card, "modulate:a", 0.0, 0.6)
+		tw.tween_callback(card.queue_free)
+	card.gui_input.connect(func(ev: InputEvent) -> void:
+		if (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed) or (ev is InputEventScreenTouch and (ev as InputEventScreenTouch).pressed):
+			close.call())
+	get_tree().create_timer(3.5).timeout.connect(close)
+
+
 # --- weather and music -------------------------------------------------------
 
 ## Rain: streaks falling round the camera (a CPU particle box, cheap on phones).
@@ -2469,7 +2514,7 @@ func _set_weather(w: String) -> void:
 	var was := weather
 	weather = w
 	var wet := w == "rain" or w == "storm"
-	rain.amount = 800 if w == "storm" else 500
+	rain.amount = (800 if w == "storm" else 500) / (2 if property.graphics == "low" else 1)
 	rain.emitting = wet
 	if wet and property.sound_on:
 		if rain_sound.stream == null:
@@ -2606,6 +2651,8 @@ func _refresh_settings() -> void:
 	settings_box.add_child(title)
 	settings_box.add_child(_menu_button("Sound: " + ("On" if property.sound_on else "Off"), _toggle_sound))
 	settings_box.add_child(_menu_button("Music: " + ("On" if property.music_on else "Off"), _toggle_music))
+	settings_box.add_child(_menu_button("Graphics: " + property.graphics.capitalize(), _cycle_graphics))
+	settings_box.add_child(_info("Graphics: Low turns off shadows and grass details and renders at 70% (smoothest on older phones); Medium keeps shadows at 85%; High renders at full resolution with smoother edges."))
 	settings_box.add_child(_menu_button("Weather: " + ("On" if property.weather_on else "Off (always clear)"), _toggle_weather))
 	settings_box.add_child(_menu_button("Ruleset: " + ("Trammel (no player killing)" if property.ruleset == "trammel" else "Felucca (open player-vs-player)"), _toggle_ruleset))
 	settings_box.add_child(_info("Felucca: players may attack each other outside town (criminals and murderers face the guards). Trammel: players can't hurt each other at all, except guilds at war."))
@@ -2622,6 +2669,27 @@ func _toggle_ruleset() -> void:
 			e.target = null
 	log_event("The world follows %s rules now." % ("Trammel" if property.ruleset == "trammel" else "Felucca"))
 	_refresh_settings()
+
+
+func _cycle_graphics() -> void:
+	var order := ["low", "medium", "high"]
+	property.graphics = order[(order.find(property.graphics) + 1) % order.size()]
+	_apply_graphics()
+	_refresh_settings()
+
+
+## Quality settings for slower phones: shadows, grass details, render scale, edge smoothing.
+func _apply_graphics() -> void:
+	var g := property.graphics
+	sun.shadow_enabled = g != "low"
+	for n in world.decor:
+		if n != null:
+			(n as Node3D).visible = g != "low"
+	var vp := get_viewport()
+	vp.scaling_3d_scale = {"low": 0.7, "medium": 0.85, "high": 1.0}[g]
+	vp.msaa_3d = Viewport.MSAA_2X if g == "high" else Viewport.MSAA_DISABLED
+	if rain != null:
+		rain.amount = 250 if g == "low" else (800 if weather == "storm" else 500)
 
 
 func _toggle_music() -> void:

@@ -23,3 +23,16 @@ an app signed with a different key: you have to uninstall first. Do this once:
 
 The next build prints "Using the fixed signing key" in the workflow log. Uninstall once more,
 then every later build installs as an update.
+
+
+# Release builds and Google Play
+
+With the two secrets above set, every CI run also exports a **release** APK
+(`shardsight-v<version>-release`), signed with the same key: no debug overhead, and it installs
+over the debug builds. Use it for sideloading and testing on friends' phones.
+
+Google Play wants an **Android App Bundle (.aab)**, which Godot only makes with a Gradle build
+(Project > Install Android Build Template, then "Use Gradle Build" and export format AAB in the
+Android export preset). It also needs a store listing, a privacy policy, screenshots and the
+512x512 icon (render `icon.svg`). Keep `shardsight.keystore` forever: Play App Signing can hold
+the final key, but your upload key must stay the same.

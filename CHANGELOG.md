@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.30.0
+Platform.
+- A new game icon: a blue crystal shard behind a gold-hilted sword in a gold ring.
+- An opening title card drawn in code (the name in gold, a subtitle and the version) that fades
+  after a few seconds or at a tap; the engine's boot splash is now plain dark to match.
+- Menu > Settings > Graphics: Low (no shadows or grass details, 70% render scale, half the
+  rain; smoothest on older phones), Medium (the default: shadows, 85%) or High (full resolution
+  with smoothed edges). Saved.
+- CI: with the signing secrets set, every build also exports a signed release APK. SIGNING.md
+  explains it, and what Google Play additionally needs (an App Bundle via a Gradle build).
+- (Mesh batching, also on the old roadmap, already came with 0.22-0.24: scenery is one batch per
+  kind and figures are a few merged meshes.)
+
 ## 0.29.0
 Quests and a dungeon boss.
 - Captain Marcus's quests are now a chain of 13 of four kinds:
