@@ -117,8 +117,6 @@ var _gear_timer := 0.0
 var _trade_timer := 0.0
 var label: Label3D
 var _last_text := ""
-var body: MeshInstance3D
-var nose: MeshInstance3D
 var base_label_color := Color.WHITE
 var murder_counts := 0
 var murder_timer := 0.0
@@ -187,7 +185,10 @@ var gather_timer := 0.0
 var crafting_trip := false
 var banking := false
 var gate_cd := 0.0             # just came through a moongate: don't bounce straight back
-var rig: Node3D                # body + nose, moved by the procedural animation
+var rig: Node3D                # holds the model; moved by the procedural animation
+var model := {}                # the Art model: root, legs, arm, spin, meshes
+var look := "humanoid"
+var visual_scale := 1.0
 var anim_t := 0.0
 var swing_anim := 0.0
 var _last_pos := Vector3.ZERO
@@ -219,6 +220,7 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	species = String(cfg.get("species", ""))
 	tame_min = float(cfg.get("tame", -1.0))
 	passive = bool(cfg.get("passive", false))
+	look = String(cfg.get("look", "humanoid"))
 	_build_visual(color, float(cfg.get("scale", 1.0)))
 	home = world.tile_center(tile)
 	position = home
@@ -249,30 +251,14 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	crafter = bool(cfg.get("crafter", kind == Kind.PLAYER))   # players gather and craft like the hero
 	stats.skill_gained.connect(_on_skill_gained)
 	stats.stat_gained.connect(_on_stat_gained)
+	refresh_look()                       # now that gear and role are known
 
 
 func _build_visual(color: Color, s: float) -> void:
 	rig = Node3D.new()
 	add_child(rig)
 	anim_t = randf() * 10.0          # so idle creatures don't breathe in lockstep
-	body = MeshInstance3D.new()
-	var capsule := CapsuleMesh.new()
-	capsule.radius = 0.3
-	capsule.height = 1.2
-	body.mesh = capsule
-	body.material_override = World._mat(color)
-	body.position = Vector3(0.0, 0.6 * s, 0.0)
-	body.scale = Vector3.ONE * s
-	rig.add_child(body)
-	# A small "nose" so the facing direction is visible.
-	nose = MeshInstance3D.new()
-	var nose_mesh := BoxMesh.new()
-	nose_mesh.size = Vector3(0.16, 0.16, 0.28)
-	nose.mesh = nose_mesh
-	nose.material_override = World._mat(color.darkened(0.45))
-	nose.position = Vector3(0.0, 0.95 * s, -0.32 * s)
-	nose.scale = Vector3.ONE * s
-	rig.add_child(nose)
+	visual_scale = s                     # the model itself is built at the end of setup()
 	label = Label3D.new()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.pixel_size = 0.008
@@ -1356,6 +1342,7 @@ func _equip(id: String) -> void:
 			armor_id = id
 	if old != "":
 		inventory[old] = int(inventory.get(old, 0)) + 1
+	refresh_look()
 	if is_hero:
 		game.log_event("You equip the %s." % Items.item_name(id))
 
@@ -1616,8 +1603,41 @@ func _pick_target() -> Entity:
 
 func _set_ghost_look(on: bool) -> void:
 	var t := 0.65 if on else 0.0
-	body.transparency = t
-	nose.transparency = t
+	for mi in model.get("meshes", []):
+		(mi as MeshInstance3D).transparency = t
+
+
+## Builds (or rebuilds, when gear changes) the low-poly model from the look, role and gear.
+func refresh_look() -> void:
+	if rig == null:
+		return
+	if model.has("root"):
+		(model["root"] as Node3D).queue_free()
+	model = Art.creature(look, _look_style(), visual_scale)
+	rig.add_child(model["root"])
+	if ghost or flags.has("invisible"):
+		_set_ghost_look(true)
+
+
+func _look_style() -> Dictionary:
+	var mage := kind == Kind.PLAYER and _skill(Hero.Skill.MAGERY) >= 50.0 and armor_id == ""
+	var st := {
+		"skin": Art.pick(Art.SKINS, display_name), "hair": Art.pick(Art.HAIRS, display_name + "h"),
+		"cloth": spawn_color, "armor": armor_id, "weapon": weapon, "shield": shield_id,
+		"robe": mage or role == "healer" or role == "priest",
+		"hat": "mage" if mage else "",
+	}
+	match role:
+		"guard":
+			st["hat"] = "helmet"
+			st["armor"] = "chainmail"
+			if weapon == "":
+				st["weapon"] = "halberd"
+		"merchant", "banker", "vendor":
+			st["hat"] = "cap"
+		"priest":
+			st["hat"] = "hood"
+	return st
 
 
 ## A dead player drifts to the healer, who raises them for free. Murderers are refused and
@@ -2054,6 +2074,28 @@ func _animate(delta: float) -> void:
 		tilt += 0.25 * k
 	rig.position = Vector3(0.0, y, z)
 	rig.rotation.x = -tilt
+	if model.is_empty():
+		return
+	var stride := sin(anim_t * 11.0) * 0.6 if moving and not ghost else 0.0
+	var legs: Array = model["legs"]
+	for i in range(legs.size()):
+		# two legs: left/right alternate; four: front-left with back-right, front-right with back-left
+		var phase := 1.0 if (i % 2 == 0) == (i < 2 or not bool(model["quad"])) else -1.0
+		(legs[i] as Node3D).rotation.x = stride * phase
+	var arm: Node3D = model["arm"]
+	if arm != null:
+		var rest := float(model["arm_rest"])
+		if swing_anim > 0.0:
+			arm.rotation.x = rest - 1.5 * sin(swing_anim / SWING_ANIM * PI)
+		elif casting_id != "":
+			arm.rotation.x = rest - 1.2 - sin(anim_t * 8.0) * 0.2
+		elif gather_tile.x >= 0:
+			arm.rotation.x = rest - maxf(sin(anim_t * 6.0), 0.0) * 1.3
+		else:
+			arm.rotation.x = rest - stride * 0.5
+	var spin: Node3D = model["spin"]
+	if spin != null:
+		spin.rotation.y += delta * 6.0
 
 
 # --- poison and potions ----------------------------------------------------
@@ -2872,7 +2914,7 @@ func _recompute_effects() -> void:
 	stamina = minf(stamina, float(stats.max_stamina()))
 	if rig != null:
 		rig.scale = Vector3.ONE * (1.25 if flags.has("polymorph") else 1.0)
-	if body != null and not ghost:
+	if not model.is_empty() and not ghost:
 		_set_ghost_look(flags.has("invisible"))
 
 

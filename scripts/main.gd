@@ -178,6 +178,7 @@ func _ready() -> void:
 		_start_skill_total = hero.stats.skill_total()
 		print("AUTOTEST start: %d game-seconds" % int(autotest_seconds))
 	elif SaveGame.load_into(hero, property):
+		hero.refresh_look()                  # the saved gear shows on the model
 		log_event("Welcome back. Your progress was loaded.")
 		_restore_house()
 		_restore_pets()

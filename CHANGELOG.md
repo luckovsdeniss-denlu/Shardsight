@@ -3,6 +3,27 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.24.0
+Art: procedural low-poly models and textures, all built in code (no downloaded assets).
+- Characters: real figures instead of capsules. Players and townsfolk have legs, arms, a head
+  with hair and eyes (skin and hair picked per name), and show what they wear and wield: plate,
+  chain, studded or leather armour (with a tabard in their colour), the actual weapon (dagger,
+  kryss, swords, mace, war hammer, halberd, bow, crossbow) and shield. Guards wear helmets,
+  merchants and bankers caps, the priest a hood, healers and mages robes (mages a pointed hat).
+- Monsters by kind: rats with long tails, wolves with pointed ears and bushy tails, bears, deer,
+  an eight-legged spider with red eyes, orcs with tusks, zombies reaching forward, skeletons
+  with ribs, a pot-bellied ogre with a club, an evil mage in red robes, a hooded lich with
+  glowing eyes, a horned, winged daemon; earth (rock), air and water (see-through), and fire
+  (glowing) elementals, a spinning energy vortex and whirling blade spirits.
+- Animation: legs stride when walking (four-legged gait for animals), the weapon arm swings on
+  each blow, rises while casting and works while gathering; vortexes and blades spin.
+- The world: noise-textured grass, cobbled towns, flagstone dungeon floor, animated water with
+  sparkles, two kinds of tree (pines and oaks) each turned, sized and tinted a little
+  differently, faceted rocks, banded stone walls (darker in the dungeon), grass tufts and
+  flowers, timber-framed houses with a banded chest, and corpses as a sack with bones.
+- Built for phones: every figure is 3-5 merged, flat-shaded meshes shared by everything that
+  looks the same, and the scenery is one batch per kind.
+
 ## 0.23.0
 Magic, travel and housing depth.
 - New spells:

@@ -2,7 +2,8 @@ class_name Bestiary
 ## Stat blocks for everything that walks the map.
 ## Keys: inventory (starting bag), species + tame (minimum Animal Taming; tameable animals), passive (never starts a fight),
 ## poison ([level, chance per hit]), danger (monster toughness: players only start fights they can win), pk (preys on innocents), crafter (gathers and crafts when idle), weapon/wear/shield (starting gear ids from Gear), bandages, str/dex/int, skills, reagents, gold (carried), loot (monster drops), dmg_min/dmg_max (weapon roll), wspeed (weapon speed 20..60),
-## move (m/s), armor, leash (wander radius in tiles), aggro (m), respawn (s), role, scale.
+## move (m/s), armor, leash (wander radius in tiles), aggro (m), respawn (s), role, scale,
+## look (which Art model: humanoid by default; rat, wolf, bear, hind, spider, orc, skeleton...).
 
 ## What every player starts with in the bag, the hero and the computer players alike.
 const PLAYER_KIT := {"lute": 1, "pickaxe": 1, "hatchet": 1, "tool_kit": 1}
@@ -69,6 +70,7 @@ const PKILLER := {
 
 # Summoned by the circle 8 spell; fights for its caster for a while, then crumbles.
 const EARTH_ELEMENTAL := {
+	"look": "earth_elemental",
 	"danger": 5,
 	"str": 80, "dex": 30, "int": 10, "wspeed": 30, "dmg_min": 8, "dmg_max": 15,
 	"move": 3.6, "leash": 3, "aggro": 6.0, "respawn": 0.0, "armor": 4.0, "scale": 1.4,
@@ -76,31 +78,37 @@ const EARTH_ELEMENTAL := {
 }
 
 const BLADE_SPIRITS := {
+	"look": "blades",
 	"danger": 3, "str": 40, "dex": 60, "int": 10, "wspeed": 55, "dmg_min": 5, "dmg_max": 10,
 	"move": 4.2, "leash": 3, "aggro": 6.0, "respawn": 0.0, "scale": 0.8,
 	"skills": {Hero.Skill.SWORDSMANSHIP: 80.0, Hero.Skill.TACTICS: 60.0},
 }
 const ENERGY_VORTEX := {
+	"look": "vortex",
 	"danger": 6, "str": 70, "dex": 70, "int": 10, "wspeed": 50, "dmg_min": 10, "dmg_max": 18,
 	"move": 4.4, "leash": 3, "aggro": 7.0, "respawn": 0.0, "scale": 1.1,
 	"skills": {Hero.Skill.SWORDSMANSHIP: 85.0, Hero.Skill.TACTICS: 80.0},
 }
 const AIR_ELEMENTAL := {
+	"look": "air_elemental",
 	"danger": 5, "str": 65, "dex": 60, "int": 10, "wspeed": 45, "dmg_min": 7, "dmg_max": 13,
 	"move": 4.6, "leash": 3, "aggro": 6.0, "respawn": 0.0, "armor": 2.0, "scale": 1.3,
 	"skills": {Hero.Skill.SWORDSMANSHIP: 70.0, Hero.Skill.TACTICS: 70.0},
 }
 const FIRE_ELEMENTAL := {
+	"look": "fire_elemental",
 	"danger": 6, "str": 75, "dex": 45, "int": 10, "wspeed": 40, "dmg_min": 9, "dmg_max": 17,
 	"move": 3.8, "leash": 3, "aggro": 6.0, "respawn": 0.0, "armor": 3.0, "scale": 1.3,
 	"skills": {Hero.Skill.SWORDSMANSHIP: 75.0, Hero.Skill.TACTICS: 75.0},
 }
 const WATER_ELEMENTAL := {
+	"look": "water_elemental",
 	"danger": 5, "str": 90, "dex": 35, "int": 10, "wspeed": 30, "dmg_min": 7, "dmg_max": 13,
 	"move": 3.2, "leash": 3, "aggro": 6.0, "respawn": 0.0, "armor": 4.0, "scale": 1.4,
 	"skills": {Hero.Skill.SWORDSMANSHIP: 65.0, Hero.Skill.TACTICS: 70.0},
 }
 const DAEMON := {
+	"look": "daemon",
 	"danger": 7, "str": 110, "dex": 50, "int": 40, "wspeed": 35, "dmg_min": 12, "dmg_max": 22,
 	"move": 3.8, "leash": 3, "aggro": 7.0, "respawn": 0.0, "armor": 4.0, "scale": 1.6,
 	"skills": {Hero.Skill.SWORDSMANSHIP: 85.0, Hero.Skill.TACTICS: 85.0},
@@ -139,6 +147,7 @@ const PRIEST := {"str": 20, "dex": 15, "int": 45, "move": 1.0, "leash": 1, "role
 
 # Hostile monsters.
 const RAT := {
+	"look": "rat",
 	"danger": 1,
 	"str": 12, "dex": 25, "int": 5, "wspeed": 35, "dmg_min": 1, "dmg_max": 3,
 	"move": 2.6, "leash": 5, "aggro": 4.0, "respawn": 10.0, "scale": 0.5,
@@ -146,6 +155,7 @@ const RAT := {
 	"skills": {Hero.Skill.SWORDSMANSHIP: 25.0, Hero.Skill.TACTICS: 20.0},
 }
 const WOLF := {
+	"look": "wolf",
 	"species": "wolf", "tame": 35.0, "color": "c0392b",
 	"danger": 2,
 	"str": 28, "dex": 50, "int": 5, "wspeed": 50, "dmg_min": 2, "dmg_max": 6,
@@ -154,6 +164,7 @@ const WOLF := {
 	"skills": {Hero.Skill.SWORDSMANSHIP: 45.0, Hero.Skill.TACTICS: 30.0},
 }
 const ORC := {
+	"look": "orc",
 	"danger": 3,
 	"str": 45, "dex": 40, "int": 10, "wspeed": 30, "dmg_min": 3, "dmg_max": 8,
 	"move": 2.2, "leash": 5, "aggro": 5.0, "respawn": 15.0, "scale": 1.15, "armor": 2.0,
@@ -161,6 +172,7 @@ const ORC := {
 	"skills": {Hero.Skill.SWORDSMANSHIP: 60.0, Hero.Skill.TACTICS: 40.0, Hero.Skill.ANATOMY: 30.0},
 }
 const EVIL_MAGE := {
+	"look": "evil_mage",
 	"danger": 4,
 	"str": 25, "dex": 25, "int": 45, "wspeed": 30, "dmg_min": 1, "dmg_max": 3,
 	"move": 2.4, "leash": 5, "aggro": 6.0, "respawn": 20.0, "reagents": 999,
@@ -173,6 +185,7 @@ const EVIL_MAGE := {
 
 # Dungeon dwellers: tougher, and better loot.
 const SKELETON := {
+	"look": "skeleton",
 	"danger": 4,
 	"str": 40, "dex": 35, "int": 10, "wspeed": 35, "dmg_min": 4, "dmg_max": 10,
 	"move": 2.6, "leash": 4, "aggro": 5.0, "respawn": 20.0, "armor": 2.0, "scale": 1.0,
@@ -180,6 +193,7 @@ const SKELETON := {
 	"skills": {Hero.Skill.SWORDSMANSHIP: 65.0, Hero.Skill.TACTICS: 60.0, Hero.Skill.ANATOMY: 30.0},
 }
 const ZOMBIE := {
+	"look": "zombie",
 	"poison": [2, 0.25],
 	"danger": 4,
 	"str": 55, "dex": 20, "int": 5, "wspeed": 25, "dmg_min": 5, "dmg_max": 12,
@@ -188,6 +202,7 @@ const ZOMBIE := {
 	"skills": {Hero.Skill.SWORDSMANSHIP: 55.0, Hero.Skill.TACTICS: 55.0},
 }
 const OGRE := {
+	"look": "ogre",
 	"danger": 6,
 	"str": 90, "dex": 40, "int": 15, "wspeed": 25, "dmg_min": 9, "dmg_max": 18,
 	"move": 2.3, "leash": 4, "aggro": 5.0, "respawn": 30.0, "armor": 3.0, "scale": 1.5,
@@ -195,6 +210,7 @@ const OGRE := {
 	"skills": {Hero.Skill.SWORDSMANSHIP: 75.0, Hero.Skill.TACTICS: 70.0, Hero.Skill.ANATOMY: 50.0},
 }
 const LICH := {
+	"look": "lich",
 	"danger": 8,
 	"str": 50, "dex": 40, "int": 80, "wspeed": 30, "dmg_min": 3, "dmg_max": 8,
 	"move": 2.2, "leash": 3, "aggro": 7.0, "respawn": 45.0, "reagents": 999, "scale": 1.2,
@@ -207,6 +223,7 @@ const LICH := {
 
 # Poisons on hit (lesser poison, 15% a hit). Lives in the south-west woods, away from the start.
 const GIANT_SPIDER := {
+	"look": "spider",
 	"danger": 2, "poison": [1, 0.15],
 	"str": 22, "dex": 40, "int": 5, "wspeed": 45, "dmg_min": 2, "dmg_max": 5,
 	"move": 3.0, "leash": 5, "aggro": 4.0, "respawn": 15.0, "scale": 0.7,
@@ -216,6 +233,7 @@ const GIANT_SPIDER := {
 
 # Wildlife. Hinds are passive (players leave them alone unless told to attack); bears bite.
 const HIND := {
+	"look": "hind",
 	"species": "hind", "tame": 10.0, "passive": true, "danger": 0.5, "color": "b08a5a",
 	"str": 18, "dex": 45, "int": 5, "wspeed": 45, "dmg_min": 1, "dmg_max": 3,
 	"move": 3.2, "leash": 6, "aggro": 0.0, "respawn": 20.0, "scale": 0.8,
@@ -223,6 +241,7 @@ const HIND := {
 	"skills": {Hero.Skill.SWORDSMANSHIP: 20.0, Hero.Skill.TACTICS: 20.0},
 }
 const BROWN_BEAR := {
+	"look": "bear",
 	"species": "brown_bear", "tame": 55.0, "danger": 3, "color": "6b4a2a",
 	"str": 60, "dex": 30, "int": 10, "wspeed": 30, "dmg_min": 4, "dmg_max": 10,
 	"move": 2.6, "leash": 5, "aggro": 4.0, "respawn": 30.0, "scale": 1.3, "armor": 1.0,

@@ -30,12 +30,15 @@ func setup(p_name: String, p_open: bool, p_is_player: bool, p_owner_id: int,
 	items = loot["items"]
 	if p_is_player:
 		life = PLAYER_LIFETIME
+	# A dropped sack with a couple of bones beside it.
 	var body := MeshInstance3D.new()
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(0.8, 0.12, 0.5)
-	body.mesh = mesh
-	body.material_override = World._mat(Color("4a4038"))
-	body.position = Vector3(0.0, 0.06, 0.0)
+	var bone := Color(0.86, 0.84, 0.76)
+	body.mesh = Art.merge([[Art.ball(0.22, 7, 4), Art.at(0, 0.16, 0, Vector3.ZERO, Vector3(1, 0.75, 1)), Color(0.45, 0.35, 0.22)],
+		[Art.box(0.08, 0.1, 0.08), Art.at(0, 0.32, 0), Color(0.32, 0.24, 0.14)],
+		[Art.box(0.45, 0.05, 0.06), Art.at(0.28, 0.03, 0.12, Vector3(0, 0.6, 0)), bone],
+		[Art.box(0.38, 0.05, 0.06), Art.at(0.25, 0.03, -0.12, Vector3(0, -0.5, 0)), bone],
+		[Art.ball(0.08, 6, 3), Art.at(-0.28, 0.07, 0.1), bone]])
+	body.material_override = Art.vc_mat()
 	body.rotation.y = randf() * TAU
 	add_child(body)
 	label = Label3D.new()

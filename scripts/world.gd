@@ -278,14 +278,26 @@ func place_house(parent: Node3D, o: Vector2i, size := 3) -> void:
 	var node := Node3D.new()
 	parent.add_child(node)
 	house_nodes[o] = node
-	var wall_mesh := BoxMesh.new()
-	wall_mesh.size = Vector3(TILE, 1.4, TILE)
-	var wall_mat := _mat(COLORS[Tile.HOUSE])
+	# Timber framing: pale plaster between dark beams, and a banded chest.
+	var plaster := Color(0.86, 0.8, 0.66)
+	var beam := Color(0.33, 0.22, 0.12)
+	var wall_mesh := Art.merge([[Art.box(TILE, 1.4, TILE), Art.at(0, 0.7, 0), plaster],
+		[Art.box(TILE * 1.02, 0.1, TILE * 1.02), Art.at(0, 1.4, 0), beam],
+		[Art.box(TILE * 1.02, 0.08, TILE * 1.02), Art.at(0, 0.05, 0), beam],
+		[Art.box(0.1, 1.4, TILE * 1.02), Art.at(-0.45, 0.7, 0), beam],
+		[Art.box(0.1, 1.4, TILE * 1.02), Art.at(0.45, 0.7, 0), beam],
+		[Art.box(TILE * 1.02, 1.4, 0.1), Art.at(0, 0.7, -0.45), beam],
+		[Art.box(TILE * 1.02, 1.4, 0.1), Art.at(0, 0.7, 0.45), beam]])
+	var vc := Art.vc_mat()
 	for c in house_wall_tiles(o, size):
-		_add(node, wall_mesh, wall_mat, tile_center(c) + Vector3(0, 0.7, 0))
-	var chest_mesh := BoxMesh.new()
-	chest_mesh.size = Vector3(0.5, 0.4, 0.35)
-	_add(node, chest_mesh, _mat(Color("6b4423")), tile_center(house_center(o, size)) + Vector3(0, 0.2, -0.25))
+		_add(node, wall_mesh, vc, tile_center(c))
+	var wood := Color(0.42, 0.27, 0.14)
+	var chest_mesh := Art.merge([[Art.box(0.5, 0.32, 0.35), Art.at(0, 0.16, 0), wood],
+		[Art.box(0.52, 0.1, 0.37), Art.at(0, 0.37, 0), wood.lightened(0.1)],
+		[Art.box(0.06, 0.44, 0.38), Art.at(-0.17, 0.21, 0), Art.DARK],
+		[Art.box(0.06, 0.44, 0.38), Art.at(0.17, 0.21, 0), Art.DARK],
+		[Art.box(0.08, 0.08, 0.02), Art.at(0, 0.3, -0.19), Color(0.8, 0.65, 0.2)]])
+	_add(node, chest_mesh, vc, tile_center(house_center(o, size)) + Vector3(0, 0, -0.25))
 	if size > 3:                           # bigger houses get a floor
 		_add_floor(node, Rect2i(o + Vector2i(1, 1), Vector2i(size - 2, size - 2)), Color("8b6b4a"))
 
@@ -348,10 +360,10 @@ func find_house_spot(near: Vector2i, occupied: Dictionary, size := 3, radius := 
 
 
 ## A flat coloured patch over a rectangle of tiles (town paving, dungeon floor).
-func _add_floor(parent: Node3D, r: Rect2i, color: Color) -> void:
+func _add_floor(parent: Node3D, r: Rect2i, color: Color, mat: Material = null) -> void:
 	var mesh := PlaneMesh.new()
 	mesh.size = Vector2(r.size) * TILE
-	_add(parent, mesh, _mat(color),
+	_add(parent, mesh, mat if mat != null else _mat(color),
 		Vector3(r.position.x + r.size.x / 2.0, 0.01, r.position.y + r.size.y / 2.0) * TILE)
 
 
@@ -402,52 +414,132 @@ func _add(parent: Node3D, mesh: Mesh, mat: Material, at: Vector3) -> void:
 	parent.add_child(mi)
 
 
-## One MultiMeshInstance3D drawing `mesh` at every position in `at`.
-func _add_batch(parent: Node3D, mesh: Mesh, mat: Material, at: Array[Vector3]) -> void:
-	if at.is_empty():
+## One MultiMeshInstance3D drawing `mesh` once per transform, each tinted by its colour (the
+## material multiplies its vertex colours by the instance colour).
+func _add_batch(parent: Node3D, mesh: Mesh, mat: Material, xforms: Array[Transform3D], tints: Array[Color]) -> void:
+	if xforms.is_empty():
 		return
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
 	mm.mesh = mesh
-	mm.instance_count = at.size()
-	for i in range(at.size()):
-		mm.set_instance_transform(i, Transform3D(Basis(), at[i]))
+	mm.instance_count = xforms.size()
+	for i in range(xforms.size()):
+		mm.set_instance_transform(i, xforms[i])
+		mm.set_instance_color(i, tints[i])
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.material_override = mat
 	parent.add_child(mmi)
 
 
-## Builds the 3D scenery as children of `parent`.
+## A tiling texture made from noise: smooth blobs (grass) or cells (cobbles, flagstones).
+static func _noise_mat(colors: Array, freq: float, cellular: bool, uv_scale: Vector2) -> StandardMaterial3D:
+	var noise := FastNoiseLite.new()
+	noise.frequency = freq
+	noise.seed = 7
+	if cellular:
+		noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+		noise.cellular_return_type = FastNoiseLite.RETURN_DISTANCE
+	var ramp := Gradient.new()
+	ramp.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	ramp.colors = PackedColorArray(colors)
+	var tex := NoiseTexture2D.new()
+	tex.width = 256
+	tex.height = 256
+	tex.seamless = true
+	tex.noise = noise
+	tex.color_ramp = ramp
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = tex
+	m.uv1_scale = Vector3(uv_scale.x, uv_scale.y, 1.0)
+	m.roughness = 1.0
+	return m
+
+
+const WATER_SHADER := """
+shader_type spatial;
+uniform vec4 deep : source_color = vec4(0.12, 0.3, 0.56, 1.0);
+uniform vec4 shallow : source_color = vec4(0.32, 0.58, 0.82, 1.0);
+varying vec3 wpos;
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	float w = sin(wpos.x * 2.1 + TIME * 1.3) * 0.5 + sin(wpos.z * 1.7 - TIME * 1.1) * 0.5;
+	float sparkle = pow(max(sin(wpos.x * 5.0 + wpos.z * 3.0 + TIME * 2.0), 0.0), 12.0);
+	ALBEDO = mix(deep.rgb, shallow.rgb, 0.5 + 0.25 * w) + vec3(sparkle * 0.25);
+	ROUGHNESS = 0.2;
+	SPECULAR = 0.7;
+}
+"""
+
+
+## The low-poly scenery pieces (flat-shaded, vertex-coloured, shared by every instance).
+static func _wall_piece() -> ArrayMesh:
+	var stone := Color(0.46, 0.47, 0.5)
+	return Art.merge([[Art.box(TILE, 1.5, TILE), Art.at(0, 0.75, 0), stone],
+		[Art.box(TILE * 1.02, 0.12, TILE * 1.02), Art.at(0, 1.55, 0), stone.lightened(0.18)],
+		[Art.box(TILE * 1.01, 0.05, TILE * 1.01), Art.at(0, 0.5, 0), stone.darkened(0.15)],
+		[Art.box(TILE * 1.01, 0.05, TILE * 1.01), Art.at(0, 1.0, 0), stone.darkened(0.15)]])
+
+
+static func _pine() -> ArrayMesh:
+	var bark := Color(0.38, 0.25, 0.13)
+	var needles := Color(0.15, 0.36, 0.2)
+	return Art.merge([[Art.cone(0.1, 0.6, 0.07, 6), Art.at(0, 0.3, 0), bark],
+		[Art.cone(0.48, 0.65, 0.0, 7), Art.at(0, 0.8, 0), needles],
+		[Art.cone(0.38, 0.55, 0.0, 7), Art.at(0, 1.15, 0), needles.lightened(0.08)],
+		[Art.cone(0.26, 0.45, 0.0, 7), Art.at(0, 1.48, 0), needles.lightened(0.16)]])
+
+
+static func _oak() -> ArrayMesh:
+	var bark := Color(0.4, 0.27, 0.14)
+	var leaves := Color(0.22, 0.45, 0.2)
+	return Art.merge([[Art.cone(0.12, 0.75, 0.08, 6), Art.at(0, 0.37, 0), bark],
+		[Art.ball(0.46, 7, 4), Art.at(0, 1.05, 0), leaves],
+		[Art.ball(0.3, 6, 4), Art.at(0.22, 1.3, 0.1), leaves.lightened(0.1)],
+		[Art.ball(0.28, 6, 4), Art.at(-0.2, 1.22, -0.12), leaves.darkened(0.08)]])
+
+
+static func _rock_piece() -> ArrayMesh:
+	var grey := Color(0.5, 0.48, 0.45)
+	return Art.merge([[Art.ball(0.45, 6, 3), Art.at(0, 0.22, 0, Vector3.ZERO, Vector3(1, 0.7, 0.9)), grey],
+		[Art.ball(0.25, 5, 3), Art.at(0.25, 0.35, 0.15, Vector3(0.4, 0.3, 0)), grey.lightened(0.1)],
+		[Art.ball(0.18, 5, 3), Art.at(-0.22, 0.12, 0.25), grey.darkened(0.1)]])
+
+
+static func _tuft() -> ArrayMesh:
+	var g := Color(0.3, 0.55, 0.26)
+	return Art.merge([[Art.cone(0.05, 0.28, 0.0, 4), Art.at(0, 0.14, 0, Vector3(0.2, 0, 0.1)), g],
+		[Art.cone(0.05, 0.22, 0.0, 4), Art.at(0.08, 0.11, 0.04, Vector3(-0.2, 0, -0.3)), g.lightened(0.1)],
+		[Art.cone(0.05, 0.25, 0.0, 4), Art.at(-0.07, 0.12, -0.05, Vector3(0.1, 0, 0.35)), g.darkened(0.1)]])
+
+
+static func _flower() -> ArrayMesh:
+	return Art.merge([[Art.box(0.02, 0.22, 0.02), Art.at(0, 0.11, 0), Color(0.25, 0.5, 0.22)],
+		[Art.ball(0.06, 5, 3), Art.at(0, 0.24, 0), Color(1, 1, 1)],
+		[Art.box(0.02, 0.16, 0.02), Art.at(0.12, 0.08, 0.06), Color(0.25, 0.5, 0.22)],
+		[Art.ball(0.05, 5, 3), Art.at(0.12, 0.17, 0.06), Color(1, 1, 1)]])
+
+
+## Builds the 3D scenery as children of `parent`: noise-textured ground and paving, then every
+## wall, tree, rock and pool in batches (one MultiMesh per kind, each instance a little turned,
+## sized and tinted), plus grass tufts and flowers for detail.
 func build(parent: Node3D) -> void:
+	var rnd := RandomNumberGenerator.new()
+	rnd.seed = 4242                        # the same forest every time
 	var ground_mesh := PlaneMesh.new()
 	ground_mesh.size = Vector2(cols, rows) * TILE
-	_add(parent, ground_mesh, _mat(COLORS[Tile.GRASS]),
+	_add(parent, ground_mesh,
+		_noise_mat([Color("284f2c"), Color("36663a"), Color("4b7a3e")], 0.03, false, Vector2(cols, rows) / 10.0),
 		Vector3(cols, 0.0, rows) * TILE / 2.0)
-
 	for r in TOWNS:
-		_add_floor(parent, r, Color("8a7f5a"))
-	_add_floor(parent, DUNGEON, Color("2b2622"))
+		_add_floor(parent, r, Color("8a7f5a"),
+			_noise_mat([Color("a49678"), Color("8c7f63"), Color("5a5142")], 0.04, true, Vector2(r.size) / 3.0))
+	_add_floor(parent, DUNGEON, Color("2b2622"),
+		_noise_mat([Color("3a342d"), Color("2a2521"), Color("141210")], 0.04, true, Vector2(DUNGEON.size) / 3.0))
 
-	var wall_mesh := BoxMesh.new()
-	wall_mesh.size = Vector3(TILE, 1.6, TILE)
-	var water_mesh := PlaneMesh.new()
-	water_mesh.size = Vector2(TILE, TILE)
-	var trunk_mesh := CylinderMesh.new()
-	trunk_mesh.top_radius = 0.08
-	trunk_mesh.bottom_radius = 0.12
-	trunk_mesh.height = 0.7
-	var crown_mesh := SphereMesh.new()
-	crown_mesh.radius = 0.42
-	crown_mesh.height = 0.84
-	var wall_mat := _mat(COLORS[Tile.WALL])
-	var water_mat := _mat(COLORS[Tile.WATER])
-	var trunk_mat := _mat(Color("5a3d1e"))
-	var crown_mat := _mat(Color("1d4a22"))
-	var rock_mesh := SphereMesh.new()
-	rock_mesh.radius = 0.48
-	rock_mesh.height = 0.7
-	var rock_mat := _mat(COLORS[Tile.ROCK])
 	var forge_mesh := BoxMesh.new()
 	forge_mesh.size = Vector3(0.9, 0.8, 0.9)
 	var coals_mesh := BoxMesh.new()
@@ -455,32 +547,74 @@ func build(parent: Node3D) -> void:
 	var coals_mat := _mat(Color(1.0, 0.45, 0.1))
 	coals_mat.emission_enabled = true
 	coals_mat.emission = Color(1.0, 0.4, 0.05)
+	var water_mesh := PlaneMesh.new()
+	water_mesh.size = Vector2(TILE, TILE)
+	var water_mat := ShaderMaterial.new()
+	var water_shader := Shader.new()
+	water_shader.code = WATER_SHADER
+	water_mat.shader = water_shader
 
-	# Walls, water, trees and rocks are drawn in batches (one MultiMesh per kind): the map has
-	# thousands of them, and one node each would be thousands of draw calls on a phone.
-	var walls: Array[Vector3] = []
-	var waters: Array[Vector3] = []
-	var trunks: Array[Vector3] = []
-	var crowns: Array[Vector3] = []
-	var rocks: Array[Vector3] = []
+	var walls: Array[Transform3D] = []
+	var wall_tints: Array[Color] = []
+	var waters: Array[Transform3D] = []
+	var water_tints: Array[Color] = []
+	var pines: Array[Transform3D] = []
+	var pine_tints: Array[Color] = []
+	var oaks: Array[Transform3D] = []
+	var oak_tints: Array[Color] = []
+	var rocks: Array[Transform3D] = []
+	var rock_tints: Array[Color] = []
+	var tufts: Array[Transform3D] = []
+	var tuft_tints: Array[Color] = []
+	var flowers: Array[Transform3D] = []
+	var flower_tints: Array[Color] = []
+	var petals := [Color(0.95, 0.9, 0.3), Color(0.95, 0.95, 0.95), Color(0.85, 0.35, 0.6), Color(0.55, 0.6, 1.0)]
 	for y in range(rows):
 		for x in range(cols):
-			var c := tile_center(Vector2i(x, y))
+			var t := Vector2i(x, y)
+			var c := tile_center(t)
+			var turn := Basis(Vector3.UP, rnd.randf() * TAU)
+			var v := rnd.randf_range(0.88, 1.1)
 			match tiles[y * cols + x]:
 				Tile.WALL:
-					walls.append(c + Vector3(0, 0.8, 0))
+					walls.append(Transform3D(Basis(), c))
+					var k := v * (0.62 if is_dungeon(t) else 1.0)   # the dungeon's stone is darker
+					wall_tints.append(Color(k, k, k))
 				Tile.WATER:
-					waters.append(c + Vector3(0, 0.02, 0))
+					waters.append(Transform3D(Basis(), c + Vector3(0, 0.02, 0)))
+					water_tints.append(Color.WHITE)
 				Tile.TREE:
-					trunks.append(c + Vector3(0, 0.35, 0))
-					crowns.append(c + Vector3(0, 1.0, 0))
+					var size := rnd.randf_range(0.85, 1.25)
+					var tint := Color(v * rnd.randf_range(0.92, 1.05), v, v * rnd.randf_range(0.9, 1.0))
+					if (x * 7 + y * 13) % 5 < 2:
+						pines.append(Transform3D(turn.scaled(Vector3(size, size * rnd.randf_range(0.9, 1.15), size)), c))
+						pine_tints.append(tint)
+					else:
+						oaks.append(Transform3D(turn.scaled(Vector3.ONE * size), c))
+						oak_tints.append(tint)
 				Tile.ROCK:
-					rocks.append(c + Vector3(0, 0.3, 0))
+					var size := rnd.randf_range(0.8, 1.15)
+					rocks.append(Transform3D(turn.scaled(Vector3(size, size * rnd.randf_range(0.75, 1.0), size)), c))
+					rock_tints.append(Color(v, v * 0.98, v * 0.95))
 				Tile.FORGE:
 					_add(parent, forge_mesh, _mat(COLORS[Tile.FORGE]), c + Vector3(0, 0.4, 0))
 					_add(parent, coals_mesh, coals_mat, c + Vector3(0, 0.84, 0))
-	_add_batch(parent, wall_mesh, wall_mat, walls)
-	_add_batch(parent, water_mesh, water_mat, waters)
-	_add_batch(parent, trunk_mesh, trunk_mat, trunks)
-	_add_batch(parent, crown_mesh, crown_mat, crowns)
-	_add_batch(parent, rock_mesh, rock_mat, rocks)
+				Tile.GRASS:
+					if is_town(t) or is_dungeon(t):
+						continue
+					var roll := rnd.randf()
+					var off := Vector3(rnd.randf_range(-0.35, 0.35), 0, rnd.randf_range(-0.35, 0.35))
+					if roll < 0.1:
+						tufts.append(Transform3D(turn.scaled(Vector3.ONE * rnd.randf_range(0.8, 1.3)), c + off))
+						tuft_tints.append(Color(v, v, v))
+					elif roll < 0.13:
+						flowers.append(Transform3D(turn, c + off))
+						flower_tints.append(petals[rnd.randi() % petals.size()])
+	var vc := Art.vc_mat()
+	_add_batch(parent, _wall_piece(), vc, walls, wall_tints)
+	_add_batch(parent, water_mesh, water_mat, waters, water_tints)
+	_add_batch(parent, _pine(), vc, pines, pine_tints)
+	_add_batch(parent, _oak(), vc, oaks, oak_tints)
+	_add_batch(parent, _rock_piece(), vc, rocks, rock_tints)
+	_add_batch(parent, _tuft(), vc, tufts, tuft_tints)
+	_add_batch(parent, _flower(), vc, flowers, flower_tints)
