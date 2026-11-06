@@ -5,6 +5,11 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 
 ## 0.30.0
 Platform.
+- A glitch effect: a short burst of digital distortion over the whole screen (bands of the
+  picture jumping sideways, colours pulled apart, a rolling tear line, scanlines and static).
+  It plays on a heavy blow (a fifth of your HP or more), when you die, when you teleport,
+  recall or step through a moongate, on lightning, at every tenth level, and on the title card.
+  Settings > Glitch effects turns it off. It costs nothing while it isn't playing.
 - Loot you can see: a corpse's label now lists what's in it ("23 gold, Orc Ear, Longsword +2
   more"). When anyone loots near you, each thing rises out of the corpse as a little 3D icon
   (coin, sword, armour, shield, scroll, potion, ingot, log, pelt, pouch...) with a coloured

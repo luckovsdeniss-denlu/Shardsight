@@ -41,6 +41,7 @@ var vendor_last := 0.0                 # unix time of the last offline-sale sett
 var sound_on := true                   # settings
 var ruleset := "felucca"               # "felucca": open PvP; "trammel": players can't hurt each other
 var music_on := true
+var glitch_on := true                  # screen glitch effects (some players prefer them off)
 var graphics := "medium"               # low, medium or high
 var weather_on := true
 var cam_zoom := 1.0
@@ -151,7 +152,7 @@ func to_dict() -> Dictionary:
 		"rune": [rune.x, rune.y], "runes": _runes_list(), "quest_index": quest_index, "quest_active": quest_active,
 		"quest_kills": quest_kills, "quest_escorted": quest_escorted,
 		"sound_on": sound_on, "cam_zoom": cam_zoom, "cam_yaw": cam_yaw, "ruleset": ruleset,
-		"music_on": music_on, "weather_on": weather_on, "graphics": graphics,
+		"music_on": music_on, "weather_on": weather_on, "glitch_on": glitch_on, "graphics": graphics,
 		"vendor_hired": vendor_hired, "vendor_stock": vendor_stock, "vendor_gold": vendor_gold,
 		"vendor_last": vendor_last,
 	}
@@ -195,6 +196,7 @@ func load_dict(d: Dictionary) -> void:
 	vendor_last = float(d.get("vendor_last", Time.get_unix_time_from_system()))
 	sound_on = bool(d.get("sound_on", true))
 	music_on = bool(d.get("music_on", true))
+	glitch_on = bool(d.get("glitch_on", true))
 	graphics = String(d.get("graphics", "medium"))
 	if not graphics in ["low", "medium", "high"]:
 		graphics = "medium"
