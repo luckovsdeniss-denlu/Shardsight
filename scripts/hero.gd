@@ -1,8 +1,10 @@
 class_name Hero
-## No classes or levels: three stats, skills 0..100, hard caps. Skills and stats rise only by use.
+## Three stats, skills 0..100 and hard caps. Skills rise with every use (+0.1 each time), and
+## the level (1..1000) follows the skill total. Stats rise only by use too.
 
 signal skill_gained(skill_name: String, value: float)
 signal stat_gained(stat_name: String, value: int)
+signal level_up(level: int)
 
 # Append new skills at the end: saved games store skills by number.
 enum Skill {
@@ -124,14 +126,16 @@ func try_gain(skill: int) -> bool:
 	var v: float = skills[skill]
 	if v >= Rules.SKILL_MAX:
 		return false
-	if randf() >= (Rules.SKILL_MAX - v) / Rules.SKILL_MAX * 0.5:
-		return false
+	# Every use teaches: +0.1 each time (no dice), up to 100 and the 700-point cap.
 	if skill_total() + 0.1 > Rules.SKILL_CAP_TOTAL + 0.001 and not _take_from_down_skill(skill):
 		return false
+	var before := level()
 	var nv := snappedf(minf(v + 0.1, Rules.SKILL_MAX), 0.1)
 	skills[skill] = nv
 	if floorf(nv) > floorf(v):
 		skill_gained.emit(skill_name(skill), nv)
+	if level() > before:
+		level_up.emit(level())
 	_try_stat_gain(skill)
 	return true
 

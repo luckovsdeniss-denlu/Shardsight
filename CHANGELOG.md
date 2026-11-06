@@ -5,6 +5,9 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 
 ## 0.30.0
 Platform.
+- Every use of a skill teaches it: +0.1 each time, no more dice (still up to 100 per skill and
+  the 700-point total; locks still apply). The level follows, so a hero levels up about every
+  seven uses: "Level N!" pops above the head, with a log line every 10 levels.
 - Players can attack each other by hand: tap a player (or Menu > Players) and Attack. Outside
   town in Felucca anyone is fair game except your guild and allies; attacking an innocent makes
   you a criminal (and a murderer if they die). Not in town, and not in Trammel except guild wars.

@@ -271,6 +271,7 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 		spellbook[String(id)] = true
 	crafter = bool(cfg.get("crafter", kind == Kind.PLAYER))   # players gather and craft like the hero
 	stats.skill_gained.connect(_on_skill_gained)
+	stats.level_up.connect(_on_level_up)
 	stats.stat_gained.connect(_on_stat_gained)
 	refresh_look()                       # now that gear and role are known
 
@@ -3801,3 +3802,13 @@ func pvp_problem(v: Entity) -> String:
 	if friends_with(v):
 		return "they're in your guild or an ally"
 	return ""
+
+
+## A level gained: a pop above the head every time, a log line every 10 levels.
+func _on_level_up(lv: int) -> void:
+	_pop("Level %d!" % lv, Color(1.0, 0.85, 0.3))
+	if is_hero:
+		game.count("levels_gained")
+		if lv % 10 == 0:
+			game.log_event("You reach level %d!" % lv)
+			game.sound("gain", position)
