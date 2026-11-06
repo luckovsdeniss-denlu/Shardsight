@@ -74,6 +74,15 @@ func skill_total() -> float:
 	return t
 
 
+## Player level 1..1000, from the total of all skills: a new hero is level 1, and a full
+## skill total (the cap) is level 1000. Derived, so nothing extra is saved.
+const LEVEL_MAX := 1000
+
+func level() -> int:
+	var frac := clampf(skill_total() / float(Rules.SKILL_CAP_TOTAL), 0.0, 1.0)
+	return clampi(1 + floori(frac * (LEVEL_MAX - 1)), 1, LEVEL_MAX)
+
+
 func get_stat(stat: int) -> int:
 	match stat:
 		Stat.STR:

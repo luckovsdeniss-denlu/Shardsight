@@ -23,6 +23,8 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 - Arrows and tool wear are saved.
 - Balance: natural healing pauses for 6 s after a blow, so monsters no longer heal
   mid-fight (it ate a third of the hero's damage; fights took about 45 s per kill).
+- Player level 1 to 1000: shown in the HUD (Lv) and the Skills menu. It is derived from your
+  total skill (700 = level 1000), so a new hero starts at level 1 and nothing extra is saved.
 - Two logs: your own events lower left, everyone else's (deaths, crimes, resurrections) lower right.
 
 ## 0.21.0
