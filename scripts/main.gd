@@ -45,6 +45,8 @@ var touches := {}                # screen touch index -> position (for pinch and
 var _pinch_dist := 0.0
 var _pinch_angle := 0.0
 var animals_panel: Control
+var bard_panel: Control
+var bard_box: VBoxContainer
 var animals_box: VBoxContainer
 var pending_spawns: Array[Dictionary] = []   # spawns requested mid-frame, done after the tick loop
 var saved_pets: Array = []                   # pets read from the save, restored after start-up
@@ -134,6 +136,8 @@ func _ready() -> void:
 	travel_box = travel_panel.get_meta("box")
 	settings_panel = _make_overlay(layer)
 	animals_panel = _make_overlay(layer)
+	bard_panel = _make_overlay(layer)
+	bard_box = bard_panel.get_meta("box")
 	animals_box = animals_panel.get_meta("box")
 	settings_box = settings_panel.get_meta("box")
 
@@ -189,6 +193,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(_menu_button("Bank & House", _open_property))
 	box.add_child(_menu_button("Travel", _open_travel))
 	box.add_child(_menu_button("Animals", _open_animals))
+	box.add_child(_menu_button("Bard", _open_bard))
 	box.add_child(_menu_button("Settings", _open_settings))
 	box.add_child(_menu_button("Help", _open_help))
 	box.add_child(_menu_button("Save now", _save_now))
@@ -949,6 +954,58 @@ func _open_animals() -> void:
 
 func _close_animals() -> void:
 	animals_panel.visible = false
+	menu.visible = true
+
+
+# --- bard ------------------------------------------------------------------
+
+func _refresh_bard() -> void:
+	for c in bard_box.get_children():
+		bard_box.remove_child(c)
+		c.queue_free()
+	var s := hero.stats
+	var title := _info("Bard")
+	title.add_theme_font_size_override("font_size", 30)
+	bard_box.add_child(title)
+	bard_box.add_child(_info("Musicianship %.1f   Peacemaking %.1f   Provocation %.1f   Enticement %.1f%s" % [
+		float(s.skills[Hero.Skill.MUSICIANSHIP]), float(s.skills[Hero.Skill.PEACEMAKING]),
+		float(s.skills[Hero.Skill.PROVOCATION]), float(s.skills[Hero.Skill.ENTICEMENT]),
+		"" if hero.has_instrument() else "\nYou have no lute: Bran sells them for %d gold." % Entity.LUTE_PRICE]))
+	var a := hero.nearest_hostile()
+	var b: Entity = hero.nearest_hostile(a) if a != null else null
+	var tune := Rules.music_chance(float(s.skills[Hero.Skill.MUSICIANSHIP]))
+	for entry in [
+		["peace", "Peacemaking: calm every monster around you", Hero.Skill.PEACEMAKING, a],
+		["provoke", "Provocation: turn the nearest monster on another", Hero.Skill.PROVOCATION, a],
+		["entice", "Enticement: lure the nearest monster to you", Hero.Skill.ENTICEMENT, a],
+	]:
+		var what := String(entry[0])
+		var problem := hero.bard_problem(what)
+		var label := String(entry[1])
+		if problem != "":
+			label += " (%s)" % problem
+		elif entry[3] != null:
+			label += " (%s, %d%%)" % [(entry[3] as Entity).display_name,
+				roundi(tune * hero.bard_chance_vs(int(entry[2]), entry[3]) * 100.0)]
+		bard_box.add_child(_action(label, _on_perform.bind(what, a, b), problem == ""))
+	bard_box.add_child(_info("Every tune first needs a good Musicianship roll. A failed provocation or enticement makes the monster angry with you. Hitting a calmed monster wakes it. With Auto on, your hero provokes when two monsters gang up on it, calms them when badly hurt, and lures lone monsters away from their friends."))
+	bard_box.add_child(_menu_button("Back", _close_bard))
+
+
+func _on_perform(what: String, a: Entity, b: Entity) -> void:
+	hero.start_perform(what, a, b)
+	bard_panel.visible = false
+	_resume()
+
+
+func _open_bard() -> void:
+	menu.visible = false
+	bard_panel.visible = true
+	_refresh_bard()
+
+
+func _close_bard() -> void:
+	bard_panel.visible = false
 	menu.visible = true
 
 

@@ -116,3 +116,14 @@ static func tame_chance(taming: float, lore: float, min_skill: float) -> float:
 	if taming < min_skill - 10.0:
 		return 0.0
 	return clampf(0.3 + (taming - min_skill) / 50.0 + lore / 500.0, 0.05, 0.95)
+
+
+## Approximate: every bard performance first needs a good tune (Musicianship).
+static func music_chance(musicianship: float) -> float:
+	return clampf(0.5 + musicianship / 200.0, 0.5, 0.98)
+
+
+## Approximate: Peacemaking / Provocation / Enticement against a creature of the given
+## difficulty (0..100, from how dangerous it is). Musicianship helps every one of them.
+static func bard_chance(skill: float, musicianship: float, difficulty: float) -> float:
+	return clampf(0.5 + (skill + musicianship) / 400.0 - difficulty / 100.0, 0.05, 0.95)

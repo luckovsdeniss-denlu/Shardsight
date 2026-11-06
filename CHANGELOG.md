@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.19.0
+- Bards: Musicianship, Peacemaking, Provocation and Enticement (new skills), played on a lute.
+  The hero starts with one; Bran sells another for 20 gold if it is lost (lutes are never sold).
+  - Peacemaking calms every monster around you for 15 s (a blow wakes them).
+  - Provocation turns the nearest monster on another one; they fight each other.
+  - Enticement lures a monster to walk over to you alone, away from its friends, for 8 s.
+  - Each needs a good Musicianship roll first, then a skill roll against the creature's
+    toughness; a failed provocation or enticement makes it angry with you.
+- Menu > Bard: the three performances with your chances. In Auto the hero provokes when two
+  monsters gang up on it, calms them when badly hurt, and lures lone monsters away first.
+- Fix from the animals play-test: the Auto hero now waits 60 s between taming attempts, so
+  taming no longer eats the time it used to spend gathering and crafting. The report counts
+  taming attempts and every bard performance.
+
 ## 0.18.0
 (0.17, thieves, was skipped for now.)
 - Animal Taming, Animal Lore and Veterinary (new skills).

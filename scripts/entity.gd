@@ -33,6 +33,13 @@ const POTION_PRICE := 15
 const MAX_PETS := 2
 const TAME_TIME := 3.0             # seconds of coaxing per taming attempt
 const PET_LEASH := 14.0            # pets drop a chase that strays this far from their owner
+const TAME_COOLDOWN := 60.0        # Auto waits this long between taming attempts
+const PERFORM_TIME := 2.0          # seconds of playing per bard performance
+const BARD_COOLDOWN := 6.0
+const BARD_RANGE := 8.0
+const PEACE_SECONDS := 15.0
+const ENTICE_SECONDS := 8.0
+const LUTE_PRICE := 20
 const SUPPLY_RESERVE := 30         # gold kept back when restocking supplies at the merchant
 const CRIMINAL_SECONDS := 60.0     # grey after attacking an innocent
 const MURDER_WINDOW := 30.0        # an innocent dying this soon after your attack is a murder
@@ -120,6 +127,15 @@ var pets: Array[Entity] = []
 var tame_target: Entity = null
 var tame_timer := 0.0
 var bandage_target: Entity = null
+var tame_cd := 0.0
+var bard_cd := 0.0
+var perform_timer := 0.0
+var perform_kind := ""         # "peace", "provoke" or "entice"
+var perform_a: Entity = null
+var perform_b: Entity = null
+var peaced_timer := 0.0        # calmed by Peacemaking: won't fight
+var enticed_timer := 0.0       # lured by Enticement: walks to the bard
+var enticer: Entity = null
 var ghost := false
 var died_red := false
 var crafter := false           # gathers and crafts when idle (the hero)
@@ -173,6 +189,9 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	shield_id = String(cfg.get("shield", ""))
 	bandages = int(cfg.get("bandages", 0))
 	is_pk = bool(cfg.get("pk", false))
+	var start_bag: Dictionary = cfg.get("inventory", {})
+	for k in start_bag:
+		inventory[k] = int(start_bag[k])
 	danger = float(cfg.get("danger", 1.0))
 	poison_cfg = cfg.get("poison", [])
 	stamina = float(stats.max_stamina())
@@ -237,6 +256,10 @@ func tick(delta: float) -> void:
 	stamina = minf(stamina + STAMINA_REGEN * delta, float(stats.max_stamina()))
 	potion_cd = maxf(potion_cd - delta, 0.0)
 	poison_immune = maxf(poison_immune - delta, 0.0)
+	tame_cd = maxf(tame_cd - delta, 0.0)
+	bard_cd = maxf(bard_cd - delta, 0.0)
+	peaced_timer = maxf(peaced_timer - delta, 0.0)
+	enticed_timer = maxf(enticed_timer - delta, 0.0)
 	if poison_level > 0:
 		_poison_step(delta)
 		if dead:
@@ -251,6 +274,10 @@ func tick(delta: float) -> void:
 		return
 	if tame_timer > 0.0:
 		_tame_channel(delta)
+		_refresh_label()
+		return
+	if perform_timer > 0.0:
+		_perform_channel(delta)
 		_refresh_label()
 		return
 	if bandage_timer > 0.0:
@@ -282,17 +309,33 @@ func _think(delta: float) -> void:
 		return
 	var autonomous := kind != Kind.PLAYER or ai_enabled
 	if kind == Kind.MONSTER:
-		if target == null and pause <= 0.0:
+		if enticed_timer > 0.0 and enticer != null and is_instance_valid(enticer) and not enticer.dead:
+			target = null                    # lured: walk to the bard, no fighting
+			if position.distance_to(enticer.position) > 1.6 and (repath_timer <= 0.0 or path.is_empty()):
+				repath_timer = 0.5
+				go_to(enticer.position)
+			return
+		if peaced_timer > 0.0:
+			target = null                    # calmed by music
+		elif target == null and pause <= 0.0:
 			target = _pick_target()
 		elif target != null and (target._in_town() or position.distance_to(home) > leash + aggro_range * 1.5):
 			target = null       # gave up: prey fled into the guarded town, or too far from its lair
 			pause = 3.0
 			go_to(home)
 	elif kind == Kind.PLAYER and autonomous and pause <= 0.0:
+		if is_hero and _try_bard():
+			return
 		if _recover() or _resupply():
 			return
 		if target == null:
 			target = _pick_target()
+			# Lure a far-off monster away from its friends before fighting it.
+			if is_hero and target != null and position.distance_to(target.position) > 4.0 \
+					and randf() < 0.3 and bard_problem("entice") == "":
+				start_perform("entice", target, null)
+				target = null
+				return
 	if target != null:
 		_chase()
 		return
@@ -419,7 +462,7 @@ func _face(v: Vector3) -> void:
 # --- combat ----------------------------------------------------------------
 
 func _fight() -> void:
-	if target == null:
+	if target == null or peaced_timer > 0.0 or enticed_timer > 0.0:
 		return
 	var d := position.distance_to(target.position)
 	if (kind != Kind.PLAYER or ai_enabled) and _try_auto_cast(d):
@@ -488,6 +531,9 @@ func take_damage(amount: float, from: Entity) -> void:
 			game.log_event("%s attacks %s!" % [from.display_name, display_name])
 		attackers[aid] = MURDER_WINDOW
 	hp -= amount
+	if peaced_timer > 0.0 or (enticed_timer > 0.0 and from == enticer):
+		peaced_timer = 0.0                   # a blow breaks the spell of the music
+		enticed_timer = 0.0
 	game.sound("hit", position)
 	if casting_id != "":
 		_fizzle("disrupted")      # taking damage breaks a spell in progress
@@ -872,7 +918,7 @@ func trade(delta: float) -> void:
 	for id in inventory.keys():
 		if _is_usable_upgrade(id):
 			continue                       # keep gear we are about to wear
-		if Items.is_potion(id):
+		if Items.is_potion(id) or Items.is_instrument(id):
 			continue                       # potions are kept for emergencies
 		if crafter and Items.is_material(id):
 			continue                       # crafters keep their ore, ingots, logs and hides
@@ -887,6 +933,10 @@ func trade(delta: float) -> void:
 		_trade_timer = 0.0
 		# Restock only what is short, and never dip into the reserve (except for a last
 		# couple of bandages).
+		if is_hero and not has_instrument() and gold >= LUTE_PRICE + SUPPLY_RESERVE:
+			_spend(LUTE_PRICE)
+			inventory["lute"] = 1
+			game.log_event("You buy a lute.")
 		if Crafting.count(inventory, "potion_heal") < 1 and gold >= POTION_PRICE + SUPPLY_RESERVE:
 			_spend(POTION_PRICE)
 			inventory["potion_heal"] = 1
@@ -1865,7 +1915,7 @@ func start_taming(e: Entity) -> void:
 ## Players in Auto look for an animal they have some chance with (passive ones, or any not
 ## already attacking someone).
 func _start_taming_nearby() -> bool:
-	if pets.size() >= MAX_PETS:
+	if pets.size() >= MAX_PETS or tame_cd > 0.0:
 		return false
 	var best: Entity = null
 	var best_d := 10.0
@@ -1916,6 +1966,9 @@ func _tame_channel(delta: float) -> void:
 		return
 	var animal := tame_target
 	tame_target = null
+	tame_cd = TAME_COOLDOWN
+	if is_hero:
+		game.count("tame_attempts")
 	var won := randf() < tame_chance_of(animal)
 	if kind == Kind.PLAYER:                  # every attempt teaches
 		stats.try_gain(Hero.Skill.ANIMAL_TAMING)
@@ -1967,3 +2020,169 @@ func _finish_vet(p: Entity) -> void:
 	if kind == Kind.PLAYER:
 		stats.try_gain(Hero.Skill.VETERINARY)
 		stats.try_gain(Hero.Skill.ANIMAL_LORE)
+
+
+# --- bards: Musicianship, Peacemaking, Provocation, Enticement -------------
+
+func has_instrument() -> bool:
+	for id in inventory:
+		if Items.is_instrument(id):
+			return true
+	return false
+
+
+## How hard a creature is to calm, provoke or lure (0..100).
+func bard_difficulty() -> float:
+	return clampf(threat() * 12.0, 5.0, 100.0)
+
+
+func bard_chance_vs(skill: int, e: Entity) -> float:
+	return Rules.bard_chance(_skill(skill), _skill(Hero.Skill.MUSICIANSHIP), e.bard_difficulty())
+
+
+## The nearest monster within reach that isn't already calmed, or null.
+func nearest_hostile(exclude: Entity = null) -> Entity:
+	var best: Entity = null
+	var best_d := BARD_RANGE
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e == exclude or e.dead or e.kind != Kind.MONSTER or e.peaced_timer > 0.0:
+			continue
+		var d := position.distance_to(e.position)
+		if d < best_d:
+			best = e
+			best_d = d
+	return best
+
+
+## Why a performance can't start now, or "" if it can.
+func bard_problem(what: String) -> String:
+	if dead:
+		return "you are dead"
+	if not has_instrument():
+		return "you need a lute (Bran sells them)"
+	if bard_cd > 0.0 or perform_timer > 0.0:
+		return "you are still catching your breath"
+	var first := nearest_hostile()
+	if first == null:
+		return "no monster close enough"
+	if what == "provoke" and nearest_hostile(first) == null:
+		return "it needs a second monster nearby"
+	return ""
+
+
+## Begin playing. `a` (and `b` for Provocation) are the creatures to work on.
+func start_perform(what: String, a: Entity, b: Entity) -> void:
+	perform_kind = what
+	perform_a = a
+	perform_b = b
+	perform_timer = PERFORM_TIME
+	path.clear()
+	_pop("*plays the lute*", Color(0.9, 0.8, 1.0))
+
+
+## Auto: provoke when two monsters gang up, calm them when badly hurt.
+func _try_bard() -> bool:
+	if bard_problem("peace") != "":
+		return false
+	var attackers: Array[Entity] = []
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if not e.dead and e.kind == Kind.MONSTER and e.target == self and e.peaced_timer <= 0.0 \
+				and position.distance_to(e.position) <= BARD_RANGE:
+			attackers.append(e)
+	if attackers.size() >= 2:
+		start_perform("provoke", attackers[0], attackers[1])
+		return true
+	if attackers.size() == 1 and hp < float(stats.max_hp()) * FLEE_HP:
+		start_perform("peace", null, null)
+		return true
+	return false
+
+
+func _perform_channel(delta: float) -> void:
+	perform_timer -= delta
+	if perform_timer > 0.0:
+		return
+	bard_cd = BARD_COOLDOWN
+	var musicianship := _skill(Hero.Skill.MUSICIANSHIP)
+	if randf() >= Rules.music_chance(musicianship):
+		_pop("you play poorly", Color(0.75, 0.75, 0.75))
+		if is_hero:
+			game.count("bard_fail")
+		return
+	if kind == Kind.PLAYER:
+		stats.try_gain(Hero.Skill.MUSICIANSHIP)
+	match perform_kind:
+		"peace":
+			_do_peace()
+		"provoke":
+			_do_provoke()
+		"entice":
+			_do_entice()
+
+
+## Calms every monster around the bard that the music reaches.
+func _do_peace() -> void:
+	var calmed := 0
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e.dead or e.kind != Kind.MONSTER or position.distance_to(e.position) > BARD_RANGE:
+			continue
+		if randf() < bard_chance_vs(Hero.Skill.PEACEMAKING, e):
+			e.peaced_timer = PEACE_SECONDS
+			e.target = null
+			e.path.clear()
+			e._pop("calmed", Color(0.7, 0.9, 1.0))
+			calmed += 1
+	if calmed > 0:
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.PEACEMAKING)
+		if is_hero:
+			game.count("bard_peace", calmed)
+	target = null
+	recovering = recovering or hp < float(stats.max_hp()) * RECOVER_HP
+
+
+## Turns one monster on another. Failing makes the first one angry with the bard.
+func _do_provoke() -> void:
+	var a := perform_a
+	var b := perform_b
+	if a == null or b == null or not is_instance_valid(a) or not is_instance_valid(b) or a.dead or b.dead:
+		return
+	var difficulty := (a.bard_difficulty() + b.bard_difficulty()) / 2.0
+	if randf() < Rules.bard_chance(_skill(Hero.Skill.PROVOCATION), _skill(Hero.Skill.MUSICIANSHIP), difficulty):
+		a.target = b
+		b.target = a
+		a.peaced_timer = 0.0
+		a._pop("provoked!", Color(1.0, 0.6, 0.3))
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.PROVOCATION)
+		if is_hero:
+			game.count("bard_provoke")
+			game.log_event("You provoke the %s into attacking the %s!" % [a.display_name, b.display_name])
+	else:
+		a.target = self
+		a._pop("not fooled", Color(0.75, 0.75, 0.75))
+
+
+## Lures a monster to walk over to the bard on its own. Failing angers it.
+func _do_entice() -> void:
+	var a := perform_a
+	if a == null or not is_instance_valid(a) or a.dead:
+		return
+	if randf() < bard_chance_vs(Hero.Skill.ENTICEMENT, a):
+		a.enticed_timer = ENTICE_SECONDS
+		a.enticer = self
+		a.target = null
+		a._pop("enticed", Color(0.9, 0.8, 1.0))
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.ENTICEMENT)
+		if is_hero:
+			game.count("bard_entice")
+	else:
+		a.target = self
+		a._pop("not fooled", Color(0.75, 0.75, 0.75))
