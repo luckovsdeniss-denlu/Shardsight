@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.18.0
+(0.17, thieves, was skipped for now.)
+- Animal Taming, Animal Lore and Veterinary (new skills).
+- Wildlife: two hinds (peaceful: players leave them alone unless told to attack), a brown bear
+  in the south-east and the wolves are tameable (Animal Taming 10 / 55 / 35 to try; no chance
+  more than 10 points below). Taming takes 3 s next to the animal, damage interrupts it, and
+  every attempt teaches; a failed attempt angers an aggressive animal.
+- Pets (up to 2) follow you, attack what you attack, defend themselves, are healed by healers
+  and bandaged with Veterinary; a pet's kills count for its owner's quests. A dead pet is gone
+  for good; a tamed animal's lair gets a new wild one after 90 s. Pets are saved with the game.
+- Menu > Animals: your pets (release them), Animal Lore on the nearest animal, a Tame button.
+  In Auto the hero tames animals by itself and bandages hurt pets.
+- HUD and minimap show pets (green dots).
+
 ## 0.16.1
 - Economy, from the one-hour play-test (24 gold after an hour, never banked, 2 items crafted,
   all 3 deaths to the Evil Mage):

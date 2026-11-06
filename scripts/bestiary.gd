@@ -1,6 +1,7 @@
 class_name Bestiary
 ## Stat blocks for everything that walks the map.
-## Keys: poison ([level, chance per hit]), danger (monster toughness: players only start fights they can win), pk (preys on innocents), crafter (gathers and crafts when idle), weapon/wear/shield (starting gear ids from Gear), bandages, str/dex/int, skills, reagents, gold (carried), loot (monster drops), dmg_min/dmg_max (weapon roll), wspeed (weapon speed 20..60),
+## Keys: species + tame (minimum Animal Taming; tameable animals), passive (never starts a fight),
+## poison ([level, chance per hit]), danger (monster toughness: players only start fights they can win), pk (preys on innocents), crafter (gathers and crafts when idle), weapon/wear/shield (starting gear ids from Gear), bandages, str/dex/int, skills, reagents, gold (carried), loot (monster drops), dmg_min/dmg_max (weapon roll), wspeed (weapon speed 20..60),
 ## move (m/s), armor, leash (wander radius in tiles), aggro (m), respawn (s), role, scale.
 
 const HERO := {
@@ -66,6 +67,7 @@ const RAT := {
 	"skills": {Hero.Skill.SWORDSMANSHIP: 25.0, Hero.Skill.TACTICS: 20.0},
 }
 const WOLF := {
+	"species": "wolf", "tame": 35.0, "color": "c0392b",
 	"danger": 2,
 	"str": 28, "dex": 50, "int": 5, "wspeed": 50, "dmg_min": 2, "dmg_max": 6,
 	"move": 3.8, "leash": 6, "aggro": 5.0, "respawn": 12.0, "scale": 0.8, "armor": 1.0,
@@ -132,3 +134,31 @@ const GIANT_SPIDER := {
 	"loot": {"gold_min": 5, "gold_max": 14, "reagents": 2, "drops": [["potion_cure", 0.15]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 45.0, Hero.Skill.TACTICS: 30.0},
 }
+
+# Wildlife. Hinds are passive (players leave them alone unless told to attack); bears bite.
+const HIND := {
+	"species": "hind", "tame": 10.0, "passive": true, "danger": 0.5, "color": "b08a5a",
+	"str": 18, "dex": 45, "int": 5, "wspeed": 45, "dmg_min": 1, "dmg_max": 3,
+	"move": 3.2, "leash": 6, "aggro": 0.0, "respawn": 20.0, "scale": 0.8,
+	"loot": {"gold_min": 0, "gold_max": 0, "drops": []},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 20.0, Hero.Skill.TACTICS: 20.0},
+}
+const BROWN_BEAR := {
+	"species": "brown_bear", "tame": 55.0, "danger": 3, "color": "6b4a2a",
+	"str": 60, "dex": 30, "int": 10, "wspeed": 30, "dmg_min": 4, "dmg_max": 10,
+	"move": 2.6, "leash": 5, "aggro": 4.0, "respawn": 30.0, "scale": 1.3, "armor": 1.0,
+	"loot": {"gold_min": 5, "gold_max": 15, "drops": [["wolf_pelt", 0.5]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 55.0, Hero.Skill.TACTICS: 50.0, Hero.Skill.ANATOMY: 30.0},
+}
+
+
+## Stat block for a tameable species (used to bring saved pets back).
+static func by_species(species: String) -> Dictionary:
+	match species:
+		"hind":
+			return HIND
+		"wolf":
+			return WOLF
+		"brown_bear":
+			return BROWN_BEAR
+	return {}

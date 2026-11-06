@@ -15,6 +15,14 @@ static func erase() -> void:
 		DirAccess.remove_absolute(PATH)
 
 
+static func _pets_of(hero: Entity) -> Array:
+	var out := []
+	for p in hero.pets:
+		if not p.dead and p.species != "":
+			out.append({"species": p.species, "name": p.display_name, "hp": p.hp})
+	return out
+
+
 static func save(hero: Entity, property: Property) -> bool:
 	var skills := {}
 	for s in hero.stats.skills:
@@ -33,6 +41,7 @@ static func save(hero: Entity, property: Property) -> bool:
 		"locks": locks,
 		"bandages": hero.bandages,
 		"murders": hero.murder_counts,
+		"pets": _pets_of(hero),
 		"property": property.to_dict(),
 		"shield": hero.shield_id,
 		"gold": hero.gold,
@@ -80,6 +89,9 @@ static func load_into(hero: Entity, property: Property) -> bool:
 			hero.stats.locks[id] = clampi(int(locks[key]), 0, 2)
 
 	hero.murder_counts = clampi(int(d.get("murders", 0)), 0, 99)
+	var pets: Variant = d.get("pets", [])
+	if typeof(pets) == TYPE_ARRAY:
+		hero.game.saved_pets = pets            # spawned next to the hero once the world is up
 	hero.murder_timer = Entity.MURDER_DECAY
 	hero.bandages = clampi(int(d.get("bandages", hero.bandages)), 0, Entity.MAX_BANDAGES)
 	hero.gold = maxi(0, int(d.get("gold", 0)))

@@ -108,3 +108,11 @@ static func cure_chance(magery: float, level: int) -> float:
 ## Reference: with 60 Anatomy (and Healing to match) bandages can cure poison.
 static func bandage_can_cure(healing: float, anatomy: float) -> bool:
 	return healing >= 60.0 and anatomy >= 60.0
+
+
+## Approximate: no chance more than 10 points below an animal's taming minimum; better with
+## Animal Taming above it and a little better with Animal Lore.
+static func tame_chance(taming: float, lore: float, min_skill: float) -> float:
+	if taming < min_skill - 10.0:
+		return 0.0
+	return clampf(0.3 + (taming - min_skill) / 50.0 + lore / 500.0, 0.05, 0.95)

@@ -4,7 +4,7 @@ extends Node3D
 ## Players and monsters fight with the classic formulas in Rules; NPCs are peaceful.
 ## `game` is the main scene: it provides `world`, `creatures` and `log_event()`.
 
-enum Kind { PLAYER, NPC, MONSTER }
+enum Kind { PLAYER, NPC, MONSTER, PET }   # PET: a tamed animal following its owner
 enum Notoriety { BLUE, GREY, RED }   # innocent, criminal, murderer (monsters are always red)
 
 const MELEE_RANGE := 1.5
@@ -30,6 +30,9 @@ const STAMINA_REGEN := 0.4         # per second
 const SWING_STAMINA := 0.6         # each swing tires you a little (slower swings when drained)
 const POTION_DELAY := 8.0          # seconds between potions
 const POTION_PRICE := 15
+const MAX_PETS := 2
+const TAME_TIME := 3.0             # seconds of coaxing per taming attempt
+const PET_LEASH := 14.0            # pets drop a chase that strays this far from their owner
 const SUPPLY_RESERVE := 30         # gold kept back when restocking supplies at the merchant
 const CRIMINAL_SECONDS := 60.0     # grey after attacking an innocent
 const MURDER_WINDOW := 30.0        # an innocent dying this soon after your attack is a murder
@@ -107,6 +110,16 @@ var poison_cfg := []           # [level, chance] if this creature poisons on hit
 var potion_cd := 0.0
 var poison_immune := 0.0       # seconds of grace after a cure, when no new poison takes hold
 var last_poison_target: Entity = null
+var cfg_ref := {}              # the stat block this creature was made from
+var spawn_color := Color.WHITE
+var species := ""              # tameable animals only
+var tame_min := -1.0           # minimum Animal Taming to tame it (-1: can't be tamed)
+var passive := false           # never starts a fight
+var owner: Entity = null       # for pets
+var pets: Array[Entity] = []
+var tame_target: Entity = null
+var tame_timer := 0.0
+var bandage_target: Entity = null
 var ghost := false
 var died_red := false
 var crafter := false           # gathers and crafts when idle (the hero)
@@ -142,6 +155,11 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	leash = int(cfg.get("leash", 8))
 	aggro_range = float(cfg.get("aggro", 5.0))
 	respawn_time = float(cfg.get("respawn", 8.0))
+	cfg_ref = cfg
+	spawn_color = color
+	species = String(cfg.get("species", ""))
+	tame_min = float(cfg.get("tame", -1.0))
+	passive = bool(cfg.get("passive", false))
 	_build_visual(color, float(cfg.get("scale", 1.0)))
 	home = world.tile_center(tile)
 	position = home
@@ -231,6 +249,10 @@ func tick(delta: float) -> void:
 		_cast_step(delta)
 		_refresh_label()
 		return
+	if tame_timer > 0.0:
+		_tame_channel(delta)
+		_refresh_label()
+		return
 	if bandage_timer > 0.0:
 		bandage_timer -= delta
 		if bandage_timer <= 0.0:
@@ -251,14 +273,17 @@ func tick(delta: float) -> void:
 # --- decisions -------------------------------------------------------------
 
 func _think(delta: float) -> void:
-	if target != null and (not is_instance_valid(target) or target.dead):
+	if target != null and (not is_instance_valid(target) or target.dead or target.kind == Kind.NPC):
 		target = null
+	if kind == Kind.PET:
+		_pet_think()
+		return
 	if kind == Kind.PLAYER and (_try_potion() or _try_bandage()):
 		return
 	var autonomous := kind != Kind.PLAYER or ai_enabled
 	if kind == Kind.MONSTER:
 		if target == null and pause <= 0.0:
-			target = _nearest(Kind.PLAYER, aggro_range)
+			target = _pick_target()
 		elif target != null and (target._in_town() or position.distance_to(home) > leash + aggro_range * 1.5):
 			target = null       # gave up: prey fled into the guarded town, or too far from its lair
 			pause = 3.0
@@ -280,12 +305,15 @@ func _think(delta: float) -> void:
 			return
 		if autonomous and pause <= 0.0 and is_hero and _bank_trip():
 			return
+		if _tame_step():
+			return
 		if _gather_step(delta):
 			return
 	if autonomous and pause <= 0.0 and path.is_empty():
 		idle_timer -= delta
 		if idle_timer <= 0.0:
-			if not (crafter and randf() < 0.5 and _start_gathering_nearby()):
+			if not (crafter and randf() < 0.5 and _start_gathering_nearby()) \
+					and not (is_hero and randf() < 0.3 and _start_taming_nearby()):
 				_wander()
 			idle_timer = randf_range(1.5, 4.0)
 
@@ -466,6 +494,10 @@ func take_damage(amount: float, from: Entity) -> void:
 	if bandage_timer > 0.0:
 		bandage_timer = 0.0
 		_pop("interrupted", Color(0.75, 0.75, 0.75))
+	if tame_timer > 0.0:
+		tame_timer = 0.0
+		tame_target = null
+		_pop("interrupted", Color(0.75, 0.75, 0.75))
 	_pop("-%d" % maxi(1, roundi(amount)), Color(1.0, 0.45, 0.4))
 	if target == null and not recovering:
 		target = from                  # fight back
@@ -499,6 +531,10 @@ func _die(killer: Entity) -> void:
 		ghost = true                   # players become ghosts and look for a healer
 		dead_timer = RED_GHOST_TIMEOUT if died_red else GHOST_TIMEOUT
 		_set_ghost_look(true)
+	elif kind == Kind.PET:
+		dead_timer = INF                 # a dead pet is gone for good
+		visible = false
+		game.on_pet_died(self)
 	else:
 		dead_timer = respawn_time
 		visible = false
@@ -569,6 +605,8 @@ func _refresh_label() -> void:
 	var text := "%s\nHP %d/%d" % [display_name, ceili(hp), stats.max_hp()]
 	if kind == Kind.NPC:
 		text = "%s\n(%s)" % [display_name, role]
+	elif kind == Kind.PET:
+		text += "\n(%s's pet)" % (owner.display_name if owner != null else "a")
 	elif ghost:
 		text = "%s\n(ghost)" % display_name
 	elif kind == Kind.PLAYER and notoriety() == Notoriety.RED:
@@ -1072,19 +1110,31 @@ func gear_text() -> String:
 func _try_bandage() -> bool:
 	if bandages <= 0 or casting_id != "" or bandage_timer > 0.0:
 		return false
-	var can_cure := poison_level > 0 and Rules.bandage_can_cure(_skill(Hero.Skill.HEALING), _skill(Hero.Skill.ANATOMY))
-	if hp >= float(stats.max_hp()) * 0.6 and not can_cure:
-		return false
 	if _nearest(Kind.MONSTER, 2.5) != null:
 		return false
+	var can_cure := poison_level > 0 and Rules.bandage_can_cure(_skill(Hero.Skill.HEALING), _skill(Hero.Skill.ANATOMY))
+	bandage_target = null
+	if hp < float(stats.max_hp()) * 0.6 or can_cure:
+		bandage_target = self
+	else:
+		for p in pets:                       # Veterinary: patch up a hurt pet close by
+			if not p.dead and p.hp < float(p.stats.max_hp()) * 0.6 and position.distance_to(p.position) <= 2.0:
+				bandage_target = p
+				break
+	if bandage_target == null:
+		return false
 	bandages -= 1
-	bandage_timer = maxf(2.0, 5.0 - _skill(Hero.Skill.HEALING) / 40.0)
+	var skill: int = Hero.Skill.HEALING if bandage_target == self else Hero.Skill.VETERINARY
+	bandage_timer = maxf(2.0, 5.0 - _skill(skill) / 40.0)
 	path.clear()
 	_pop("bandaging", Color(0.6, 1.0, 0.6))
 	return true
 
 
 func _finish_bandage() -> void:
+	if bandage_target != null and bandage_target != self:
+		_finish_vet(bandage_target)
+		return
 	var healing := _skill(Hero.Skill.HEALING)
 	var anatomy := _skill(Hero.Skill.ANATOMY)
 	if poison_level > 0 and Rules.bandage_can_cure(healing, anatomy) and randf() < Rules.bandage_chance(healing):
@@ -1202,9 +1252,11 @@ func _avoids_town() -> bool:
 ## Nobody fights other players inside the guarded town.
 func _is_fair_target(e: Entity) -> bool:
 	if kind == Kind.MONSTER:
-		return e.kind == Kind.PLAYER       # monsters (and their area spells) hit players only
+		if passive or aggro_range <= 0.0:
+			return false                   # wildlife that never starts a fight
+		return e.kind == Kind.PLAYER or e.kind == Kind.PET   # monsters hit players and their pets
 	if e.kind == Kind.MONSTER:
-		return true
+		return not e.passive or e.target == self   # leave grazing animals be unless they bite
 	if e.kind != Kind.PLAYER or _in_town() or e._in_town():
 		return false
 	if is_pk:
@@ -1759,3 +1811,159 @@ func _spend(n: int) -> void:
 	gold -= n
 	if is_hero:
 		game.count("gold_spent", n)
+
+
+# --- animals: pets, taming, veterinary --------------------------------------
+
+## Pets follow their owner, attack what the owner attacks (monsters only) and defend themselves.
+func _pet_think() -> void:
+	if owner == null or not is_instance_valid(owner):
+		return
+	if target == null and owner.target != null and is_instance_valid(owner.target) \
+			and not owner.target.dead and owner.target.kind == Kind.MONSTER:
+		target = owner.target
+	if target != null and position.distance_to(owner.position) > PET_LEASH:
+		target = null                        # don't chase off too far
+	if target != null:
+		_chase()
+		return
+	if position.distance_to(owner.position) > 2.5:
+		if repath_timer <= 0.0 or path.is_empty():
+			repath_timer = 0.5
+			go_to(owner.position)
+	else:
+		path.clear()
+
+
+func can_tame(e: Entity) -> String:
+	if e == null or e.dead or e.kind != Kind.MONSTER or e.tame_min < 0.0:
+		return "that can't be tamed"
+	if pets.size() >= MAX_PETS:
+		return "you already have %d pets" % MAX_PETS
+	if _skill(Hero.Skill.ANIMAL_TAMING) < e.tame_min - 10.0:
+		return "you have no chance (it needs Animal Taming %d)" % int(e.tame_min)
+	return ""
+
+
+func tame_chance_of(e: Entity) -> float:
+	return Rules.tame_chance(_skill(Hero.Skill.ANIMAL_TAMING), _skill(Hero.Skill.ANIMAL_LORE), e.tame_min)
+
+
+## Walk up to an animal and try to tame it.
+func start_taming(e: Entity) -> void:
+	var problem := can_tame(e)
+	if problem != "":
+		if is_hero:
+			game.log_event("You can't tame that: %s." % problem)
+		return
+	tame_target = e
+	target = null
+	loot_target = null
+	gather_tile = Vector2i(-1, -1)
+
+
+## Players in Auto look for an animal they have some chance with (passive ones, or any not
+## already attacking someone).
+func _start_taming_nearby() -> bool:
+	if pets.size() >= MAX_PETS:
+		return false
+	var best: Entity = null
+	var best_d := 10.0
+	var list: Array = game.creatures
+	for item in list:
+		var x := item as Entity
+		if can_tame(x) != "" or (not x.passive and x.target != null):
+			continue
+		var d := position.distance_to(x.position)
+		if d < best_d:
+			best = x
+			best_d = d
+	if best == null:
+		return false
+	start_taming(best)
+	return true
+
+
+## Returns true while walking to an animal to tame it.
+func _tame_step() -> bool:
+	if tame_target == null:
+		return false
+	if not is_instance_valid(tame_target) or can_tame(tame_target) != "":
+		tame_target = null
+		return false
+	if position.distance_to(tame_target.position) > 2.5:
+		if path.is_empty() or repath_timer <= 0.0:
+			repath_timer = 0.5
+			if not go_to(tame_target.position) and position.distance_to(tame_target.position) > 2.5:
+				tame_target = null
+				return false
+		return true
+	path.clear()
+	tame_timer = TAME_TIME
+	_pop("taming...", Color(0.9, 0.8, 0.5))
+	return true
+
+
+func _tame_channel(delta: float) -> void:
+	if tame_target == null or not is_instance_valid(tame_target) or can_tame(tame_target) != "" \
+			or position.distance_to(tame_target.position) > 3.5:
+		tame_timer = 0.0
+		tame_target = null
+		return
+	_face(tame_target.position - position)
+	tame_timer -= delta
+	if tame_timer > 0.0:
+		return
+	var animal := tame_target
+	tame_target = null
+	var won := randf() < tame_chance_of(animal)
+	if kind == Kind.PLAYER:                  # every attempt teaches
+		stats.try_gain(Hero.Skill.ANIMAL_TAMING)
+		stats.try_gain(Hero.Skill.ANIMAL_LORE)
+	if won:
+		game.tame(self, animal)
+	else:
+		animal._pop("resists", Color(0.75, 0.75, 0.75))
+		if not animal.passive:
+			animal.target = self                 # it didn't like that
+
+
+## Turns a wild animal into this player's pet.
+func adopt_pet(p: Entity) -> void:
+	p.kind = Kind.PET
+	p.owner = self
+	p.target = null
+	p.path.clear()
+	p.passive = false
+	p._last_text = ""
+	pets.append(p)
+
+
+func release_pet(p: Entity) -> void:
+	pets.erase(p)
+	p.kind = Kind.MONSTER
+	p.owner = null
+	p.target = null
+	p.home = p.position
+	p._last_text = ""
+	if is_hero:
+		game.log_event("You release your %s into the wild." % p.display_name)
+
+
+## Veterinary bandage on a pet: heals with Veterinary and Animal Lore.
+func _finish_vet(p: Entity) -> void:
+	if not is_instance_valid(p) or p.dead or position.distance_to(p.position) > 2.5:
+		_pop("bandage failed", Color(0.75, 0.75, 0.75))
+		return
+	var vet := _skill(Hero.Skill.VETERINARY)
+	if randf() < Rules.bandage_chance(vet):
+		var amount := Rules.bandage_heal(vet, _skill(Hero.Skill.ANIMAL_LORE))
+		p.hp = minf(p.hp + amount, float(p.stats.max_hp()))
+		p._pop("+%d" % roundi(amount), Color(0.5, 1.0, 0.5))
+		if is_hero:
+			game.count("vet_bandages")
+	else:
+		_pop("bandage failed", Color(0.75, 0.75, 0.75))
+	if kind == Kind.PLAYER:
+		stats.try_gain(Hero.Skill.VETERINARY)
+		stats.try_gain(Hero.Skill.ANIMAL_LORE)

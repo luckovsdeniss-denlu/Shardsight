@@ -44,6 +44,10 @@ var day_time := 0.35             # 0 = midnight, 0.5 = noon
 var touches := {}                # screen touch index -> position (for pinch and twist)
 var _pinch_dist := 0.0
 var _pinch_angle := 0.0
+var animals_panel: Control
+var animals_box: VBoxContainer
+var pending_spawns: Array[Dictionary] = []   # spawns requested mid-frame, done after the tick loop
+var saved_pets: Array = []                   # pets read from the save, restored after start-up
 var gates: Array[Dictionary] = []      # {"a": Vector3, "b": Vector3, "life": float, "nodes": [Node3D]}
 var reset_button: Button
 var reset_armed := false
@@ -129,6 +133,8 @@ func _ready() -> void:
 	travel_panel = _make_overlay(layer)
 	travel_box = travel_panel.get_meta("box")
 	settings_panel = _make_overlay(layer)
+	animals_panel = _make_overlay(layer)
+	animals_box = animals_panel.get_meta("box")
 	settings_box = settings_panel.get_meta("box")
 
 	if autotest:
@@ -139,6 +145,7 @@ func _ready() -> void:
 	elif SaveGame.load_into(hero, property):
 		log_event("Welcome back. Your progress was loaded.")
 		_restore_house()
+		_restore_pets()
 	else:
 		log_event("Welcome to Shardsight. Tap a monster to attack it.")
 		_tips_left = TIPS.duplicate()        # first launch: a few tips over the first minute
@@ -181,6 +188,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(_menu_button("Craft", _open_craft))
 	box.add_child(_menu_button("Bank & House", _open_property))
 	box.add_child(_menu_button("Travel", _open_travel))
+	box.add_child(_menu_button("Animals", _open_animals))
 	box.add_child(_menu_button("Settings", _open_settings))
 	box.add_child(_menu_button("Help", _open_help))
 	box.add_child(_menu_button("Save now", _save_now))
@@ -582,6 +590,10 @@ func _quest_text() -> String:
 
 ## Called by Entity._die for every death.
 func on_kill(killer: Entity, victim: Entity) -> void:
+	if killer != null and killer.kind == Entity.Kind.PET and killer.owner != null:
+		if killer.owner.is_hero:
+			count("pet_kills")
+		killer = killer.owner                # a pet's kill counts for its owner (quests too)
 	if killer != null and killer.is_hero:
 		count("kills")
 		count("hero_killed_" + victim.display_name)
@@ -833,6 +845,113 @@ func _open_help() -> void:
 	settings_box.add_child(_menu_button("Back", _close_settings))
 
 
+# --- animals ---------------------------------------------------------------
+
+## Called by Entity when a taming attempt succeeds. A new wild animal of the same kind
+## appears at the old lair after a while.
+func tame(tamer: Entity, animal: Entity) -> void:
+	pending_spawns.append({"name": animal.display_name, "cfg": animal.cfg_ref,
+		"color": animal.spawn_color, "tile": world.to_tile(animal.home), "delay": 90.0})
+	tamer.adopt_pet(animal)
+	if tamer.is_hero:
+		count("tamed")
+		log_event("You tame the %s! It follows you and fights at your side." % animal.display_name)
+
+
+func on_pet_died(p: Entity) -> void:
+	if p.owner != null:
+		p.owner.pets.erase(p)
+		if p.owner.is_hero:
+			log_event("Your %s has died." % p.display_name)
+
+
+func _flush_spawns() -> void:
+	while not pending_spawns.is_empty():
+		var s: Dictionary = pending_spawns.pop_back()
+		var e := _spawn(Entity.Kind.MONSTER, String(s["name"]), s["cfg"], s["color"], s["tile"])
+		if float(s.get("delay", 0.0)) > 0.0:
+			e.dead = true                    # waits out of sight, then appears at its lair
+			e.visible = false
+			e.dead_timer = float(s["delay"])
+
+
+## Pets saved with the game come back next to the hero.
+func _restore_pets() -> void:
+	for item in saved_pets:
+		var d: Dictionary = item
+		var cfg := Bestiary.by_species(String(d.get("species", "")))
+		if cfg.is_empty() or hero.pets.size() >= Entity.MAX_PETS:
+			continue
+		var p := _spawn(Entity.Kind.MONSTER, String(d.get("name", "Pet")), cfg,
+			Color(String(cfg.get("color", "8a6a4a"))), world.to_tile(hero.position))
+		p.hp = clampf(float(d.get("hp", p.hp)), 1.0, float(p.stats.max_hp()))
+		hero.adopt_pet(p)
+
+
+func _refresh_animals() -> void:
+	for c in animals_box.get_children():
+		animals_box.remove_child(c)
+		c.queue_free()
+	var s := hero.stats
+	var title := _info("Animals")
+	title.add_theme_font_size_override("font_size", 30)
+	animals_box.add_child(title)
+	animals_box.add_child(_info("Animal Taming %.1f   Animal Lore %.1f   Veterinary %.1f" % [
+		float(s.skills[Hero.Skill.ANIMAL_TAMING]), float(s.skills[Hero.Skill.ANIMAL_LORE]),
+		float(s.skills[Hero.Skill.VETERINARY])]))
+	if hero.pets.is_empty():
+		animals_box.add_child(_info("You have no pets (up to %d)." % Entity.MAX_PETS))
+	for p in hero.pets:
+		animals_box.add_child(_info("%s: HP %d/%d, Str %d, Dex %d" % [
+			p.display_name, ceili(p.hp), p.stats.max_hp(), p.stats.strength, p.stats.dexterity]))
+		animals_box.add_child(_menu_button("Release the %s" % p.display_name, _on_release_pet.bind(p)))
+	# The nearest wild animal: Animal Lore tells you about it.
+	var wild: Entity = null
+	var best := 8.0
+	for e in creatures:
+		if e.kind == Entity.Kind.MONSTER and not e.dead and e.tame_min >= 0.0:
+			var d := e.position.distance_to(hero.position)
+			if d < best:
+				wild = e
+				best = d
+	if wild == null:
+		animals_box.add_child(_info("No tameable animal nearby. Hinds graze in the open, a bear roams the south-east, wolves hunt the south."))
+	else:
+		hero.stats.try_gain(Hero.Skill.ANIMAL_LORE)   # studying an animal teaches Animal Lore
+		animals_box.add_child(_info("Nearby: %s. HP %d/%d, Str %d, needs Animal Taming %d. %s" % [
+			wild.display_name, ceili(wild.hp), wild.stats.max_hp(), wild.stats.strength, int(wild.tame_min),
+			"Peaceful." if wild.passive else "Aggressive!"]))
+		var problem := hero.can_tame(wild)
+		var label := "Tame the %s (%d%% chance)" % [wild.display_name, roundi(hero.tame_chance_of(wild) * 100.0)]
+		if problem != "":
+			label = "Can't tame: " + problem
+		animals_box.add_child(_action(label, _on_tame.bind(wild), problem == "" and not hero.dead))
+	animals_box.add_child(_info("Pets follow you and attack what you attack. With Auto on your hero tames animals by itself, and bandages hurt pets (Veterinary). A dead pet is gone for good."))
+	animals_box.add_child(_menu_button("Back", _close_animals))
+
+
+func _on_tame(e: Entity) -> void:
+	hero.start_taming(e)
+	animals_panel.visible = false
+	_resume()
+
+
+func _on_release_pet(p: Entity) -> void:
+	hero.release_pet(p)
+	_refresh_animals()
+
+
+func _open_animals() -> void:
+	menu.visible = false
+	animals_panel.visible = true
+	_refresh_animals()
+
+
+func _close_animals() -> void:
+	animals_panel.visible = false
+	menu.visible = true
+
+
 func _open_menu() -> void:
 	paused = true
 	menu.visible = true
@@ -902,6 +1021,9 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(6, 11))
 	_spawn(Entity.Kind.MONSTER, "Wolf", Bestiary.WOLF, red, Vector2i(26, 18))
 	_spawn(Entity.Kind.MONSTER, "Giant Spider", Bestiary.GIANT_SPIDER, Color("3a3a2a"), Vector2i(4, 21))   # south-west woods
+	_spawn(Entity.Kind.MONSTER, "Hind", Bestiary.HIND, Color("b08a5a"), Vector2i(4, 13))
+	_spawn(Entity.Kind.MONSTER, "Hind", Bestiary.HIND, Color("b08a5a"), Vector2i(24, 17))
+	_spawn(Entity.Kind.MONSTER, "Brown Bear", Bestiary.BROWN_BEAR, Color("6b4a2a"), Vector2i(29, 19))
 	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(27, 20))
 	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(16, 20))
 	_spawn(Entity.Kind.MONSTER, "Evil Mage", Bestiary.EVIL_MAGE, red, Vector2i(14, 22))
@@ -1119,6 +1241,7 @@ func _process(delta: float) -> void:
 		_autosave()
 	for e in creatures:
 		e.tick(delta)
+	_flush_spawns()
 	_guards_strike()
 	_gates_tick(delta)
 	day_time = fmod(day_time + delta / DAY_SECONDS, 1.0)
@@ -1157,7 +1280,7 @@ func _update_hud() -> void:
 		floori(hero.mana), s.max_mana(),
 		floori(hero.reagents), hero.bandages, hero.gold,
 		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
-		s.skill_total(), Rules.SKILL_CAP_TOTAL, tile.x, tile.y, hero.gear_text(), bag_text,
+		s.skill_total(), Rules.SKILL_CAP_TOTAL, tile.x, tile.y, hero.gear_text() + _pets_text(), bag_text,
 		_quest_text()]
 
 
@@ -1200,6 +1323,15 @@ func _poison_text() -> String:
 	if hero.poison_level <= 0:
 		return ""
 	return " (%s poison)" % Rules.POISON_NAMES[hero.poison_level]
+
+
+func _pets_text() -> String:
+	if hero.pets.is_empty():
+		return ""
+	var names: Array[String] = []
+	for p in hero.pets:
+		names.append("%s %d/%d" % [p.display_name, ceili(p.hp), p.stats.max_hp()])
+	return "   Pets: " + ", ".join(names)
 
 
 func _clock_text() -> String:

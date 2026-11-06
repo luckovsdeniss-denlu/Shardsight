@@ -1,7 +1,8 @@
 class_name Minimap
 extends Control
 ## A small overhead map: terrain, towns, the dungeon, houses, and everyone as dots
-## (you in white, monsters and murderers red, criminals grey, other players blue, NPCs cream).
+## (you in white, pets green, monsters and murderers red, criminals grey, other players blue,
+## NPCs cream).
 
 const PX := 4.0
 const COLORS := {
@@ -58,6 +59,8 @@ func _draw() -> void:
 func _dot_color(e: Entity) -> Color:
 	if e.is_hero:
 		return Color.WHITE
+	if e.kind == Entity.Kind.PET:
+		return Color(0.5, 1.0, 0.5)
 	if e.kind == Entity.Kind.NPC:
 		return Color(0.95, 0.9, 0.7)
 	match e.notoriety():
