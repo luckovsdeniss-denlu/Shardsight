@@ -326,7 +326,7 @@ func tick(delta: float) -> void:
 		return
 	_cull_timer -= delta
 	if _cull_timer <= 0.0:
-		_cull_timer = 0.5
+		_cull_timer = 0.2
 		_update_cull()
 	if _near:
 		_animate(delta)
@@ -3956,18 +3956,18 @@ func _maybe_label(delta: float) -> void:
 		_refresh_label()
 
 
-## Creatures well outside the view aren't drawn or animated (they still act as usual).
+## Creatures outside the camera's view aren't drawn, animated or labelled (they still act as
+## usual); a small margin round the edges so nobody pops in as the camera moves.
 func _update_cull() -> void:
-	var h: Entity = game.hero
 	var near_now := true
-	if h != null and h != self and pet_owner != h:
-		var reach := 26.0 * float(game.property.cam_zoom) + 6.0
-		near_now = position.distance_squared_to(h.position) <= reach * reach
+	if not is_hero:
+		near_now = bool(game.in_view(position + Vector3(0.0, 1.0, 0.0), 2.5))
 	if near_now == _near:
 		return
 	_near = near_now
 	if rig != null:
 		rig.visible = _near
+		rig.process_mode = Node.PROCESS_MODE_INHERIT if _near else Node.PROCESS_MODE_DISABLED   # pauses its flames
 	if label != null:
 		label.visible = _near
 	if _near:

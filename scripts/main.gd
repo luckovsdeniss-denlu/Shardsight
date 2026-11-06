@@ -2635,6 +2635,7 @@ func _process(delta: float) -> void:
 		marker.visible = true
 		marker.position = hero.path[hero.path.size() - 1] + Vector3(0.0, 0.03, 0.0)
 	_follow_camera()
+	_cull_fx(delta)
 	_hud_timer -= delta
 	if _hud_timer <= 0.0:
 		_hud_timer = 0.2                     # the HUD text five times a second
@@ -2726,6 +2727,7 @@ func light_campfire(at: Vector3) -> void:
 	var flames := Fx.flame(0.35, 22, 0.8)
 	flames.position.y = 0.15
 	fire.add_child(flames)
+	flames.add_to_group("view_fx")
 	campfires.append({"node": fire, "left": CAMPFIRE_SECONDS})
 
 
@@ -2886,6 +2888,7 @@ func _build_braziers() -> void:
 		var f := Fx.flame(0.3, 16, 0.8)
 		f.position.y = 0.88
 		b.add_child(f)
+		f.add_to_group("view_fx")
 		var l := OmniLight3D.new()
 		l.light_color = Color(1.0, 0.62, 0.3)
 		l.omni_range = 5.0
@@ -3158,3 +3161,31 @@ func _close_settings() -> void:
 func _follow_camera() -> void:
 	cam.position = hero.position + CAM_OFFSET.rotated(Vector3.UP, property.cam_yaw) * property.cam_zoom
 	cam.look_at(hero.position + Vector3(0.0, 0.5, 0.0), Vector3.UP)
+	view_planes = cam.get_frustum()
+
+
+var view_planes: Array[Plane] = []      # the camera's view, refreshed every frame
+var _fx_cull_timer := 0.0
+
+
+## Whether `p` is inside the camera's view, or within `margin` of its edges.
+func in_view(p: Vector3, margin := 2.0) -> bool:
+	for pl in view_planes:
+		if pl.distance_to(p) > margin:          # the planes face outwards
+			return false
+	return true
+
+
+## Fires and other ambient effects only simulate while on screen (CPU particles cost even when
+## nobody sees them).
+func _cull_fx(delta: float) -> void:
+	_fx_cull_timer -= delta
+	if _fx_cull_timer > 0.0:
+		return
+	_fx_cull_timer = 0.25
+	for n in get_tree().get_nodes_in_group("view_fx"):
+		var fx := n as Node3D
+		var on := in_view(fx.global_position, 3.0)
+		if fx.visible != on:
+			fx.visible = on
+			fx.process_mode = Node.PROCESS_MODE_INHERIT if on else Node.PROCESS_MODE_DISABLED

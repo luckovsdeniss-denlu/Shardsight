@@ -430,11 +430,35 @@ func _add(parent: Node3D, mesh: Mesh, mat: Material, at: Vector3) -> void:
 	parent.add_child(mi)
 
 
-## One MultiMeshInstance3D drawing `mesh` once per transform, each tinted by its colour (the
-## material multiplies its vertex colours by the instance colour).
-func _add_batch(parent: Node3D, mesh: Mesh, mat: Material, xforms: Array[Transform3D], tints: Array[Color]) -> MultiMeshInstance3D:
-	if xforms.is_empty():
-		return null
+const CHUNK := 12                # tiles per side of a scenery chunk (each chunk is culled on its own)
+
+
+## Draws `mesh` once per transform, each tinted by its colour (the material multiplies its vertex
+## colours by the instance colour). The instances are split into square chunks of the map, one
+## MultiMeshInstance3D each, so the renderer only draws the chunks the camera can see (one
+## whole-map batch would always be drawn in full). Returns the chunks.
+func _add_batch(parent: Node3D, mesh: Mesh, mat: Material, xforms: Array[Transform3D], tints: Array[Color]) -> Array:
+	var groups := {}                     # chunk -> [transforms, tints]
+	for i in range(xforms.size()):
+		var o := xforms[i].origin
+		var key := Vector2i(int(o.x / (TILE * CHUNK)), int(o.z / (TILE * CHUNK)))
+		if not groups.has(key):
+			groups[key] = [[], []]
+		var g: Array = groups[key]
+		(g[0] as Array).append(xforms[i])
+		(g[1] as Array).append(tints[i])
+	var out := []
+	for key: Vector2i in groups:
+		var g: Array = groups[key]
+		var ts: Array[Transform3D] = []
+		ts.assign(g[0])
+		var cs: Array[Color] = []
+		cs.assign(g[1])
+		out.append(_add_chunk(parent, mesh, mat, ts, cs))
+	return out
+
+
+func _add_chunk(parent: Node3D, mesh: Mesh, mat: Material, xforms: Array[Transform3D], tints: Array[Color]) -> MultiMeshInstance3D:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
@@ -619,6 +643,7 @@ func build(parent: Node3D) -> void:
 					var forge_fire := Fx.flame(0.45, 18, 0.7)    # the forge's fire
 					forge_fire.position = c + Vector3(0, 0.9, 0)
 					parent.add_child(forge_fire)
+					forge_fire.add_to_group("view_fx")      # only burns while on screen
 				Tile.GRASS:
 					if is_town(t) or is_dungeon(t):
 						continue
@@ -636,4 +661,4 @@ func build(parent: Node3D) -> void:
 	_add_batch(parent, _pine(), vc, pines, pine_tints)
 	_add_batch(parent, _oak(), vc, oaks, oak_tints)
 	_add_batch(parent, _rock_piece(), vc, rocks, rock_tints)
-	decor = [_add_batch(parent, _tuft(), vc, tufts, tuft_tints), _add_batch(parent, _flower(), vc, flowers, flower_tints)]
+	decor = _add_batch(parent, _tuft(), vc, tufts, tuft_tints) + _add_batch(parent, _flower(), vc, flowers, flower_tints)

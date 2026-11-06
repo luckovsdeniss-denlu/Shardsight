@@ -6,11 +6,15 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 ## 0.33.0
 Performance.
 - Faster: creatures decide 7-10 times a second instead of every frame (the hero 20 times, so
-  taps still feel immediate), with movement, swings and animation still every frame; creatures
-  well outside the view aren't drawn or animated (they keep acting); name labels refresh 5
+  taps still feel immediate), with movement, swings and animation still every frame; name labels refresh 5
   times a second and only nearby; town services (healer, merchant, priest) run 4 times a
   second; the minimap's terrain is drawn once into a picture instead of 4,600 squares four
   times a second; the HUD text refreshes 5 times a second.
+- Only what the camera sees is rendered: the walls, trees, rocks, water and grass are split
+  into 12x12-tile chunks so off-screen chunks aren't drawn (one map-wide batch was always drawn
+  whole); creatures outside the camera's view (with a small margin, checked 5 times a second)
+  aren't drawn, animated or labelled, and their flames pause; forge, brazier and campfire
+  flames only simulate while on screen.
 
 ## 0.32.0
 Mounts.
