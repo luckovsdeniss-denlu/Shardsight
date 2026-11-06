@@ -5,6 +5,10 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 
 ## 0.32.0
 Mounts.
+- Idle holograms: a player standing idle for 3 seconds turns into a flickering hologram (cyan
+  glowing edges, scanlines scrolling up the body, slices jumping sideways like a bad signal),
+  and snaps back the moment they move, fight, cast, play or gather. Settings > Glitch effects
+  turns it off too. It's an extra layer drawn only while idle.
 - Four new mounts, each with its own strength (horses 1.8x and llamas 1.6x stay):
   - Forest Ostard, a big running bird: 2.0x speed. Southern forest (Animal Taming 45), or
     500 gold at the stable.

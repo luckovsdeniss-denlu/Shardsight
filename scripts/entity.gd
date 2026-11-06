@@ -209,6 +209,8 @@ var visual_scale := 1.0
 var anim_t := 0.0
 var swing_anim := 0.0
 var _last_pos := Vector3.ZERO
+var idle_time := 0.0           # seconds standing still with nothing to do
+var holo := false              # showing the idle hologram
 
 
 func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, tile: Vector2i) -> void:
@@ -1723,6 +1725,7 @@ func refresh_look() -> void:
 		(model["root"] as Node3D).queue_free()
 	if model.has("mount_root"):
 		(model["mount_root"] as Node3D).queue_free()
+	holo = false                         # the new model starts solid
 	model = Art.creature(look, _look_style(), visual_scale)
 	rig.add_child(model["root"])
 	if look == "nightmare":
@@ -2187,6 +2190,7 @@ func _animate(delta: float) -> void:
 	swing_anim = maxf(swing_anim - delta, 0.0)
 	var moving := position.distance_to(_last_pos) > 0.001
 	_last_pos = position
+	_holo_step(delta, moving)
 	var y := 0.0
 	var tilt := 0.0
 	if ghost:
@@ -3893,3 +3897,23 @@ func toggle_ride() -> String:
 		return "Your %s is too far away (%d m)." % [best.display_name, roundi(best_d)]
 	mount(best)
 	return ""
+
+
+# --- idle hologram ------------------------------------------------------------
+
+## A player standing idle for a few seconds turns into a flickering hologram (cyan edges,
+## scrolling scanlines, slices jumping sideways); anything they do snaps them back.
+func _holo_step(delta: float, moving: bool) -> void:
+	if kind != Kind.PLAYER:
+		return
+	var busy := moving or dead or target != null or casting_id != "" or perform_timer > 0.0 \
+		or bandage_timer > 0.0 or tame_timer > 0.0 or gather_tile.x >= 0 or swing_anim > 0.0
+	idle_time = 0.0 if busy else idle_time + delta
+	var want := idle_time >= 3.0 and bool(game.property.glitch_on) and not game.autotest
+	if want == holo:
+		return
+	holo = want
+	for mi in model.get("meshes", []):
+		(mi as MeshInstance3D).material_overlay = Art.holo_mat() if holo else null
+	if holo and is_hero:
+		game.glitch(0.25, 0.15)              # a little flicker as it switches over

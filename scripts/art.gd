@@ -647,3 +647,46 @@ static func item_icon(id: String) -> ArrayMesh:
 			"pelt":
 				return [[box(0.3, 0.03, 0.22), at(0, 0, 0, Vector3(0.6, 0, 0)), Color(0.55, 0.55, 0.58)]]
 		return [[ball(0.08, 6, 3), at(0, 0, 0), Color(0.85, 0.85, 0.8)], [box(0.05, 0.12, 0.05), at(0, 0.08, 0), Color(0.75, 0.75, 0.7)]])
+
+
+# --- hologram (idle players) -------------------------------------------------
+
+const HOLO_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_back;
+uniform vec4 tint : source_color = vec4(0.35, 0.9, 1.0, 1.0);
+varying vec3 wpos;
+
+float rand(float x) {
+	return fract(sin(x * 91.3458) * 47453.5453);
+}
+
+void vertex() {
+	// now and then a slice of the figure jumps sideways, like a bad signal
+	float tick = floor(TIME * 12.0);
+	float band = floor(VERTEX.y * 9.0);
+	float jump = step(0.9, rand(tick + band * 7.0));
+	VERTEX.x += (rand(tick * 3.1 + band) - 0.5) * 0.18 * jump;
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+void fragment() {
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	float scan = 0.5 + 0.5 * sin(wpos.y * 55.0 - TIME * 7.0);
+	float flicker = 0.8 + 0.2 * sin(TIME * 41.0) * sin(TIME * 13.0);
+	ALBEDO = tint.rgb;
+	ALPHA = clamp((rim * 0.9 + scan * 0.22 + 0.05) * flicker, 0.0, 1.0);
+}
+"""
+
+static var _holo: ShaderMaterial
+
+
+## The shared hologram overlay drawn over an idle figure.
+static func holo_mat() -> ShaderMaterial:
+	if _holo == null:
+		var sh := Shader.new()
+		sh.code = HOLO_SHADER
+		_holo = ShaderMaterial.new()
+		_holo.shader = sh
+	return _holo
