@@ -21,6 +21,8 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 - Begging: with under 15 gold, ask townsfolk for coins (each once every 5 minutes).
 - Spirit Speak: out of bandages, channel to mend your wounds for 10 mana.
 - Arrows and tool wear are saved.
+- Balance: natural healing pauses for 6 s after a blow, so monsters no longer heal
+  mid-fight (it ate a third of the hero's damage; fights took about 45 s per kill).
 - Two logs: your own events lower left, everyone else's (deaths, crimes, resurrections) lower right.
 
 ## 0.21.0

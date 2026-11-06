@@ -14,6 +14,7 @@ const RECOVER_HP := 0.9
 const HEAL_RANGE := 2.5
 const HEAL_PER_SEC := 4.0
 const REGEN_PER_SEC := 0.4
+const HURT_NO_REGEN := 6.0         # seconds without natural healing after being hit
 const SPELL_RANGE := 7.0
 const CAST_RECOVERY := 0.8     # seconds between casts
 const LOOT_RANGE := 1.6
@@ -133,6 +134,7 @@ var tame_timer := 0.0
 var bandage_target: Entity = null
 var shop: Shop = null          # merchants: their purse, shelves and town prices
 var arrows := 0
+var hurt_timer := 0.0          # natural healing stops for a while after taking a blow
 var tool_uses := {}            # tool id -> uses left on the one in hand
 var track_cd := 0.0
 var camp_cd := 0.0
@@ -263,7 +265,9 @@ func tick(delta: float) -> void:
 	cast_cd = maxf(cast_cd - delta, 0.0)
 	pause = maxf(pause - delta, 0.0)
 	repath_timer -= delta
-	hp = minf(hp + REGEN_PER_SEC * delta, float(stats.max_hp()))
+	hurt_timer = maxf(hurt_timer - delta, 0.0)
+	if hurt_timer <= 0.0:
+		hp = minf(hp + REGEN_PER_SEC * delta, float(stats.max_hp()))
 	_regen_mana(delta)
 	stamina = minf(stamina + STAMINA_REGEN * delta, float(stats.max_stamina()))
 	potion_cd = maxf(potion_cd - delta, 0.0)
@@ -567,6 +571,7 @@ func take_damage(amount: float, from: Entity) -> void:
 			game.event_about("%s attacks %s!" % [from.display_name, display_name], is_hero or from.is_hero)
 		attackers[aid] = MURDER_WINDOW
 	hp -= amount
+	hurt_timer = HURT_NO_REGEN
 	if peaced_timer > 0.0 or (enticed_timer > 0.0 and from == enticer):
 		peaced_timer = 0.0                   # a blow breaks the spell of the music
 		enticed_timer = 0.0
