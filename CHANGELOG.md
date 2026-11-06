@@ -5,6 +5,11 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 
 ## 0.30.0
 Platform.
+- Every player starts from zero: the hero and all computer players begin a new game with no
+  skills (level 1) and no fame or karma, and earn everything by use. Stats, gear, gold and
+  the starter kit stay. Under 200 skill points everyone counts as "young", so the player
+  killers leave them alone until they grow. (Saved games keep their progress; Settings >
+  Reset progress starts a hero over.)
 - A new game icon: a blue crystal shard behind a gold-hilted sword in a gold ring.
 - An opening title card drawn in code (the name in gold, a subtitle and the version) that fades
   after a few seconds or at a tap; the engine's boot splash is now plain dark to match.

@@ -214,7 +214,9 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	stats.strength = int(cfg.get("str", 20))
 	stats.dexterity = int(cfg.get("dex", 20))
 	stats.intelligence = int(cfg.get("int", 20))
-	var skills: Dictionary = cfg.get("skills", {})
+	# Every player (the hero and the computer players alike) starts from zero: no skills, level 1.
+	# Only monsters and townsfolk come with the skills in their stat block.
+	var skills: Dictionary = cfg.get("skills", {}) if p_kind != Kind.PLAYER else {}
 	for s in skills:
 		stats.skills[s] = float(skills[s])
 	start_skills = stats.skills.duplicate()
@@ -255,11 +257,11 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	poison_cfg = cfg.get("poison", [])
 	stamina = float(stats.max_stamina())
 	arrows = int(cfg.get("arrows", 0))
-	fame = int(cfg.get("fame", 0))
+	fame = int(cfg.get("fame", 0)) if p_kind != Kind.PLAYER else 0
 	is_thief = bool(cfg.get("thief", false))
 	mount_speed = float(cfg.get("mount_speed", 1.0))
 	is_boss = bool(cfg.get("boss", false))
-	karma = int(cfg.get("karma", 0))
+	karma = int(cfg.get("karma", 0)) if p_kind != Kind.PLAYER else 0
 	# Players start with the first four circles and copy the rest from scrolls; monsters (and
 	# configs marked "all") know every spell.
 	var book: Variant = cfg.get("spellbook", "all" if p_kind != Kind.PLAYER else Spells.STARTER)
