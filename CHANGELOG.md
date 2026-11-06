@@ -5,6 +5,9 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 
 ## 0.32.0
 Mounts.
+- Fix: monsters noticed and spellcasters hit targets through walls (the dungeon's Bone King
+  and Lich were killing players walking past outside). Now aggro, every spell and area spells
+  need line of sight: walls and house walls block it.
 - Idle holograms: a player standing idle for 3 seconds turns into a flickering hologram (cyan
   glowing edges, scanlines scrolling up the body, slices jumping sideways like a bad signal),
   and snaps back the moment they move, fight, cast, play or gather. Settings > Glitch effects

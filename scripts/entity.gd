@@ -920,6 +920,10 @@ func start_cast(id: String, tgt: Entity) -> bool:
 		if is_hero:
 			game.log_event("That is too far away.")
 		return false
+	if tgt != self and not world.line_clear(position, tgt.position):
+		if is_hero:
+			game.log_event("You can't see that from here.")
+		return false                          # no casting through walls
 	var sp: Dictionary = Spells.LIST[id]
 	if flags.has("invisible") and String(sp["kind"]) in HARMFUL_KINDS:
 		_end_flag("invisible")
@@ -1703,7 +1707,7 @@ func _pick_target() -> Entity:
 		if e == self or e.dead:
 			continue
 		var d := position.distance_to(e.position)
-		if d <= best_d and _is_fair_target(e) and _worth_fighting(e):
+		if d <= best_d and _is_fair_target(e) and _worth_fighting(e) and world.line_clear(position, e.position):
 			best = e
 			best_d = d
 	return best
@@ -2104,7 +2108,7 @@ func _area_blast(sp: Dictionary) -> void:
 		var e := item as Entity
 		if e == self or e.dead or not _is_fair_target(e):
 			continue
-		if position.distance_to(e.position) > Spells.AREA_RADIUS:
+		if position.distance_to(e.position) > Spells.AREA_RADIUS or not world.line_clear(position, e.position):
 			continue
 		if String(sp["name"]) == "Meteor Swarm" and _near_hero():
 			Fx.meteor(get_parent(), e.position, randf_range(0.0, 0.4))

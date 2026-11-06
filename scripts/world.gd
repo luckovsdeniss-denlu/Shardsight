@@ -372,6 +372,18 @@ func is_blocked(c: Vector2i) -> bool:
 	return not in_bounds(c) or tiles[c.y * cols + c.x] != Tile.GRASS
 
 
+## Line of sight: no wall (or house wall) on the straight line between two points.
+func line_clear(a: Vector3, b: Vector3) -> bool:
+	var d := Vector2(b.x - a.x, b.z - a.z)
+	var steps := int(d.length() / 0.4) + 1
+	for i in range(1, steps):
+		var p := a.lerp(b, float(i) / steps)
+		var t := tiles[clampi(floori(p.z / TILE), 0, rows - 1) * cols + clampi(floori(p.x / TILE), 0, cols - 1)]
+		if t == Tile.WALL or t == Tile.HOUSE:
+			return false
+	return true
+
+
 func to_tile(p: Vector3) -> Vector2i:
 	return Vector2i(floori(p.x / TILE), floori(p.z / TILE))
 
