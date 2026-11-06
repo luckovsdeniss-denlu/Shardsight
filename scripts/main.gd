@@ -830,6 +830,8 @@ func on_kill(killer: Entity, victim: Entity) -> void:
 	if killer == null or not killer.is_hero or not property.quest_active:
 		return
 	var q: Dictionary = Quests.LIST[property.quest_index]
+	if not Quests.kind(q) in ["kill", "boss"]:
+		return                                   # fetch and escort quests don't count kills
 	if victim.display_name != String(q["target"]) or property.quest_kills >= int(q["count"]):
 		return
 	property.quest_kills += 1
