@@ -84,6 +84,24 @@ const PKILLER := {
 	},
 }
 
+# Mounts: tame one (or buy one from the stablemaster) and ride it, much faster than walking.
+const HORSE := {
+	"look": "horse",
+	"species": "horse", "tame": 30.0, "passive": true, "danger": 1, "color": "7a5232", "mount_speed": 1.8,
+	"str": 60, "dex": 50, "int": 5, "wspeed": 40, "dmg_min": 2, "dmg_max": 6,
+	"move": 4.6, "leash": 6, "aggro": 0.0, "respawn": 40.0, "scale": 1.0,
+	"loot": {"gold_min": 0, "gold_max": 0, "drops": []},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 25.0, Hero.Skill.TACTICS: 25.0},
+}
+const LLAMA := {
+	"look": "llama",
+	"species": "llama", "tame": 35.0, "passive": true, "danger": 1, "color": "e8e0d0", "mount_speed": 1.6,
+	"str": 50, "dex": 45, "int": 5, "wspeed": 40, "dmg_min": 2, "dmg_max": 5,
+	"move": 4.2, "leash": 5, "aggro": 0.0, "respawn": 40.0, "scale": 0.95,
+	"loot": {"gold_min": 0, "gold_max": 0, "drops": []},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 20.0, Hero.Skill.TACTICS: 20.0},
+}
+
 # Summoned by the circle 8 spell; fights for its caster for a while, then crumbles.
 const EARTH_ELEMENTAL := {
 	"look": "earth_elemental",
@@ -152,6 +170,7 @@ static func summon_cfg(key: String) -> Dictionary:
 
 
 # Peaceful NPCs.
+const STABLEMASTER := {"str": 30, "dex": 20, "int": 20, "move": 1.0, "leash": 1, "role": "stable"}
 const MERCHANT := {"str": 20, "dex": 15, "int": 30, "move": 1.5, "leash": 2, "role": "merchant"}
 const GUARD := {"str": 60, "dex": 40, "int": 10, "move": 1.5, "leash": 2, "role": "guard"}
 const VENDOR := {"str": 20, "dex": 15, "int": 20, "move": 0.0, "leash": 0, "role": "vendor"}
@@ -269,6 +288,10 @@ const BROWN_BEAR := {
 ## Stat block for a tameable species (used to bring saved pets back).
 static func by_species(species: String) -> Dictionary:
 	match species:
+		"horse":
+			return HORSE
+		"llama":
+			return LLAMA
 		"hind":
 			return HIND
 		"wolf":

@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.27.0
+Controls and mounts.
+- An on-screen thumb stick in the lower-left corner: drag to walk in any direction (it follows
+  the camera's turn). Like a tap it takes over from Auto for a few seconds, and walking away
+  breaks off a fight. The player log moved right to make room. Tapping still works too.
+- Mounts: horses (1.8x speed) and llamas (1.6x). Tame a wild one (horses roam the eastern plains,
+  a llama the south-east hills; Animal Taming 30 / 35), or buy one from Hal the Stablemaster in
+  town (300 / 200 gold from the bank). Ride or get off from Menu > Animals; the rider sits in
+  the saddle and the mount's legs do the walking. On Auto, players get back on their mount by
+  themselves. You are thrown off if you die. Riding is saved with the game.
+- (Quick-cast spell buttons were left out on purpose: spells stay in the menu, with no spell
+  buttons on screen.)
+
 ## 0.26.0
 Thieves (roadmap item 0.17).
 - New skills: Hiding, Stealth, Snooping, Stealing, Detecting Hidden.

@@ -18,6 +18,8 @@ var creatures: Array[Entity] = []
 var corpses: Array[Corpse] = []
 var hero: Entity
 var guilds := Guilds.new()
+var joystick := Joystick.new()
+var _joy_timer := 0.0
 var thief_panel: Control
 var thief_box: VBoxContainer
 var guild_panel: Control
@@ -63,6 +65,7 @@ var bard_box: VBoxContainer
 var animals_box: VBoxContainer
 var pending_spawns: Array[Dictionary] = []   # spawns requested mid-frame, done after the tick loop
 var saved_pets: Array = []                   # pets read from the save, restored after start-up
+var saved_mounted := false
 var gates: Array[Dictionary] = []      # {"a": Vector3, "b": Vector3, "life": float, "nodes": [Node3D]}
 var reset_button: Button
 var reset_armed := false
@@ -113,8 +116,8 @@ func _ready() -> void:
 	# the mouse, so taps still reach the game. No background; a thick outline keeps it readable.
 	var margin := MarginContainer.new()
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in ["left", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 16)
+	margin.add_theme_constant_override("margin_left", 236)      # room for the joystick
+	margin.add_theme_constant_override("margin_bottom", 16)
 	layer.add_child(margin)
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var column := VBoxContainer.new()
@@ -124,7 +127,7 @@ func _ready() -> void:
 	log_label.add_theme_font_size_override("font_size", 28)
 	log_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	log_label.add_theme_constant_override("outline_size", 8)
-	log_label.custom_minimum_size = Vector2(640, 0)
+	log_label.custom_minimum_size = Vector2(520, 0)
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	log_label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	column.add_child(log_label)
@@ -144,11 +147,15 @@ func _ready() -> void:
 	world_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.8))
 	world_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	world_label.add_theme_constant_override("outline_size", 8)
-	world_label.custom_minimum_size = Vector2(480, 0)
+	world_label.custom_minimum_size = Vector2(460, 0)
 	world_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	world_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	world_label.size_flags_horizontal = Control.SIZE_SHRINK_END
 	wcolumn.add_child(world_label)
+
+	# The thumb stick, lower left.
+	layer.add_child(joystick)
+	joystick.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 16)
 
 	var corner := VBoxContainer.new()
 	corner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -191,6 +198,12 @@ func _ready() -> void:
 		log_event("Welcome back. Your progress was loaded.")
 		_restore_house()
 		_restore_pets()
+		if saved_mounted:
+			for p in hero.pets:
+				if hero.can_ride(p):
+					p.position = hero.position
+					hero.mount(p)
+					break
 	else:
 		log_event("Welcome to Shardsight. Tap a monster to attack it.")
 		_tips_left = TIPS.duplicate()        # first launch: a few tips over the first minute
@@ -1300,12 +1313,26 @@ func _refresh_animals() -> void:
 	animals_box.add_child(_info("Animal Taming %.1f   Animal Lore %.1f   Veterinary %.1f" % [
 		float(s.skills[Hero.Skill.ANIMAL_TAMING]), float(s.skills[Hero.Skill.ANIMAL_LORE]),
 		float(s.skills[Hero.Skill.VETERINARY])]))
+	if hero.mounted_on != null:
+		animals_box.add_child(_info("You are riding your %s (%.1fx speed)." % [hero.mounted_on.display_name, hero.mounted_on.mount_speed]))
+		animals_box.add_child(_menu_button("Get off your %s" % hero.mounted_on.display_name, _on_dismount))
+	var stable := _role_entity("stable")
+	if stable != null and stable.position.distance_to(hero.position) <= 4.0:
+		animals_box.add_child(_info("%s sells tame mounts (paid from the bank). Riding is much faster than walking." % stable.display_name))
+		for offer in [["Horse", Bestiary.HORSE, STABLE_HORSE], ["Llama", Bestiary.LLAMA, STABLE_LLAMA]]:
+			animals_box.add_child(_action("Buy a %s (%d gold)" % [String(offer[0]).to_lower(), int(offer[2])],
+				_on_buy_mount.bind(offer[0], offer[2]), property.bank_gold >= int(offer[2]) and hero.pets.size() < Entity.MAX_PETS))
+	else:
+		animals_box.add_child(_info("Hal the Stablemaster in town sells horses and llamas; wild horses roam the eastern plains."))
 	if hero.pets.is_empty():
 		animals_box.add_child(_info("You have no pets (up to %d)." % Entity.MAX_PETS))
 	for p in hero.pets:
 		animals_box.add_child(_info("%s: HP %d/%d, Str %d, Dex %d" % [
 			p.display_name, ceili(p.hp), p.stats.max_hp(), p.stats.strength, p.stats.dexterity]))
-		animals_box.add_child(_menu_button("Release the %s" % p.display_name, _on_release_pet.bind(p)))
+		if hero.can_ride(p) and hero.mounted_on == null:
+			animals_box.add_child(_action("Ride the %s" % p.display_name, _on_mount.bind(p), p.position.distance_to(hero.position) <= 3.0))
+		if p != hero.mounted_on:
+			animals_box.add_child(_menu_button("Release the %s" % p.display_name, _on_release_pet.bind(p)))
 	# The nearest wild animal: Animal Lore tells you about it.
 	var wild: Entity = null
 	var best := 8.0
@@ -1335,6 +1362,29 @@ func _on_tame(e: Entity) -> void:
 	hero.start_taming(e)
 	animals_panel.visible = false
 	_resume()
+
+
+const STABLE_HORSE := 300
+const STABLE_LLAMA := 200
+
+
+func _on_buy_mount(animal: String, price: int) -> void:
+	var cfg: Dictionary = Bestiary.HORSE if animal == "Horse" else Bestiary.LLAMA
+	property.bank_gold -= price
+	var p := _spawn(Entity.Kind.MONSTER, animal, cfg, Color(String(cfg["color"])), world.to_tile(hero.position))
+	hero.adopt_pet(p)
+	log_event("You buy a %s for %d gold. It follows you; ride it from Menu > Animals." % [animal.to_lower(), price])
+	_refresh_animals()
+
+
+func _on_mount(p: Entity) -> void:
+	hero.mount(p)
+	_refresh_animals()
+
+
+func _on_dismount() -> void:
+	hero.dismount()
+	_refresh_animals()
 
 
 func _on_release_pet(p: Entity) -> void:
@@ -1832,6 +1882,7 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.PLAYER, "Pip", Bestiary.THIEF, blue, Vector2i(60, 24))
 
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
+	_spawn(Entity.Kind.NPC, "Hal the Stablemaster", Bestiary.STABLEMASTER, cream, Vector2i(21, 11))
 	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(25, 13))
 	var bran := _spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
 	bran.shop = Shop.new("town", 1.0, 1.0)
@@ -1882,6 +1933,10 @@ func _spawn_all() -> void:
 	for t in [Vector2i(84, 4), Vector2i(87, 6), Vector2i(90, 4), Vector2i(86, 8)]:
 		_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, t)
 	_spawn(Entity.Kind.MONSTER, "Ogre", Bestiary.OGRE, Color("8a6a4a"), Vector2i(88, 3))
+	# Wild horses on the eastern plains, llamas in the south-east hills: tame one and ride it.
+	for t in [Vector2i(66, 8), Vector2i(80, 14)]:
+		_spawn(Entity.Kind.MONSTER, "Horse", Bestiary.HORSE, Color("7a5232"), t)
+	_spawn(Entity.Kind.MONSTER, "Llama", Bestiary.LLAMA, Color("e8e0d0"), Vector2i(58, 42))
 	# The southern forest: spiders, wolves, deer.
 	for t in [Vector2i(10, 34), Vector2i(22, 38)]:
 		_spawn(Entity.Kind.MONSTER, "Giant Spider", Bestiary.GIANT_SPIDER, Color("3a3a2a"), t)
@@ -2012,6 +2067,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		_tap((event as InputEventMouseMotion).position)
 
 
+## The thumb stick walks the hero (relative to the camera) and, like a tap, pauses Auto.
+func _joystick_step(delta: float) -> void:
+	_joy_timer -= delta
+	var v := joystick.vector
+	if v.length() < 0.25 or hero.dead or _joy_timer > 0.0:
+		return
+	_joy_timer = 0.12
+	hero.pause = MANUAL_PAUSE
+	hero.target = null                     # walking away breaks off a fight
+	hero.recovering = false
+	hero.loot_target = null
+	hero.gather_tile = Vector2i(-1, -1)
+	hero.crafting_trip = false
+	var dir := Vector3(v.x, 0.0, v.y).normalized().rotated(Vector3.UP, property.cam_yaw)
+	for step in [2.0, 1.2, 0.7]:
+		var dest := hero.position + dir * step
+		if not world.is_blocked(world.to_tile(dest)) and hero.go_to(dest):
+			return
+
+
 ## Intersects the camera ray through `screen` with the ground plane (y = 0).
 func _tap(screen: Vector2) -> void:
 	if hero.dead:
@@ -2114,6 +2189,7 @@ func _process(delta: float) -> void:
 		return
 	if autotest:
 		_autotest_tick(delta)
+	_joystick_step(delta)
 	if not _tips_left.is_empty():
 		_tip_timer -= delta
 		if _tip_timer <= 0.0:

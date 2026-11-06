@@ -152,7 +152,7 @@ static func creature(look: String, style: Dictionary, scale: float) -> Dictionar
 	root.scale = Vector3.ONE * scale
 	var model := {"root": root, "legs": [], "arm": null, "spin": null, "meshes": [], "quad": false, "arm_rest": 0.0}
 	match look:
-		"rat", "wolf", "bear", "hind":
+		"rat", "wolf", "bear", "hind", "horse", "llama":
 			_quadruped(model, look)
 		"spider":
 			_spider(model)
@@ -373,14 +373,30 @@ static func _quadruped(model: Dictionary, look: String) -> void:
 			height = 0.8
 			girth = 0.32
 			leg_len = 0.62
+		"horse":
+			fur = Color(0.48, 0.32, 0.2)
+			length = 1.15
+			girth = 0.42
+			leg_len = 0.7
+		"llama":
+			fur = Color(0.9, 0.86, 0.78)
+			length = 0.85
+			girth = 0.4
+			leg_len = 0.62
 	var top := leg_len + girth / 2.0
+	var necked := look in ["hind", "horse", "llama"]
+	var neck := 0.6 if look == "llama" else (0.42 if look == "horse" else 0.32)
 	var key := "quad|" + look
 	var body := _cached(key, func() -> Array:
 		var p := [[box(girth, girth, length), at(0, top, 0), fur]]
-		var head_y := top + (0.32 if look == "hind" else 0.08)
+		var head_y := top + (neck if necked else 0.08)
 		var head_z := -length / 2.0 - 0.12
-		if look == "hind":
-			p.append([box(0.14, 0.42, 0.14), at(0, top + 0.18, -length / 2.0 + 0.02, Vector3(0.45, 0, 0)), fur])
+		if necked:
+			p.append([box(girth * 0.45, neck + 0.15, girth * 0.45), at(0, top + neck * 0.5, -length / 2.0 + 0.02, Vector3(0.45 if look != "llama" else 0.15, 0, 0)), fur])
+		if look == "horse":
+			p.append([box(0.05, neck + 0.1, 0.12), at(0, top + neck * 0.6, -length / 2.0 + 0.1, Vector3(0.45, 0, 0)), DARK])
+			p.append([cone(0.07, 0.5, 0.02, 5), at(0, top + 0.02, length / 2.0 + 0.22, Vector3(-0.9, 0, 0)), DARK])
+			p.append([box(girth * 1.02, 0.12, 0.4), at(0, top + girth * 0.5, 0), Color(0.35, 0.2, 0.1)])   # saddle
 		p.append([box(girth * 0.75, girth * 0.7, girth * 0.8), at(0, head_y, head_z), fur])
 		p.append([box(girth * 0.4, girth * 0.35, girth * 0.5), at(0, head_y - 0.04, head_z - girth * 0.55), fur.lightened(0.15)])
 		p.append([box(0.04, 0.04, 0.02), at(-girth * 0.2, head_y + 0.05, head_z - girth * 0.41), DARK])

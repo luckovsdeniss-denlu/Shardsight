@@ -163,6 +163,9 @@ var bank_gold := 0             # other players' own bank (the hero's is game.pro
 var fame := 0
 var karma := 0
 var is_thief := false          # computer thieves: sneak up, snoop and steal
+var mounted_on: Entity = null  # the pet this player is riding (parked out of the world meanwhile)
+var parked := false            # a mount being ridden: not in the world until its rider gets off
+var mount_speed := 1.0         # how much faster a rider of this animal goes
 var stealth_left := 0.0        # metres you can still walk hidden
 var thief_mark: Entity = null
 var steal_cd := 0.0
@@ -252,6 +255,7 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	arrows = int(cfg.get("arrows", 0))
 	fame = int(cfg.get("fame", 0))
 	is_thief = bool(cfg.get("thief", false))
+	mount_speed = float(cfg.get("mount_speed", 1.0))
 	karma = int(cfg.get("karma", 0))
 	# Players start with the first four circles and copy the rest from scrolls; monsters (and
 	# configs marked "all") know every spell.
@@ -282,6 +286,9 @@ func _build_visual(color: Color, s: float) -> void:
 
 
 func tick(delta: float) -> void:
+	if parked:
+		position = mounted_by_position()    # carried along under its rider
+		return
 	_tick_reputation(delta)              # flags and counts keep fading even while dead
 	if dead:
 		if ghost:
@@ -363,6 +370,8 @@ func tick(delta: float) -> void:
 		_gear_timer = 1.0
 		if target == null:
 			_manage_gear()
+			if kind == Kind.PLAYER and (ai_enabled or not is_hero):
+				_auto_mount()
 	_think(delta)
 	_follow_path(delta)
 	_fight()
@@ -502,7 +511,7 @@ func _nearest(k: int, max_dist: float) -> Entity:
 	var list: Array = game.creatures
 	for item in list:
 		var e := item as Entity
-		if e == self or e.dead or e.kind != k:
+		if e == self or e.dead or e.parked or e.kind != k:
 			continue
 		var d := position.distance_to(e.position)
 		if d <= best_d:
@@ -523,7 +532,7 @@ func _find_role(r: String) -> Entity:
 # --- movement --------------------------------------------------------------
 
 func _follow_path(delta: float) -> void:
-	var budget := speed * delta
+	var budget := speed * delta * (mounted_on.mount_speed if mounted_on != null else 1.0)
 	if effects.has("hiding") and not path.is_empty():
 		stealth_left -= budget
 		if stealth_left < 0.0:
@@ -670,6 +679,8 @@ func take_damage(amount: float, from: Entity) -> void:
 
 
 func _die(killer: Entity) -> void:
+	if mounted_on != null:
+		dismount()                           # thrown from the saddle
 	dead = true
 	effects.clear()
 	_recompute_effects()
@@ -1576,6 +1587,8 @@ func _avoids_town() -> bool:
 ## Players fight monsters and criminals; player killers also prey on innocents.
 ## Nobody fights other players inside the guarded town.
 func _is_fair_target(e: Entity) -> bool:
+	if e.parked:
+		return false                       # a mount under its rider
 	if e.flags.has("invisible"):
 		return false                       # can't fight what you can't see
 	if kind == Kind.MONSTER:
@@ -1649,8 +1662,21 @@ func refresh_look() -> void:
 		return
 	if model.has("root"):
 		(model["root"] as Node3D).queue_free()
+	if model.has("mount_root"):
+		(model["mount_root"] as Node3D).queue_free()
 	model = Art.creature(look, _look_style(), visual_scale)
 	rig.add_child(model["root"])
+	if mounted_on != null:
+		# Sitting in the saddle: the mount's legs do the walking, the rider's hang still.
+		var m := Art.creature(mounted_on.look, {}, mounted_on.visual_scale)
+		rig.add_child(m["root"])
+		(model["root"] as Node3D).position.y = 0.62 * mounted_on.visual_scale
+		for leg in model["legs"]:
+			(leg as Node3D).rotation.x = -1.2
+		model["legs"] = m["legs"]
+		model["quad"] = true
+		(model["meshes"] as Array).append_array(m["meshes"])
+		model["mount_root"] = m["root"]
 	if ghost or flags.has("invisible"):
 		_set_ghost_look(true)
 
@@ -3542,3 +3568,57 @@ func _pick_mark() -> Entity:
 			best = e
 			best_d = dd
 	return best
+
+
+# --- mounts -----------------------------------------------------------------
+
+func can_ride(p: Entity) -> bool:
+	return p != null and p.kind == Kind.PET and p.pet_owner == self and not p.dead and not p.summoned \
+		and p.mount_speed > 1.0
+
+
+## Get on a pet horse or llama standing close by.
+func mount(p: Entity) -> bool:
+	if mounted_on != null or dead or not can_ride(p) or position.distance_to(p.position) > 3.0:
+		return false
+	mounted_on = p
+	p.parked = true
+	p.visible = false
+	p.target = null
+	p.path.clear()
+	refresh_look()
+	if is_hero:
+		game.log_event("You mount your %s." % p.display_name)
+		game.count("mounted")
+	return true
+
+
+func dismount() -> void:
+	if mounted_on == null:
+		return
+	var p := mounted_on
+	mounted_on = null
+	if is_instance_valid(p):
+		p.parked = false
+		p.visible = true
+		p.position = position + Vector3(0.6, 0.0, 0.0)
+		if world.is_blocked(world.to_tile(p.position)):
+			p.position = position
+		p.path.clear()
+	refresh_look()
+	if is_hero:
+		game.log_event("You get off your %s." % p.display_name)
+
+
+func mounted_by_position() -> Vector3:
+	return pet_owner.position if pet_owner != null and is_instance_valid(pet_owner) else position
+
+
+## Players with a mount pet close by get on it (computer players and the hero on Auto).
+func _auto_mount() -> void:
+	if mounted_on != null or dead or kind != Kind.PLAYER:
+		return
+	for p in pets:
+		if can_ride(p) and position.distance_to(p.position) <= 3.0:
+			mount(p)
+			return
