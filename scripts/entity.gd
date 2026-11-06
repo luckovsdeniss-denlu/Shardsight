@@ -1032,7 +1032,8 @@ func _finish_cast() -> void:
 		tgt.hp = minf(tgt.hp + amount, float(tgt.stats.max_hp()))
 		tgt._pop("+%d" % roundi(amount), Color(0.5, 1.0, 0.5))
 	else:
-		_bolt(tgt.position, sp["color"])
+		if not _spell_fire(id, tgt):
+			_bolt(tgt.position, sp["color"])
 		amount *= Rules.spell_damage_multiplier(_skill(Hero.Skill.EVALUATING_INTELLECT))
 		if randf() < Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)):
 			amount *= 0.5
@@ -1716,6 +1717,10 @@ func refresh_look() -> void:
 		(model["mount_root"] as Node3D).queue_free()
 	model = Art.creature(look, _look_style(), visual_scale)
 	rig.add_child(model["root"])
+	if look == "fire_elemental":
+		var sparks := Fx.embers(0.5)
+		sparks.position.y = 1.0
+		(model["root"] as Node3D).add_child(sparks)
 	if mounted_on != null:
 		# Sitting in the saddle: the mount's legs do the walking, the rider's hang still.
 		var m := Art.creature(mounted_on.look, {}, mounted_on.visual_scale)
@@ -2082,6 +2087,8 @@ func _area_blast(sp: Dictionary) -> void:
 			continue
 		if position.distance_to(e.position) > Spells.AREA_RADIUS:
 			continue
+		if String(sp["name"]) == "Meteor Swarm" and _near_hero():
+			Fx.meteor(get_parent(), e.position, randf_range(0.0, 0.4))
 		var amount := randf_range(float(sp["min_dmg"]), float(sp["max_dmg"])) \
 			* Rules.spell_damage_multiplier(_skill(Hero.Skill.EVALUATING_INTELLECT))
 		if randf() < Rules.resist_chance(e._skill(Hero.Skill.RESISTING_SPELLS)):
@@ -3821,3 +3828,26 @@ func _on_level_up(lv: int) -> void:
 			game.glitch(0.35, 0.3)
 			game.log_event("You reach level %d!" % lv)
 			game.sound("gain", position)
+
+
+# --- fire -------------------------------------------------------------------
+
+func _near_hero() -> bool:
+	return game.hero != null and position.distance_to(game.hero.position) <= 25.0
+
+
+## Fire spells get real fire instead of a plain bolt. Returns true if it drew something.
+func _spell_fire(id: String, tgt: Entity) -> bool:
+	if not _near_hero():
+		return id in ["fireball", "flamestrike", "explosion"]
+	var up := Vector3(0.0, 1.0, 0.0)
+	match id:
+		"fireball":
+			Fx.fireball(get_parent(), position + up, tgt.position + up)
+		"flamestrike":
+			Fx.pillar(get_parent(), tgt.position)
+		"explosion":
+			Fx.burst(get_parent(), tgt.position + up, 1.5)
+		_:
+			return false
+	return true

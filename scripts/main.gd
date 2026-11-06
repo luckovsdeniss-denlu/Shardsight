@@ -1325,6 +1325,8 @@ func add_field(owner_e: Entity, spell_id: String, at: Vector3) -> void:
 		disc.transparency = 0.45
 		node.add_child(disc)
 		node.position = Vector3(at.x, 0.04, at.z)
+		if kind == "fire":
+			node.add_child(Fx.flame(float(f["radius"]) * 1.4, 40, 1.0))
 	fields.append(f)
 
 
@@ -2226,6 +2228,7 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.PLAYER, "Sly", Bestiary.THIEF, blue, Vector2i(12, 24))     # thieves
 	_spawn(Entity.Kind.PLAYER, "Pip", Bestiary.THIEF, blue, Vector2i(60, 24))
 
+	_build_braziers()
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Hal the Stablemaster", Bestiary.STABLEMASTER, cream, Vector2i(21, 11))
 	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(25, 13))
@@ -2687,6 +2690,10 @@ func light_campfire(at: Vector3) -> void:
 	fire.add_child(light)
 	add_child(fire)
 	fire.position = Vector3(at.x + 0.6, 0.0, at.z)
+	flame.visible = false                          # real flames instead of the cone
+	var flames := Fx.flame(0.35, 22, 0.8)
+	flames.position.y = 0.15
+	fire.add_child(flames)
 	campfires.append({"node": fire, "left": CAMPFIRE_SECONDS})
 
 
@@ -2824,6 +2831,38 @@ func _show_title(layer: CanvasLayer) -> void:
 	get_tree().create_timer(3.5).timeout.connect(close)
 
 
+# --- braziers: fire in the towns, glowing at night ----------------------------
+
+const BRAZIERS := [Vector2i(19, 10), Vector2i(29, 10), Vector2i(19, 13), Vector2i(29, 13),
+	Vector2i(34, 3), Vector2i(41, 7), Vector2i(44, 30), Vector2i(55, 30), Vector2i(44, 38), Vector2i(55, 38)]
+var brazier_lights: Array[OmniLight3D] = []
+
+
+func _build_braziers() -> void:
+	var stone := Color(0.42, 0.4, 0.38)
+	var bowl := Art.merge([[Art.cone(0.12, 0.7, 0.09, 6), Art.at(0, 0.35, 0), stone],
+		[Art.cone(0.26, 0.18, 0.16, 8), Art.at(0, 0.78, 0), Color(0.3, 0.27, 0.25)],
+		[Art.cone(0.2, 0.06, 0.2, 8), Art.at(0, 0.02, 0), stone.darkened(0.2)]])
+	for t in BRAZIERS:
+		var b := Node3D.new()
+		add_child(b)
+		b.position = world.tile_center(t) + Vector3(0.3, 0.0, 0.3)
+		var m := MeshInstance3D.new()
+		m.mesh = bowl
+		m.material_override = Art.vc_mat()
+		b.add_child(m)
+		var f := Fx.flame(0.3, 16, 0.8)
+		f.position.y = 0.88
+		b.add_child(f)
+		var l := OmniLight3D.new()
+		l.light_color = Color(1.0, 0.62, 0.3)
+		l.omni_range = 5.0
+		l.light_energy = 0.0
+		l.position.y = 1.2
+		b.add_child(l)
+		brazier_lights.append(l)
+
+
 # --- weather and music -------------------------------------------------------
 
 ## Rain: streaks falling round the camera (a CPU particle box, cheap on phones).
@@ -2951,6 +2990,9 @@ func _apply_daylight() -> void:
 	sun.rotation_degrees = Vector3(-20.0 - 50.0 * maxf(sun_height, 0.0), day_time * 360.0, 0.0)
 	env.background_color = Color("0d1426").lerp(Color("87a8c9"), light)
 	env.ambient_light_energy = lerpf(0.45, 0.8, light)
+	var night := clampf(1.0 - light * 1.6, 0.0, 1.0)
+	for l in brazier_lights:
+		l.light_energy = 1.6 * night * (0.9 + 0.1 * sin(Time.get_ticks_msec() * 0.01))   # a flicker
 
 
 func _bless_text() -> String:

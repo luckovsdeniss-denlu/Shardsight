@@ -601,6 +601,9 @@ func build(parent: Node3D) -> void:
 				Tile.FORGE:
 					_add(parent, forge_mesh, _mat(COLORS[Tile.FORGE]), c + Vector3(0, 0.4, 0))
 					_add(parent, coals_mesh, coals_mat, c + Vector3(0, 0.84, 0))
+					var forge_fire := Fx.flame(0.45, 18, 0.7)    # the forge's fire
+					forge_fire.position = c + Vector3(0, 0.9, 0)
+					parent.add_child(forge_fire)
 				Tile.GRASS:
 					if is_town(t) or is_dungeon(t):
 						continue

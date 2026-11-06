@@ -5,6 +5,12 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 
 ## 0.30.0
 Platform.
+- Fire: real flames (glowing particles that brighten where they overlap) instead of plain
+  shapes. Fireball flies as a burning ball with a flame trail and bursts on impact;
+  Flamestrike is a pillar of fire out of the ground; Explosion is a fiery blast; Meteor Swarm
+  rains a meteor onto every foe. Fire Field burns on the ground, campfires and the forge have
+  flickering flames, fire elementals throw sparks, and stone braziers burn in all three towns,
+  lighting them at night with a gentle flicker. Effects are only drawn near you.
 - A glitch effect: a short burst of digital distortion over the whole screen (bands of the
   picture jumping sideways, colours pulled apart, a rolling tear line, scanlines and static).
   It plays on a heavy blow (a fifth of your HP or more), when you die, when you teleport,
