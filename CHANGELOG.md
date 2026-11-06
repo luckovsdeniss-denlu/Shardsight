@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.21.0
+(0.20, society, comes later.)
+- Shops with supply and demand (`scripts/shop.gd`, from the reference): each merchant has a purse
+  and shelves. It pays less for what it already holds, refuses an item once it has 15, runs out
+  of gold, and every two minutes restocks (purse refilled, shelves sold down).
+- Prices differ by town: a new merchant, Mara, in the outpost pays 30% more for goods and
+  charges 25% more for supplies, so hauling loot to the outpost pays.
+- Menu > Prices: what each merchant pays for everything in your bag right now, their purses and
+  supply prices.
+- Player vendors: with a house, hire a vendor (100 gold from the bank). Give it your bag; it sells
+  at full value (merchants pay half for used gear), keeps 10%, and sells even while you are away
+  (about 3 items an hour, up to two days). Collect earnings at the house. A collapsing house
+  spills the vendor's goods and earnings into the ruins too. Saved with the game.
+
 ## 0.19.0
 - Bards: Musicianship, Peacemaking, Provocation and Enticement (new skills), played on a lute.
   The hero starts with one; Bran sells another for 20 gold if it is lost (lutes are never sold).

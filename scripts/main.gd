@@ -8,6 +8,8 @@ const MANUAL_PAUSE := 4.0      # seconds auto mode waits after a tap
 const LOG_LINES := 6
 const DEFAULT_RUNE := Vector2i(25, 13)
 const GATE_SECONDS := 20.0
+const VENDOR_HIRE_COST := 100
+const VENDOR_SALES_PER_HOUR := 3     # while you are away (capped at two days)
 const DAY_SECONDS := 480.0       # one full day and night
 
 var version: String = ProjectSettings.get_setting("application/config/version", "dev")
@@ -46,6 +48,10 @@ var _pinch_dist := 0.0
 var _pinch_angle := 0.0
 var animals_panel: Control
 var bard_panel: Control
+var prices_panel: Control
+var prices_box: VBoxContainer
+var vendor_npc: Entity = null
+var _vendor_timer := 60.0
 var bard_box: VBoxContainer
 var animals_box: VBoxContainer
 var pending_spawns: Array[Dictionary] = []   # spawns requested mid-frame, done after the tick loop
@@ -137,6 +143,8 @@ func _ready() -> void:
 	settings_panel = _make_overlay(layer)
 	animals_panel = _make_overlay(layer)
 	bard_panel = _make_overlay(layer)
+	prices_panel = _make_overlay(layer)
+	prices_box = prices_panel.get_meta("box")
 	bard_box = bard_panel.get_meta("box")
 	animals_box = animals_panel.get_meta("box")
 	settings_box = settings_panel.get_meta("box")
@@ -194,6 +202,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(_menu_button("Travel", _open_travel))
 	box.add_child(_menu_button("Animals", _open_animals))
 	box.add_child(_menu_button("Bard", _open_bard))
+	box.add_child(_menu_button("Prices", _open_prices))
 	box.add_child(_menu_button("Settings", _open_settings))
 	box.add_child(_menu_button("Help", _open_help))
 	box.add_child(_menu_button("Save now", _save_now))
@@ -430,6 +439,15 @@ func _refresh_property() -> void:
 		property_box.add_child(_info("Chest: " + Property.items_text(property.house_chest)))
 		property_box.add_child(_action("Store bag in the chest", _on_chest_store, at_house and not hero.inventory.is_empty()))
 		property_box.add_child(_action("Take all from the chest", _on_chest_take, at_house and not property.house_chest.is_empty()))
+		if property.vendor_hired:
+			property_box.add_child(_info("Your vendor sells at full value (merchants pay half for used gear), even while you are away, and keeps 10%%. Stock: %s. Earnings waiting: %d gold." % [
+				Property.items_text(property.vendor_stock), property.vendor_gold]))
+			property_box.add_child(_action("Give the vendor your bag to sell", _on_vendor_stock, at_house and not _sellable_bag().is_empty()))
+			property_box.add_child(_action("Take the vendor's stock back", _on_vendor_unstock, at_house and not property.vendor_stock.is_empty()))
+			property_box.add_child(_action("Collect %d gold from the vendor" % property.vendor_gold, _on_vendor_collect, at_house and property.vendor_gold > 0))
+		else:
+			property_box.add_child(_info("Hire a vendor to sell your goods from the house, even while you are away (%d gold from the bank)." % VENDOR_HIRE_COST))
+			property_box.add_child(_action("Hire a vendor", _on_vendor_hire, at_house and property.bank_gold >= VENDOR_HIRE_COST))
 	elif property.has_deed:
 		property_box.add_child(_info("You own a house deed. Stand on open ground outside town and place it."))
 		property_box.add_child(_action("Place house here", _on_place_house, not hero.dead and not hero._in_town()))
@@ -520,6 +538,8 @@ func _on_place_house() -> void:
 	property.has_deed = false
 	property.refresh()
 	log_event("You place your house. Its chest is safe storage; visit it to keep it standing.")
+	if property.vendor_hired:
+		_spawn_vendor()
 	_refresh_property()
 
 
@@ -531,8 +551,11 @@ func _restore_house() -> void:
 	if property.should_collapse():
 		var ruins := Corpse.new()
 		add_child(ruins)
+		var spilled := property.house_chest.duplicate()
+		Property.merge(spilled, property.vendor_stock)
 		ruins.setup("House", true, false, 0, center,
-			{"gold": 0, "reagents": 0, "items": property.house_chest.duplicate()})
+			{"gold": property.vendor_gold, "reagents": 0, "items": spilled})
+		property.vendor_gold = 0
 		ruins.set_title("Ruins of your house")
 		ruins.life = 600.0
 		corpses.append(ruins)
@@ -548,6 +571,9 @@ func _restore_house() -> void:
 		log_event("Your house could not be rebuilt here; its deed and chest went to the bank.")
 		return
 	world.place_house(self, property.house_origin)
+	if property.vendor_hired:
+		_spawn_vendor()
+		_settle_vendor_offline()
 
 
 func _open_property() -> void:
@@ -1015,6 +1041,132 @@ func _close_bard() -> void:
 	menu.visible = true
 
 
+# --- shops and player vendors ----------------------------------------------
+
+func _merchants() -> Array[Entity]:
+	var out: Array[Entity] = []
+	for e in creatures:
+		if e.shop != null:
+			out.append(e)
+	return out
+
+
+func _refresh_prices() -> void:
+	for c in prices_box.get_children():
+		prices_box.remove_child(c)
+		c.queue_free()
+	var title := _info("Prices")
+	title.add_theme_font_size_override("font_size", 30)
+	prices_box.add_child(title)
+	var merchants := _merchants()
+	var header := "Merchants: "
+	for mrc in merchants:
+		header += "%s in %s (%d gold in the purse)   " % [mrc.display_name, mrc.shop.town, mrc.shop.cash]
+	prices_box.add_child(_info(header))
+	var bag := _sellable_bag()
+	if bag.is_empty():
+		prices_box.add_child(_info("Nothing in your bag to sell."))
+	for id in bag:
+		var line := "%s x%d:" % [Items.item_name(id), int(bag[id])]
+		for mrc in merchants:
+			var offer := mrc.shop.offer(id)
+			line += "   %s %s" % [mrc.display_name, ("%d each" % offer) if offer > 0 else "won't buy"]
+		prices_box.add_child(_info(line))
+	var supplies := "Supplies:"
+	for mrc in merchants:
+		supplies += "   %s: reagent %d, bandage %d, heal potion %d" % [mrc.display_name,
+			mrc.shop.price(Entity.REAGENT_PRICE), mrc.shop.price(Entity.BANDAGE_PRICE),
+			mrc.shop.price(Entity.POTION_PRICE)]
+	prices_box.add_child(_info(supplies))
+	prices_box.add_child(_info("A merchant pays less for what it already holds, refuses overstocked goods and can run out of gold; every couple of minutes it restocks. The outpost pays more, so hauling loot there earns more. You sell automatically when you stand near a merchant."))
+	prices_box.add_child(_menu_button("Back", _close_prices))
+
+
+func _open_prices() -> void:
+	menu.visible = false
+	prices_panel.visible = true
+	_refresh_prices()
+
+
+func _close_prices() -> void:
+	prices_panel.visible = false
+	menu.visible = true
+
+
+## What the hero would sell: everything but upgrades, potions, instruments and (for a crafter)
+## crafting materials.
+func _sellable_bag() -> Dictionary:
+	var out := {}
+	for id in hero.inventory:
+		if Items.is_potion(id) or Items.is_instrument(id):
+			continue
+		out[id] = hero.inventory[id]
+	return out
+
+
+func _spawn_vendor() -> void:
+	if vendor_npc != null or not property.has_house():
+		return
+	vendor_npc = _spawn(Entity.Kind.NPC, "Your vendor", Bestiary.VENDOR, Color("c9a86a"),
+		property.house_origin + Vector2i(1, 2))
+
+
+## Sales made while the game was closed: a few an hour, up to two days' worth.
+func _settle_vendor_offline() -> void:
+	var now := Time.get_unix_time_from_system()
+	var hours := clampf((now - property.vendor_last) / 3600.0, 0.0, 48.0)
+	property.vendor_last = now
+	var made := property.vendor_sell(floori(hours * VENDOR_SALES_PER_HOUR))
+	if made > 0:
+		log_event("While you were away your vendor made %d gold." % made)
+
+
+## While playing: now and then a customer buys something.
+func _vendor_tick(delta: float) -> void:
+	if not property.vendor_hired:
+		return
+	_vendor_timer -= delta
+	if _vendor_timer > 0.0:
+		return
+	_vendor_timer = 60.0
+	property.vendor_last = Time.get_unix_time_from_system()
+	if randf() < 0.25:
+		var made := property.vendor_sell(1)
+		if made > 0:
+			log_event("Your vendor sold something for %d gold." % made)
+
+
+func _on_vendor_hire() -> void:
+	property.bank_gold -= VENDOR_HIRE_COST
+	property.vendor_hired = true
+	property.vendor_last = Time.get_unix_time_from_system()
+	_spawn_vendor()
+	log_event("You hire a vendor for your house.")
+	_refresh_property()
+
+
+func _on_vendor_stock() -> void:
+	var bag := _sellable_bag()
+	Property.merge(property.vendor_stock, bag)
+	for id in bag:
+		hero.inventory.erase(id)
+	log_event("Your vendor puts your goods on display.")
+	_refresh_property()
+
+
+func _on_vendor_unstock() -> void:
+	Property.merge(hero.inventory, property.vendor_stock)
+	property.vendor_stock.clear()
+	_refresh_property()
+
+
+func _on_vendor_collect() -> void:
+	hero._earn(property.vendor_gold)
+	log_event("You collect %d gold from your vendor." % property.vendor_gold)
+	property.vendor_gold = 0
+	_refresh_property()
+
+
 func _open_menu() -> void:
 	paused = true
 	menu.visible = true
@@ -1071,7 +1223,11 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.PLAYER, "Vex", Bestiary.PKILLER, blue, Vector2i(15, 16))   # a player killer
 
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
-	_spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
+	var bran := _spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
+	bran.shop = Shop.new("town", 1.0, 1.0)
+	# The outpost is remote: its merchant pays more for goods and charges more for supplies.
+	var mara := _spawn(Entity.Kind.NPC, "Mara", Bestiary.MERCHANT, cream, Vector2i(37, 3))
+	mara.shop = Shop.new("the outpost", 1.3, 1.25)
 	_spawn(Entity.Kind.NPC, "Oswin", Bestiary.BANKER, cream, Vector2i(26, 12))
 	_spawn(Entity.Kind.NPC, "Town Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(20, 11))
 	_spawn(Entity.Kind.NPC, "Town Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(28, 11))
@@ -1304,7 +1460,10 @@ func _process(delta: float) -> void:
 		_autosave()
 	for e in creatures:
 		e.tick(delta)
+		if e.shop != null:
+			e.shop.tick(delta)
 	_flush_spawns()
+	_vendor_tick(delta)
 	_guards_strike()
 	_gates_tick(delta)
 	day_time = fmod(day_time + delta / DAY_SECONDS, 1.0)

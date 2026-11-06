@@ -127,6 +127,7 @@ var pets: Array[Entity] = []
 var tame_target: Entity = null
 var tame_timer := 0.0
 var bandage_target: Entity = null
+var shop: Shop = null          # merchants: their purse, shelves and town prices
 var tame_cd := 0.0
 var bard_cd := 0.0
 var perform_timer := 0.0
@@ -913,11 +914,11 @@ func _market_aura(delta: float) -> void:
 		var other := item as Entity
 		if other.dead or other.kind != Kind.PLAYER:
 			continue
-		if position.distance_to(other.position) <= MARKET_RANGE:
-			other.trade(delta)
+		if position.distance_to(other.position) <= MARKET_RANGE and shop != null:
+			other.trade(delta, shop)
 
 
-func trade(delta: float) -> void:
+func trade(delta: float, s: Shop) -> void:
 	if notoriety() != Notoriety.BLUE:
 		return                             # criminals and murderers are refused service
 	var earned := 0
@@ -928,34 +929,49 @@ func trade(delta: float) -> void:
 			continue                       # potions are kept for emergencies
 		if crafter and Items.is_material(id):
 			continue                       # crafters keep their ore, ingots, logs and hides
-		earned += Items.value(id) * int(inventory[id])
-		inventory.erase(id)
+		# The merchant pays less the more it already holds, and stops when overstocked or broke.
+		var n := int(inventory[id])
+		var sold := 0
+		while sold < n:
+			var p := s.buy_from_player(id)
+			if p <= 0:
+				break
+			earned += p
+			sold += 1
+		if sold >= n:
+			inventory.erase(id)
+		elif sold > 0:
+			inventory[id] = n - sold
 	if earned > 0:
 		_earn(earned)
 		if is_hero:
-			game.log_event("You sell your spare loot for %d gold." % earned)
+			game.log_event("You sell your spare loot in %s for %d gold." % [s.town, earned])
 	_trade_timer += delta
 	if _trade_timer >= 0.5:
 		_trade_timer = 0.0
 		# Restock only what is short, and never dip into the reserve (except for a last
 		# couple of bandages).
-		if is_hero and not has_instrument() and gold >= LUTE_PRICE + SUPPLY_RESERVE:
-			_spend(LUTE_PRICE)
+		var lute := s.price(LUTE_PRICE)
+		var potion := s.price(POTION_PRICE)
+		var bandage := s.price(BANDAGE_PRICE)
+		var reagent_pair := s.price(REAGENT_PRICE * 2)
+		if is_hero and not has_instrument() and gold >= lute + SUPPLY_RESERVE:
+			_pay(s, lute)
 			inventory["lute"] = 1
 			game.log_event("You buy a lute.")
-		if Crafting.count(inventory, "potion_heal") < 1 and gold >= POTION_PRICE + SUPPLY_RESERVE:
-			_spend(POTION_PRICE)
+		if Crafting.count(inventory, "potion_heal") < 1 and gold >= potion + SUPPLY_RESERVE:
+			_pay(s, potion)
 			inventory["potion_heal"] = 1
-		elif poison_level > 0 and Crafting.count(inventory, "potion_cure") < 1 and gold >= POTION_PRICE + SUPPLY_RESERVE:
-			_spend(POTION_PRICE)
+		elif poison_level > 0 and Crafting.count(inventory, "potion_cure") < 1 and gold >= potion + SUPPLY_RESERVE:
+			_pay(s, potion)
 			inventory["potion_cure"] = 1
-		if (bandages < 6 and gold >= BANDAGE_PRICE + SUPPLY_RESERVE) or (bandages < 2 and gold >= BANDAGE_PRICE):
-			_spend(BANDAGE_PRICE)
+		if (bandages < 6 and gold >= bandage + SUPPLY_RESERVE) or (bandages < 2 and gold >= bandage):
+			_pay(s, bandage)
 			bandages += 1
-		if reagents < 20.0 and gold >= REAGENT_PRICE * 2 + SUPPLY_RESERVE:
-			_spend(REAGENT_PRICE * 2)
+		if reagents < 20.0 and gold >= reagent_pair + SUPPLY_RESERVE:
+			_pay(s, reagent_pair)
 			reagents = minf(reagents + 2.0, MAX_REAGENTS)
-		_buy_gear()
+		_buy_gear(s)
 
 
 func _bolt(to: Vector3, color: Color) -> void:
@@ -1124,12 +1140,17 @@ func _equip(id: String) -> void:
 
 
 ## At the merchant: buy the best usable upgrade we can afford, keeping a little gold spare.
-func _buy_gear() -> void:
+func _pay(s: Shop, amount: int) -> void:
+	_spend(amount)
+	s.take_payment(amount)
+
+
+func _buy_gear(s: Shop) -> void:
 	var best := ""
 	var best_gain := 0.0
 	for id in Gear.ORDER:
 		var g: Dictionary = Gear.LIST[id]
-		var price := int(g["value"])
+		var price := s.price(int(g["value"]))
 		if price + 8 > gold or not _can_use(id) or inventory.has(id):
 			continue
 		var gain := Gear.score(id) - _equipped_score(String(g["slot"]))
@@ -1138,11 +1159,12 @@ func _buy_gear() -> void:
 			best = id
 	if best == "":
 		return
-	_spend(int(Gear.LIST[best]["value"]))
+	var cost := s.price(int(Gear.LIST[best]["value"]))
+	_pay(s, cost)
 	inventory[best] = int(inventory.get(best, 0)) + 1
 	_manage_gear()
 	if is_hero:
-		game.log_event("You buy a %s for %d gold." % [Items.item_name(best), int(Gear.LIST[best]["value"])])
+		game.log_event("You buy a %s for %d gold." % [Items.item_name(best), cost])
 
 
 func gear_text() -> String:

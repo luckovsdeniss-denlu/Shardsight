@@ -22,6 +22,10 @@ var rune := Vector2i(-1, -1)           # where Recall and Gate Travel lead (set 
 var quest_index := 0                   # which of Quests.LIST is next or active
 var quest_active := false
 var quest_kills := 0
+var vendor_hired := false              # a hired vendor in the house sells while you are away
+var vendor_stock := {}
+var vendor_gold := 0
+var vendor_last := 0.0                 # unix time of the last offline-sale settlement
 var sound_on := true                   # settings
 var cam_zoom := 1.0
 var cam_yaw := 0.0
@@ -56,6 +60,8 @@ func refresh() -> void:
 func clear_house() -> void:
 	house_origin = Vector2i(-1, -1)
 	house_chest = {}
+	vendor_hired = false
+	vendor_stock = {}
 
 
 static func merge(into: Dictionary, from: Dictionary) -> void:
@@ -78,6 +84,8 @@ func to_dict() -> Dictionary:
 		"rune": [rune.x, rune.y], "quest_index": quest_index, "quest_active": quest_active,
 		"quest_kills": quest_kills,
 		"sound_on": sound_on, "cam_zoom": cam_zoom, "cam_yaw": cam_yaw,
+		"vendor_hired": vendor_hired, "vendor_stock": vendor_stock, "vendor_gold": vendor_gold,
+		"vendor_last": vendor_last,
 	}
 	if has_house():
 		d["house"] = {
@@ -98,6 +106,10 @@ func load_dict(d: Dictionary) -> void:
 	quest_index = clampi(int(d.get("quest_index", 0)), 0, Quests.LIST.size() - 1)
 	quest_active = bool(d.get("quest_active", false))
 	quest_kills = maxi(0, int(d.get("quest_kills", 0)))
+	vendor_hired = bool(d.get("vendor_hired", false))
+	vendor_stock = _clean_items(d.get("vendor_stock", {}))
+	vendor_gold = maxi(0, int(d.get("vendor_gold", 0)))
+	vendor_last = float(d.get("vendor_last", Time.get_unix_time_from_system()))
 	sound_on = bool(d.get("sound_on", true))
 	cam_zoom = clampf(float(d.get("cam_zoom", 1.0)), 0.5, 1.8)
 	cam_yaw = float(d.get("cam_yaw", 0.0))
@@ -120,3 +132,27 @@ static func _clean_items(raw: Variant) -> Dictionary:
 		if Items.is_known(id) and int(src[key]) > 0:
 			out[id] = int(src[key])
 	return out
+
+
+## What a player vendor asks: the full value of an item (merchants pay half for used gear).
+static func vendor_price(id: String) -> int:
+	if Gear.LIST.has(id):
+		return int(Gear.LIST[id]["value"])
+	return Items.value(id)
+
+
+## Sells up to `count` random items from the vendor's stock; the vendor keeps 10%.
+## Returns the gold made.
+func vendor_sell(count: int) -> int:
+	var made := 0
+	for _i in range(count):
+		if vendor_stock.is_empty():
+			break
+		var keys := vendor_stock.keys()
+		var id := String(keys[randi() % keys.size()])
+		vendor_stock[id] = int(vendor_stock[id]) - 1
+		if int(vendor_stock[id]) <= 0:
+			vendor_stock.erase(id)
+		made += roundi(vendor_price(id) * 0.9)
+	vendor_gold += made
+	return made
