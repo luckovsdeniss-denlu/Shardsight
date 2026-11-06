@@ -28,6 +28,8 @@ var _music_timer := 0.0
 var rain: CPUParticles3D
 var rain_sound := AudioStreamPlayer.new()
 var _joy_timer := 0.0
+var players_panel: Control
+var players_box: VBoxContainer
 var bag_panel: Control
 var bag_box: VBoxContainer
 var thief_panel: Control
@@ -192,6 +194,8 @@ func _ready() -> void:
 	bard_panel = _make_overlay(layer)
 	prices_panel = _make_overlay(layer)
 	prices_box = prices_panel.get_meta("box")
+	players_panel = _make_overlay(layer)
+	players_box = players_panel.get_meta("box")
 	bag_panel = _make_overlay(layer)
 	bag_box = bag_panel.get_meta("box")
 	thief_panel = _make_overlay(layer)
@@ -265,6 +269,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(_menu_button("Craft", _open_craft))
 	box.add_child(_menu_button("Bank & House", _open_property))
 	box.add_child(_menu_button("Travel & Spellbook", _open_travel))
+	box.add_child(_menu_button("Players", _open_players.bind(null)))
 	box.add_child(_menu_button("Guild & Fame", _open_guild))
 	box.add_child(_menu_button("Thievery", _open_thief))
 	box.add_child(_menu_button("Animals", _open_animals))
@@ -1863,6 +1868,78 @@ func _close_bag() -> void:
 	_resume()
 
 
+# --- players panel: what everyone wears ------------------------------------------
+
+## Every other player (nearest first) with their title, guild, level, standing and the gear they
+## wear and wield; or just one, when opened by tapping them. Bags stay private (that's Snooping).
+func _refresh_players(focus: Entity) -> void:
+	for c in players_box.get_children():
+		players_box.remove_child(c)
+		c.queue_free()
+	var title_label := _info("Players" if focus == null else focus.display_name)
+	title_label.add_theme_font_size_override("font_size", 30)
+	players_box.add_child(title_label)
+	var list: Array = []
+	if focus != null:
+		list.append(focus)
+	else:
+		for e in creatures:
+			if e.kind == Entity.Kind.PLAYER and not e.is_hero and not e.flags.has("invisible"):
+				list.append(e)
+		list.sort_custom(func(a, b) -> bool:
+			return a.position.distance_to(hero.position) < b.position.distance_to(hero.position))
+		players_box.add_child(_info("Tap a player in the world to see just them. Hidden and invisible players don't show."))
+	for e in list:
+		var p := e as Entity
+		var g := p.guild_abbr()
+		var standing := "dead (a ghost)" if p.ghost else p.notoriety_text()
+		var relation := ""
+		if hero.at_war_with(p):
+			relation = ", at war with your guild"
+		elif hero.friends_with(p):
+			relation = ", your guild or ally"
+		players_box.add_child(_heading("%s%s" % [p.title_name(), (" [%s]" % g) if g != "" else ""]))
+		players_box.add_child(_info("Level %d, HP %d/%d, %s%s. %d m away%s." % [
+			p.stats.level(), ceili(p.hp), p.stats.max_hp(), standing, relation,
+			roundi(p.position.distance_to(hero.position)),
+			", in town" if p._in_town() else ""]))
+		var weapon_line := "bare hands" if p.weapon == "" else _gear_line(p.weapon)
+		players_box.add_child(_info("Weapon: %s" % weapon_line))
+		players_box.add_child(_info("Armour: %s   Shield: %s   Riding: %s" % [
+			"none" if p.armor_id == "" else _gear_line(p.armor_id),
+			"none" if p.shield_id == "" else _gear_line(p.shield_id),
+			p.mounted_on.display_name if p.mounted_on != null else "on foot"]))
+		if focus != null:
+			players_box.add_child(_action("Walk over to %s" % p.display_name, _on_walk_to_player.bind(p), not hero.dead))
+			if hero._is_fair_target(p):
+				players_box.add_child(_action("Attack %s" % p.display_name, _on_attack_player.bind(p), not hero.dead))
+			players_box.add_child(_menu_button("All players", _open_players.bind(null)))
+	players_box.add_child(_menu_button("Back", _close_players))
+
+
+func _on_walk_to_player(p: Entity) -> void:
+	_close_players()
+	hero.target = null
+	hero.go_to(p.position)
+
+
+func _on_attack_player(p: Entity) -> void:
+	_close_players()
+	hero.target = p
+
+
+func _open_players(focus: Entity) -> void:
+	paused = true
+	menu.visible = false
+	players_panel.visible = true
+	_refresh_players(focus)
+
+
+func _close_players() -> void:
+	players_panel.visible = false
+	_resume()
+
+
 # --- thievery panel ----------------------------------------------------------
 
 func _refresh_thief() -> void:
@@ -2332,6 +2409,9 @@ func _tap(screen: Vector2) -> void:
 	if e != null and e.kind == Entity.Kind.MONSTER:
 		hero.target = e
 		hero.loot_target = null
+		return
+	if e != null and e.kind == Entity.Kind.PLAYER and not e.flags.has("invisible"):
+		_open_players(e)                 # tap a player to see what they wear and wield
 		return
 	hero.target = null
 	hero.recovering = false

@@ -5,6 +5,11 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 
 ## 0.30.0
 Platform.
+- See what other players wear: tap a player in the world, or open Menu > Players (everyone,
+  nearest first). It shows title, guild, level, HP, standing (innocent, criminal, murderer,
+  ghost), how they stand with your guild, distance, and their weapon (damage, speed, skill),
+  armour, shield and mount. Bags stay private (that's what Snooping is for). From a tapped
+  player you can walk over to them, or attack them if they're fair game.
 - No more guards. Instead the towns (main town, the outpost, Southmoor) are safe zones: nobody
   inside a town can be hurt, nobody can attack out of a town, and nobody starts a fight there.
   Monsters still keep out of towns; criminals and murderers may now come in (they are as safe
