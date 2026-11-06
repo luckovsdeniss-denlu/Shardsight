@@ -3,24 +3,27 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
-## 0.30.0
-Platform.
+## 0.31.0
+Loot, glitch and fire.
+- Loot you can see: a corpse's label now lists what's in it ("23 gold, Orc Ear, Longsword +2
+  more"). When anyone loots near you, each thing rises out of the corpse as a little 3D icon
+  (coin, sword, armour, shield, scroll, potion, ingot, log, pelt, pouch...) with a coloured
+  "+..." label, then drifts over to whoever took it. Other players' looting also goes to the
+  world log on the right.
+- A glitch effect: a short burst of digital distortion over the whole screen (bands of the
+  picture jumping sideways, colours pulled apart, a rolling tear line, scanlines and static).
+  It plays on a heavy blow (a fifth of your HP or more), when you die, when you teleport,
+  recall or step through a moongate, on lightning, at every tenth level, and on the title card.
+  Settings > Glitch effects turns it off. It costs nothing while it isn't playing.
 - Fire: real flames (glowing particles that brighten where they overlap) instead of plain
   shapes. Fireball flies as a burning ball with a flame trail and bursts on impact;
   Flamestrike is a pillar of fire out of the ground; Explosion is a fiery blast; Meteor Swarm
   rains a meteor onto every foe. Fire Field burns on the ground, campfires and the forge have
   flickering flames, fire elementals throw sparks, and stone braziers burn in all three towns,
   lighting them at night with a gentle flicker. Effects are only drawn near you.
-- A glitch effect: a short burst of digital distortion over the whole screen (bands of the
-  picture jumping sideways, colours pulled apart, a rolling tear line, scanlines and static).
-  It plays on a heavy blow (a fifth of your HP or more), when you die, when you teleport,
-  recall or step through a moongate, on lightning, at every tenth level, and on the title card.
-  Settings > Glitch effects turns it off. It costs nothing while it isn't playing.
-- Loot you can see: a corpse's label now lists what's in it ("23 gold, Orc Ear, Longsword +2
-  more"). When anyone loots near you, each thing rises out of the corpse as a little 3D icon
-  (coin, sword, armour, shield, scroll, potion, ingot, log, pelt, pouch...) with a coloured
-  "+..." label, then drifts over to whoever took it. Other players' looting also goes to the
-  world log on the right.
+
+## 0.30.0
+Platform.
 - Every use of a skill teaches it: +0.1 each time, no more dice (still up to 100 per skill and
   the 700-point total; locks still apply). The level follows, so a hero levels up about every
   seven uses: "Level N!" pops above the head, with a log line every 10 levels.
