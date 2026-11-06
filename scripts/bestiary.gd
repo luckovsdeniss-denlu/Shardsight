@@ -75,6 +75,58 @@ const EARTH_ELEMENTAL := {
 	"skills": {Hero.Skill.SWORDSMANSHIP: 70.0, Hero.Skill.TACTICS: 70.0},
 }
 
+const BLADE_SPIRITS := {
+	"danger": 3, "str": 40, "dex": 60, "int": 10, "wspeed": 55, "dmg_min": 5, "dmg_max": 10,
+	"move": 4.2, "leash": 3, "aggro": 6.0, "respawn": 0.0, "scale": 0.8,
+	"skills": {Hero.Skill.SWORDSMANSHIP: 80.0, Hero.Skill.TACTICS: 60.0},
+}
+const ENERGY_VORTEX := {
+	"danger": 6, "str": 70, "dex": 70, "int": 10, "wspeed": 50, "dmg_min": 10, "dmg_max": 18,
+	"move": 4.4, "leash": 3, "aggro": 7.0, "respawn": 0.0, "scale": 1.1,
+	"skills": {Hero.Skill.SWORDSMANSHIP: 85.0, Hero.Skill.TACTICS: 80.0},
+}
+const AIR_ELEMENTAL := {
+	"danger": 5, "str": 65, "dex": 60, "int": 10, "wspeed": 45, "dmg_min": 7, "dmg_max": 13,
+	"move": 4.6, "leash": 3, "aggro": 6.0, "respawn": 0.0, "armor": 2.0, "scale": 1.3,
+	"skills": {Hero.Skill.SWORDSMANSHIP: 70.0, Hero.Skill.TACTICS: 70.0},
+}
+const FIRE_ELEMENTAL := {
+	"danger": 6, "str": 75, "dex": 45, "int": 10, "wspeed": 40, "dmg_min": 9, "dmg_max": 17,
+	"move": 3.8, "leash": 3, "aggro": 6.0, "respawn": 0.0, "armor": 3.0, "scale": 1.3,
+	"skills": {Hero.Skill.SWORDSMANSHIP: 75.0, Hero.Skill.TACTICS: 75.0},
+}
+const WATER_ELEMENTAL := {
+	"danger": 5, "str": 90, "dex": 35, "int": 10, "wspeed": 30, "dmg_min": 7, "dmg_max": 13,
+	"move": 3.2, "leash": 3, "aggro": 6.0, "respawn": 0.0, "armor": 4.0, "scale": 1.4,
+	"skills": {Hero.Skill.SWORDSMANSHIP: 65.0, Hero.Skill.TACTICS: 70.0},
+}
+const DAEMON := {
+	"danger": 7, "str": 110, "dex": 50, "int": 40, "wspeed": 35, "dmg_min": 12, "dmg_max": 22,
+	"move": 3.8, "leash": 3, "aggro": 7.0, "respawn": 0.0, "armor": 4.0, "scale": 1.6,
+	"skills": {Hero.Skill.SWORDSMANSHIP: 85.0, Hero.Skill.TACTICS: 85.0},
+}
+
+
+## The stat block a summoning spell calls up ("CREATURE": a wolf or a bear at random).
+static func summon_cfg(key: String) -> Dictionary:
+	match key:
+		"CREATURE":
+			return WOLF if randf() < 0.5 else BROWN_BEAR
+		"BLADE_SPIRITS":
+			return BLADE_SPIRITS
+		"ENERGY_VORTEX":
+			return ENERGY_VORTEX
+		"AIR_ELEMENTAL":
+			return AIR_ELEMENTAL
+		"FIRE_ELEMENTAL":
+			return FIRE_ELEMENTAL
+		"WATER_ELEMENTAL":
+			return WATER_ELEMENTAL
+		"DAEMON":
+			return DAEMON
+	return EARTH_ELEMENTAL
+
+
 # Peaceful NPCs.
 const MERCHANT := {"str": 20, "dex": 15, "int": 30, "move": 1.5, "leash": 2, "role": "merchant"}
 const GUARD := {"str": 60, "dex": 40, "int": 10, "move": 1.5, "leash": 2, "role": "guard"}

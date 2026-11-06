@@ -18,7 +18,7 @@ static func erase() -> void:
 static func _pets_of(hero: Entity) -> Array:
 	var out := []
 	for p in hero.pets:
-		if not p.dead and p.species != "":
+		if not p.dead and p.species != "" and not p.summoned:   # summons fade, they aren't kept
 			out.append({"species": p.species, "name": p.display_name, "hp": p.hp})
 	return out
 

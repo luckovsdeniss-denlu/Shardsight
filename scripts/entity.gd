@@ -31,6 +31,10 @@ const BLESS_DAMAGE := 1.1          # blessed: +10% damage dealt...
 const BLESS_ARMOR := 0.9           # ...and -10% damage taken
 const CONFESS_PRICE := 50          # gold to have one murder count lifted
 const SCROLL_DROP_CHANCE := 0.12   # a monster that carries gold may carry a spell scroll
+const HARMFUL_KINDS := ["attack", "poison", "paralyze", "curse", "drain"]
+const MONSTER_KINDS := ["attack", "heal", "cure", "poison", "area", "paralyze", "curse", "drain"]
+const BUFF_ORDER := ["polymorph", "bless", "strength", "agility", "protection", "reactive_armor", "magic_reflection"]
+const CURSE_ORDER := ["curse", "weaken", "clumsy", "feeblemind"]
 const SHOP_SCROLL_CIRCLES := 6     # merchants stock scrolls up to this circle
 const GATHER_TIME := 2.0           # seconds per swing of the pickaxe or hatchet
 const CARRY_MATERIALS := 30        # gatherers stop when carrying this many materials
@@ -149,7 +153,14 @@ var spellbook := {}            # spell id -> true: the spells this character can
 var paralyzed_timer := 0.0     # Paralyze: can't move or act until it wears off or a blow lands
 var summoned := false          # an Earth Elemental: crumbles when summon_timer runs out
 var summon_timer := 0.0
-var summon: Entity = null      # the elemental this caster has out, if any
+var summon: Entity = null      # the creature this caster has summoned, if any
+var summon_name := ""
+var effects := {}              # spell effects: name -> {"secs", "mods", "flag"}
+var flags := {}                # flags of the active effects (invisible, protection...)
+var cast_corpse: Corpse = null # the corpse a Telekinesis / Magic Lock / Unlock is aimed at
+var last_curse_target: Entity = null
+var drain_cd := 0.0
+var field_cd := 0.0
 var bank_gold := 0             # other players' own bank (the hero's is game.property.bank_gold)
 var craft_cd := 0.0            # after a fruitless forge visit, wait before the next one
 var _priest_timer := 0.0
@@ -301,6 +312,10 @@ func tick(delta: float) -> void:
 	tame_cd = maxf(tame_cd - delta, 0.0)
 	track_cd = maxf(track_cd - delta, 0.0)
 	bless_timer = maxf(bless_timer - delta, 0.0)
+	drain_cd = maxf(drain_cd - delta, 0.0)
+	field_cd = maxf(field_cd - delta, 0.0)
+	if not effects.is_empty():
+		_effects_tick(delta)
 	craft_cd = maxf(craft_cd - delta, 0.0)
 	camp_cd = maxf(camp_cd - delta, 0.0)
 	if game.near_campfire(position):
@@ -359,7 +374,8 @@ func tick(delta: float) -> void:
 # --- decisions -------------------------------------------------------------
 
 func _think(delta: float) -> void:
-	if target != null and (not is_instance_valid(target) or target.dead or target.kind == Kind.NPC):
+	if target != null and (not is_instance_valid(target) or target.dead or target.kind == Kind.NPC \
+			or target.flags.has("invisible")):
 		target = null
 	if kind == Kind.PET:
 		_pet_think()
@@ -416,7 +432,7 @@ func _think(delta: float) -> void:
 	if autonomous and pause <= 0.0 and path.is_empty():
 		idle_timer -= delta
 		if idle_timer <= 0.0:
-			if kind == Kind.PLAYER and (_try_camp() or _try_beg()):
+			if kind == Kind.PLAYER and (_try_camp() or _try_beg() or _try_idle_magic()):
 				idle_timer = randf_range(1.5, 4.0)
 				return
 			if not (crafter and randf() < 0.5 and _start_gathering_nearby()) \
@@ -436,6 +452,8 @@ func _recover() -> bool:
 	if not recovering:
 		return false
 	target = null
+	if casting_id == "" and cast_cd <= 0.0 and _try_escape_magic():
+		return true
 	if casting_id == "" and cast_cd <= 0.0:
 		var heal_id := _best_spell("heal")
 		if heal_id != "":
@@ -549,6 +567,8 @@ func _fight() -> void:
 	elif kind == Kind.PLAYER:
 		lo = 1.0                           # bare hands
 		hi = 4.0
+	if flags.has("invisible"):
+		_end_flag("invisible")              # attacking reveals you
 	swing_cd = Rules.swing_seconds(maxi(1, int(stamina)), ws)   # tired fighters swing slower
 	stamina = maxf(stamina - SWING_STAMINA, 0.0)
 	swing_anim = SWING_ANIM
@@ -559,7 +579,7 @@ func _fight() -> void:
 		var tactics: float = stats.skills.get(Hero.Skill.TACTICS, 0.0)
 		var anatomy: float = stats.skills.get(Hero.Skill.ANATOMY, 0.0)
 		var dmg := randf_range(lo, hi) * Rules.damage_multiplier(
-			float(stats.strength), tactics, anatomy)
+			float(stats.eff_str()), tactics, anatomy)
 		if bless_timer > 0.0:
 			dmg *= BLESS_DAMAGE
 		var dealt := target._absorb(dmg)
@@ -569,6 +589,8 @@ func _fight() -> void:
 		elif target.is_hero:
 			game.count("hero_dmg_taken_melee", roundi(dealt))
 		target.take_damage(dealt, self)
+		if target.flags.has("reactive_armor") and not dead:
+			_reflect_blow(dealt * 0.25, target)   # Reactive Armor sends part of a blow back
 		if poison_cfg.size() == 2 and not target.dead and randf() < float(poison_cfg[1]):
 			target.apply_poison(int(poison_cfg[0]), self)
 		if kind == Kind.PLAYER:
@@ -609,7 +631,7 @@ func take_damage(amount: float, from: Entity) -> void:
 		return
 	# Hitting an innocent player makes the attacker a criminal and, if the victim dies soon
 	# after, a murderer. The victim can fight back freely.
-	if from.kind == Kind.PLAYER and kind == Kind.PLAYER and notoriety() == Notoriety.BLUE:
+	if from != self and from.kind == Kind.PLAYER and kind == Kind.PLAYER and notoriety() == Notoriety.BLUE:
 		from.criminal_timer = CRIMINAL_SECONDS
 		var aid := from.get_instance_id()
 		if not attackers.has(aid):
@@ -623,8 +645,8 @@ func take_damage(amount: float, from: Entity) -> void:
 		peaced_timer = 0.0                   # a blow breaks the spell of the music
 		enticed_timer = 0.0
 	game.sound("hit", position)
-	if casting_id != "":
-		_fizzle("disrupted")      # taking damage breaks a spell in progress
+	if casting_id != "" and not flags.has("protection"):
+		_fizzle("disrupted")      # taking damage breaks a spell in progress (not under Protection)
 	if bandage_timer > 0.0:
 		bandage_timer = 0.0
 		_pop("interrupted", Color(0.75, 0.75, 0.75))
@@ -641,6 +663,8 @@ func take_damage(amount: float, from: Entity) -> void:
 
 func _die(killer: Entity) -> void:
 	dead = true
+	effects.clear()
+	_recompute_effects()
 	hp = 0.0
 	poison_level = 0
 	casting_id = ""
@@ -759,6 +783,12 @@ func _refresh_label() -> void:
 		text += " (criminal)"
 	if poison_level > 0 and not ghost:
 		text += "\n(poisoned)"
+	if flags.has("invisible"):
+		text += "\n(invisible)"
+	if flags.has("incognito") and kind == Kind.PLAYER:
+		text = text.replace(display_name, "Someone")
+	if paralyzed_timer > 0.0:
+		text += "\n(paralyzed)"
 	label.modulate = _name_color()
 	if text != _last_text:
 		_last_text = text
@@ -820,6 +850,8 @@ func start_cast(id: String, tgt: Entity) -> bool:
 			game.log_event("That is too far away.")
 		return false
 	var sp: Dictionary = Spells.LIST[id]
+	if flags.has("invisible") and String(sp["kind"]) in HARMFUL_KINDS:
+		_end_flag("invisible")
 	mana -= float(sp["mana"])
 	reagents -= float(sp["reagents"])
 	casting_id = id
@@ -876,7 +908,12 @@ func _finish_cast() -> void:
 		_pop("fizzle", Color(0.75, 0.75, 0.75))
 		return
 	var spell_kind := String(sp["kind"])
-	if spell_kind == "paralyze" or spell_kind == "resurrect" or spell_kind == "summon":
+	# Magic Reflection turns one harmful spell back on its caster.
+	if tgt != self and spell_kind in HARMFUL_KINDS and tgt.flags.has("magic_reflection"):
+		tgt._end_flag("magic_reflection")
+		tgt._pop("reflected", Color(0.9, 0.9, 1.0))
+		tgt = self
+	if spell_kind in ["paralyze", "resurrect", "summon", "buff", "curse", "drain", "field", "dispel", "util"]:
 		match spell_kind:
 			"paralyze":
 				_paralyze(tgt)
@@ -886,7 +923,21 @@ func _finish_cast() -> void:
 					if is_hero:
 						game.count("resurrected_others")
 			"summon":
-				game.summon_elemental(self)
+				game.summon_creature(self, id)
+			"buff":
+				add_effect(id, sp)
+			"curse":
+				_curse(tgt, id, sp)
+			"drain":
+				_drain(tgt, sp)
+			"field":
+				game.add_field(self, id, tgt.position)
+			"dispel":
+				_dispel(tgt, sp)
+			"util":
+				_util_spell(id, sp, tgt)
+		if is_hero:
+			game.count("spell_" + id)
 		if kind == Kind.PLAYER:
 			stats.try_gain(Hero.Skill.MAGERY)
 		return
@@ -940,6 +991,8 @@ func _try_auto_cast(d: float) -> bool:
 	if poison_level > 0:
 		var cure_id := _best_spell("cure")
 		if cure_id != "":
+			if can_cast("arch_cure") and _poisoned_friends(5.0) > 0:
+				cure_id = "arch_cure"
 			return start_cast(cure_id, self)
 	# Poison is an opener: cast once at a new target, then move on to damage spells.
 	if target != null and target != last_poison_target and target.poison_level == 0 and d <= SPELL_RANGE:
@@ -947,6 +1000,8 @@ func _try_auto_cast(d: float) -> bool:
 		if poison_id != "":
 			last_poison_target = target
 			return start_cast(poison_id, target)
+	if _try_support_magic(d):
+		return true
 	# Losing a melee: freeze the foe, then heal or walk away while it can't follow.
 	if hp < float(stats.max_hp()) * 0.5 and target != null and target.paralyzed_timer <= 0.0 \
 			and target.attack_range() <= MELEE_RANGE and d <= SPELL_RANGE:
@@ -983,6 +1038,8 @@ func _best_spell(k: String) -> String:
 		var sp: Dictionary = Spells.LIST[id]
 		if String(sp["kind"]) != k or not can_cast(id):
 			continue
+		if kind != Kind.PLAYER and k not in MONSTER_KINDS:
+			continue                       # monsters stick to plain combat magic
 		var chance := Rules.cast_chance(magery, float(sp["min"]))
 		if chance < 0.2:
 			continue
@@ -1170,6 +1227,11 @@ func _loot_step() -> bool:
 		return false
 	if position.distance_to(loot_target.position) > LOOT_RANGE:
 		if path.is_empty() and not go_to(loot_target.position):
+			if position.distance_to(loot_target.position) <= SPELL_RANGE and casting_id == "" \
+					and cast_cd <= 0.0 and can_cast("telekinesis"):
+				cast_corpse = loot_target          # pull it over with Telekinesis
+				loot_target = null
+				return start_cast("telekinesis", self)
 			loot_target = null        # unreachable
 			return false
 		return true
@@ -1493,6 +1555,8 @@ func _avoids_town() -> bool:
 ## Players fight monsters and criminals; player killers also prey on innocents.
 ## Nobody fights other players inside the guarded town.
 func _is_fair_target(e: Entity) -> bool:
+	if e.flags.has("invisible"):
+		return false                       # can't fight what you can't see
 	if kind == Kind.MONSTER:
 		if passive or aggro_range <= 0.0:
 			return false                   # wildlife that never starts a fight
@@ -1502,7 +1566,7 @@ func _is_fair_target(e: Entity) -> bool:
 	if e.kind != Kind.PLAYER or _in_town() or e._in_town():
 		return false
 	if is_pk:
-		return not e.is_young()            # young players are left alone
+		return not e.is_young() and not e.flags.has("incognito")   # young or unrecognised: left alone
 	return e.notoriety() != Notoriety.BLUE
 
 
@@ -2046,6 +2110,9 @@ func _try_potion() -> bool:
 				break
 	elif stamina < float(stats.max_stamina()) * 0.3 and Crafting.count(inventory, "potion_refresh") > 0:
 		drink = "potion_refresh"
+	elif hp < float(stats.max_hp()) * 0.6 and Crafting.count(inventory, "bread") > 0 \
+			and _nearest(Kind.MONSTER, 4.0) == null:
+		drink = "bread"
 	if drink == "":
 		return false
 	Crafting.take_mats(inventory, {drink: 1}, 1.0)
@@ -2063,9 +2130,12 @@ func _try_potion() -> bool:
 		"potion_refresh":
 			stamina = float(stats.max_stamina())
 			_pop("refreshed", Color(0.6, 0.8, 1.0))
+		"bread":
+			hp = minf(hp + 10.0, float(stats.max_hp()))
+			_pop("+10", Color(0.5, 1.0, 0.5))
 	if is_hero:
-		game.count("potions_drunk")
-		game.log_event("You drink a %s." % Items.item_name(drink))
+		game.count("food_eaten" if drink == "bread" else "potions_drunk")
+		game.log_event(("You eat a %s." if drink == "bread" else "You drink a %s.") % Items.item_name(drink))
 	return false                         # drinking is instant: carry on with the turn
 
 
@@ -2757,4 +2827,389 @@ func _unsummon() -> void:
 	if pet_owner != null and is_instance_valid(pet_owner):
 		pet_owner.pets.erase(self)
 		if pet_owner.is_hero:
-			game.log_event("Your Earth Elemental crumbles to dust.")
+			game.log_event("Your %s fades away." % display_name)
+
+
+# --- the full spell list: effects, curses, drains, dispels and one-off spells -------------
+
+## A buff or curse from `id` (its "mods" and/or "flag"), replacing an earlier cast of it.
+func add_effect(id: String, sp: Dictionary) -> void:
+	effects[id] = {"secs": float(sp.get("secs", 60.0)), "mods": sp.get("mods", {}),
+		"flag": String(sp.get("flag", ""))}
+	_recompute_effects()
+	_pop(String(sp["name"]), sp["color"])
+
+
+func _effects_tick(delta: float) -> void:
+	var changed := false
+	for k in effects.keys():
+		effects[k]["secs"] = float(effects[k]["secs"]) - delta
+		if float(effects[k]["secs"]) <= 0.0:
+			effects.erase(k)
+			changed = true
+	if changed:
+		_recompute_effects()
+
+
+## Sums the stat changes and flags of everything active, and keeps HP, mana and stamina in range.
+func _recompute_effects() -> void:
+	var m := {"str": 0, "dex": 0, "int": 0}
+	flags.clear()
+	for k in effects:
+		var e: Dictionary = effects[k]
+		var mods: Dictionary = e["mods"]
+		for stat in mods:
+			m[stat] = int(m.get(stat, 0)) + int(mods[stat])
+		if String(e["flag"]) != "":
+			flags[String(e["flag"])] = true
+	stats.str_mod = int(m["str"])
+	stats.dex_mod = int(m["dex"])
+	stats.int_mod = int(m["int"])
+	hp = minf(hp, float(stats.max_hp()))
+	mana = minf(mana, float(stats.max_mana()))
+	stamina = minf(stamina, float(stats.max_stamina()))
+	if rig != null:
+		rig.scale = Vector3.ONE * (1.25 if flags.has("polymorph") else 1.0)
+	if body != null and not ghost:
+		_set_ghost_look(flags.has("invisible"))
+
+
+func _end_flag(flag: String) -> void:
+	for k in effects.keys():
+		if String(effects[k]["flag"]) == flag:
+			effects.erase(k)
+	_recompute_effects()
+
+
+## Reactive Armor: part of a blow comes back to the attacker (no crime: it is your armor).
+func _reflect_blow(amount: float, from: Entity) -> void:
+	hp -= amount
+	_pop("-%d" % maxi(1, roundi(amount)), Color(1.0, 0.6, 0.3))
+	if hp <= 0.0:
+		_die(from)
+
+
+## Stat buffs don't stack: one of Polymorph, Bless, Strength or Agility at a time.
+func _buff_active(id: String) -> bool:
+	if id in ["polymorph", "bless", "strength", "agility"]:
+		for k in ["polymorph", "bless", "strength", "agility"]:
+			if effects.has(k):
+				return true
+		return false
+	return effects.has(id)
+
+
+func _curse(tgt: Entity, id: String, sp: Dictionary) -> void:
+	var victims: Array[Entity] = []
+	if bool(sp.get("area", false)):
+		var list: Array = game.creatures
+		for item in list:
+			var e := item as Entity
+			if e != self and not e.dead and _is_fair_target(e) and position.distance_to(e.position) <= Spells.AREA_RADIUS:
+				victims.append(e)
+	elif tgt != self:
+		victims.append(tgt)
+	for v in victims:
+		if randf() < Rules.resist_chance(v._skill(Hero.Skill.RESISTING_SPELLS)):
+			v._pop("resisted", Color(0.7, 0.9, 1.0))
+		else:
+			v.add_effect(id, sp)
+
+
+## Mana Drain takes a foe's mana; Mana Vampire keeps it.
+func _drain(tgt: Entity, sp: Dictionary) -> void:
+	var amount := randf_range(float(sp["min_dmg"]), float(sp["max_dmg"])) * (1.0 + _skill(Hero.Skill.MAGERY) / 200.0)
+	if randf() < Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)):
+		amount *= 0.5
+		tgt._pop("resisted", Color(0.7, 0.9, 1.0))
+	var took := minf(tgt.mana, amount)
+	tgt.mana -= took
+	tgt._pop("-%d mana" % roundi(took), Color(0.4, 0.5, 1.0))
+	if bool(sp.get("steal", false)):
+		mana = minf(mana + took, float(stats.max_mana()))
+
+
+func _dispel(tgt: Entity, sp: Dictionary) -> void:
+	match String(sp.get("field", "")):
+		"trap":
+			game.remove_fields(position, 3.0, ["trap"])
+		"any":
+			game.remove_fields(tgt.position, 3.0, [])
+		"summon":
+			if tgt.summoned:
+				tgt._pop("dispelled", Color(0.7, 0.8, 1.0))
+				tgt._unsummon()
+			else:
+				tgt._pop("nothing to dispel", Color(0.75, 0.75, 0.75))
+		"all":
+			var list: Array = game.creatures
+			for item in list:
+				var e := item as Entity
+				if e.summoned and not e.dead and e.pet_owner != self and position.distance_to(e.position) <= Spells.AREA_RADIUS:
+					e._pop("dispelled", Color(0.7, 0.8, 1.0))
+					e._unsummon()
+			game.remove_fields(position, Spells.AREA_RADIUS, [])
+
+
+func _util_spell(id: String, sp: Dictionary, tgt: Entity) -> void:
+	match id:
+		"create_food":
+			inventory["bread"] = mini(int(inventory.get("bread", 0)) + 1, 5)
+			_pop("a loaf of bread", sp["color"])
+		"telekinesis":
+			var c := cast_corpse
+			cast_corpse = null
+			if c != null and is_instance_valid(c) and not c.is_empty() and c.can_loot(self) \
+					and position.distance_to(c.position) <= SPELL_RANGE + 1.0:
+				_take(c)
+			else:
+				_pop("nothing to take", Color(0.75, 0.75, 0.75))
+		"magic_lock":
+			var c := cast_corpse if cast_corpse != null and is_instance_valid(cast_corpse) else _nearest_corpse(SPELL_RANGE, false)
+			cast_corpse = null
+			if c != null:
+				c.sealed_by = get_instance_id()
+				_pop("sealed", sp["color"])
+				if is_hero:
+					game.log_event("You seal the corpse: only you can loot it now.")
+		"unlock":
+			var c := _nearest_corpse(SPELL_RANGE, true)
+			if c != null:
+				c.sealed_by = 0
+				_pop("unsealed", sp["color"])
+		"teleport":
+			_teleport_away()
+		"arch_cure":
+			var list: Array = game.creatures
+			for item in list:
+				var e := item as Entity
+				if e.dead or e.poison_level <= 0 or position.distance_to(e.position) > 5.0:
+					continue
+				if e == self or (e.kind == Kind.PLAYER and e.notoriety() == Notoriety.BLUE) or e.pet_owner == self:
+					if randf() < Rules.cure_chance(_skill(Hero.Skill.MAGERY), e.poison_level):
+						e._cure("cured")
+		"arch_protection":
+			var list: Array = game.creatures
+			for item in list:
+				var e := item as Entity
+				if e.dead or position.distance_to(e.position) > 5.0:
+					continue
+				if e == self or (e.kind == Kind.PLAYER and e.notoriety() == Notoriety.BLUE) or e.pet_owner == self:
+					e.add_effect("arch_protection", sp)
+		"reveal":
+			var list: Array = game.creatures
+			for item in list:
+				var e := item as Entity
+				if e != self and e.flags.has("invisible") and position.distance_to(e.position) <= 8.0:
+					e._end_flag("invisible")
+					e._pop("revealed", Color(1.0, 1.0, 0.8))
+
+
+## AI: dispel summoned foes, curse dangerous ones, drain casters, buff up, and lay fields
+## under groups. Returns true if a spell was started.
+func _try_support_magic(d: float) -> bool:
+	if target == null or d > SPELL_RANGE:
+		return false
+	var magery := _skill(Hero.Skill.MAGERY)
+	if target.summoned:
+		for id in ["dispel", "mass_dispel"]:
+			if can_cast(id):
+				return start_cast(id, target)
+	if target != last_curse_target and (target.danger >= 3.0 or target.kind == Kind.PLAYER):
+		if _count_fair_targets(Spells.AREA_RADIUS) >= 3 and can_cast("mass_curse"):
+			last_curse_target = target
+			return start_cast("mass_curse", self)
+		for id in CURSE_ORDER:
+			if can_cast(id) and Rules.cast_chance(magery, float(Spells.LIST[id]["min"])) >= 0.3:
+				last_curse_target = target
+				return start_cast(id, target)
+	if drain_cd <= 0.0 and target.mana >= 15.0 and target._skill(Hero.Skill.MAGERY) >= 30.0:
+		for id in ["mana_vampire", "mana_drain"]:
+			if can_cast(id):
+				drain_cd = 12.0
+				return start_cast(id, target)
+	if kind != Kind.PLAYER:
+		return false
+	if mana >= float(stats.max_mana()) * 0.6:
+		for id in BUFF_ORDER:
+			if not can_cast(id) or _buff_active(id) or Rules.cast_chance(magery, float(Spells.LIST[id]["min"])) < 0.3:
+				continue
+			if id == "reactive_armor" and target.attack_range() > MELEE_RANGE:
+				continue
+			if id == "magic_reflection" and target._skill(Hero.Skill.MAGERY) < 30.0:
+				continue
+			return start_cast(id, self)
+	if field_cd <= 0.0 and _foes_near(target.position, 2.5) >= 2:
+		for id in ["paralyze_field", "poison_field", "fire_field"]:
+			if can_cast(id):
+				field_cd = 15.0
+				return start_cast(id, target)
+	return false
+
+
+## Recovering with a foe close: vanish, blink away, or wall it off.
+func _try_escape_magic() -> bool:
+	var foe := _nearest_threat(5.0)
+	if foe == null:
+		return false
+	if not flags.has("invisible") and can_cast("invisibility"):
+		return start_cast("invisibility", self)
+	if can_cast("teleport"):
+		return start_cast("teleport", self)
+	if field_cd <= 0.0:
+		for id in ["energy_field", "wall_of_stone"]:
+			if can_cast(id):
+				field_cd = 12.0
+				return start_cast(id, foe)
+	return false
+
+
+## Idle players: bake a loaf or two, and the hero lights up the night.
+func _try_idle_magic() -> bool:
+	if casting_id != "" or cast_cd > 0.0:
+		return false
+	if Crafting.count(inventory, "bread") < 2 and mana >= float(stats.max_mana()) * 0.9 and can_cast("create_food"):
+		return start_cast("create_food", self)
+	if is_hero and game.is_night() and not flags.has("night_sight") and can_cast("night_sight"):
+		return start_cast("night_sight", self)
+	return false
+
+
+func _poisoned_friends(radius: float) -> int:
+	var n := 0
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e != self and not e.dead and e.poison_level > 0 and e.kind == Kind.PLAYER \
+				and e.notoriety() == Notoriety.BLUE and position.distance_to(e.position) <= radius:
+			n += 1
+	return n
+
+
+func _foes_near(p: Vector3, radius: float) -> int:
+	var n := 0
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e != self and not e.dead and _is_fair_target(e) and p.distance_to(e.position) <= radius:
+			n += 1
+	return n
+
+
+## The closest creature that is after us.
+func _nearest_threat(radius: float) -> Entity:
+	var best: Entity = null
+	var best_d := radius
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e.dead or e == self or e.target != self:
+			continue
+		var dd := position.distance_to(e.position)
+		if dd <= best_d:
+			best = e
+			best_d = dd
+	return best
+
+
+func _nearest_corpse(radius: float, sealed_only: bool) -> Corpse:
+	var best: Corpse = null
+	var best_d := radius
+	var list: Array = game.corpses
+	for item in list:
+		var c := item as Corpse
+		if c.is_empty() or (sealed_only and c.sealed_by == 0) or (not sealed_only and not c.can_loot(self)):
+			continue
+		var dd := position.distance_to(c.position)
+		if dd <= best_d:
+			best = c
+			best_d = dd
+	return best
+
+
+## Teleport: blink up to 8 tiles away from whatever is chasing us (or towards a healer).
+func _teleport_away() -> void:
+	var foe := _nearest_threat(10.0)
+	var dir := Vector3.ZERO
+	if foe != null:
+		dir = (position - foe.position).normalized()
+	else:
+		var h := _nearest_role("healer")
+		if h != null:
+			dir = (h.position - position).normalized()
+	if dir.length() < 0.1:
+		dir = Vector3(1, 0, 0)
+	for k in range(8, 2, -1):
+		var c := world.to_tile(position + dir * float(k))
+		if world.is_blocked(c) or (_avoids_town() and world.is_town(c)):
+			continue
+		var dest := world.tile_center(c)
+		if world.find_path(dest, position).is_empty() and world.to_tile(position) != c:
+			continue
+		_pop("teleport", Color(0.6, 0.8, 1.0))
+		teleport_to(dest)
+		return
+	_pop("no room to teleport", Color(0.75, 0.75, 0.75))
+
+
+## Menu > Travel & Spellbook: cast any known spell. Picks a sensible target for its kind.
+func cast_from_book(id: String) -> void:
+	var sp: Dictionary = Spells.LIST[id]
+	if not can_cast(id):
+		game.log_event(_why_not(id))
+		return
+	var k := String(sp["kind"])
+	var tgt: Entity = self
+	if k in ["attack", "poison", "paralyze", "drain"] or (k == "field" and id != "magic_trap") \
+			or (k == "curse" and not bool(sp.get("area", false))):
+		tgt = target if target != null and is_instance_valid(target) and not target.dead else _nearest_foe(SPELL_RANGE)
+	elif k == "dispel" and String(sp.get("field", "")) == "summon":
+		tgt = _nearest_summon(SPELL_RANGE)
+	elif k == "resurrect":
+		tgt = _nearest_ghost(SPELL_RANGE)
+	elif id in ["telekinesis", "magic_lock", "unlock"]:
+		cast_corpse = _nearest_corpse(SPELL_RANGE, id == "unlock")
+		if cast_corpse == null:
+			game.log_event("There is no corpse in range for that.")
+			return
+	if tgt == null:
+		game.log_event("No target in range.")
+		return
+	if tgt != self and (k in HARMFUL_KINDS or k == "field"):
+		target = tgt                        # a harmful spell starts a fight with its victim
+	loot_target = null
+	gather_tile = Vector2i(-1, -1)
+	start_cast(id, tgt)
+
+
+func _nearest_foe(radius: float) -> Entity:
+	var best: Entity = null
+	var best_d := radius
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e == self or e.dead or not _is_fair_target(e):
+			continue
+		var dd := position.distance_to(e.position)
+		if dd <= best_d:
+			best = e
+			best_d = dd
+	return best
+
+
+func _nearest_summon(radius: float) -> Entity:
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e.summoned and not e.dead and e.pet_owner != self and position.distance_to(e.position) <= radius:
+			return e
+	return null
+
+
+func _nearest_ghost(radius: float) -> Entity:
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e != self and e.ghost and e.kind == Kind.PLAYER and position.distance_to(e.position) <= radius:
+			return e
+	return null

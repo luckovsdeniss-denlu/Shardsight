@@ -13,6 +13,8 @@ const LIST := {
 	"potion_refresh": {"name": "Refresh Potion", "value": 10, "potion": true},
 	# Instruments (bards need one to play). Kept, never sold.
 	"lute": {"name": "Lute", "value": 20, "instrument": true},
+	# Food (Create Food): eaten to heal a little out of combat. Kept, never sold.
+	"bread": {"name": "Loaf of Bread", "value": 2, "food": true},
 	# Tools wear out with use and break (they are kept, never sold).
 	"pickaxe": {"name": "Pickaxe", "value": 12, "tool": true},
 	"hatchet": {"name": "Hatchet", "value": 12, "tool": true},
@@ -33,6 +35,10 @@ static func is_material(id: String) -> bool:
 
 static func is_potion(id: String) -> bool:
 	return LIST.has(id) and bool(LIST[id].get("potion", false))
+
+
+static func is_food(id: String) -> bool:
+	return LIST.has(id) and bool(LIST[id].get("food", false))
 
 
 static func is_instrument(id: String) -> bool:

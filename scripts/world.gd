@@ -301,6 +301,15 @@ func remove_house(o: Vector2i, size := 3) -> void:
 		house_nodes.erase(o)
 
 
+## Wall of Stone / Energy Field: a tile paths must go round for a while (the tile itself stays
+## grass, so nothing standing on it is ever "inside a wall").
+func set_temp_block(c: Vector2i, on: bool) -> void:
+	if not in_bounds(c):
+		return
+	astar.set_point_solid(c, on or is_blocked(c))
+	astar_outside.set_point_solid(c, on or is_blocked(c) or is_town(c))
+
+
 func reachable_count(start: Vector2i, extra_blocked: Dictionary) -> int:
 	if is_blocked(start) or extra_blocked.has(start):
 		return 0

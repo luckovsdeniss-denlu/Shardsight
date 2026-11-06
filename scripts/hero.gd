@@ -51,16 +51,27 @@ static func skill_name(s: int) -> String:
 	return String(Skill.keys()[s]).capitalize()
 
 
+## Temporary changes from spells (Bless, Weaken, Curse...): they never touch the stats themselves,
+## so saving, stat gains and the stat cap only ever see the real values.
+var str_mod := 0
+var dex_mod := 0
+var int_mod := 0
+
+
+func eff_str() -> int:
+	return maxi(1, strength + str_mod)
+
+
 func max_hp() -> int:
-	return strength
+	return eff_str()
 
 
 func max_stamina() -> int:
-	return dexterity
+	return maxi(1, dexterity + dex_mod)
 
 
 func max_mana() -> int:
-	return intelligence
+	return maxi(0, intelligence + int_mod)
 
 
 func stat_total() -> int:

@@ -12,8 +12,30 @@ Magic, travel and housing depth.
     ghosts they come across.
   - Summon Earth Elemental (circle 8): an elemental fights beside you for 90 s, then crumbles.
     Casters call one against tough monsters.
+- The full spell list: all 64 classic Magery spells, 8 in each of the 8 circles. New ones:
+  - Buffs (on you): Agility, Cunning, Strength, Bless (+10 stats), Polymorph (+20 Str, bigger),
+    Protection and Arch Protection (taking damage can't break your spells), Reactive Armor
+    (a quarter of each blow comes back), Magic Reflection (the next harmful spell bounces back),
+    Invisibility (foes lose you until you attack or cast), Incognito (player killers don't
+    recognise you), Night Sight (the night lifts for you).
+  - Curses: Clumsy, Weaken, Feeblemind (-10 Dex, Str or Int), Curse, Mass Curse (-10 to all).
+  - Mana: Mana Drain and Mana Vampire (keeps what it takes).
+  - Damage: Chain Lightning, Meteor Swarm (everything hostile around you).
+  - Fields on the ground: Fire Field, Poison Field, Paralyze Field, Magic Trap (bursts on the
+    first foe to step on it), Wall of Stone and Energy Field (paths must go round them).
+  - Dispels: Magic Untrap, Dispel Field, Dispel (a summoned creature), Mass Dispel.
+  - Summons: Blade Spirits, Summon Creature (a wolf or a bear), Energy Vortex, Summon Air,
+    Fire and Water Elementals and Summon Daemon (Earth Elemental was added earlier).
+  - Utility: Create Food (a loaf of bread heals 10 out of combat), Telekinesis (loot a corpse
+    you can't reach), Teleport (blink up to 8 tiles), Magic Lock (seal a corpse so only you
+    can loot it), Unlock, Arch Cure (cures you and players around you), Reveal.
+  - The AI uses them: buffs before a fight while mana is high, curses on dangerous foes,
+    drains on casters, fields under groups, dispels on summoned foes, Invisibility,
+    Teleport or a wall to escape, Telekinesis for unreachable corpses, bread when idle.
+    Monsters stick to plain combat magic (plus curses and drains).
+  - Any known spell can be cast from Menu > Travel & Spellbook; the HUD shows active effects.
 - Spellbooks and scrolls: a spell must be in your spellbook to be cast. New characters know
-  circles 1-4 (mages know everything). Scrolls drop from monsters (12% of gold-carrying
+  all of circles 1-4 (mages know everything). Scrolls drop from monsters (12% of gold-carrying
   monsters; tougher ones carry higher circles) and merchants sell circles 1-6 (12 gold per
   circle); a new scroll is copied into the book when picked up or bought, spare ones are
   sold. Menu > Travel & Spellbook lists what you know, circle by circle. Old saves keep

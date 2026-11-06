@@ -16,6 +16,7 @@ var life := LIFETIME
 var label: Label3D
 var _last_text := ""
 var title := ""                  # overrides "<name>'s corpse" (e.g. house ruins)
+var sealed_by := 0               # Magic Lock: only this creature may loot it (0: not sealed)
 
 
 func setup(p_name: String, p_open: bool, p_is_player: bool, p_owner_id: int,
@@ -54,6 +55,8 @@ func is_empty() -> bool:
 
 
 func can_loot(by: Node3D) -> bool:
+	if sealed_by != 0 and by.get_instance_id() != sealed_by:
+		return false
 	return owner_open or by.get_instance_id() == owner_id
 
 

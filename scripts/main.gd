@@ -894,7 +894,20 @@ func _refresh_travel() -> void:
 			", ".join(known) if not known.is_empty() else "-",
 			("   (missing: " + ", ".join(missing) + ")") if not missing.is_empty() else ""]))
 	travel_box.add_child(_info("Scrolls drop from monsters (tougher ones carry higher circles) and merchants sell circles 1-%d. A new scroll is copied into your book as soon as you pick it up." % Entity.SHOP_SCROLL_CIRCLES))
+	travel_box.add_child(_info("Cast a spell (harmful ones go at your target or the nearest foe; corpse spells at the nearest corpse):"))
+	for id in Spells.ORDER:
+		if not hero.spellbook.has(id) or String(Spells.LIST[id]["kind"]) == "travel":
+			continue
+		var sp: Dictionary = Spells.LIST[id]
+		travel_box.add_child(_action("Cast %s (circle %d, %d mana)" % [sp["name"], int(sp["circle"]), int(sp["mana"])],
+			_on_cast_from_book.bind(id), hero.can_cast(id)))
 	travel_box.add_child(_menu_button("Back", _close_travel))
+
+
+func _on_cast_from_book(id: String) -> void:
+	hero.cast_from_book(id)
+	travel_panel.visible = false
+	_resume()
 
 
 func _on_select_rune(i: int) -> void:
@@ -1077,10 +1090,142 @@ func tame(tamer: Entity, animal: Entity) -> void:
 		log_event("You tame the %s! It follows you and fights at your side." % animal.display_name)
 
 
-## Circle 8: an Earth Elemental forms next to the caster (spawned after this frame's ticks).
-func summon_elemental(caster: Entity) -> void:
-	pending_spawns.append({"name": "Earth Elemental", "cfg": Bestiary.EARTH_ELEMENTAL,
-		"color": Color("8a6a40"), "tile": world.to_tile(caster.position), "summoner": caster})
+const SUMMON_NAMES := {
+	"EARTH_ELEMENTAL": "Earth Elemental", "BLADE_SPIRITS": "Blade Spirits",
+	"ENERGY_VORTEX": "Energy Vortex", "AIR_ELEMENTAL": "Air Elemental",
+	"FIRE_ELEMENTAL": "Fire Elemental", "WATER_ELEMENTAL": "Water Elemental", "DAEMON": "Daemon",
+}
+
+
+## A summoning spell: the creature forms next to the caster (spawned after this frame's ticks).
+func summon_creature(caster: Entity, spell_id: String) -> void:
+	var sp: Dictionary = Spells.LIST[spell_id]
+	var key := String(sp.get("summon", "EARTH_ELEMENTAL"))
+	var cfg: Dictionary = Bestiary.summon_cfg(key)
+	var summon_label := String(SUMMON_NAMES.get(key, ""))
+	if summon_label == "":
+		summon_label = "Wolf" if cfg == Bestiary.WOLF else "Brown Bear"
+	pending_spawns.append({"name": summon_label, "cfg": cfg, "color": sp["color"],
+		"tile": world.to_tile(caster.position), "summoner": caster, "secs": float(sp.get("secs", 60.0))})
+
+
+# --- spell fields: fire, poison, paralysis, traps and walls --------------------------------
+
+var fields: Array = []           # {"kind", "pos", "radius", "life", "owner", "min", "max", "acc", "hit", "tiles", "node"}
+
+
+## Lays a field spell down at `at` (a wall goes up across the line from its caster to `at`).
+func add_field(owner_e: Entity, spell_id: String, at: Vector3) -> void:
+	var sp: Dictionary = Spells.LIST[spell_id]
+	var kind := String(sp["field"])
+	var f := {"kind": kind, "pos": at, "radius": 1.6 if kind != "trap" else 0.8,
+		"life": float(sp.get("secs", 10.0)), "owner": owner_e, "min": float(sp["min_dmg"]),
+		"max": float(sp["max_dmg"]), "acc": 0.0, "hit": {}, "tiles": []}
+	var node := Node3D.new()
+	add_child(node)
+	f["node"] = node
+	if kind == "wall":
+		var from := world.to_tile(owner_e.position)
+		var to := world.to_tile(at)
+		var dv := to - from
+		var mid := from + Vector2i(clampi(dv.x, -2, 2), clampi(dv.y, -2, 2))
+		var across := Vector2i(0, 1) if absi(dv.x) >= absi(dv.y) else Vector2i(1, 0)
+		var occupied := _occupied_tiles()
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3(0.95, 1.2, 0.95)
+		var mat := World._mat(sp["color"])
+		mat.emission_enabled = spell_id == "energy_field"
+		mat.emission = sp["color"]
+		for i in range(-1, 2):
+			var c := mid + across * i
+			if world.is_blocked(c) or occupied.has(c):
+				continue
+			world.set_temp_block(c, true)
+			(f["tiles"] as Array).append(c)
+			var m := MeshInstance3D.new()
+			m.mesh = mesh
+			m.material_override = mat
+			node.add_child(m)
+			m.position = world.tile_center(c) + Vector3(0, 0.6, 0)
+		if (f["tiles"] as Array).is_empty():
+			node.queue_free()
+			return
+	else:
+		var disc := MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = float(f["radius"])
+		cyl.bottom_radius = float(f["radius"])
+		cyl.height = 0.05
+		disc.mesh = cyl
+		var mat := World._mat(sp["color"])
+		mat.emission_enabled = true
+		mat.emission = sp["color"]
+		disc.material_override = mat
+		disc.transparency = 0.45
+		node.add_child(disc)
+		node.position = Vector3(at.x, 0.04, at.z)
+	fields.append(f)
+
+
+## Removes fields of the given kinds (all kinds when empty) within `radius` of `at`.
+func remove_fields(at: Vector3, radius: float, kinds: Array) -> void:
+	for f in fields.duplicate():
+		if (kinds.is_empty() or kinds.has(f["kind"])) and (f["pos"] as Vector3).distance_to(at) <= radius + 1.0:
+			_end_field(f)
+
+
+func _end_field(f: Dictionary) -> void:
+	for c in f["tiles"]:
+		world.set_temp_block(c, false)
+	(f["node"] as Node3D).queue_free()
+	fields.erase(f)
+
+
+func _fields_tick(delta: float) -> void:
+	for f in fields.duplicate():
+		f["life"] = float(f["life"]) - delta
+		var owner_e: Entity = f["owner"] if is_instance_valid(f["owner"]) else null
+		if float(f["life"]) <= 0.0 or owner_e == null:
+			_end_field(f)
+			continue
+		if f["kind"] == "wall":
+			continue
+		f["acc"] = float(f["acc"]) + delta
+		var hit: Dictionary = f["hit"]
+		for id in hit.keys():
+			hit[id] = float(hit[id]) - delta
+			if float(hit[id]) <= 0.0:
+				hit.erase(id)
+		for e in creatures:
+			if e.dead or e == owner_e or e.kind == Entity.Kind.NPC or not owner_e._is_fair_target(e):
+				continue
+			if Vector2(e.position.x - f["pos"].x, e.position.z - f["pos"].z).length() > float(f["radius"]):
+				continue
+			match String(f["kind"]):
+				"fire":
+					if float(f["acc"]) >= 1.0:
+						e.take_damage(randf_range(float(f["min"]), float(f["max"])) + 0.5, owner_e)
+				"poison":
+					if not hit.has(e.get_instance_id()):
+						hit[e.get_instance_id()] = 3.0
+						e.apply_poison(1 if owner_e._skill(Hero.Skill.MAGERY) < 80.0 else 2, owner_e)
+				"paralyze":
+					if not hit.has(e.get_instance_id()) and e.paralyzed_timer <= 0.0:
+						hit[e.get_instance_id()] = 6.0
+						e.paralyzed_timer = 3.0
+						e.path.clear()
+						e._pop("paralyzed", Color(0.85, 0.7, 1.0))
+				"trap":
+					e._pop("a trap!", Color(1.0, 0.4, 0.2))
+					e.take_damage(randf_range(float(f["min"]), float(f["max"])), owner_e)
+					f["life"] = 0.0
+					break
+		if float(f["acc"]) >= 1.0:
+			f["acc"] = 0.0
+
+
+func is_night() -> bool:
+	return sin((day_time - 0.25) * TAU) < -0.2
 
 
 func on_pet_died(p: Entity) -> void:
@@ -1101,13 +1246,13 @@ func _flush_spawns() -> void:
 				e.summon_timer = 0.0
 				continue
 			e.summoned = true
-			e.summon_timer = Spells.SUMMON_SECONDS
+			e.summon_timer = float(s.get("secs", 60.0))
 			summoner.adopt_pet(e)
 			summoner.summon = e
 			e.pause = 0.5
 			if summoner.is_hero:
 				count("summoned")
-				log_event("An Earth Elemental rises from the ground to fight for you.")
+				log_event("A %s answers your call and fights for you." % e.display_name)
 			continue
 		if float(s.get("delay", 0.0)) > 0.0:
 			e.dead = true                    # waits out of sight, then appears at its lair
@@ -1732,6 +1877,7 @@ func _process(delta: float) -> void:
 			_tip_timer = 15.0
 			log_event(String(_tips_left.pop_front()))
 	_campfire_tick(delta)
+	_fields_tick(delta)
 	save_timer += delta
 	if save_timer >= 20.0:
 		save_timer = 0.0
@@ -1868,6 +2014,8 @@ func sound(sound_name: String, at: Vector3) -> void:
 func _apply_daylight() -> void:
 	var sun_height := sin((day_time - 0.25) * TAU)          # -1 midnight .. 1 noon
 	var light := clampf(0.5 + 0.5 * sun_height, 0.0, 1.0)
+	if hero != null and hero.flags.has("night_sight"):
+		light = maxf(light, 0.7)                       # Night Sight: the dark lifts for you
 	sun.light_energy = lerpf(0.25, 1.0, light)
 	sun.light_color = Color(0.6, 0.7, 1.0).lerp(Color(1.0, 0.97, 0.9), light)
 	sun.rotation_degrees = Vector3(-20.0 - 50.0 * maxf(sun_height, 0.0), day_time * 360.0, 0.0)
@@ -1876,9 +2024,15 @@ func _apply_daylight() -> void:
 
 
 func _bless_text() -> String:
-	if hero.bless_timer <= 0.0:
-		return ""
-	return " (blessed %d:%02d)" % [int(hero.bless_timer) / 60, int(hero.bless_timer) % 60]
+	var parts: Array[String] = []
+	if hero.bless_timer > 0.0:
+		parts.append("blessed %d:%02d" % [int(hero.bless_timer) / 60, int(hero.bless_timer) % 60])
+	for id in hero.effects:                       # spell buffs and curses on the hero
+		var secs := int(float(hero.effects[id]["secs"]))
+		parts.append("%s %d:%02d" % [Spells.LIST[id]["name"] if Spells.LIST.has(id) else id, secs / 60, secs % 60])
+	if hero.paralyzed_timer > 0.0:
+		parts.append("paralyzed")
+	return "" if parts.is_empty() else " (" + ", ".join(parts) + ")"
 
 
 func _poison_text() -> String:
