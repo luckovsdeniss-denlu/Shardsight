@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.34.0
+No more glitch.
+- The screen glitch effect is gone: no distortion on heavy hits, death, gates, level-ups,
+  lightning or the title. The idle hologram stays; its switch is now Settings > Idle hologram.
+
 ## 0.33.0
 Performance.
 - Faster: creatures decide 7-10 times a second instead of every frame (the hero 20 times, so

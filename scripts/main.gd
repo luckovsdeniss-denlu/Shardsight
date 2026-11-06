@@ -20,10 +20,6 @@ var corpses: Array[Corpse] = []
 var hero: Entity
 var guilds := Guilds.new()
 var joystick := Joystick.new()
-var glitch_rect: ColorRect
-var _glitch_left := 0.0
-var _glitch_len := 0.0
-var _glitch_power := 0.0
 var music := Music.new()
 var weather := "clear"           # clear, rain, storm or fog
 var _weather_timer := 240.0
@@ -219,10 +215,8 @@ func _ready() -> void:
 	bard_box = bard_panel.get_meta("box")
 	animals_box = animals_panel.get_meta("box")
 	settings_box = settings_panel.get_meta("box")
-	_build_glitch()
 	if not autotest:
 		_show_title(layer)
-		get_tree().create_timer(0.35).timeout.connect(func() -> void: glitch(0.6, 0.45))
 
 	if autotest:
 		seed(20261103)                       # same dice every run, so results are comparable
@@ -2600,7 +2594,6 @@ func _process(delta: float) -> void:
 	if autotest:
 		_autotest_tick(delta)
 	_joystick_step(delta)
-	_glitch_tick(delta)
 	_update_retreat_button()
 	if not _tips_left.is_empty():
 		_tip_timer -= delta
@@ -2741,90 +2734,6 @@ func near_campfire(p: Vector3) -> bool:
 		if Vector2(n.position.x - p.x, n.position.z - p.z).length() <= CAMPFIRE_RANGE:
 			return true
 	return false
-
-
-# --- glitch effect -------------------------------------------------------------
-
-const GLITCH_SHADER := """
-shader_type canvas_item;
-uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
-uniform float strength = 0.0;
-uniform float seed = 0.0;
-
-float rand(vec2 co) {
-	return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
-}
-
-void fragment() {
-	vec2 uv = SCREEN_UV;
-	float s = strength;
-	float tick = floor(seed * 24.0);
-	// whole bands of the picture jump sideways
-	float band = floor(uv.y * 28.0);
-	if (rand(vec2(band, tick)) > 1.0 - s * 0.55) {
-		uv.x += (rand(vec2(band, tick + 3.1)) - 0.5) * 0.16 * s;
-	}
-	// a thin tear line rolling down the screen
-	float tear = fract(seed * 1.7);
-	if (abs(uv.y - tear) < 0.012 * s) {
-		uv.x += 0.05 * s;
-	}
-	// colour channels pulled apart
-	float ca = (0.004 + 0.01 * rand(vec2(tick, 7.0))) * s;
-	vec3 col;
-	col.r = texture(screen_tex, uv + vec2(ca, 0.0)).r;
-	col.g = texture(screen_tex, uv).g;
-	col.b = texture(screen_tex, uv - vec2(ca, 0.0)).b;
-	// scanlines and static
-	float scan = 0.9 + 0.1 * sin(SCREEN_UV.y * 900.0);
-	col *= mix(1.0, scan, s);
-	col += (rand(SCREEN_UV * 400.0 + tick) - 0.5) * 0.2 * s;
-	COLOR = vec4(col, 1.0);
-}
-"""
-
-
-## A full-screen glitch pass on its own top layer, hidden (and free) until a glitch plays.
-func _build_glitch() -> void:
-	var glayer := CanvasLayer.new()
-	glayer.layer = 100
-	add_child(glayer)
-	glitch_rect = ColorRect.new()
-	glitch_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sh := Shader.new()
-	sh.code = GLITCH_SHADER
-	var mat := ShaderMaterial.new()
-	mat.shader = sh
-	glitch_rect.material = mat
-	glitch_rect.visible = false
-	glayer.add_child(glitch_rect)
-	glitch_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-
-
-## Plays a glitch: `power` 0..1 for `seconds`, fading out. A stronger one overrides a weaker one.
-func glitch(power: float, seconds: float) -> void:
-	if not property.glitch_on or glitch_rect == null or autotest:
-		return
-	if _glitch_left > 0.0 and power < _glitch_power * (_glitch_left / maxf(_glitch_len, 0.01)):
-		return
-	_glitch_power = power
-	_glitch_len = seconds
-	_glitch_left = seconds
-	glitch_rect.visible = true
-
-
-func _glitch_tick(delta: float) -> void:
-	if _glitch_left <= 0.0:
-		return
-	_glitch_left -= delta
-	var mat := glitch_rect.material as ShaderMaterial
-	if _glitch_left <= 0.0:
-		glitch_rect.visible = false
-		mat.set_shader_parameter("strength", 0.0)
-		return
-	var k := _glitch_left / _glitch_len
-	mat.set_shader_parameter("strength", _glitch_power * (0.4 + 0.6 * k) * randf_range(0.7, 1.0))
-	mat.set_shader_parameter("seed", randf() * 100.0)
 
 
 # --- title screen --------------------------------------------------------------
@@ -2975,7 +2884,6 @@ func _weather_tick(delta: float) -> void:
 	if weather == "storm":
 		if _thunder_in < 0.0 and randf() < delta / 9.0:
 			_flash = 0.15
-			glitch(0.4, 0.2)
 			_thunder_in = randf_range(0.3, 1.5)        # thunder follows the flash
 			_apply_daylight()
 		if _thunder_in >= 0.0:
@@ -3076,7 +2984,7 @@ func _refresh_settings() -> void:
 	settings_box.add_child(title)
 	settings_box.add_child(_menu_button("Sound: " + ("On" if property.sound_on else "Off"), _toggle_sound))
 	settings_box.add_child(_menu_button("Music: " + ("On" if property.music_on else "Off"), _toggle_music))
-	settings_box.add_child(_menu_button("Glitch effects: " + ("On" if property.glitch_on else "Off"), _toggle_glitch))
+	settings_box.add_child(_menu_button("Idle hologram: " + ("On" if property.glitch_on else "Off"), _toggle_glitch))
 	settings_box.add_child(_menu_button("Graphics: " + property.graphics.capitalize(), _cycle_graphics))
 	settings_box.add_child(_info("Graphics: Low turns off shadows and grass details and renders at 70% (smoothest on older phones); Medium keeps shadows at 85%; High renders at full resolution with smoother edges."))
 	settings_box.add_child(_menu_button("Weather: " + ("On" if property.weather_on else "Off (always clear)"), _toggle_weather))
@@ -3120,9 +3028,6 @@ func _apply_graphics() -> void:
 
 func _toggle_glitch() -> void:
 	property.glitch_on = not property.glitch_on
-	if not property.glitch_on:
-		_glitch_left = 0.0
-		glitch_rect.visible = false
 	_refresh_settings()
 
 

@@ -717,8 +717,6 @@ func take_damage(amount: float, from: Entity) -> void:
 			game.event_about("%s attacks %s!" % [from.display_name, display_name], is_hero or from.is_hero)
 		attackers[aid] = MURDER_WINDOW
 	hp -= amount
-	if is_hero and amount >= float(stats.max_hp()) * 0.2:
-		game.glitch(0.5, 0.25)             # a heavy blow jolts the picture
 	hurt_timer = HURT_NO_REGEN
 	if paralyzed_timer > 0.0:
 		paralyzed_timer = 0.0               # a blow breaks Paralyze
@@ -771,7 +769,6 @@ func _die(killer: Entity) -> void:
 	game.on_kill(killer, self)
 	if is_hero:
 		game.count("hero_deaths")
-		game.glitch(1.0, 0.8)
 		game.count("hero_killed_by_" + killer.display_name)
 	game.sound("death", position)
 	if kind == Kind.PLAYER:
@@ -2204,8 +2201,6 @@ func teleport_to(p: Vector3) -> void:
 	path.clear()
 	target = null
 	gate_cd = 2.0
-	if is_hero:
-		game.glitch(0.7, 0.35)
 
 
 # --- animation -------------------------------------------------------------
@@ -3872,7 +3867,6 @@ func _on_level_up(lv: int) -> void:
 	if is_hero:
 		game.count("levels_gained")
 		if lv % 10 == 0:
-			game.glitch(0.35, 0.3)
 			game.log_event("You reach level %d!" % lv)
 			game.sound("gain", position)
 
@@ -3942,8 +3936,6 @@ func _holo_step(delta: float, moving: bool) -> void:
 	holo = want
 	for mi in model.get("meshes", []):
 		(mi as MeshInstance3D).material_overlay = Art.holo_mat() if holo else null
-	if holo and is_hero:
-		game.glitch(0.25, 0.15)              # a little flicker as it switches over
 
 
 # --- performance: what runs how often ------------------------------------------------------
