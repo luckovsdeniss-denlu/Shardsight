@@ -135,6 +135,7 @@ var bandage_target: Entity = null
 var shop: Shop = null          # merchants: their purse, shelves and town prices
 var arrows := 0
 var hurt_timer := 0.0          # natural healing stops for a while after taking a blow
+var tame_walk := 0.0           # seconds spent walking after the animal being tamed
 var tool_uses := {}            # tool id -> uses left on the one in hand
 var track_cd := 0.0
 var camp_cd := 0.0
@@ -368,7 +369,7 @@ func _think(delta: float) -> void:
 			return
 		if autonomous and pause <= 0.0 and is_hero and _bank_trip():
 			return
-		if _tame_step():
+		if _tame_step(delta):
 			return
 		if _gather_step(delta):
 			return
@@ -646,6 +647,7 @@ func _respawn() -> void:
 		if died_red:
 			for st in [Hero.Stat.STR, Hero.Stat.DEX, Hero.Stat.INT]:
 				stats.set_stat(st, maxi(Rules.STAT_MIN, roundi(stats.get_stat(st) * 0.8)))
+			hp = minf(hp, float(stats.max_hp()))
 			game.event_about("%s was raised at a shrine (murderer: -20%% stats and skills)." % display_name, is_hero)
 		else:
 			game.event_about("%s was raised at a shrine (-10%% skills)." % display_name, is_hero)
@@ -673,7 +675,7 @@ func state_text() -> String:
 		return "casting " + String(Spells.LIST[casting_id]["name"])
 	if perform_timer > 0.0:
 		return "playing " + perform_kind
-	if tame_timer > 0.0 or tame_target != null:
+	if tame_timer > 0.0 or (tame_target != null and target == null):
 		return "taming"
 	if bandage_timer > 0.0:
 		return "bandaging"
@@ -2076,13 +2078,19 @@ func _start_taming_nearby() -> bool:
 
 
 ## Returns true while walking to an animal to tame it.
-func _tame_step() -> bool:
+func _tame_step(delta: float) -> bool:
 	if tame_target == null:
 		return false
 	if not is_instance_valid(tame_target) or can_tame(tame_target) != "":
 		tame_target = null
 		return false
 	if position.distance_to(tame_target.position) > 2.5:
+		tame_walk += delta
+		if tame_walk > 15.0:
+			tame_walk = 0.0
+			tame_target = null
+			tame_cd = TAME_COOLDOWN              # it keeps wandering off: leave it be
+			return false
 		if path.is_empty() or repath_timer <= 0.0:
 			repath_timer = 0.5
 			if not go_to(tame_target.position) and position.distance_to(tame_target.position) > 2.5:
@@ -2091,6 +2099,7 @@ func _tame_step() -> bool:
 				return false
 		return true
 	path.clear()
+	tame_walk = 0.0
 	tame_timer = TAME_TIME
 	tame_target.path.clear()                 # the animal holds still while it is coaxed
 	tame_target.pause = TAME_TIME + 1.0
