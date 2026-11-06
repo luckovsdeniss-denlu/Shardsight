@@ -578,6 +578,7 @@ func _fight() -> void:
 		if Gear.is_ranged(wielded):
 			arrows -= 1
 			_bolt(target.position, Color(0.85, 0.75, 0.5))
+			game.sound("bow", position)
 	elif kind == Kind.PLAYER:
 		lo = 1.0                           # bare hands
 		hi = 4.0
@@ -613,6 +614,7 @@ func _fight() -> void:
 	else:
 		if is_hero:
 			game.count("hero_misses")
+		game.sound("swing", position)
 		target._pop("miss", Color(0.8, 0.8, 0.8))
 
 

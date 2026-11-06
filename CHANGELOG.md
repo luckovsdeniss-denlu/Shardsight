@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.28.0
+Weather and music.
+- Weather that changes every 3-7 minutes: clear, rain, fog or a storm. Rain falls round you
+  (not underground), darkens the day, hisses softly and puts campfires out four times faster;
+  fog closes in the view; storms bring heavy rain, lightning flashes and thunder.
+- Music, generated in code like the sound effects (no audio files): a gentle tune in town, a
+  soft pad with a sparse melody in the wilds, and a low drone with far-off bells in the dungeon.
+  It cross-fades as you move between them; each loop is built in the background the first time.
+- New sound effects: a sword whooshing past on a miss, a bow twang, thunder and rain.
+- Menu > Settings: Music on/off and Weather on/off (off keeps the sky clear). Saved.
+
 ## 0.27.0
 Controls and mounts.
 - An on-screen thumb stick in the lower-left corner: drag to walk in any direction (it follows

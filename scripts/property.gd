@@ -39,6 +39,8 @@ var vendor_gold := 0
 var vendor_last := 0.0                 # unix time of the last offline-sale settlement
 var sound_on := true                   # settings
 var ruleset := "felucca"               # "felucca": open PvP; "trammel": players can't hurt each other
+var music_on := true
+var weather_on := true
 var cam_zoom := 1.0
 var cam_yaw := 0.0
 
@@ -147,6 +149,7 @@ func to_dict() -> Dictionary:
 		"rune": [rune.x, rune.y], "runes": _runes_list(), "quest_index": quest_index, "quest_active": quest_active,
 		"quest_kills": quest_kills,
 		"sound_on": sound_on, "cam_zoom": cam_zoom, "cam_yaw": cam_yaw, "ruleset": ruleset,
+		"music_on": music_on, "weather_on": weather_on,
 		"vendor_hired": vendor_hired, "vendor_stock": vendor_stock, "vendor_gold": vendor_gold,
 		"vendor_last": vendor_last,
 	}
@@ -188,6 +191,8 @@ func load_dict(d: Dictionary) -> void:
 	vendor_gold = maxi(0, int(d.get("vendor_gold", 0)))
 	vendor_last = float(d.get("vendor_last", Time.get_unix_time_from_system()))
 	sound_on = bool(d.get("sound_on", true))
+	music_on = bool(d.get("music_on", true))
+	weather_on = bool(d.get("weather_on", true))
 	ruleset = "trammel" if String(d.get("ruleset", "felucca")) == "trammel" else "felucca"
 	cam_zoom = clampf(float(d.get("cam_zoom", 1.0)), 0.5, 1.8)
 	cam_yaw = float(d.get("cam_yaw", 0.0))

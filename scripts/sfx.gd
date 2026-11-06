@@ -25,6 +25,14 @@ func _ready() -> void:
 	_streams["gain"] = _make(0.3, func(t: float) -> float:
 		var f := 660.0 if t < 0.1 else (880.0 if t < 0.2 else 1100.0)
 		return sin(TAU * f * t) * exp(-fmod(t, 0.1) * 20.0) * 0.5)
+	_streams["swing"] = _make(0.14, func(t: float) -> float:
+		return randf_range(-1.0, 1.0) * sin(PI * t / 0.14) * 0.45)
+	_streams["bow"] = _make(0.18, func(t: float) -> float:
+		return sin(TAU * (180.0 - 300.0 * t) * t) * exp(-t * 22.0))
+	var rumble := [0.0]                  # filter state (an array, so the lambda can update it)
+	_streams["thunder"] = _make(1.4, func(t: float) -> float:
+		rumble[0] = float(rumble[0]) * 0.985 + randf_range(-1.0, 1.0) * 0.015      # low-passed noise
+		return float(rumble[0]) * 9.0 * exp(-t * 2.2) * (1.0 + 0.5 * sin(TAU * 3.0 * t)))
 	for i in range(VOICES):
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -38,6 +46,17 @@ func play(sound: String) -> void:
 	_next = (_next + 1) % VOICES
 	p.stream = _streams[sound]
 	p.play()
+
+
+## Rain: two seconds of soft hiss that loops.
+func make_rain() -> AudioStreamWAV:
+	var hiss := [0.0]
+	var s := _make(2.0, func(_t: float) -> float:
+		hiss[0] = float(hiss[0]) * 0.6 + randf_range(-1.0, 1.0) * 0.4
+		return float(hiss[0]) * 0.5)
+	s.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	s.loop_end = int(2.0 * RATE)
+	return s
 
 
 func _make(seconds: float, wave: Callable) -> AudioStreamWAV:

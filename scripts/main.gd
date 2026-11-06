@@ -19,6 +19,14 @@ var corpses: Array[Corpse] = []
 var hero: Entity
 var guilds := Guilds.new()
 var joystick := Joystick.new()
+var music := Music.new()
+var weather := "clear"           # clear, rain, storm or fog
+var _weather_timer := 240.0
+var _flash := 0.0
+var _thunder_in := -1.0
+var _music_timer := 0.0
+var rain: CPUParticles3D
+var rain_sound := AudioStreamPlayer.new()
 var _joy_timer := 0.0
 var thief_panel: Control
 var thief_box: VBoxContainer
@@ -1988,6 +1996,10 @@ func _build_environment() -> void:
 	we.environment = env
 	add_child(we)
 
+	add_child(music)
+	add_child(rain_sound)
+	rain_sound.volume_db = -14.0
+	_build_rain()
 	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-55.0, 30.0, 0.0)
 	sun.shadow_enabled = true
@@ -2197,6 +2209,8 @@ func _process(delta: float) -> void:
 			log_event(String(_tips_left.pop_front()))
 	_campfire_tick(delta)
 	_fields_tick(delta)
+	_weather_tick(delta)
+	_music_tick(delta)
 	guilds.tick(delta)
 	save_timer += delta
 	if save_timer >= 20.0:
@@ -2318,9 +2332,102 @@ func near_campfire(p: Vector3) -> bool:
 	return false
 
 
+# --- weather and music -------------------------------------------------------
+
+## Rain: streaks falling round the camera (a CPU particle box, cheap on phones).
+func _build_rain() -> void:
+	rain = CPUParticles3D.new()
+	rain.amount = 500
+	rain.lifetime = 0.7
+	rain.emitting = false
+	rain.local_coords = false
+	rain.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	rain.emission_box_extents = Vector3(13.0, 0.5, 11.0)
+	rain.direction = Vector3(0.15, -1.0, 0.0)
+	rain.spread = 3.0
+	rain.gravity = Vector3(0.0, -20.0, 0.0)
+	rain.initial_velocity_min = 14.0
+	rain.initial_velocity_max = 18.0
+	var drop := BoxMesh.new()
+	drop.size = Vector3(0.02, 0.45, 0.02)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.7, 0.8, 1.0, 0.45)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	drop.material = mat
+	rain.mesh = drop
+	add_child(rain)
+
+
+func _set_weather(w: String) -> void:
+	if w == weather:
+		return
+	var was := weather
+	weather = w
+	var wet := w == "rain" or w == "storm"
+	rain.amount = 800 if w == "storm" else 500
+	rain.emitting = wet
+	if wet and property.sound_on:
+		if rain_sound.stream == null:
+			rain_sound.stream = sfx.make_rain()
+		rain_sound.volume_db = -9.0 if w == "storm" else -14.0
+		rain_sound.play()
+	else:
+		rain_sound.stop()
+	env.fog_enabled = w == "fog" or w == "storm" or w == "rain"
+	env.fog_light_color = Color(0.62, 0.66, 0.72)
+	env.fog_density = {"fog": 0.045, "storm": 0.025, "rain": 0.012}.get(w, 0.0)
+	match w:
+		"rain":
+			event_about("It starts to rain.", true)
+		"storm":
+			event_about("A storm rolls in!", true)
+		"fog":
+			event_about("A thick fog creeps in.", true)
+		_:
+			if was != "clear":
+				event_about("The sky clears.", true)
+	count("weather_" + w)
+
+
+func _weather_tick(delta: float) -> void:
+	_flash = maxf(_flash - delta, 0.0)
+	if rain != null:
+		rain.global_position = hero.position + Vector3(0.0, 9.0, 0.0)
+		rain.visible = not world.is_dungeon(world.to_tile(hero.position))   # no rain underground
+	if not property.weather_on:
+		return
+	_weather_timer -= delta
+	if _weather_timer <= 0.0:
+		_weather_timer = randf_range(180.0, 420.0)
+		var roll := randf()
+		_set_weather("clear" if roll < 0.5 else ("rain" if roll < 0.75 else ("fog" if roll < 0.9 else "storm")))
+	if weather == "storm":
+		if _thunder_in < 0.0 and randf() < delta / 9.0:
+			_flash = 0.15
+			_thunder_in = randf_range(0.3, 1.5)        # thunder follows the flash
+			_apply_daylight()
+		if _thunder_in >= 0.0:
+			_thunder_in -= delta
+			if _thunder_in < 0.0 and property.sound_on:
+				sfx.play("thunder")
+
+
+## The music follows you: town, the wilds or the dungeon.
+func _music_tick(delta: float) -> void:
+	_music_timer -= delta
+	if _music_timer > 0.0 or autotest:
+		return
+	_music_timer = 1.0
+	var t := world.to_tile(hero.position)
+	music.enabled = property.music_on
+	music.play_area("dungeon" if world.is_dungeon(t) else ("town" if world.is_town(t) else "wilds"))
+
+
 func _campfire_tick(delta: float) -> void:
+	var douse := 4.0 if weather == "rain" or weather == "storm" else 1.0   # rain puts fires out sooner
 	for i in range(campfires.size() - 1, -1, -1):
-		campfires[i]["left"] = float(campfires[i]["left"]) - delta
+		campfires[i]["left"] = float(campfires[i]["left"]) - delta * douse
 		if float(campfires[i]["left"]) <= 0.0:
 			(campfires[i]["node"] as Node3D).queue_free()
 			campfires.remove_at(i)
@@ -2335,6 +2442,15 @@ func sound(sound_name: String, at: Vector3) -> void:
 func _apply_daylight() -> void:
 	var sun_height := sin((day_time - 0.25) * TAU)          # -1 midnight .. 1 noon
 	var light := clampf(0.5 + 0.5 * sun_height, 0.0, 1.0)
+	match weather:
+		"rain":
+			light *= 0.7
+		"storm":
+			light *= 0.5
+		"fog":
+			light *= 0.85
+	if _flash > 0.0:
+		light = 1.0                                    # lightning
 	if hero != null and hero.flags.has("night_sight"):
 		light = maxf(light, 0.7)                       # Night Sight: the dark lifts for you
 	sun.light_energy = lerpf(0.25, 1.0, light)
@@ -2385,6 +2501,8 @@ func _refresh_settings() -> void:
 	title.add_theme_font_size_override("font_size", 30)
 	settings_box.add_child(title)
 	settings_box.add_child(_menu_button("Sound: " + ("On" if property.sound_on else "Off"), _toggle_sound))
+	settings_box.add_child(_menu_button("Music: " + ("On" if property.music_on else "Off"), _toggle_music))
+	settings_box.add_child(_menu_button("Weather: " + ("On" if property.weather_on else "Off (always clear)"), _toggle_weather))
 	settings_box.add_child(_menu_button("Ruleset: " + ("Trammel (no player killing)" if property.ruleset == "trammel" else "Felucca (open player-vs-player)"), _toggle_ruleset))
 	settings_box.add_child(_info("Felucca: players may attack each other outside town (criminals and murderers face the guards). Trammel: players can't hurt each other at all, except guilds at war."))
 	settings_box.add_child(_info("Camera: pinch with two fingers to zoom, twist them to turn the view (mouse wheel zooms on a computer)."))
@@ -2399,6 +2517,19 @@ func _toggle_ruleset() -> void:
 				and e.kind == Entity.Kind.PLAYER and not e._is_fair_target(e.target):
 			e.target = null
 	log_event("The world follows %s rules now." % ("Trammel" if property.ruleset == "trammel" else "Felucca"))
+	_refresh_settings()
+
+
+func _toggle_music() -> void:
+	property.music_on = not property.music_on
+	music.set_enabled(property.music_on)
+	_refresh_settings()
+
+
+func _toggle_weather() -> void:
+	property.weather_on = not property.weather_on
+	if not property.weather_on:
+		_set_weather("clear")
 	_refresh_settings()
 
 
