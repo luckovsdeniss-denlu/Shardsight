@@ -8,6 +8,9 @@ Platform.
 - Players can attack each other by hand: tap a player (or Menu > Players) and Attack. Outside
   town in Felucca anyone is fair game except your guild and allies; attacking an innocent makes
   you a criminal (and a murderer if they die). Not in town, and not in Trammel except guild wars.
+- Players on Auto (and the computer players) no longer trade blows with a monster far stronger
+  than they are: they retreat to a healer in a safe town instead. This matters now that
+  everyone starts from zero.
 - A Retreat button (under Bag): breaks off the fight and heals as you go (potions, bandages,
   Cure and Heal spells, Invisibility / Teleport / a wall if something is right on you), walking
   to the nearest healer in a safe town. Stops by itself once you're healed and cured; press it

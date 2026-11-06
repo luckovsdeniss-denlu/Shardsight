@@ -424,6 +424,9 @@ func _think(delta: float) -> void:
 			pause = 3.0
 			go_to(home)
 	elif kind == Kind.PLAYER and autonomous and pause <= 0.0:
+		if target != null and _outmatched(target) and target.target == self:
+			start_retreat()                # it's coming for us and it's far too strong
+			return
 		if _try_resurrect_others():
 			return
 		if is_thief and _thief_step():
@@ -698,7 +701,10 @@ func take_damage(amount: float, from: Entity) -> void:
 		_pop("interrupted", Color(0.75, 0.75, 0.75))
 	_pop("-%d" % maxi(1, roundi(amount)), Color(1.0, 0.45, 0.4))
 	if target == null and not recovering and not retreating:
-		target = from                  # fight back
+		if _outmatched(from) and (kind != Kind.PLAYER or ai_enabled or not is_hero):
+			start_retreat()            # far too strong: run for a healer in a safe town
+		else:
+			target = from              # fight back
 	if hp <= 0.0:
 		_die(from)
 
@@ -1653,6 +1659,11 @@ func power() -> float:
 
 ## Players only pick fights they can win: a monster much tougher than they are is left alone
 ## unless it is already attacking them.
+## A monster far stronger than this player (a player on Auto runs instead of fighting it).
+func _outmatched(e: Entity) -> bool:
+	return kind == Kind.PLAYER and e != null and e.kind == Kind.MONSTER and e.threat() > power() + 1.5
+
+
 func _worth_fighting(e: Entity) -> bool:
 	if kind != Kind.PLAYER or e.kind != Kind.MONSTER or e.target == self:
 		return true
