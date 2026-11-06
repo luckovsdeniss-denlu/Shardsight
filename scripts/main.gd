@@ -6,6 +6,7 @@ extends Node3D
 const CAM_OFFSET := Vector3(0.0, 9.0, 7.0)
 const MANUAL_PAUSE := 4.0      # seconds auto mode waits after a tap
 const LOG_LINES := 6
+const JOYSTICK_LIFT := 240.0         # room under the thumb stick for the six log lines
 const DEFAULT_RUNE := Vector2i(25, 13)
 const GATE_SECONDS := 20.0
 const VENDOR_HIRE_COST := 100
@@ -131,11 +132,12 @@ func _ready() -> void:
 	hud.add_theme_font_size_override("font_size", 26)
 	layer.add_child(hud)
 
-	# Event log: pinned to the lower-left corner. The containers are full-screen but ignore
-	# the mouse, so taps still reach the game. No background; a thick outline keeps it readable.
+	# Event log: pinned to the lower-left corner (the thumb stick sits above it). The containers
+	# are full-screen but ignore the mouse, so taps still reach the game. No background; a thick
+	# outline keeps it readable.
 	var margin := MarginContainer.new()
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_theme_constant_override("margin_left", 236)      # room for the joystick
+	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_bottom", 16)
 	layer.add_child(margin)
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -172,9 +174,11 @@ func _ready() -> void:
 	world_label.size_flags_horizontal = Control.SIZE_SHRINK_END
 	wcolumn.add_child(world_label)
 
-	# The thumb stick, lower left.
+	# The thumb stick, on the left just above the log (which has the corner).
 	layer.add_child(joystick)
 	joystick.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 16)
+	joystick.offset_top -= JOYSTICK_LIFT
+	joystick.offset_bottom -= JOYSTICK_LIFT
 
 	var corner := VBoxContainer.new()
 	corner.grow_horizontal = Control.GROW_DIRECTION_BEGIN

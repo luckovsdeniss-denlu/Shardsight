@@ -15,6 +15,7 @@ Performance.
   whole); creatures outside the camera's view (with a small margin, checked 5 times a second)
   aren't drawn, animated or labelled, and their flames pause; forge, brazier and campfire
   flames only simulate while on screen.
+- Your own log now sits in the lower-left corner itself; the thumb stick moved up above it.
 
 ## 0.32.0
 Mounts.
