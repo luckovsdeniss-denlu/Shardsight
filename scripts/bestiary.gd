@@ -187,7 +187,6 @@ static func summon_cfg(key: String) -> Dictionary:
 # Peaceful NPCs.
 const STABLEMASTER := {"str": 30, "dex": 20, "int": 20, "move": 1.0, "leash": 1, "role": "stable"}
 const MERCHANT := {"str": 20, "dex": 15, "int": 30, "move": 1.5, "leash": 2, "role": "merchant"}
-const GUARD := {"str": 60, "dex": 40, "int": 10, "move": 1.5, "leash": 2, "role": "guard"}
 const VENDOR := {"str": 20, "dex": 15, "int": 20, "move": 0.0, "leash": 0, "role": "vendor"}
 const BANKER := {"str": 20, "dex": 15, "int": 30, "move": 1.2, "leash": 1, "role": "banker"}
 const QUESTGIVER := {"str": 50, "dex": 30, "int": 20, "move": 1.2, "leash": 1, "role": "questgiver"}

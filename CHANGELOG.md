@@ -5,6 +5,10 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 
 ## 0.30.0
 Platform.
+- No more guards. Instead the towns (main town, the outpost, Southmoor) are safe zones: nobody
+  inside a town can be hurt, nobody can attack out of a town, and nobody starts a fight there.
+  Monsters still keep out of towns; criminals and murderers may now come in (they are as safe
+  as anyone, but healers still turn them away and merchants won't trade with them).
 - A Bag button (under Menu): what the hero has equipped (weapon with damage, speed and skill;
   armour; shield; mount), supplies (gold, bank, reagents, bandages, arrows) and every item in
   the bag with its value and tool wear. Equip gear from the bag or take it off; choosing by

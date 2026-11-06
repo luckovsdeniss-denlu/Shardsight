@@ -1209,7 +1209,7 @@ func _open_help() -> void:
 	for line in [
 		"Tap the ground to walk there. Tap a monster to attack it, a corpse to loot it, a rock to mine it, a tree to chop it.",
 		"Auto (top right) lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
-		"Names: blue innocent, grey criminal, red murderer or monster. Guards in the tan towns kill monsters, criminals and murderers on sight.",
+		"Names: blue innocent, grey criminal, red murderer or monster. The tan towns are safe: nobody can be hurt inside a town, and nobody can attack out of one.",
 		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked for the 700-point cap.",
 		"Die and you become a ghost: walk to a healer to be raised for free. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
@@ -2121,19 +2121,14 @@ func _spawn_all() -> void:
 	var mara := _spawn(Entity.Kind.NPC, "Mara", Bestiary.MERCHANT, cream, Vector2i(37, 3))
 	mara.shop = Shop.new("the outpost", 1.3, 1.25)
 	_spawn(Entity.Kind.NPC, "Oswin", Bestiary.BANKER, cream, Vector2i(26, 12))
-	_spawn(Entity.Kind.NPC, "Town Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(20, 11))
-	_spawn(Entity.Kind.NPC, "Town Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(28, 11))
 	_spawn(Entity.Kind.NPC, Quests.GIVER, Bestiary.QUESTGIVER, Color("c9a86a"), Vector2i(22, 13))
 	# The outpost, east of the main town, near the dungeon.
 	_spawn(Entity.Kind.NPC, "Brother Aldo", Bestiary.HEALER, cream, Vector2i(35, 4))
-	_spawn(Entity.Kind.NPC, "Outpost Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(38, 6))
 	# Southmoor, the southern town: its merchant pays a little more and charges a little more.
 	_spawn(Entity.Kind.NPC, "Sister Maeve", Bestiary.HEALER, cream, Vector2i(46, 31))
 	var hollis := _spawn(Entity.Kind.NPC, "Hollis", Bestiary.MERCHANT, cream, Vector2i(53, 31))
 	hollis.shop = Shop.new("Southmoor", 1.15, 1.1)
 	_spawn(Entity.Kind.NPC, "Pell", Bestiary.BANKER, cream, Vector2i(46, 37))
-	_spawn(Entity.Kind.NPC, "Southmoor Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(44, 34))
-	_spawn(Entity.Kind.NPC, "Southmoor Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(55, 34))
 
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(12, 8))
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(6, 11))
@@ -2368,31 +2363,6 @@ func _corpse_near(p: Vector3) -> Corpse:
 	return best
 
 
-## Inside the guarded town, guards instantly kill monsters, criminals and murderers.
-func _guards_strike() -> void:
-	for e in creatures:
-		if e.dead or e.kind == Entity.Kind.NPC:
-			continue
-		if not world.is_town(world.to_tile(e.position)):
-			continue
-		if e.kind == Entity.Kind.MONSTER or e.notoriety() != Entity.Notoriety.BLUE:
-			var guard := _nearest_guard(e.position)
-			if guard != null:
-				e.take_damage(9999.0, guard)     # the death message names the guard
-
-
-func _nearest_guard(p: Vector3) -> Entity:
-	var best: Entity = null
-	var best_d := INF
-	for e in creatures:
-		if e.role == "guard":
-			var d := e.position.distance_to(p)
-			if d < best_d:
-				best = e
-				best_d = d
-	return best
-
-
 func _creature_near(p: Vector3) -> Entity:
 	var best: Entity = null
 	var best_d := 1.0
@@ -2446,7 +2416,6 @@ func _process(delta: float) -> void:
 			e.shop.tick(delta)
 	_flush_spawns()
 	_vendor_tick(delta)
-	_guards_strike()
 	_gates_tick(delta)
 	day_time = fmod(day_time + delta / DAY_SECONDS, 1.0)
 	_apply_daylight()
@@ -2772,7 +2741,7 @@ func _refresh_settings() -> void:
 	settings_box.add_child(_info("Graphics: Low turns off shadows and grass details and renders at 70% (smoothest on older phones); Medium keeps shadows at 85%; High renders at full resolution with smoother edges."))
 	settings_box.add_child(_menu_button("Weather: " + ("On" if property.weather_on else "Off (always clear)"), _toggle_weather))
 	settings_box.add_child(_menu_button("Ruleset: " + ("Trammel (no player killing)" if property.ruleset == "trammel" else "Felucca (open player-vs-player)"), _toggle_ruleset))
-	settings_box.add_child(_info("Felucca: players may attack each other outside town (criminals and murderers face the guards). Trammel: players can't hurt each other at all, except guilds at war."))
+	settings_box.add_child(_info("Felucca: players may attack each other outside town (never inside a town: towns are safe). Trammel: players can't hurt each other at all, except guilds at war."))
 	settings_box.add_child(_info("Camera: pinch with two fingers to zoom, twist them to turn the view (mouse wheel zooms on a computer)."))
 	settings_box.add_child(_menu_button("Reset camera", _reset_camera))
 	settings_box.add_child(_menu_button("Back", _close_settings))

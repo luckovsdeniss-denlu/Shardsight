@@ -7,8 +7,8 @@ class_name World
 const TILE := 1.0  # one tile = one metre in 3D
 enum Tile { GRASS, WALL, WATER, TREE, ROCK, FORGE, HOUSE }
 
-## The guarded towns: no player-versus-player here, and guards strike down criminals,
-## murderers and monsters on sight. Everything else is open wilderness.
+## The towns: safe zones where nobody can be hurt and nobody can attack out of; monsters keep
+## out of them. Everything else is open wilderness.
 const TOWNS := [Rect2i(19, 2, 11, 12), Rect2i(33, 2, 9, 6), Rect2i(44, 30, 12, 9)]   # the main town, the outpost, Southmoor
 ## The dungeon: dark halls in the east with the toughest monsters. You can't Mark a rune here.
 const DUNGEON := Rect2i(37, 11, 13, 11)
@@ -80,7 +80,7 @@ var cols := 0
 var rows := 0
 var tiles: Array[int] = []
 var astar := AStarGrid2D.new()
-var astar_outside := AStarGrid2D.new()   # same grid, but the guarded town is walled off
+var astar_outside := AStarGrid2D.new()   # same grid, but the towns are walled off (for monsters)
 var forge_tile := Vector2i(-1, -1)
 var house_nodes := {}            # house origin -> Node3D holding its meshes
 var decor: Array = []            # the grass tufts and flowers (hidden on Low graphics)
@@ -382,8 +382,8 @@ func tile_center(c: Vector2i) -> Vector3:
 
 ## Waypoints (tile centres) from the tile under `from_p` to the tile under `to_p`,
 ## not including the start tile. Empty if the target is blocked or unreachable.
-## With `avoid_town`, the path never enters the guarded town (for monsters and outlaws, whom
-## the guards would kill). Someone already inside town may still path out of it.
+## With `avoid_town`, the path never enters a town (for monsters, which keep out of them).
+## Someone already inside town may still path out of it.
 func find_path(from_p: Vector3, to_p: Vector3, avoid_town := false) -> Array[Vector3]:
 	var out: Array[Vector3] = []
 	var a := to_tile(from_p)

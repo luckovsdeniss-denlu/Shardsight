@@ -416,7 +416,7 @@ func _think(delta: float) -> void:
 		elif target == null and pause <= 0.0:
 			target = _pick_target()
 		elif target != null and (target._in_town() or position.distance_to(home) > leash + aggro_range * 1.5):
-			target = null       # gave up: prey fled into the guarded town, or too far from its lair
+			target = null       # gave up: prey fled into the safe town, or too far from its lair
 			pause = 3.0
 			go_to(home)
 	elif kind == Kind.PLAYER and autonomous and pause <= 0.0:
@@ -660,6 +660,9 @@ func _armor_rating() -> float:
 
 func take_damage(amount: float, from: Entity) -> void:
 	if dead or kind == Kind.NPC:
+		return
+	# Towns are safe: nobody inside one can be hurt, and nobody can attack out of one.
+	if _in_town() or (from != null and is_instance_valid(from) and from != self and from._in_town()):
 		return
 	# Hitting an innocent player makes the attacker a criminal and, if the victim dies soon
 	# after, a murderer. The victim can fight back freely.
@@ -1599,19 +1602,21 @@ func _in_town() -> bool:
 	return world.is_town(world.to_tile(position))
 
 
-## Monsters, criminals and murderers keep out of the guarded town (the guards would kill them).
-## Ghosts may pass: they are on their way to the healer.
+## Monsters keep out of the towns (and give up a chase at the edge). Players of any repute may
+## come in: towns are safe for everyone.
 func _avoids_town() -> bool:
 	if dead:
 		return false
-	return kind == Kind.MONSTER or (kind == Kind.PLAYER and notoriety() != Notoriety.BLUE)
+	return kind == Kind.MONSTER
 
 
 ## Players fight monsters and criminals; player killers also prey on innocents.
-## Nobody fights other players inside the guarded town.
+## Nobody starts a fight in (or into, or out of) a town: towns are safe.
 func _is_fair_target(e: Entity) -> bool:
 	if e.parked:
 		return false                       # a mount under its rider
+	if _in_town() or e._in_town():
+		return false
 	if e.flags.has("invisible"):
 		return false                       # can't fight what you can't see
 	if kind == Kind.MONSTER:
@@ -1713,11 +1718,6 @@ func _look_style() -> Dictionary:
 		"hat": "mage" if mage else "",
 	}
 	match role:
-		"guard":
-			st["hat"] = "helmet"
-			st["armor"] = "chainmail"
-			if weapon == "":
-				st["weapon"] = "halberd"
 		"merchant", "banker", "vendor":
 			st["hat"] = "cap"
 		"priest":
@@ -1735,7 +1735,7 @@ func _ghost_tick(delta: float) -> void:
 	if died_red:
 		return
 	if notoriety() != Notoriety.BLUE:
-		return       # healers turn criminals away (and the guards would kill them on sight)
+		return       # healers turn criminals and murderers away
 	var healer := _nearest_role("healer")
 	if healer == null:
 		return
@@ -2788,7 +2788,7 @@ func _try_beg() -> bool:
 	var list: Array = game.creatures
 	for item in list:
 		var npc := item as Entity
-		if npc.kind != Kind.NPC or npc.role == "guard":
+		if npc.kind != Kind.NPC:
 			continue
 		if beg_cd.has(npc.get_instance_id()) or position.distance_to(npc.position) > 3.0:
 			continue
