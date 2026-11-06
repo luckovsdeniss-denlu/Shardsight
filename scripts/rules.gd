@@ -197,3 +197,31 @@ static func title(fame: int, karma: int) -> String:
 	elif karma <= -1250:
 		col = 5
 	return TITLES[row][col]
+
+
+# --- thieves (mechanics reference: Hiding, Stealth, Snooping, Stealing, Detecting Hidden) ---
+
+static func hide_chance(hiding: float) -> float:
+	return clampf(0.2 + hiding / 120.0, 0.2, 0.95)
+
+
+## How far you can walk while hidden (metres) before you are seen.
+static func stealth_distance(stealth: float) -> float:
+	return stealth / 6.0
+
+
+static func snoop_chance(snooping: float) -> float:
+	return clampf(0.3 + snooping / 150.0, 0.3, 0.95)
+
+
+static func steal_chance(stealing: float) -> float:
+	return clampf(0.15 + stealing / 130.0, 0.15, 0.9)
+
+
+## Even a clean theft may be noticed (a failed one always is).
+static func notice_chance(stealing: float) -> float:
+	return clampf(0.4 - stealing / 300.0, 0.08, 0.4)
+
+
+static func detect_chance(detecting: float, hiding: float) -> float:
+	return clampf(0.15 + (detecting - hiding * 0.5) / 100.0, 0.05, 0.9)

@@ -18,6 +18,8 @@ var creatures: Array[Entity] = []
 var corpses: Array[Corpse] = []
 var hero: Entity
 var guilds := Guilds.new()
+var thief_panel: Control
+var thief_box: VBoxContainer
 var guild_panel: Control
 var guild_box: VBoxContainer
 var cam := Camera3D.new()
@@ -171,6 +173,8 @@ func _ready() -> void:
 	bard_panel = _make_overlay(layer)
 	prices_panel = _make_overlay(layer)
 	prices_box = prices_panel.get_meta("box")
+	thief_panel = _make_overlay(layer)
+	thief_box = thief_panel.get_meta("box")
 	guild_panel = _make_overlay(layer)
 	guild_box = guild_panel.get_meta("box")
 	bard_box = bard_panel.get_meta("box")
@@ -232,6 +236,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(_menu_button("Bank & House", _open_property))
 	box.add_child(_menu_button("Travel & Spellbook", _open_travel))
 	box.add_child(_menu_button("Guild & Fame", _open_guild))
+	box.add_child(_menu_button("Thievery", _open_thief))
 	box.add_child(_menu_button("Animals", _open_animals))
 	box.add_child(_menu_button("Bard", _open_bard))
 	box.add_child(_menu_button("Prices", _open_prices))
@@ -1577,6 +1582,84 @@ func _on_guild_ally(id: String, on: bool) -> void:
 	_refresh_guild()
 
 
+# --- thievery panel ----------------------------------------------------------
+
+func _refresh_thief() -> void:
+	for c in thief_box.get_children():
+		thief_box.remove_child(c)
+		c.queue_free()
+	var title_label := _info("Thievery")
+	title_label.add_theme_font_size_override("font_size", 30)
+	thief_box.add_child(title_label)
+	var s := hero.stats
+	thief_box.add_child(_info("Hiding %.1f, Stealth %.1f, Snooping %.1f, Stealing %.1f, Detecting Hidden %.1f." % [
+		s.skills[Hero.Skill.HIDING], s.skills[Hero.Skill.STEALTH], s.skills[Hero.Skill.SNOOPING],
+		s.skills[Hero.Skill.STEALING], s.skills[Hero.Skill.DETECTING_HIDDEN]]))
+	thief_box.add_child(_info("Hide to vanish (nobody can target you); Stealth lets you walk %.0f m hidden; attacking or casting reveals you. Snoop to see what a player next to you carries; steal to lift an item or some gold. Getting caught makes you a criminal and the victim turns on you. Watch out for Sly and Pip, the thieves." % Rules.stealth_distance(s.skills[Hero.Skill.STEALTH])))
+	thief_box.add_child(_action("Hide", _on_hide, not hero.dead and not hero.effects.has("hiding")))
+	thief_box.add_child(_action("Detect hidden (look for thieves close by)", _on_detect, not hero.dead))
+	var mark := _nearest_player_to_hero(1.8)
+	if mark == null:
+		thief_box.add_child(_info("Stand right next to another player to snoop or steal."))
+	else:
+		var problem := hero.theft_problem(mark)
+		thief_box.add_child(_action("Snoop in %s's bag" % mark.display_name, _on_snoop.bind(mark), problem == ""))
+		thief_box.add_child(_action("Steal from %s" % mark.display_name, _on_steal.bind(mark), problem == ""))
+		if problem != "":
+			thief_box.add_child(_info("You can't: %s." % problem))
+	thief_box.add_child(_menu_button("Back", _close_thief))
+
+
+func _nearest_player_to_hero(radius: float) -> Entity:
+	var best: Entity = null
+	var best_d := radius
+	for e in creatures:
+		if e.is_hero or e.dead or e.kind != Entity.Kind.PLAYER:
+			continue
+		var d := e.position.distance_to(hero.position)
+		if d <= best_d:
+			best = e
+			best_d = d
+	return best
+
+
+func _on_hide() -> void:
+	if hero.try_hide():
+		log_event("You hide in the shadows.")
+	_refresh_thief()
+
+
+func _on_detect() -> void:
+	var n := hero.detect_hidden()
+	log_event("You reveal %d hidden figure%s." % [n, "" if n == 1 else "s"] if n > 0 else "You see nobody hiding nearby.")
+	_refresh_thief()
+
+
+func _on_snoop(v: Entity) -> void:
+	var seen := hero.snoop(v)
+	if seen != "":
+		log_event("You peek into %s's bag: %s." % [v.display_name, seen])
+	_refresh_thief()
+
+
+func _on_steal(v: Entity) -> void:
+	var got := hero.steal_from(v)
+	if got != "":
+		log_event("You steal %s from %s." % [got, v.display_name])
+	_refresh_thief()
+
+
+func _open_thief() -> void:
+	menu.visible = false
+	thief_panel.visible = true
+	_refresh_thief()
+
+
+func _close_thief() -> void:
+	thief_panel.visible = false
+	menu.visible = true
+
+
 func _open_guild() -> void:
 	menu.visible = false
 	guild_panel.visible = true
@@ -1745,6 +1828,8 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.PLAYER, "Brina", Bestiary.ARCHER, blue, Vector2i(12, 26))
 	_spawn(Entity.Kind.PLAYER, "Dorian", Bestiary.WARRIOR, blue, Vector2i(54, 37))
 	_spawn(Entity.Kind.PLAYER, "Morg", Bestiary.PKILLER, blue, Vector2i(70, 30))  # another player killer
+	_spawn(Entity.Kind.PLAYER, "Sly", Bestiary.THIEF, blue, Vector2i(12, 24))     # thieves
+	_spawn(Entity.Kind.PLAYER, "Pip", Bestiary.THIEF, blue, Vector2i(60, 24))
 
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(25, 13))

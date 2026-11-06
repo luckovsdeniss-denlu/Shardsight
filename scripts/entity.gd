@@ -162,6 +162,11 @@ var field_cd := 0.0
 var bank_gold := 0             # other players' own bank (the hero's is game.property.bank_gold)
 var fame := 0
 var karma := 0
+var is_thief := false          # computer thieves: sneak up, snoop and steal
+var stealth_left := 0.0        # metres you can still walk hidden
+var thief_mark: Entity = null
+var steal_cd := 0.0
+var hide_cd := 0.0
 var craft_cd := 0.0            # after a fruitless forge visit, wait before the next one
 var _priest_timer := 0.0
 var tame_walk := 0.0           # seconds spent walking after the animal being tamed
@@ -246,6 +251,7 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	stamina = float(stats.max_stamina())
 	arrows = int(cfg.get("arrows", 0))
 	fame = int(cfg.get("fame", 0))
+	is_thief = bool(cfg.get("thief", false))
 	karma = int(cfg.get("karma", 0))
 	# Players start with the first four circles and copy the rest from scrolls; monsters (and
 	# configs marked "all") know every spell.
@@ -303,6 +309,8 @@ func tick(delta: float) -> void:
 	track_cd = maxf(track_cd - delta, 0.0)
 	bless_timer = maxf(bless_timer - delta, 0.0)
 	drain_cd = maxf(drain_cd - delta, 0.0)
+	steal_cd = maxf(steal_cd - delta, 0.0)
+	hide_cd = maxf(hide_cd - delta, 0.0)
 	field_cd = maxf(field_cd - delta, 0.0)
 	if not effects.is_empty():
 		_effects_tick(delta)
@@ -390,6 +398,8 @@ func _think(delta: float) -> void:
 			go_to(home)
 	elif kind == Kind.PLAYER and autonomous and pause <= 0.0:
 		if _try_resurrect_others():
+			return
+		if is_thief and _thief_step():
 			return
 		if _try_bard():
 			return
@@ -514,6 +524,11 @@ func _find_role(r: String) -> Entity:
 
 func _follow_path(delta: float) -> void:
 	var budget := speed * delta
+	if effects.has("hiding") and not path.is_empty():
+		stealth_left -= budget
+		if stealth_left < 0.0:
+			_end_flag("invisible")
+			_pop("revealed", Color(0.9, 0.9, 0.7))
 	while budget > 0.0 and not path.is_empty():
 		var to_next := path[0] - position
 		var dist := to_next.length()
@@ -779,7 +794,9 @@ func _refresh_label() -> void:
 		text += " (criminal)"
 	if poison_level > 0 and not ghost:
 		text += "\n(poisoned)"
-	if flags.has("invisible"):
+	if effects.has("hiding"):
+		text += "\n(hidden)"
+	elif flags.has("invisible"):
 		text += "\n(invisible)"
 	if flags.has("incognito") and kind == Kind.PLAYER:
 		text = text.replace(display_name, "Someone")
@@ -3355,3 +3372,173 @@ func reputation_for_kill(v: Entity) -> void:
 		else:
 			add_fame(50)
 			add_karma(-700)
+
+
+# --- thieves: Hiding, Stealth, Detecting Hidden, Snooping, Stealing -----------------------
+
+## Hiding: vanish from sight while standing still (Stealth lets you walk a little).
+func try_hide() -> bool:
+	if dead or hide_cd > 0.0 or effects.has("hiding"):
+		return false
+	hide_cd = 8.0
+	if _nearest_threat(3.0) != null:
+		_pop("they're watching you", Color(0.75, 0.75, 0.75))
+		return false
+	var ok := randf() < Rules.hide_chance(_skill(Hero.Skill.HIDING))
+	if kind == Kind.PLAYER:
+		stats.try_gain(Hero.Skill.HIDING)
+	if not ok:
+		_pop("you fail to hide", Color(0.75, 0.75, 0.75))
+		return false
+	effects["hiding"] = {"secs": 600.0, "mods": {}, "flag": "invisible"}
+	_recompute_effects()
+	stealth_left = Rules.stealth_distance(_skill(Hero.Skill.STEALTH))
+	path.clear()
+	target = null
+	_pop("hidden", Color(0.8, 0.8, 0.7))
+	if is_hero:
+		game.count("hid")
+	return true
+
+
+## Detecting Hidden: look for anyone hiding close by.
+func detect_hidden() -> int:
+	var found := 0
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e == self or e.dead or not e.flags.has("invisible") or position.distance_to(e.position) > 6.0:
+			continue
+		if randf() < Rules.detect_chance(_skill(Hero.Skill.DETECTING_HIDDEN), e._skill(Hero.Skill.HIDING)):
+			e._end_flag("invisible")
+			e._pop("revealed", Color(1.0, 1.0, 0.8))
+			found += 1
+	if kind == Kind.PLAYER:
+		stats.try_gain(Hero.Skill.DETECTING_HIDDEN)
+	return found
+
+
+## Why we can't snoop on or steal from `v` right now, or "" if we can.
+func theft_problem(v: Entity) -> String:
+	if v == null or v.dead or v == self:
+		return "there is nobody to rob"
+	if v.kind == Kind.NPC or v.kind == Kind.MONSTER:
+		return "only other players carry bags worth robbing"
+	if _trammel():
+		return "stealing from players is not allowed in Trammel"
+	if friends_with(v):
+		return "you won't rob your own guild"
+	if position.distance_to(v.position) > 1.8:
+		return "you must stand right next to them"
+	return ""
+
+
+## Snooping: peek into a player's bag. Failing gets you noticed (a criminal act).
+func snoop(v: Entity) -> String:
+	if kind == Kind.PLAYER:
+		stats.try_gain(Hero.Skill.SNOOPING)
+	if randf() >= Rules.snoop_chance(_skill(Hero.Skill.SNOOPING)):
+		_caught_by(v, "snooping")
+		return ""
+	var parts: Array[String] = ["%d gold" % v.gold]
+	for id in v.inventory:
+		parts.append("%s x%d" % [Items.item_name(id), int(v.inventory[id])])
+	return ", ".join(parts)
+
+
+## Stealing: lift one thing (an item from the bag, or some gold) from a player next to you.
+## Equipped gear can't be stolen. Getting caught makes you a criminal.
+func steal_from(v: Entity) -> String:
+	if kind == Kind.PLAYER:
+		stats.try_gain(Hero.Skill.STEALING)
+	var skill := _skill(Hero.Skill.STEALING)
+	if randf() >= Rules.steal_chance(skill):
+		_caught_by(v, "stealing")
+		return ""
+	var loot := ""
+	var keys := v.inventory.keys()
+	if not keys.is_empty() and (v.gold <= 0 or randf() < 0.6):
+		var id: String = keys[randi() % keys.size()]
+		Crafting.take_mats(v.inventory, {id: 1}, 1.0)
+		inventory[id] = int(inventory.get(id, 0)) + 1
+		loot = Items.item_name(id)
+		learn_scrolls()
+	elif v.gold > 0:
+		var amount := mini(v.gold, randi_range(5, 10 + int(skill / 2.0)))
+		v.gold -= amount
+		gold += amount
+		loot = "%d gold" % amount
+	else:
+		_pop("their bag is empty", Color(0.75, 0.75, 0.75))
+		return ""
+	if v.is_hero:
+		game.count("stolen_from_hero")
+		game.log_event("You feel your bag get lighter... (%s gone)" % loot)
+	if is_hero:
+		game.count("stole")
+	if randf() < Rules.notice_chance(skill):
+		_caught_by(v, "stealing")
+	return loot
+
+
+func _caught_by(v: Entity, what: String) -> void:
+	criminal_timer = CRIMINAL_SECONDS
+	if effects.has("hiding"):
+		_end_flag("invisible")
+	_pop("caught %s!" % what, Color(1.0, 0.5, 0.4))
+	game.event_about("%s is caught %s from %s!" % [display_name, what, v.display_name], is_hero or v.is_hero)
+	if v.target == null and not v.recovering:
+		v.target = self                      # the victim turns on the thief
+	if is_hero:
+		game.count("caught")
+
+
+## A computer thief: hide, sneak up on a player outside town, snoop, steal, slip away.
+func _thief_step() -> bool:
+	if target != null:
+		return false                         # in a fight: fight
+	if steal_cd > 0.0:
+		if not effects.has("hiding") and _nearest_threat(3.0) == null:
+			try_hide()
+		return false
+	if thief_mark == null or not is_instance_valid(thief_mark) or thief_mark.dead or thief_mark._in_town() \
+			or theft_problem(thief_mark).begins_with("only") or position.distance_to(thief_mark.position) > 14.0:
+		thief_mark = _pick_mark()
+		if thief_mark == null:
+			return false
+	if not effects.has("hiding"):
+		try_hide()
+	var d := position.distance_to(thief_mark.position)
+	if d > 1.6:
+		if path.is_empty() or repath_timer <= 0.0:
+			repath_timer = 0.6
+			go_to(thief_mark.position)
+		return true
+	path.clear()
+	var v := thief_mark
+	thief_mark = null
+	steal_cd = 90.0
+	if theft_problem(v) != "":
+		return true
+	var seen := snoop(v)
+	if seen != "" and criminal_timer <= 0.0:
+		steal_from(v)
+	_wander()                                # and off we go
+	return true
+
+
+func _pick_mark() -> Entity:
+	var best: Entity = null
+	var best_d := 12.0
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e == self or e.dead or e.kind != Kind.PLAYER or e._in_town() or e.is_thief:
+			continue
+		if friends_with(e) or _trammel() or e.flags.has("invisible"):
+			continue
+		var dd := position.distance_to(e.position)
+		if dd < best_d:
+			best = e
+			best_d = dd
+	return best

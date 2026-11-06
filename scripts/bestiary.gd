@@ -60,6 +60,18 @@ const ARCHER := {
 	},
 }
 
+# A thief: hides, sneaks up on players outside town, snoops in their bags and steals.
+const THIEF := {
+	"str": 22, "dex": 38, "int": 20, "wspeed": 55, "dmg_min": 2, "dmg_max": 5,
+	"move": 3.9, "leash": 9, "aggro": 4.0, "respawn": 6.0, "gold": 15, "thief": true,
+	"weapon": "dagger", "wear": "leather_armor", "bandages": 5, "fame": 400, "karma": -800,
+	"skills": {
+		Hero.Skill.STEALING: 60.0, Hero.Skill.SNOOPING: 55.0, Hero.Skill.HIDING: 60.0,
+		Hero.Skill.STEALTH: 50.0, Hero.Skill.FENCING: 35.0, Hero.Skill.TACTICS: 25.0,
+		Hero.Skill.HEALING: 20.0,
+	},
+}
+
 # A player killer: preys on innocent players in the wilderness.
 const PKILLER := {
 	"str": 30, "dex": 30, "int": 10, "wspeed": 58, "dmg_min": 1, "dmg_max": 2,

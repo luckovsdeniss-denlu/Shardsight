@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.26.0
+Thieves (roadmap item 0.17).
+- New skills: Hiding, Stealth, Snooping, Stealing, Detecting Hidden.
+  - Hiding: vanish while standing still; nobody can target you. Stealth lets you walk a little
+    hidden (Stealth / 6 metres); attacking or casting reveals you.
+  - Snooping: see what a player next to you carries. Failing gets you caught.
+  - Stealing: lift one item from their bag, or some gold (equipped gear can't be stolen).
+    A failed theft, or a noticed one, makes you a criminal and the victim turns on you.
+  - Detecting Hidden: reveal anyone hiding within 6 m.
+  - Not allowed in Trammel, and never against your own guild or allies.
+- Two computer thieves, Sly and Pip, hide and sneak up on players outside town, snoop, steal and
+  slip away; the guards strike them down if they come into town as criminals.
+- Menu > Thievery: Hide, Detect hidden, and Snoop / Steal on the player next to you.
+
 ## 0.25.0
 Society (roadmap item 0.20; numbered 0.25 so phones see it as an update to 0.24).
 - Fame and karma, with the classic title table: "Hero the Notable", "Aldric the Honorable",
