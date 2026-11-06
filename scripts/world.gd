@@ -137,6 +137,19 @@ func is_town(c: Vector2i) -> bool:
 	return false
 
 
+const TOWN_NAMES := ["town", "the outpost", "Southmoor"]   # same order as TOWNS
+
+
+## A rough name for where a tile is: a town, the dungeon or the wilds.
+func place_name(c: Vector2i) -> String:
+	for i in range(TOWNS.size()):
+		if (TOWNS[i] as Rect2i).has_point(c):
+			return TOWN_NAMES[i]
+	if is_dungeon(c):
+		return "the dungeon"
+	return "the wilds"
+
+
 func is_dungeon(c: Vector2i) -> bool:
 	return DUNGEON.has_point(c)
 
@@ -218,36 +231,47 @@ func near_forge(p: Vector3) -> bool:
 
 
 # --- player houses ---------------------------------------------------------
-# A house is 3x3: walls all round, one tile inside (with the chest) and a door below it.
+# A house is size x size tiles (3, 5 or 7): walls all round, open floor inside with the chest in
+# the middle, and a door in the middle of the bottom wall.
 
-func house_tiles(o: Vector2i) -> Array[Vector2i]:
+func house_tiles(o: Vector2i, size := 3) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	for dy in range(3):
-		for dx in range(3):
+	for dy in range(size):
+		for dx in range(size):
 			out.append(o + Vector2i(dx, dy))
 	return out
 
 
-func house_wall_tiles(o: Vector2i) -> Array[Vector2i]:
+static func house_door(o: Vector2i, size := 3) -> Vector2i:
+	return o + Vector2i(size / 2, size - 1)
+
+
+static func house_center(o: Vector2i, size := 3) -> Vector2i:
+	return o + Vector2i(size / 2, size / 2)
+
+
+func house_wall_tiles(o: Vector2i, size := 3) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	for c in house_tiles(o):
+	var door := house_door(o, size)
+	for c in house_tiles(o, size):
 		var rel := c - o
-		if rel != Vector2i(1, 1) and rel != Vector2i(1, 2):
+		var edge := rel.x == 0 or rel.y == 0 or rel.x == size - 1 or rel.y == size - 1
+		if edge and c != door:
 			out.append(c)
 	return out
 
 
 ## Free grass outside town, nobody standing on it, and open ground in front of the door.
-func can_place_house(o: Vector2i, occupied: Dictionary) -> bool:
-	for c in house_tiles(o):
+func can_place_house(o: Vector2i, occupied: Dictionary, size := 3) -> bool:
+	for c in house_tiles(o, size):
 		if is_blocked(c) or is_town(c) or occupied.has(c):
 			return false
-	var outside := o + Vector2i(1, 3)
+	var outside := house_door(o, size) + Vector2i(0, 1)
 	return not is_blocked(outside) and not is_town(outside)
 
 
-func place_house(parent: Node3D, o: Vector2i) -> void:
-	for c in house_wall_tiles(o):
+func place_house(parent: Node3D, o: Vector2i, size := 3) -> void:
+	for c in house_wall_tiles(o, size):
 		tiles[c.y * cols + c.x] = Tile.HOUSE
 		astar.set_point_solid(c, true)
 		astar_outside.set_point_solid(c, true)
@@ -257,15 +281,17 @@ func place_house(parent: Node3D, o: Vector2i) -> void:
 	var wall_mesh := BoxMesh.new()
 	wall_mesh.size = Vector3(TILE, 1.4, TILE)
 	var wall_mat := _mat(COLORS[Tile.HOUSE])
-	for c in house_wall_tiles(o):
+	for c in house_wall_tiles(o, size):
 		_add(node, wall_mesh, wall_mat, tile_center(c) + Vector3(0, 0.7, 0))
 	var chest_mesh := BoxMesh.new()
 	chest_mesh.size = Vector3(0.5, 0.4, 0.35)
-	_add(node, chest_mesh, _mat(Color("6b4423")), tile_center(o + Vector2i(1, 1)) + Vector3(0, 0.2, -0.25))
+	_add(node, chest_mesh, _mat(Color("6b4423")), tile_center(house_center(o, size)) + Vector3(0, 0.2, -0.25))
+	if size > 3:                           # bigger houses get a floor
+		_add_floor(node, Rect2i(o + Vector2i(1, 1), Vector2i(size - 2, size - 2)), Color("8b6b4a"))
 
 
-func remove_house(o: Vector2i) -> void:
-	for c in house_wall_tiles(o):
+func remove_house(o: Vector2i, size := 3) -> void:
+	for c in house_wall_tiles(o, size):
 		tiles[c.y * cols + c.x] = Tile.GRASS
 		astar.set_point_solid(c, false)
 		astar_outside.set_point_solid(c, is_town(c))
@@ -294,18 +320,18 @@ func reachable_count(start: Vector2i, extra_blocked: Dictionary) -> int:
 
 ## Nearest spot within `radius` of `near` where a house fits without cutting off any part
 ## of the map. Returns (-1, -1) if there is none.
-func find_house_spot(near: Vector2i, occupied: Dictionary, radius := 6) -> Vector2i:
+func find_house_spot(near: Vector2i, occupied: Dictionary, size := 3, radius := 6) -> Vector2i:
 	var base := reachable_count(near, {})
 	for r in range(radius + 1):
 		for dy in range(-r, r + 1):
 			for dx in range(-r, r + 1):
 				if maxi(absi(dx), absi(dy)) != r:
 					continue
-				var o := near + Vector2i(dx, dy) - Vector2i(1, 1)
-				if not can_place_house(o, occupied):
+				var o := near + Vector2i(dx, dy) - Vector2i(size / 2, size / 2)
+				if not can_place_house(o, occupied, size):
 					continue
 				var walls := {}
-				for c in house_wall_tiles(o):
+				for c in house_wall_tiles(o, size):
 					walls[c] = true
 				if reachable_count(near, walls) == base - walls.size():
 					return o

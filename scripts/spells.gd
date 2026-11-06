@@ -2,14 +2,24 @@ class_name Spells
 ## Magery spells. Circle, mana and minimum Magery follow the mechanics reference (all 8 circles;
 ## 7 and 8 are "about" figures there). Damage/heal ranges and reagent counts are tuning guesses.
 ## Kinds: attack (one target), heal (self), cure (self, removes poison), poison (one target),
-## area (everything hostile around the caster),
+## area (everything hostile around the caster), paralyze (one target can't move or act until hit
+## or the spell wears off), resurrect (raises a ghost player), summon (an Earth Elemental fights
+## for the caster for a while),
 ## travel (Recall, Mark, Gate Travel: cast from Menu > Travel, never chosen by the AI).
+## A spell must be in the caster's spellbook (copied from a scroll) to be cast.
 
 const ORDER := [
 	"magic_arrow", "heal", "harm", "cure", "fireball", "poison", "lightning", "greater_heal",
-	"mind_blast", "energy_bolt", "explosion", "flamestrike", "earthquake",
-	"recall", "mark", "gate_travel",
+	"mind_blast", "paralyze", "energy_bolt", "explosion", "flamestrike", "earthquake",
+	"resurrection", "summon_elemental", "recall", "mark", "gate_travel",
 ]
+## The spells a new character's spellbook starts with: the first four circles.
+const STARTER := [
+	"magic_arrow", "heal", "harm", "cure", "fireball", "poison", "lightning", "greater_heal",
+	"recall",
+]
+const PARALYZE_BASE := 4.0         # seconds, + Magery / 25
+const SUMMON_SECONDS := 90.0
 const AREA_RADIUS := 5.0
 
 const LIST := {
@@ -78,6 +88,21 @@ const LIST := {
 		"reagents": 4, "kind": "area", "min_dmg": 14.0, "max_dmg": 24.0,
 		"color": Color(0.7, 0.55, 0.35),
 	},
+	"paralyze": {
+		"name": "Paralyze", "words": "An Ex Por", "circle": 5, "mana": 14, "min": 38.1,
+		"reagents": 3, "kind": "paralyze", "min_dmg": 0.0, "max_dmg": 0.0,
+		"color": Color(0.85, 0.7, 1.0),
+	},
+	"resurrection": {
+		"name": "Resurrection", "words": "An Corp", "circle": 8, "mana": 50, "min": 81.0,
+		"reagents": 3, "kind": "resurrect", "min_dmg": 0.0, "max_dmg": 0.0,
+		"color": Color(1.0, 1.0, 0.8),
+	},
+	"summon_elemental": {
+		"name": "Summon Earth Elemental", "words": "Kal Vas Xen Ylem", "circle": 8, "mana": 50, "min": 81.0,
+		"reagents": 4, "kind": "summon", "min_dmg": 0.0, "max_dmg": 0.0,
+		"color": Color(0.6, 0.45, 0.3),
+	},
 	"recall": {
 		"name": "Recall", "words": "Kal Ort Por", "circle": 4, "mana": 11, "min": 24.1,
 		"reagents": 3, "kind": "travel", "min_dmg": 0.0, "max_dmg": 0.0,
@@ -94,3 +119,25 @@ const LIST := {
 		"color": Color(0.4, 0.6, 1.0),
 	},
 }
+
+
+## The item id of a spell's scroll, and back.
+static func scroll_id(spell_id: String) -> String:
+	return "scroll_" + spell_id
+
+
+static func spell_of_scroll(item_id: String) -> String:
+	if not item_id.begins_with("scroll_"):
+		return ""
+	var id := item_id.trim_prefix("scroll_")
+	return id if LIST.has(id) else ""
+
+
+## A random spell of circle `lo`..`hi` (for loot and merchant stock).
+static func random_of_circles(lo: int, hi: int) -> String:
+	var pool: Array[String] = []
+	for id in ORDER:
+		var c := int(LIST[id]["circle"])
+		if c >= lo and c <= hi:
+			pool.append(id)
+	return "" if pool.is_empty() else pool[randi() % pool.size()]

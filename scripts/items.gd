@@ -43,8 +43,13 @@ static func is_tool_item(id: String) -> bool:
 	return LIST.has(id) and bool(LIST[id].get("tool", false))
 
 
+## Spell scrolls: "scroll_<spell id>". Copied into a spellbook, or sold.
+static func is_scroll(id: String) -> bool:
+	return Spells.spell_of_scroll(id) != ""
+
+
 static func is_known(id: String) -> bool:
-	return Gear.has(id) or LIST.has(id) or is_material(id)
+	return Gear.has(id) or LIST.has(id) or is_material(id) or is_scroll(id)
 
 
 static func item_name(id: String) -> String:
@@ -57,6 +62,8 @@ static func item_name(id: String) -> String:
 	if Gear.has(id):
 		var g := Gear.stats(id)
 		return String(g["name"]) + (" (your maker's mark)" if bool(g["exceptional"]) else "")
+	if is_scroll(id):
+		return "Scroll of " + String(Spells.LIST[Spells.spell_of_scroll(id)]["name"])
 	return String(LIST[id]["name"])
 
 
@@ -70,7 +77,14 @@ static func value(id: String) -> int:
 		return int(Crafting.tier(id.trim_prefix("ingot_"))["value"]) * 2
 	if Gear.has(id):
 		return maxi(1, int(Gear.stats(id)["value"]) / 2)
+	if is_scroll(id):
+		return scroll_price(id) / 2
 	return int(LIST[id]["value"])
+
+
+## What a merchant charges for a scroll: 12 gold per circle.
+static func scroll_price(id: String) -> int:
+	return 12 * int(Spells.LIST[Spells.spell_of_scroll(id)]["circle"])
 
 
 static func material_count(inv: Dictionary) -> int:

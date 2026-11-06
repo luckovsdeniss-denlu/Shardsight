@@ -4,7 +4,13 @@ class_name Property
 ## theft and death; large purchases come straight from the bank; houses give secure storage but
 ## decay and fall if neglected, dropping their contents.
 
-const DEED_PRICE := 1500          # paid from the bank
+## House sizes (tiles a side): price from the bank, lock-down slots, co-owner slots.
+const DEEDS := {
+	3: {"name": "small house", "price": 1500, "lockdowns": 3, "co_owners": 1},
+	5: {"name": "house", "price": 3500, "lockdowns": 8, "co_owners": 2},
+	7: {"name": "large tower", "price": 7000, "lockdowns": 15, "co_owners": 3},
+}
+const CO_OWNER_DAYS := 3.0        # each co-owner looking after the house adds this many days
 const POCKET_GOLD := 50           # gold the hero keeps on hand when banking automatically
 const COLLAPSE_DAYS := 7.0        # real days away before an unvisited house collapses
 const STAGES := [
@@ -15,10 +21,15 @@ const STAGES := [
 var bank_gold := 0
 var bank_items := {}
 var has_deed := false
-var house_origin := Vector2i(-1, -1)   # top-left tile of the 3x3 house
+var deed_size := 3                     # the size of house the deed is for
+var house_origin := Vector2i(-1, -1)   # top-left tile of the house
+var house_size := 3
 var house_chest := {}
+var lockdowns := {}                    # items locked down in the house: kept even if it collapses
+var co_owners: Array[String] = []      # players trusted with the house; they help it stand
 var house_last_visit := 0.0            # unix time
-var rune := Vector2i(-1, -1)           # where Recall and Gate Travel lead (set with Mark)
+var rune := Vector2i(-1, -1)           # the selected rune: where Recall and Gate Travel lead
+var runes: Array[Vector2i] = []        # the runebook: up to MAX_RUNES marked spots
 var quest_index := 0                   # which of Quests.LIST is next or active
 var quest_active := false
 var quest_kills := 0
@@ -31,12 +42,53 @@ var cam_zoom := 1.0
 var cam_yaw := 0.0
 
 
+const MAX_RUNES := 8
+
+
+## Mark: a new rune goes into the runebook (when it is full, it replaces the selected one).
+func mark_rune(c: Vector2i) -> void:
+	var i := runes.find(rune)
+	if runes.size() < MAX_RUNES or i < 0:
+		if runes.size() >= MAX_RUNES:
+			runes.pop_back()
+		runes.append(c)
+	else:
+		runes[i] = c
+	rune = c
+
+
+func select_rune(i: int) -> void:
+	if i >= 0 and i < runes.size():
+		rune = runes[i]
+
+
+func forget_rune(i: int) -> void:
+	if i < 0 or i >= runes.size() or runes.size() <= 1:
+		return                             # the last rune stays
+	var was_selected := runes[i] == rune
+	runes.remove_at(i)
+	if was_selected:
+		rune = runes[0]
+
+
 func has_house() -> bool:
 	return house_origin.x >= 0
 
 
 func house_center_tile() -> Vector2i:
-	return house_origin + Vector2i(1, 1)
+	return World.house_center(house_origin, house_size)
+
+
+func lockdown_slots() -> int:
+	return int(DEEDS[house_size]["lockdowns"])
+
+
+func co_owner_slots() -> int:
+	return int(DEEDS[house_size]["co_owners"])
+
+
+func collapse_days() -> float:
+	return COLLAPSE_DAYS + CO_OWNER_DAYS * co_owners.size()
 
 
 func days_since_visit() -> float:
@@ -44,12 +96,12 @@ func days_since_visit() -> float:
 
 
 func condition() -> String:
-	var per_stage := COLLAPSE_DAYS / STAGES.size()
+	var per_stage := collapse_days() / STAGES.size()
 	return STAGES[clampi(int(days_since_visit() / per_stage), 0, STAGES.size() - 1)]
 
 
 func should_collapse() -> bool:
-	return has_house() and days_since_visit() >= COLLAPSE_DAYS
+	return has_house() and days_since_visit() >= collapse_days()
 
 
 ## Being near the house keeps it standing.
@@ -59,9 +111,19 @@ func refresh() -> void:
 
 func clear_house() -> void:
 	house_origin = Vector2i(-1, -1)
+	house_size = 3
 	house_chest = {}
+	lockdowns = {}
+	co_owners.clear()
 	vendor_hired = false
 	vendor_stock = {}
+
+
+func _runes_list() -> Array:
+	var out := []
+	for c in runes:
+		out.append([c.x, c.y])
+	return out
 
 
 static func merge(into: Dictionary, from: Dictionary) -> void:
@@ -80,8 +142,8 @@ static func items_text(items: Dictionary) -> String:
 
 func to_dict() -> Dictionary:
 	var d := {
-		"bank_gold": bank_gold, "bank_items": bank_items, "has_deed": has_deed,
-		"rune": [rune.x, rune.y], "quest_index": quest_index, "quest_active": quest_active,
+		"bank_gold": bank_gold, "bank_items": bank_items, "has_deed": has_deed, "deed_size": deed_size,
+		"rune": [rune.x, rune.y], "runes": _runes_list(), "quest_index": quest_index, "quest_active": quest_active,
 		"quest_kills": quest_kills,
 		"sound_on": sound_on, "cam_zoom": cam_zoom, "cam_yaw": cam_yaw,
 		"vendor_hired": vendor_hired, "vendor_stock": vendor_stock, "vendor_gold": vendor_gold,
@@ -91,6 +153,7 @@ func to_dict() -> Dictionary:
 		d["house"] = {
 			"x": house_origin.x, "y": house_origin.y,
 			"chest": house_chest, "last_visit": house_last_visit,
+			"size": house_size, "lockdowns": lockdowns, "co_owners": co_owners,
 		}
 	return d
 
@@ -100,9 +163,22 @@ func load_dict(d: Dictionary) -> void:
 	bank_gold = maxi(0, int(d.get("bank_gold", 0)))
 	bank_items = _clean_items(d.get("bank_items", {}))
 	has_deed = bool(d.get("has_deed", false))
+	deed_size = int(d.get("deed_size", 3))
+	if not DEEDS.has(deed_size):
+		deed_size = 3
 	var r: Variant = d.get("rune", [])
 	if typeof(r) == TYPE_ARRAY and (r as Array).size() == 2:
 		rune = Vector2i(int(r[0]), int(r[1]))
+	runes.clear()
+	var rl: Variant = d.get("runes", [])
+	if typeof(rl) == TYPE_ARRAY:
+		for item in rl:
+			if typeof(item) == TYPE_ARRAY and (item as Array).size() == 2 and runes.size() < MAX_RUNES:
+				runes.append(Vector2i(int(item[0]), int(item[1])))
+	if rune.x >= 0 and not runes.has(rune):
+		runes.push_front(rune)             # saves from before the runebook: their one rune
+		if runes.size() > MAX_RUNES:
+			runes.pop_back()
 	quest_index = clampi(int(d.get("quest_index", 0)), 0, Quests.LIST.size() - 1)
 	quest_active = bool(d.get("quest_active", false))
 	quest_kills = maxi(0, int(d.get("quest_kills", 0)))
@@ -119,6 +195,15 @@ func load_dict(d: Dictionary) -> void:
 		var hd: Dictionary = h
 		house_origin = Vector2i(int(hd.get("x", -1)), int(hd.get("y", -1)))
 		house_chest = _clean_items(hd.get("chest", {}))
+		house_size = int(hd.get("size", 3))
+		if not DEEDS.has(house_size):
+			house_size = 3
+		lockdowns = _clean_items(hd.get("lockdowns", {}))
+		var co: Variant = hd.get("co_owners", [])
+		if typeof(co) == TYPE_ARRAY:
+			for n in co:
+				if co_owners.size() < co_owner_slots():
+					co_owners.append(String(n))
 		house_last_visit = float(hd.get("last_visit", Time.get_unix_time_from_system()))
 
 

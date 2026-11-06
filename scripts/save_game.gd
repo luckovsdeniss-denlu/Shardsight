@@ -44,6 +44,7 @@ static func save(hero: Entity, property: Property) -> bool:
 		"tool_uses": hero.tool_uses,
 		"murders": hero.murder_counts,
 		"pets": _pets_of(hero),
+		"spellbook": hero.spellbook.keys(),
 		"property": property.to_dict(),
 		"shield": hero.shield_id,
 		"gold": hero.gold,
@@ -102,6 +103,13 @@ static func load_into(hero: Entity, property: Property) -> bool:
 		for t in Entity.TOOLS:
 			if uses.has(t):
 				hero.tool_uses[t] = clampi(int(uses[t]), 1, Entity.TOOL_USES)
+	# Saves from before spellbooks keep the starting circles plus the travel spells they had.
+	var book: Variant = d.get("spellbook", Spells.STARTER + ["mark", "gate_travel"])
+	if typeof(book) == TYPE_ARRAY:
+		hero.spellbook.clear()
+		for id in book:
+			if Spells.LIST.has(String(id)):
+				hero.spellbook[String(id)] = true
 	hero.gold = maxi(0, int(d.get("gold", 0)))
 	hero.reagents = clampf(float(d.get("reagents", hero.reagents)), 0.0, Entity.MAX_REAGENTS)
 

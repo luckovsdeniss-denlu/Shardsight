@@ -38,6 +38,7 @@ const FIGHTER := {
 const MAGE := {
 	"str": 20, "dex": 20, "int": 40, "wspeed": 30, "dmg_min": 2, "dmg_max": 4,
 	"move": 3.4, "leash": 8, "aggro": 6.0, "respawn": 5.0, "reagents": 40, "gold": 60, "weapon": "dagger", "bandages": 3,
+	"spellbook": "all",
 	"skills": {
 		Hero.Skill.FENCING: 20.0, Hero.Skill.MAGERY: 70.0, Hero.Skill.EVALUATING_INTELLECT: 50.0,
 		Hero.Skill.MEDITATION: 50.0, Hero.Skill.RESISTING_SPELLS: 30.0, Hero.Skill.HEALING: 20.0,
@@ -64,6 +65,14 @@ const PKILLER := {
 		Hero.Skill.FENCING: 55.0, Hero.Skill.TACTICS: 45.0, Hero.Skill.ANATOMY: 30.0,
 		Hero.Skill.HEALING: 20.0,
 	},
+}
+
+# Summoned by the circle 8 spell; fights for its caster for a while, then crumbles.
+const EARTH_ELEMENTAL := {
+	"danger": 5,
+	"str": 80, "dex": 30, "int": 10, "wspeed": 30, "dmg_min": 8, "dmg_max": 15,
+	"move": 3.6, "leash": 3, "aggro": 6.0, "respawn": 0.0, "armor": 4.0, "scale": 1.4,
+	"skills": {Hero.Skill.SWORDSMANSHIP: 70.0, Hero.Skill.TACTICS: 70.0},
 }
 
 # Peaceful NPCs.

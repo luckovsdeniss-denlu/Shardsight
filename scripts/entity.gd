@@ -30,6 +30,8 @@ const BLESS_SECONDS := 300.0       # how long a blessing lasts
 const BLESS_DAMAGE := 1.1          # blessed: +10% damage dealt...
 const BLESS_ARMOR := 0.9           # ...and -10% damage taken
 const CONFESS_PRICE := 50          # gold to have one murder count lifted
+const SCROLL_DROP_CHANCE := 0.12   # a monster that carries gold may carry a spell scroll
+const SHOP_SCROLL_CIRCLES := 6     # merchants stock scrolls up to this circle
 const GATHER_TIME := 2.0           # seconds per swing of the pickaxe or hatchet
 const CARRY_MATERIALS := 30        # gatherers stop when carrying this many materials
 const SWING_ANIM := 0.22           # seconds of the attack lunge
@@ -143,6 +145,11 @@ var shop: Shop = null          # merchants: their purse, shelves and town prices
 var arrows := 0
 var hurt_timer := 0.0          # natural healing stops for a while after taking a blow
 var bless_timer := 0.0         # seconds of the priest's blessing left
+var spellbook := {}            # spell id -> true: the spells this character can cast
+var paralyzed_timer := 0.0     # Paralyze: can't move or act until it wears off or a blow lands
+var summoned := false          # an Earth Elemental: crumbles when summon_timer runs out
+var summon_timer := 0.0
+var summon: Entity = null      # the elemental this caster has out, if any
 var bank_gold := 0             # other players' own bank (the hero's is game.property.bank_gold)
 var craft_cd := 0.0            # after a fruitless forge visit, wait before the next one
 var _priest_timer := 0.0
@@ -223,6 +230,11 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	poison_cfg = cfg.get("poison", [])
 	stamina = float(stats.max_stamina())
 	arrows = int(cfg.get("arrows", 0))
+	# Players start with the first four circles and copy the rest from scrolls; monsters (and
+	# configs marked "all") know every spell.
+	var book: Variant = cfg.get("spellbook", "all" if p_kind != Kind.PLAYER else Spells.STARTER)
+	for id in (Spells.ORDER if typeof(book) == TYPE_STRING else book):
+		spellbook[String(id)] = true
 	crafter = bool(cfg.get("crafter", kind == Kind.PLAYER))   # players gather and craft like the hero
 	stats.skill_gained.connect(_on_skill_gained)
 	stats.stat_gained.connect(_on_stat_gained)
@@ -300,6 +312,15 @@ func tick(delta: float) -> void:
 		_poison_step(delta)
 		if dead:
 			return
+	if summoned:
+		summon_timer -= delta
+		if summon_timer <= 0.0:
+			_unsummon()
+			return
+	if paralyzed_timer > 0.0:
+		paralyzed_timer -= delta          # frozen: no moving, swinging or casting
+		_refresh_label()
+		return
 	if role == "healer":
 		_heal_aura(delta)
 	elif role == "merchant":
@@ -362,6 +383,8 @@ func _think(delta: float) -> void:
 			pause = 3.0
 			go_to(home)
 	elif kind == Kind.PLAYER and autonomous and pause <= 0.0:
+		if _try_resurrect_others():
+			return
 		if _try_bard():
 			return
 		if _recover() or _resupply():
@@ -594,6 +617,8 @@ func take_damage(amount: float, from: Entity) -> void:
 		attackers[aid] = MURDER_WINDOW
 	hp -= amount
 	hurt_timer = HURT_NO_REGEN
+	if paralyzed_timer > 0.0:
+		paralyzed_timer = 0.0               # a blow breaks Paralyze
 	if peaced_timer > 0.0 or (enticed_timer > 0.0 and from == enticer):
 		peaced_timer = 0.0                   # a blow breaks the spell of the music
 		enticed_timer = 0.0
@@ -767,12 +792,14 @@ func can_cast(id: String) -> bool:
 	if dead or casting_id != "":
 		return false
 	var sp: Dictionary = Spells.LIST[id]
-	return mana >= float(sp["mana"]) and reagents >= float(sp["reagents"]) \
+	return spellbook.has(id) and mana >= float(sp["mana"]) and reagents >= float(sp["reagents"]) \
 		and _skill(Hero.Skill.MAGERY) >= float(sp["min"])
 
 
 func _why_not(id: String) -> String:
 	var sp: Dictionary = Spells.LIST[id]
+	if not spellbook.has(id):
+		return "%s is not in your spellbook: find or buy its scroll." % sp["name"]
 	if _skill(Hero.Skill.MAGERY) < float(sp["min"]):
 		return "Your Magery is too low for %s." % sp["name"]
 	if mana < float(sp["mana"]):
@@ -841,13 +868,28 @@ func _finish_cast() -> void:
 	casting_id = ""
 	cast_target = null
 	cast_cd = CAST_RECOVERY
-	if tgt == null or tgt.dead or (tgt != self and position.distance_to(tgt.position) > SPELL_RANGE + 1.0):
+	var raising := String(sp["kind"]) == "resurrect"
+	if tgt == null or (tgt.dead != raising) or (tgt != self and position.distance_to(tgt.position) > SPELL_RANGE + 1.0):
 		_pop("fizzle", Color(0.75, 0.75, 0.75))
 		return
 	if randf() >= Rules.cast_chance(_skill(Hero.Skill.MAGERY), float(sp["min"])):
 		_pop("fizzle", Color(0.75, 0.75, 0.75))
 		return
 	var spell_kind := String(sp["kind"])
+	if spell_kind == "paralyze" or spell_kind == "resurrect" or spell_kind == "summon":
+		match spell_kind:
+			"paralyze":
+				_paralyze(tgt)
+			"resurrect":
+				if tgt.ghost and tgt.notoriety() != Notoriety.RED:
+					tgt._resurrect_free(self)
+					if is_hero:
+						game.count("resurrected_others")
+			"summon":
+				game.summon_elemental(self)
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.MAGERY)
+		return
 	if spell_kind == "cure":
 		if randf() < Rules.cure_chance(_skill(Hero.Skill.MAGERY), poison_level):
 			_cure("cured")
@@ -905,10 +947,22 @@ func _try_auto_cast(d: float) -> bool:
 		if poison_id != "":
 			last_poison_target = target
 			return start_cast(poison_id, target)
+	# Losing a melee: freeze the foe, then heal or walk away while it can't follow.
+	if hp < float(stats.max_hp()) * 0.5 and target != null and target.paralyzed_timer <= 0.0 \
+			and target.attack_range() <= MELEE_RANGE and d <= SPELL_RANGE:
+		var para_id := _best_spell("paralyze")
+		if para_id != "":
+			return start_cast(para_id, target)
 	if hp < float(stats.max_hp()) * 0.5:
 		var heal_id := _best_spell("heal")
 		if heal_id != "":
 			return start_cast(heal_id, self)
+	# A tough foe: call up an Earth Elemental to fight beside you.
+	if target != null and target.danger >= 4.0 and (summon == null or summon.dead) \
+			and kind == Kind.PLAYER:
+		var summon_id := _best_spell("summon")
+		if summon_id != "":
+			return start_cast(summon_id, self)
 	if _count_fair_targets(Spells.AREA_RADIUS) >= 2:
 		var area_id := _best_spell("area")
 		if area_id != "":
@@ -1052,6 +1106,7 @@ func trade(delta: float, s: Shop) -> void:
 				tool_uses[tool] = TOOL_USES
 				if is_hero:
 					game.log_event("You buy a %s." % Items.item_name(tool))
+		_buy_scroll(s)
 		_buy_gear(s)
 
 
@@ -1083,6 +1138,13 @@ func make_loot() -> Dictionary:
 		for d in loot_cfg.get("drops", []):
 			if randf() < float(d[1]):
 				items[d[0]] = int(items.get(d[0], 0)) + 1
+		# Spell scrolls: tougher monsters carry higher circles.
+		if int(loot_cfg.get("gold_max", 0)) > 0 and randf() < SCROLL_DROP_CHANCE:
+			var hi := clampi(1 + int(danger), 1, 8)
+			var spell := Spells.random_of_circles(maxi(1, hi - 3), hi)
+			if spell != "":
+				var sid := Spells.scroll_id(spell)
+				items[sid] = int(items.get(sid, 0)) + 1
 	elif kind == Kind.PLAYER:
 		dropped_gold = gold
 		gold = 0
@@ -1130,6 +1192,7 @@ func _take(c: Corpse) -> void:
 	for id in found:
 		inventory[id] = int(inventory.get(id, 0)) + int(found[id])
 		parts.append("%s x%d" % [Items.item_name(id), int(found[id])])
+	learn_scrolls()
 	if is_hero and not parts.is_empty():
 		game.log_event("You loot: " + ", ".join(parts))
 		game.sound("loot", position)
@@ -1839,6 +1902,8 @@ func travel_problem(id: String) -> String:
 	var sp: Dictionary = Spells.LIST[id]
 	if dead:
 		return "you are dead"
+	if not spellbook.has(id):
+		return "it is not in your spellbook"
 	if _skill(Hero.Skill.MAGERY) < float(sp["min"]):
 		return "it needs Magery %.1f" % float(sp["min"])
 	if mana < float(sp["mana"]):
@@ -1871,8 +1936,9 @@ func cast_travel(id: String) -> void:
 
 func _travel(id: String) -> void:
 	if id == "mark":
-		game.property.rune = world.to_tile(position)
-		game.log_event("You mark your rune here.")
+		game.property.mark_rune(world.to_tile(position))
+		game.log_event("You mark a rune here, in %s (%d of %d in your runebook)." % [
+			world.place_name(world.to_tile(position)), game.property.runes.size(), Property.MAX_RUNES])
 		return
 	var rune: Vector2i = game.property.rune
 	if rune.x < 0 or world.is_blocked(rune):
@@ -2613,3 +2679,82 @@ func visit_priest(delta: float, priest: Entity) -> void:
 		if is_hero:
 			game.log_event("%s blesses you: +10%% damage, -10%% damage taken for 5 minutes (%d gold)." % [priest.display_name, BLESS_PRICE])
 			game.count("blessed")
+
+
+# --- spellbook, scrolls, Paralyze, summons, Resurrection ---------------------
+
+## Copies every scroll of a spell not yet known into the spellbook (the scroll is used up).
+func learn_scrolls() -> void:
+	for id in inventory.keys():
+		var spell := Spells.spell_of_scroll(String(id))
+		if spell == "" or spellbook.has(spell):
+			continue
+		spellbook[spell] = true
+		Crafting.take_mats(inventory, {id: 1}, 1.0)
+		if is_hero:
+			game.log_event("You copy %s into your spellbook." % Spells.LIST[spell]["name"])
+			game.count("scrolls_learned")
+
+
+## At the merchant: a caster buys the cheapest scroll of a spell it could already cast.
+func _buy_scroll(s: Shop) -> void:
+	if kind != Kind.PLAYER or _skill(Hero.Skill.MAGERY) < 10.0:
+		return
+	var best := ""
+	var best_price := 1 << 30
+	for id in Spells.ORDER:
+		var sp: Dictionary = Spells.LIST[id]
+		if spellbook.has(id) or int(sp["circle"]) > SHOP_SCROLL_CIRCLES \
+				or _skill(Hero.Skill.MAGERY) < float(sp["min"]):
+			continue
+		var p := s.price(Items.scroll_price(Spells.scroll_id(id)))
+		if p < best_price:
+			best_price = p
+			best = id
+	if best == "" or gold < best_price + SUPPLY_RESERVE:
+		return
+	_pay(s, best_price)
+	inventory[Spells.scroll_id(best)] = 1
+	if is_hero:
+		game.log_event("You buy a %s for %d gold." % [Items.item_name(Spells.scroll_id(best)), best_price])
+	learn_scrolls()
+
+
+func _paralyze(tgt: Entity) -> void:
+	if randf() < Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)):
+		tgt._pop("resisted", Color(0.7, 0.9, 1.0))
+		return
+	tgt.paralyzed_timer = Spells.PARALYZE_BASE + _skill(Hero.Skill.MAGERY) / 25.0
+	tgt.path.clear()
+	if tgt.casting_id != "":
+		tgt._fizzle("paralyzed")
+	tgt._pop("paralyzed", Color(0.85, 0.7, 1.0))
+	if is_hero:
+		game.count("paralyzed")
+
+
+## A ghost player close by (not a murderer) gets raised by anyone who knows Resurrection.
+func _try_resurrect_others() -> bool:
+	if casting_id != "" or cast_cd > 0.0 or not can_cast("resurrection"):
+		return false
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e == self or not e.ghost or e.kind != Kind.PLAYER or e.notoriety() == Notoriety.RED:
+			continue
+		if position.distance_to(e.position) <= SPELL_RANGE:
+			return start_cast("resurrection", e)
+	return false
+
+
+## The summoned elemental crumbles: gone for good, like a dead pet.
+func _unsummon() -> void:
+	dead = true
+	visible = false
+	dead_timer = INF
+	path.clear()
+	target = null
+	if pet_owner != null and is_instance_valid(pet_owner):
+		pet_owner.pets.erase(self)
+		if pet_owner.is_hero:
+			game.log_event("Your Earth Elemental crumbles to dust.")

@@ -184,8 +184,10 @@ func _ready() -> void:
 	else:
 		log_event("Welcome to Shardsight. Tap a monster to attack it.")
 		_tips_left = TIPS.duplicate()        # first launch: a few tips over the first minute
-	if property.rune.x < 0:
+	if property.rune.x < 0 or property.runes.is_empty():
 		property.rune = DEFAULT_RUNE         # a starting rune marked in town, for Recall
+		property.runes.clear()
+		property.runes.append(DEFAULT_RUNE)
 	_follow_camera()
 
 
@@ -222,7 +224,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(_menu_button("Skills", _open_skills))
 	box.add_child(_menu_button("Craft", _open_craft))
 	box.add_child(_menu_button("Bank & House", _open_property))
-	box.add_child(_menu_button("Travel", _open_travel))
+	box.add_child(_menu_button("Travel & Spellbook", _open_travel))
 	box.add_child(_menu_button("Animals", _open_animals))
 	box.add_child(_menu_button("Bard", _open_bard))
 	box.add_child(_menu_button("Prices", _open_prices))
@@ -419,7 +421,7 @@ func _hero_at_bank() -> bool:
 
 func _hero_at_house() -> bool:
 	return property.has_house() and not hero.dead \
-		and hero.position.distance_to(world.tile_center(property.house_center_tile())) <= 1.6
+		and hero.position.distance_to(world.tile_center(property.house_center_tile())) <= float(property.house_size) / 2.0 + 0.1
 
 
 func _info(text: String) -> Label:
@@ -458,11 +460,33 @@ func _refresh_property() -> void:
 
 	if property.has_house():
 		var o := property.house_origin
-		property_box.add_child(_info("Your house at %d,%d: %s. Coming near it keeps it standing; after %d days away it collapses and its chest spills out for anyone." % [
-			o.x, o.y, property.condition(), int(Property.COLLAPSE_DAYS)]))
+		property_box.add_child(_info("Your %s (%dx%d) at %d,%d: %s. You or a co-owner coming near keeps it standing; after %d days away it collapses and its chest spills out for anyone." % [
+			Property.DEEDS[property.house_size]["name"], property.house_size, property.house_size,
+			o.x, o.y, property.condition(), int(property.collapse_days())]))
 		property_box.add_child(_info("Chest: " + Property.items_text(property.house_chest)))
 		property_box.add_child(_action("Store bag in the chest", _on_chest_store, at_house and not hero.inventory.is_empty()))
 		property_box.add_child(_action("Take all from the chest", _on_chest_take, at_house and not property.house_chest.is_empty()))
+		# Lock-downs: kept safe even if the house collapses (they go to the bank instead).
+		var free_slots := property.lockdown_slots() - property.lockdowns.size()
+		property_box.add_child(_info("Locked down (%d of %d slots; safe even if the house falls): %s" % [
+			property.lockdowns.size(), property.lockdown_slots(), Property.items_text(property.lockdowns)]))
+		property_box.add_child(_action("Lock down items from your bag (%d slots free)" % free_slots,
+			_on_lock_down, at_house and free_slots > 0 and not hero.inventory.is_empty()))
+		property_box.add_child(_action("Release all lock-downs to your bag", _on_release_lockdowns,
+			at_house and not property.lockdowns.is_empty()))
+		# Co-owners: trusted players; each keeps the house standing longer.
+		property_box.add_child(_info("Co-owners (%d of %d): %s. The house collapses after %d days away." % [
+			property.co_owners.size(), property.co_owner_slots(),
+			", ".join(property.co_owners) if not property.co_owners.is_empty() else "none",
+			int(property.collapse_days())]))
+		for e in creatures:
+			if e.kind != Entity.Kind.PLAYER or e.is_hero or e.is_pk:
+				continue
+			if property.co_owners.has(e.display_name):
+				property_box.add_child(_action("Remove co-owner %s" % e.display_name, _on_co_owner.bind(e.display_name), true))
+			elif property.co_owners.size() < property.co_owner_slots():
+				property_box.add_child(_action("Make %s a co-owner" % e.display_name, _on_co_owner.bind(e.display_name), at_house))
+		property_box.add_child(_action("Re-deed the house (pack it up: contents and lock-downs go to the bank)", _on_redeed, at_house))
 		if property.vendor_hired:
 			property_box.add_child(_info("Your vendor sells at full value (merchants pay half for used gear), even while you are away, and keeps 10%%. Stock: %s. Earnings waiting: %d gold." % [
 				Property.items_text(property.vendor_stock), property.vendor_gold]))
@@ -473,11 +497,25 @@ func _refresh_property() -> void:
 			property_box.add_child(_info("Hire a vendor to sell your goods from the house, even while you are away (%d gold from the bank)." % VENDOR_HIRE_COST))
 			property_box.add_child(_action("Hire a vendor", _on_vendor_hire, at_house and property.bank_gold >= VENDOR_HIRE_COST))
 	elif property.has_deed:
-		property_box.add_child(_info("You own a house deed. Stand on open ground outside town and place it."))
+		var deed: Dictionary = Property.DEEDS[property.deed_size]
+		property_box.add_child(_info("You own a %s deed (%dx%d). Stand on open ground outside town and place it." % [
+			deed["name"], property.deed_size, property.deed_size]))
 		property_box.add_child(_action("Place house here", _on_place_house, not hero.dead and not hero._in_town()))
+		for size in Property.DEEDS:
+			if size == property.deed_size:
+				continue
+			var other: Dictionary = Property.DEEDS[size]
+			var diff := int(other["price"]) - int(deed["price"])
+			property_box.add_child(_action("Exchange it for a %s deed (%s %d gold)" % [
+				other["name"], "pay" if diff > 0 else "get back", absi(diff)],
+				_on_exchange_deed.bind(size), at_bank and property.bank_gold >= diff))
 	else:
-		property_box.add_child(_info("A house deed costs %d gold, paid from the bank." % Property.DEED_PRICE))
-		property_box.add_child(_action("Buy a house deed", _on_buy_deed, at_bank and property.bank_gold >= Property.DEED_PRICE))
+		property_box.add_child(_info("House deeds are paid from the bank. Bigger houses hold more lock-downs (kept even if the house collapses) and more co-owners (each one keeps it standing %d days longer)." % int(Property.CO_OWNER_DAYS)))
+		for size in Property.DEEDS:
+			var deed: Dictionary = Property.DEEDS[size]
+			property_box.add_child(_action("Buy a %s deed (%dx%d, %d gold, %d lock-downs, %d co-owners)" % [
+				deed["name"], size, size, int(deed["price"]), int(deed["lockdowns"]), int(deed["co_owners"])],
+				_on_buy_deed.bind(size), at_bank and property.bank_gold >= int(deed["price"])))
 	property_box.add_child(_menu_button("Back", _close_property))
 
 
@@ -536,11 +574,73 @@ func _on_chest_take() -> void:
 	_refresh_property()
 
 
-func _on_buy_deed() -> void:
-	property.bank_gold -= Property.DEED_PRICE
+func _on_buy_deed(size: int) -> void:
+	var deed: Dictionary = Property.DEEDS[size]
+	property.bank_gold -= int(deed["price"])
 	property.has_deed = true
-	log_event("You buy a house deed for %d gold from the bank." % Property.DEED_PRICE)
+	property.deed_size = size
+	log_event("You buy a %s deed for %d gold from the bank." % [deed["name"], int(deed["price"])])
 	_refresh_property()
+
+
+func _on_exchange_deed(size: int) -> void:
+	var diff := int(Property.DEEDS[size]["price"]) - int(Property.DEEDS[property.deed_size]["price"])
+	property.bank_gold -= diff
+	property.deed_size = size
+	log_event("You exchange your deed for a %s deed." % Property.DEEDS[size]["name"])
+	_refresh_property()
+
+
+## Moves item kinds from the bag into the house's lock-downs while slots are free.
+func _on_lock_down() -> void:
+	for id in hero.inventory.keys():
+		if not property.lockdowns.has(id) and property.lockdowns.size() >= property.lockdown_slots():
+			continue                       # no slot for a new kind (existing kinds still stack)
+		property.lockdowns[id] = int(property.lockdowns.get(id, 0)) + int(hero.inventory[id])
+		hero.inventory.erase(id)
+	log_event("You lock items down in your house. They stay safe even if it collapses.")
+	_refresh_property()
+
+
+func _on_release_lockdowns() -> void:
+	Property.merge(hero.inventory, property.lockdowns)
+	property.lockdowns.clear()
+	log_event("You release your lock-downs into your bag.")
+	_refresh_property()
+
+
+func _on_co_owner(player_name: String) -> void:
+	if property.co_owners.has(player_name):
+		property.co_owners.erase(player_name)
+		log_event("%s is no longer a co-owner of your house." % player_name)
+	elif property.co_owners.size() < property.co_owner_slots():
+		property.co_owners.append(player_name)
+		log_event("%s is now a co-owner of your house and will help keep it standing." % player_name)
+	_refresh_property()
+
+
+## Packs the house back into a deed of the same size; everything inside goes to the bank.
+func _on_redeed() -> void:
+	Property.merge(property.bank_items, property.house_chest)
+	Property.merge(property.bank_items, property.lockdowns)
+	Property.merge(property.bank_items, property.vendor_stock)
+	property.bank_gold += property.vendor_gold
+	property.vendor_gold = 0
+	world.remove_house(property.house_origin, property.house_size)
+	_despawn_vendor()
+	property.deed_size = property.house_size
+	property.has_deed = true
+	property.clear_house()
+	log_event("You pack your house back into a deed. Its contents are in the bank.")
+	_refresh_property()
+
+
+func _despawn_vendor() -> void:
+	if vendor_npc == null:
+		return
+	creatures.erase(vendor_npc)
+	vendor_npc.queue_free()
+	vendor_npc = null
 
 
 ## Tiles a new house must not cover: everyone's position and home, and corpses.
@@ -555,12 +655,13 @@ func _occupied_tiles() -> Dictionary:
 
 
 func _on_place_house() -> void:
-	var o := world.find_house_spot(world.to_tile(hero.position), _occupied_tiles())
+	var o := world.find_house_spot(world.to_tile(hero.position), _occupied_tiles(), property.deed_size)
 	if o.x < 0:
 		log_event("There is no room for a house here. Try open ground.")
 		return
-	world.place_house(self, o)
+	world.place_house(self, o, property.deed_size)
 	property.house_origin = o
+	property.house_size = property.deed_size
 	property.house_chest = {}
 	property.has_deed = false
 	property.refresh()
@@ -584,20 +685,23 @@ func _restore_house() -> void:
 			{"gold": property.vendor_gold, "reagents": 0, "items": spilled})
 		property.vendor_gold = 0
 		ruins.set_title("Ruins of your house")
+		Property.merge(property.bank_items, property.lockdowns)   # lock-downs survive the collapse
 		ruins.life = 600.0
 		corpses.append(ruins)
 		property.clear_house()
-		log_event("Your neglected house has collapsed! Its contents lie in the ruins for anyone to take.")
+		log_event("Your neglected house has collapsed! Its chest lies in the ruins for anyone to take; your lock-downs were saved to the bank.")
 		return
 	var occupied := _occupied_tiles()
 	occupied.erase(world.to_tile(hero.position))      # the hero may be standing inside it
-	if not world.can_place_house(property.house_origin, occupied):
+	if not world.can_place_house(property.house_origin, occupied, property.house_size):
 		Property.merge(property.bank_items, property.house_chest)
+		Property.merge(property.bank_items, property.lockdowns)
+		property.deed_size = property.house_size
 		property.clear_house()
 		property.has_deed = true
 		log_event("Your house could not be rebuilt here; its deed and chest went to the bank.")
 		return
-	world.place_house(self, property.house_origin)
+	world.place_house(self, property.house_origin, property.house_size)
 	if property.vendor_hired:
 		_spawn_vendor()
 		_settle_vendor_offline()
@@ -752,9 +856,19 @@ func _refresh_travel() -> void:
 	var title := _info("Travel magic")
 	title.add_theme_font_size_override("font_size", 30)
 	travel_box.add_child(title)
-	var r := property.rune
-	travel_box.add_child(_info("Your rune is marked at %d,%d%s." % [
-		r.x, r.y, " (the town square)" if r == DEFAULT_RUNE else ""]))
+	travel_box.add_child(_info("Runebook (%d of %d runes). Recall and Gate Travel use the selected rune; Mark adds a rune where you stand (when the book is full it replaces the selected one)." % [
+		property.runes.size(), Property.MAX_RUNES]))
+	for i in range(property.runes.size()):
+		var r: Vector2i = property.runes[i]
+		var label := "%s %d. %s (%d,%d)%s" % [
+			">" if r == property.rune else " ", i + 1, world.place_name(r), r.x, r.y,
+			" - the town square" if r == DEFAULT_RUNE else ""]
+		var row := HBoxContainer.new()
+		var pick := _action(label, _on_select_rune.bind(i), r != property.rune)
+		pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(pick)
+		row.add_child(_action("Forget", _on_forget_rune.bind(i), property.runes.size() > 1))
+		travel_box.add_child(row)
 	for id in ["recall", "mark", "gate_travel"]:
 		var sp: Dictionary = Spells.LIST[id]
 		var problem := hero.travel_problem(id)
@@ -763,8 +877,34 @@ func _refresh_travel() -> void:
 			roundi(Rules.cast_chance(float(hero.stats.skills[Hero.Skill.MAGERY]), float(sp["min"])) * 100.0),
 			"" if problem == "" else " (" + problem + ")"]))
 		travel_box.add_child(_action("Cast " + String(sp["name"]), _on_travel.bind(id), problem == ""))
-	travel_box.add_child(_info("Recall takes you to the rune; Mark moves the rune to where you stand; Gate Travel opens a moongate there that anyone can use for %d seconds." % int(GATE_SECONDS)))
+	travel_box.add_child(_info("Recall takes you to the selected rune; Mark adds a rune where you stand; Gate Travel opens a moongate there that anyone can use for %d seconds." % int(GATE_SECONDS)))
+	# The spellbook: what you know, circle by circle. Scrolls drop from monsters (tougher ones
+	# carry higher circles) and merchants sell circles 1-6; they are copied in automatically.
+	var spellbook_title := _info("Spellbook (%d of %d spells)" % [hero.spellbook.size(), Spells.ORDER.size()])
+	spellbook_title.add_theme_font_size_override("font_size", 28)
+	travel_box.add_child(spellbook_title)
+	for circle in range(1, 9):
+		var known: Array[String] = []
+		var missing: Array[String] = []
+		for id in Spells.ORDER:
+			if int(Spells.LIST[id]["circle"]) != circle:
+				continue
+			(known if hero.spellbook.has(id) else missing).append(String(Spells.LIST[id]["name"]))
+		travel_box.add_child(_info("Circle %d: %s%s" % [circle,
+			", ".join(known) if not known.is_empty() else "-",
+			("   (missing: " + ", ".join(missing) + ")") if not missing.is_empty() else ""]))
+	travel_box.add_child(_info("Scrolls drop from monsters (tougher ones carry higher circles) and merchants sell circles 1-%d. A new scroll is copied into your book as soon as you pick it up." % Entity.SHOP_SCROLL_CIRCLES))
 	travel_box.add_child(_menu_button("Back", _close_travel))
+
+
+func _on_select_rune(i: int) -> void:
+	property.select_rune(i)
+	_refresh_travel()
+
+
+func _on_forget_rune(i: int) -> void:
+	property.forget_rune(i)
+	_refresh_travel()
 
 
 func _on_travel(id: String) -> void:
@@ -917,7 +1057,8 @@ func _open_help() -> void:
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
 		"The world is bigger now: Southmoor, a third town, lies south. Wolf packs and an orc fort roam the far east, spiders the southern forest, and the restless dead an old graveyard in the south-east. The hills south-east are rich in ore.",
 		"Father Corwin, the priest by the healer, cures poison for free, blesses you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lifts a murder count for 50 gold. Just stand near him.",
-		"Menu also has Craft, Bank & House, Travel (Recall, Mark, Gate Travel) and Settings (sound, camera).",
+		"Menu also has Craft, Bank & House (deeds, lock-downs, co-owners), Travel & Spellbook (a runebook of up to 8 runes for Recall and Gate Travel, and the spells you know) and Settings (sound, camera).",
+		"Spells must be in your spellbook. You start with circles 1-4; scrolls for more drop from monsters (tougher ones carry higher circles) or are sold by merchants (circles 1-6), and are copied in as soon as you pick them up.",
 	]:
 		settings_box.add_child(_info("• " + String(line)))
 	settings_box.add_child(_menu_button("Back", _close_settings))
@@ -936,6 +1077,12 @@ func tame(tamer: Entity, animal: Entity) -> void:
 		log_event("You tame the %s! It follows you and fights at your side." % animal.display_name)
 
 
+## Circle 8: an Earth Elemental forms next to the caster (spawned after this frame's ticks).
+func summon_elemental(caster: Entity) -> void:
+	pending_spawns.append({"name": "Earth Elemental", "cfg": Bestiary.EARTH_ELEMENTAL,
+		"color": Color("8a6a40"), "tile": world.to_tile(caster.position), "summoner": caster})
+
+
 func on_pet_died(p: Entity) -> void:
 	if p.pet_owner != null:
 		p.pet_owner.pets.erase(p)
@@ -947,6 +1094,21 @@ func _flush_spawns() -> void:
 	while not pending_spawns.is_empty():
 		var s: Dictionary = pending_spawns.pop_back()
 		var e := _spawn(Entity.Kind.MONSTER, String(s["name"]), s["cfg"], s["color"], s["tile"])
+		var summoner: Entity = s.get("summoner", null)
+		if summoner != null:
+			if not is_instance_valid(summoner) or summoner.dead:
+				e.summoned = true                # the caster died before it formed
+				e.summon_timer = 0.0
+				continue
+			e.summoned = true
+			e.summon_timer = Spells.SUMMON_SECONDS
+			summoner.adopt_pet(e)
+			summoner.summon = e
+			e.pause = 0.5
+			if summoner.is_hero:
+				count("summoned")
+				log_event("An Earth Elemental rises from the ground to fight for you.")
+			continue
 		if float(s.get("delay", 0.0)) > 0.0:
 			e.dead = true                    # waits out of sight, then appears at its lair
 			e.visible = false
@@ -1145,11 +1307,23 @@ func _sellable_bag() -> Dictionary:
 	return out
 
 
+## The hero or a co-owner close to the house.
+func _someone_minds_house() -> bool:
+	var center := world.tile_center(property.house_center_tile())
+	var reach := float(property.house_size) + 3.0
+	for e in creatures:
+		if e.dead or e.kind != Entity.Kind.PLAYER:
+			continue
+		if (e.is_hero or property.co_owners.has(e.display_name)) and e.position.distance_to(center) <= reach:
+			return true
+	return false
+
+
 func _spawn_vendor() -> void:
 	if vendor_npc != null or not property.has_house():
 		return
 	vendor_npc = _spawn(Entity.Kind.NPC, "Your vendor", Bestiary.VENDOR, Color("c9a86a"),
-		property.house_origin + Vector2i(1, 2))
+		World.house_door(property.house_origin, property.house_size))
 
 
 ## Sales made while the game was closed: a few an hour, up to two days' worth.
@@ -1573,9 +1747,8 @@ func _process(delta: float) -> void:
 	day_time = fmod(day_time + delta / DAY_SECONDS, 1.0)
 	_apply_daylight()
 	_quest_tick()
-	if property.has_house() and not hero.dead \
-			and hero.position.distance_to(world.tile_center(property.house_center_tile())) <= 6.0:
-		property.refresh()             # being near the house keeps it from decaying
+	if property.has_house() and _someone_minds_house():
+		property.refresh()             # the owner or a co-owner nearby keeps it from decaying
 	for c in corpses.duplicate():
 		c.tick(delta)
 		if c.life <= 0.0:

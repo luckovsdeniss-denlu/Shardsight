@@ -3,6 +3,33 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.23.0
+Magic, travel and housing depth.
+- New spells:
+  - Paralyze (circle 5): the target can't move, swing or cast for 4 s + Magery/25, until a
+    blow lands. The AI freezes a melee foe when it is losing, then heals or walks away.
+  - Resurrection (circle 8): raises a ghost player close by (not murderers). Casters raise the
+    ghosts they come across.
+  - Summon Earth Elemental (circle 8): an elemental fights beside you for 90 s, then crumbles.
+    Casters call one against tough monsters.
+- Spellbooks and scrolls: a spell must be in your spellbook to be cast. New characters know
+  circles 1-4 (mages know everything). Scrolls drop from monsters (12% of gold-carrying
+  monsters; tougher ones carry higher circles) and merchants sell circles 1-6 (12 gold per
+  circle); a new scroll is copied into the book when picked up or bought, spare ones are
+  sold. Menu > Travel & Spellbook lists what you know, circle by circle. Old saves keep
+  circles 1-4 plus Mark and Gate Travel.
+- Runebook: up to 8 runes. Mark adds a rune where you stand (replacing the selected one when
+  the book is full); Recall and Gate Travel use the selected rune; runes can be forgotten.
+  Each rune shows where it is (town, the outpost, Southmoor, the dungeon, the wilds).
+- Houses in three sizes: small house 3x3 (1500 gold), house 5x5 (3500), large tower 7x7
+  (7000). Deeds can be exchanged for another size at the bank (pay or get back the
+  difference), and a house can be re-deeded: packed back into a deed with everything inside
+  going to the bank.
+- Lock-downs: 3, 8 or 15 item kinds locked down in the house. Unlike the chest, they are kept
+  when a neglected house collapses (they go to the bank).
+- Co-owners: 1, 2 or 3 trusted players (not player killers). Each one adds 3 days before the
+  house collapses, and one passing nearby keeps it standing like the owner does.
+
 ## 0.22.0
 - Weapon skills: Fencing (dagger, kryss), Mace Fighting (mace, war hammer), Archery (bow,
   crossbow) join Swordsmanship. Hit chance and gains use the skill of the weapon in hand, and
