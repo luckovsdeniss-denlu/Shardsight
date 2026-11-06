@@ -13,8 +13,11 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
     toughness; a failed provocation or enticement makes it angry with you.
 - Menu > Bard: the three performances with your chances. In Auto the hero provokes when two
   monsters gang up on it, calms them when badly hurt, and lures lone monsters away first.
-- Fix from the animals play-test: the Auto hero now waits 60 s between taming attempts, so
-  taming no longer eats the time it used to spend gathering and crafting. The report counts
+- Fix from the animals play-tests: taming attempts kept being broken off (the animal wandered
+  more than 3.5 m away during the 3 s of coaxing) and the hero went straight back to chasing
+  another hind, all hour, instead of gathering and crafting. Animals now hold still while being
+  tamed, the leeway is 5 m, and the Auto hero waits 60 s after any attempt (finished, broken off
+  or unreachable) before trying again. The report counts
   taming attempts and every bard performance.
 
 ## 0.18.0

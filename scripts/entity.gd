@@ -1946,19 +1946,25 @@ func _tame_step() -> bool:
 			repath_timer = 0.5
 			if not go_to(tame_target.position) and position.distance_to(tame_target.position) > 2.5:
 				tame_target = null
+				tame_cd = TAME_COOLDOWN          # couldn't reach it: try something else for a while
 				return false
 		return true
 	path.clear()
 	tame_timer = TAME_TIME
+	tame_target.path.clear()                 # the animal holds still while it is coaxed
+	tame_target.pause = TAME_TIME + 1.0
 	_pop("taming...", Color(0.9, 0.8, 0.5))
 	return true
 
 
 func _tame_channel(delta: float) -> void:
 	if tame_target == null or not is_instance_valid(tame_target) or can_tame(tame_target) != "" \
-			or position.distance_to(tame_target.position) > 3.5:
+			or position.distance_to(tame_target.position) > 5.0:
 		tame_timer = 0.0
 		tame_target = null
+		tame_cd = TAME_COOLDOWN              # a broken-off attempt also waits out the cooldown
+		if is_hero:
+			game.count("tame_cancelled")
 		return
 	_face(tame_target.position - position)
 	tame_timer -= delta
