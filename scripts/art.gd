@@ -152,8 +152,10 @@ static func creature(look: String, style: Dictionary, scale: float) -> Dictionar
 	root.scale = Vector3.ONE * scale
 	var model := {"root": root, "legs": [], "arm": null, "spin": null, "meshes": [], "quad": false, "arm_rest": 0.0}
 	match look:
-		"rat", "wolf", "bear", "hind", "horse", "llama":
+		"rat", "wolf", "bear", "hind", "horse", "llama", "nightmare", "swamp_dragon", "beetle":
 			_quadruped(model, look)
+		"ostard":
+			_ostard(model)
 		"spider":
 			_spider(model)
 		"earth_elemental", "air_elemental", "fire_elemental", "water_elemental":
@@ -383,8 +385,23 @@ static func _quadruped(model: Dictionary, look: String) -> void:
 			length = 0.85
 			girth = 0.4
 			leg_len = 0.62
+		"nightmare":
+			fur = Color(0.1, 0.08, 0.1)
+			length = 1.15
+			girth = 0.44
+			leg_len = 0.72
+		"swamp_dragon":
+			fur = Color(0.3, 0.45, 0.25)
+			length = 1.3
+			girth = 0.5
+			leg_len = 0.38
+		"beetle":
+			fur = Color(0.14, 0.17, 0.24)
+			length = 1.0
+			girth = 0.5
+			leg_len = 0.3
 	var top := leg_len + girth / 2.0
-	var necked := look in ["hind", "horse", "llama"]
+	var necked := look in ["hind", "horse", "llama", "nightmare"]
 	var neck := 0.6 if look == "llama" else (0.42 if look == "horse" else 0.32)
 	var key := "quad|" + look
 	var body := _cached(key, func() -> Array:
@@ -393,7 +410,7 @@ static func _quadruped(model: Dictionary, look: String) -> void:
 		var head_z := -length / 2.0 - 0.12
 		if necked:
 			p.append([box(girth * 0.45, neck + 0.15, girth * 0.45), at(0, top + neck * 0.5, -length / 2.0 + 0.02, Vector3(0.45 if look != "llama" else 0.15, 0, 0)), fur])
-		if look == "horse":
+		if look == "horse" or look == "nightmare":
 			p.append([box(0.05, neck + 0.1, 0.12), at(0, top + neck * 0.6, -length / 2.0 + 0.1, Vector3(0.45, 0, 0)), DARK])
 			p.append([cone(0.07, 0.5, 0.02, 5), at(0, top + 0.02, length / 2.0 + 0.22, Vector3(-0.9, 0, 0)), DARK])
 			p.append([box(girth * 1.02, 0.12, 0.4), at(0, top + girth * 0.5, 0), Color(0.35, 0.2, 0.1)])   # saddle
@@ -414,6 +431,20 @@ static func _quadruped(model: Dictionary, look: String) -> void:
 				p.append([cone(0.04, 0.16, 0.0, 4), at(-0.07, head_y + 0.14, head_z + 0.05, Vector3(0, 0, 0.4)), fur])
 				p.append([cone(0.04, 0.16, 0.0, 4), at(0.07, head_y + 0.14, head_z + 0.05, Vector3(0, 0, -0.4)), fur])
 				p.append([ball(0.05, 5, 3), at(0, top + 0.04, length / 2.0 + 0.03), Color(0.95, 0.92, 0.88)])
+			"nightmare":
+				p.append([box(0.05, 0.05, 0.03), at(-girth * 0.2, head_y + 0.05, head_z - girth * 0.42), Color(1.0, 0.25, 0.1)])
+				p.append([box(0.05, 0.05, 0.03), at(girth * 0.2, head_y + 0.05, head_z - girth * 0.42), Color(1.0, 0.25, 0.1)])
+			"swamp_dragon":
+				for k in range(4):
+					p.append([cone(0.07, 0.18, 0.0, 4), at(0, top + girth * 0.55, -length * 0.3 + k * length * 0.2), Color(0.55, 0.6, 0.3)])
+				p.append([cone(0.14, 0.9, 0.02, 5), at(0, top - 0.05, length / 2.0 + 0.4, Vector3(-1.35, 0, 0)), fur.darkened(0.1)])
+				p.append([box(0.04, 0.03, 0.03), at(-0.08, head_y - 0.1, head_z - girth * 0.8), Color(0.95, 0.92, 0.85)])
+				p.append([box(0.04, 0.03, 0.03), at(0.08, head_y - 0.1, head_z - girth * 0.8), Color(0.95, 0.92, 0.85)])
+				p.append([box(girth * 1.02, 0.1, 0.4), at(0, top + girth * 0.5, 0.05), Color(0.35, 0.2, 0.1)])   # saddle
+			"beetle":
+				p.append([ball(girth * 0.85, 8, 4), at(0, top + girth * 0.2, 0.05, Vector3.ZERO, Vector3(1.0, 0.6, 1.25)), fur.lightened(0.12)])
+				p.append([cone(0.07, 0.35, 0.0, 5), at(0, head_y + 0.12, head_z - 0.1, Vector3(-0.9, 0, 0)), Color(0.2, 0.22, 0.3)])
+				p.append([box(girth * 0.8, 0.1, 0.4), at(0, top + girth * 0.62, 0.05), Color(0.35, 0.2, 0.1)])   # saddle
 			"rat":
 				p.append([ball(0.04, 5, 3), at(-0.07, head_y + 0.08, head_z + 0.04), Color(0.85, 0.6, 0.6)])
 				p.append([ball(0.04, 5, 3), at(0.07, head_y + 0.08, head_z + 0.04), Color(0.85, 0.6, 0.6)])
@@ -427,6 +458,30 @@ static func _quadruped(model: Dictionary, look: String) -> void:
 	for pos in [Vector3(-girth * 0.32, leg_len, -length * 0.36), Vector3(girth * 0.32, leg_len, -length * 0.36),
 			Vector3(-girth * 0.32, leg_len, length * 0.36), Vector3(girth * 0.32, leg_len, length * 0.36)]:
 		var piv := _pivot(root, pos)
+		_instance(piv, leg, vc_mat(), meshes)
+		model["legs"].append(piv)
+
+
+## A big running bird: long legs, a neck reaching forward, a crest and a tail.
+static func _ostard(model: Dictionary) -> void:
+	var root: Node3D = model["root"]
+	var meshes: Array = model["meshes"]
+	var hide := Color(0.55, 0.42, 0.24)
+	var body := _cached("ostard", func() -> Array:
+		return [[ball(0.34, 8, 5), at(0, 0.95, 0.05, Vector3.ZERO, Vector3(0.9, 0.8, 1.3)), hide],
+			[box(0.14, 0.5, 0.14), at(0, 1.25, -0.35, Vector3(0.6, 0, 0)), hide],
+			[box(0.2, 0.18, 0.3), at(0, 1.5, -0.55), hide.lightened(0.1)],
+			[cone(0.06, 0.2, 0.0, 4), at(0, 1.47, -0.78, Vector3(-PI / 2, 0, 0)), Color(0.85, 0.7, 0.3)],
+			[cone(0.05, 0.25, 0.0, 4), at(0, 1.7, -0.5, Vector3(-0.4, 0, 0)), Color(0.75, 0.25, 0.2)],
+			[box(0.04, 0.04, 0.03), at(-0.08, 1.54, -0.69), DARK], [box(0.04, 0.04, 0.03), at(0.08, 1.54, -0.69), DARK],
+			[cone(0.18, 0.6, 0.02, 5), at(0, 1.0, 0.55, Vector3(-1.2, 0, 0)), hide.darkened(0.15)],
+			[box(0.5, 0.1, 0.4), at(0, 1.22, 0.05), Color(0.35, 0.2, 0.1)]])   # saddle
+	_instance(root, body, vc_mat(), meshes)
+	var leg := _cached("ostard_leg", func() -> Array:
+		return [[box(0.08, 0.72, 0.08), at(0, -0.36, 0), Color(0.75, 0.6, 0.3)],
+			[box(0.16, 0.04, 0.2), at(0, -0.72, -0.05), Color(0.6, 0.45, 0.2)]])
+	for side in [-1.0, 1.0]:
+		var piv := _pivot(root, Vector3(0.14 * side, 0.74, 0.05))
 		_instance(piv, leg, vc_mat(), meshes)
 		model["legs"].append(piv)
 

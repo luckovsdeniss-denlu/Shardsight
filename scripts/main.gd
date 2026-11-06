@@ -33,6 +33,7 @@ var rain: CPUParticles3D
 var rain_sound := AudioStreamPlayer.new()
 var _joy_timer := 0.0
 var retreat_button: Button
+var ride_button: Button
 var players_panel: Control
 var players_box: VBoxContainer
 var bag_panel: Control
@@ -186,6 +187,8 @@ func _ready() -> void:
 	corner.add_child(_menu_button("Bag", _open_bag))
 	retreat_button = _menu_button("Retreat", _on_retreat)
 	corner.add_child(retreat_button)
+	ride_button = _menu_button("Ride", _on_ride)
+	corner.add_child(ride_button)
 	minimap.setup(self, world)
 	corner.add_child(minimap)
 	corner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
@@ -1452,16 +1455,20 @@ func _refresh_animals() -> void:
 		float(s.skills[Hero.Skill.ANIMAL_TAMING]), float(s.skills[Hero.Skill.ANIMAL_LORE]),
 		float(s.skills[Hero.Skill.VETERINARY])]))
 	if hero.mounted_on != null:
-		animals_box.add_child(_info("You are riding your %s (%.1fx speed)." % [hero.mounted_on.display_name, hero.mounted_on.mount_speed]))
+		var mo := hero.mounted_on
+		animals_box.add_child(_info("You are riding your %s: %.1fx speed%s%s." % [mo.display_name, mo.mount_speed,
+			", +%d armour" % int(mo.mount_armor) if mo.mount_armor > 0.0 else "",
+			", carry %dx" % int(mo.mount_carry) if mo.mount_carry > 1.0 else ""]))
 		animals_box.add_child(_menu_button("Get off your %s" % hero.mounted_on.display_name, _on_dismount))
 	var stable := _role_entity("stable")
 	if stable != null and stable.position.distance_to(hero.position) <= 4.0:
 		animals_box.add_child(_info("%s sells tame mounts (paid from the bank). Riding is much faster than walking." % stable.display_name))
-		for offer in [["Horse", Bestiary.HORSE, STABLE_HORSE], ["Llama", Bestiary.LLAMA, STABLE_LLAMA]]:
+		for offer in [["Horse", Bestiary.HORSE, STABLE_HORSE], ["Llama", Bestiary.LLAMA, STABLE_LLAMA],
+			["Forest Ostard", Bestiary.OSTARD, 500], ["Giant Beetle", Bestiary.BEETLE, 450]]:
 			animals_box.add_child(_action("Buy a %s (%d gold)" % [String(offer[0]).to_lower(), int(offer[2])],
 				_on_buy_mount.bind(offer[0], offer[2]), property.bank_gold >= int(offer[2]) and hero.pets.size() < Entity.MAX_PETS))
 	else:
-		animals_box.add_child(_info("Hal the Stablemaster in town sells horses and llamas; wild horses roam the eastern plains."))
+		animals_box.add_child(_info("Hal the Stablemaster in town sells horses, llamas, ostards and giant beetles. Wild mounts: horses on the eastern plains, a llama and giant beetles in the south-east hills, forest ostards in the southern forest, a swamp dragon in the swamp (it bites!) and a nightmare deep in the dungeon (very dangerous; Animal Taming 90)."))
 	if hero.pets.is_empty():
 		animals_box.add_child(_info("You have no pets (up to %d)." % Entity.MAX_PETS))
 	for p in hero.pets:
@@ -1507,7 +1514,8 @@ const STABLE_LLAMA := 200
 
 
 func _on_buy_mount(animal: String, price: int) -> void:
-	var cfg: Dictionary = Bestiary.HORSE if animal == "Horse" else Bestiary.LLAMA
+	var cfg: Dictionary = {"Horse": Bestiary.HORSE, "Llama": Bestiary.LLAMA, "Forest Ostard": Bestiary.OSTARD,
+		"Giant Beetle": Bestiary.BEETLE}.get(animal, Bestiary.HORSE)
 	property.bank_gold -= price
 	var p := _spawn(Entity.Kind.MONSTER, animal, cfg, Color(String(cfg["color"])), world.to_tile(hero.position))
 	hero.adopt_pet(p)
@@ -1950,6 +1958,17 @@ func _on_retreat() -> void:
 func _update_retreat_button() -> void:
 	if retreat_button != null:
 		retreat_button.text = "Retreating..." if hero.retreating else "Retreat"
+	if ride_button != null:
+		ride_button.text = "Dismount" if hero.mounted_on != null else "Ride"
+
+
+## The Ride button: mount the nearest own mount, or get off.
+func _on_ride() -> void:
+	if hero.dead:
+		return
+	var msg := hero.toggle_ride()
+	if msg != "":
+		log_event(msg)
 
 
 func _on_walk_to_player(p: Entity) -> void:
@@ -2281,6 +2300,12 @@ func _spawn_all() -> void:
 	for t in [Vector2i(66, 8), Vector2i(80, 14)]:
 		_spawn(Entity.Kind.MONSTER, "Horse", Bestiary.HORSE, Color("7a5232"), t)
 	_spawn(Entity.Kind.MONSTER, "Llama", Bestiary.LLAMA, Color("e8e0d0"), Vector2i(58, 42))
+	for t in [Vector2i(8, 30), Vector2i(20, 33)]:
+		_spawn(Entity.Kind.MONSTER, "Forest Ostard", Bestiary.OSTARD, Color("8a6a3a"), t)
+	for t in [Vector2i(62, 28), Vector2i(70, 44)]:
+		_spawn(Entity.Kind.MONSTER, "Giant Beetle", Bestiary.BEETLE, Color("283040"), t)
+	_spawn(Entity.Kind.MONSTER, "Swamp Dragon", Bestiary.SWAMP_DRAGON, Color("4a6a3a"), Vector2i(40, 43))
+	_spawn(Entity.Kind.MONSTER, "Nightmare", Bestiary.NIGHTMARE, Color("1a1418"), Vector2i(44, 16))
 	# The southern forest: spiders, wolves, deer.
 	for t in [Vector2i(10, 34), Vector2i(22, 38)]:
 		_spawn(Entity.Kind.MONSTER, "Giant Spider", Bestiary.GIANT_SPIDER, Color("3a3a2a"), t)

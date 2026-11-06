@@ -117,6 +117,42 @@ const BONE_KING := {
 }
 const ESCORT := {"str": 40, "dex": 20, "int": 20, "move": 3.8, "leash": 0, "role": "escort"}
 
+# More mounts: each with its own strength (speed, armour while riding, carrying capacity).
+const OSTARD := {
+	"look": "ostard",
+	"species": "ostard", "tame": 45.0, "passive": true, "danger": 1, "color": "8a6a3a", "mount_speed": 2.0, "saddle": 0.6,
+	"str": 55, "dex": 70, "int": 5, "wspeed": 45, "dmg_min": 2, "dmg_max": 6,
+	"move": 5.0, "leash": 6, "aggro": 0.0, "respawn": 50.0, "scale": 1.0,
+	"loot": {"gold_min": 0, "gold_max": 0, "drops": []},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 30.0, Hero.Skill.TACTICS: 30.0},
+}
+const BEETLE := {
+	"look": "beetle",
+	"species": "beetle", "tame": 40.0, "passive": true, "danger": 2, "color": "283040", "mount_speed": 1.4,
+	"mount_carry": 2.0, "saddle": 0.42,
+	"str": 90, "dex": 30, "int": 5, "wspeed": 30, "dmg_min": 3, "dmg_max": 8, "armor": 3.0,
+	"move": 3.4, "leash": 5, "aggro": 0.0, "respawn": 50.0, "scale": 1.0,
+	"loot": {"gold_min": 0, "gold_max": 0, "drops": []},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 35.0, Hero.Skill.TACTICS: 35.0},
+}
+const SWAMP_DRAGON := {
+	"look": "swamp_dragon",
+	"species": "swamp_dragon", "tame": 60.0, "danger": 3, "color": "4a6a3a", "mount_speed": 1.6,
+	"mount_armor": 3.0, "saddle": 0.38,
+	"str": 110, "dex": 45, "int": 10, "wspeed": 35, "dmg_min": 6, "dmg_max": 12, "armor": 4.0,
+	"move": 3.6, "leash": 5, "aggro": 4.0, "respawn": 60.0, "scale": 1.0,
+	"loot": {"gold_min": 10, "gold_max": 30, "drops": []},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 55.0, Hero.Skill.TACTICS: 55.0},
+}
+const NIGHTMARE := {
+	"look": "nightmare",
+	"species": "nightmare", "tame": 90.0, "danger": 6, "color": "1a1418", "mount_speed": 2.2, "saddle": 0.62,
+	"str": 160, "dex": 80, "int": 60, "wspeed": 40, "dmg_min": 10, "dmg_max": 20, "armor": 3.0,
+	"move": 4.6, "leash": 4, "aggro": 6.0, "respawn": 300.0, "scale": 1.1, "reagents": 99,
+	"loot": {"gold_min": 60, "gold_max": 140, "drops": []},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 75.0, Hero.Skill.TACTICS: 75.0, Hero.Skill.MAGERY: 60.0},
+}
+
 # Summoned by the circle 8 spell; fights for its caster for a while, then crumbles.
 const EARTH_ELEMENTAL := {
 	"look": "earth_elemental",
@@ -306,6 +342,14 @@ static func by_species(species: String) -> Dictionary:
 			return HORSE
 		"llama":
 			return LLAMA
+		"ostard":
+			return OSTARD
+		"beetle":
+			return BEETLE
+		"swamp_dragon":
+			return SWAMP_DRAGON
+		"nightmare":
+			return NIGHTMARE
 		"hind":
 			return HIND
 		"wolf":

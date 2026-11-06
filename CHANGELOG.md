@@ -3,6 +3,21 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.32.0
+Mounts.
+- Four new mounts, each with its own strength (horses 1.8x and llamas 1.6x stay):
+  - Forest Ostard, a big running bird: 2.0x speed. Southern forest (Animal Taming 45), or
+    500 gold at the stable.
+  - Giant Beetle, armoured and slow (1.4x) but its rider carries twice as many materials.
+    South-east hills (Taming 40), or 450 gold at the stable.
+  - Swamp Dragon, scaly and low with a spiked back: 1.6x and +3 armour while you ride it.
+    The swamp; it bites back (Taming 60).
+  - Nightmare, a black horse with red eyes and a burning mane: 2.2x, the fastest. Deep in
+    the dungeon, and dangerous (Taming 90).
+- A Ride button on screen (under Retreat): gets you on your nearest mount, or off it; it says
+  if you have none or it's too far away. Menu > Animals shows your mount's speed, armour and
+  carrying bonus, and where to find each kind.
+
 ## 0.31.0
 Loot, glitch and fire.
 - Loot you can see: a corpse's label now lists what's in it ("23 gold, Orc Ear, Longsword +2

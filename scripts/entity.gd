@@ -166,6 +166,9 @@ var is_thief := false          # computer thieves: sneak up, snoop and steal
 var mounted_on: Entity = null  # the pet this player is riding (parked out of the world meanwhile)
 var parked := false            # a mount being ridden: not in the world until its rider gets off
 var mount_speed := 1.0         # how much faster a rider of this animal goes
+var mount_armor := 0.0         # armour its rider gets (a swamp dragon's scales)
+var mount_carry := 1.0         # how much more its rider can carry (a giant beetle)
+var saddle := 0.62             # how high the rider sits
 var is_boss := false
 var auto_equip := true         # put on better gear by itself (off after a choice made by hand)
 var retreating := false        # the Retreat button: break off, heal up, get to a healer
@@ -262,6 +265,9 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	fame = int(cfg.get("fame", 0)) if p_kind != Kind.PLAYER else 0
 	is_thief = bool(cfg.get("thief", false))
 	mount_speed = float(cfg.get("mount_speed", 1.0))
+	mount_armor = float(cfg.get("mount_armor", 0.0))
+	mount_carry = float(cfg.get("mount_carry", 1.0))
+	saddle = float(cfg.get("saddle", 0.62))
 	is_boss = bool(cfg.get("boss", false))
 	karma = int(cfg.get("karma", 0)) if p_kind != Kind.PLAYER else 0
 	# Players start with the first four circles and copy the rest from scrolls; monsters (and
@@ -663,6 +669,8 @@ func _armor_rating() -> float:
 	var worn := 0.0
 	if armor_id != "":
 		worn = float(Gear.stats(armor_id)["rating"])
+	if mounted_on != null:
+		worn += mounted_on.mount_armor          # a swamp dragon's scales
 	return armor + worn
 
 
@@ -1717,6 +1725,10 @@ func refresh_look() -> void:
 		(model["mount_root"] as Node3D).queue_free()
 	model = Art.creature(look, _look_style(), visual_scale)
 	rig.add_child(model["root"])
+	if look == "nightmare":
+		var mane := Fx.flame(0.18, 14, 0.6)
+		mane.position = Vector3(0.0, 1.25, -0.45)
+		(model["root"] as Node3D).add_child(mane)
 	if look == "fire_elemental":
 		var sparks := Fx.embers(0.5)
 		sparks.position.y = 1.0
@@ -1725,7 +1737,11 @@ func refresh_look() -> void:
 		# Sitting in the saddle: the mount's legs do the walking, the rider's hang still.
 		var m := Art.creature(mounted_on.look, {}, mounted_on.visual_scale)
 		rig.add_child(m["root"])
-		(model["root"] as Node3D).position.y = 0.62 * mounted_on.visual_scale
+		(model["root"] as Node3D).position.y = mounted_on.saddle * mounted_on.visual_scale
+		if mounted_on.look == "nightmare":
+			var mane := Fx.flame(0.18, 14, 0.6)    # a burning mane
+			mane.position = Vector3(0.0, 1.25, -0.45)
+			(m["root"] as Node3D).add_child(mane)
 		for leg in model["legs"]:
 			(leg as Node3D).rotation.x = -1.2
 		model["legs"] = m["legs"]
@@ -1802,7 +1818,7 @@ func start_gathering(t: Vector2i) -> void:
 func _gather_step(delta: float) -> bool:
 	if gather_tile.x < 0:
 		return false
-	if not world.can_harvest(gather_tile) or Items.material_count(inventory) >= CARRY_MATERIALS:
+	if not world.can_harvest(gather_tile) or Items.material_count(inventory) >= carry_limit():
 		if is_hero and not world.can_harvest(gather_tile):
 			game.log_event("There is nothing left to gather here for now.")
 		gather_tile = Vector2i(-1, -1)
@@ -1848,7 +1864,7 @@ func _harvest_once() -> void:
 
 ## Crafters pick whichever they have less of: ore or wood.
 func _start_gathering_nearby() -> bool:
-	if Items.material_count(inventory) >= CARRY_MATERIALS:
+	if Items.material_count(inventory) >= carry_limit():
 		return false
 	var metal := Crafting.ore_count(inventory) + Crafting.ingot_count(inventory)
 	var want := "ore" if metal <= Crafting.count(inventory, "log") else "wood"
@@ -3851,3 +3867,29 @@ func _spell_fire(id: String, tgt: Entity) -> bool:
 		_:
 			return false
 	return true
+
+
+## How many materials this player can carry (a giant beetle doubles it).
+func carry_limit() -> int:
+	return roundi(CARRY_MATERIALS * (mounted_on.mount_carry if mounted_on != null else 1.0))
+
+
+## The Ride button: get on the nearest own mount, or off the one you're on. Returns a message.
+func toggle_ride() -> String:
+	if mounted_on != null:
+		dismount()
+		return ""
+	var best: Entity = null
+	var best_d := INF
+	for p in pets:
+		if can_ride(p):
+			var d := position.distance_to(p.position)
+			if d < best_d:
+				best = p
+				best_d = d
+	if best == null:
+		return "You have no mount. Tame one or buy one from Hal the Stablemaster in town."
+	if best_d > 3.0:
+		return "Your %s is too far away (%d m)." % [best.display_name, roundi(best_d)]
+	mount(best)
+	return ""
