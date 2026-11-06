@@ -143,6 +143,7 @@ var shop: Shop = null          # merchants: their purse, shelves and town prices
 var arrows := 0
 var hurt_timer := 0.0          # natural healing stops for a while after taking a blow
 var bless_timer := 0.0         # seconds of the priest's blessing left
+var bank_gold := 0             # other players' own bank (the hero's is game.property.bank_gold)
 var craft_cd := 0.0            # after a fruitless forge visit, wait before the next one
 var _priest_timer := 0.0
 var tame_walk := 0.0           # seconds spent walking after the animal being tamed
@@ -214,13 +215,15 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	bandages = int(cfg.get("bandages", 0))
 	is_pk = bool(cfg.get("pk", false))
 	var start_bag: Dictionary = cfg.get("inventory", {})
+	if kind == Kind.PLAYER:
+		start_bag = Bestiary.PLAYER_KIT.merged(start_bag, true)   # every player gets the hero's kit
 	for k in start_bag:
 		inventory[k] = int(start_bag[k])
 	danger = float(cfg.get("danger", 1.0))
 	poison_cfg = cfg.get("poison", [])
 	stamina = float(stats.max_stamina())
 	arrows = int(cfg.get("arrows", 0))
-	crafter = bool(cfg.get("crafter", false))
+	crafter = bool(cfg.get("crafter", kind == Kind.PLAYER))   # players gather and craft like the hero
 	stats.skill_gained.connect(_on_skill_gained)
 	stats.stat_gained.connect(_on_stat_gained)
 
@@ -359,14 +362,14 @@ func _think(delta: float) -> void:
 			pause = 3.0
 			go_to(home)
 	elif kind == Kind.PLAYER and autonomous and pause <= 0.0:
-		if is_hero and _try_bard():
+		if _try_bard():
 			return
 		if _recover() or _resupply():
 			return
 		if target == null:
 			target = _pick_target()
 			# Lure a far-off monster away from its friends before fighting it.
-			if is_hero and target != null and position.distance_to(target.position) > 4.0 \
+			if target != null and position.distance_to(target.position) > 4.0 \
 					and randf() < 0.3 and bard_problem("entice") == "":
 				start_perform("entice", target, null)
 				target = null
@@ -381,7 +384,7 @@ func _think(delta: float) -> void:
 			return
 		if autonomous and pause <= 0.0 and crafter and _craft_trip():
 			return
-		if autonomous and pause <= 0.0 and is_hero and _bank_trip():
+		if autonomous and pause <= 0.0 and _bank_trip():
 			return
 		if _tame_step(delta):
 			return
@@ -394,8 +397,8 @@ func _think(delta: float) -> void:
 				idle_timer = randf_range(1.5, 4.0)
 				return
 			if not (crafter and randf() < 0.5 and _start_gathering_nearby()) \
-					and not (is_hero and randf() < 0.3 and _start_taming_nearby()) \
-					and not (kind == Kind.PLAYER and not crafter and randf() < 0.5 and _track_hunt()):
+					and not (kind == Kind.PLAYER and randf() < 0.3 and _start_taming_nearby()) \
+					and not (kind == Kind.PLAYER and randf() < 0.5 and _track_hunt()):
 				_wander()
 			idle_timer = randf_range(1.5, 4.0)
 
@@ -1019,10 +1022,11 @@ func trade(delta: float, s: Shop) -> void:
 		var potion := s.price(POTION_PRICE)
 		var bandage := s.price(BANDAGE_PRICE)
 		var reagent_pair := s.price(REAGENT_PRICE * 2)
-		if is_hero and not has_instrument() and gold >= lute + SUPPLY_RESERVE:
+		if kind == Kind.PLAYER and not has_instrument() and gold >= lute + SUPPLY_RESERVE:
 			_pay(s, lute)
 			inventory["lute"] = 1
-			game.log_event("You buy a lute.")
+			if is_hero:
+				game.log_event("You buy a lute.")
 		if Crafting.count(inventory, "potion_heal") < 1 and gold >= potion + SUPPLY_RESERVE:
 			_pay(s, potion)
 			inventory["potion_heal"] = 1

@@ -487,6 +487,9 @@ func bank_deposit(e: Entity, amount: int) -> void:
 	if amount <= 0:
 		return
 	e.gold -= amount
+	if not e.is_hero:
+		e.bank_gold += amount            # other players keep their own account
+		return
 	property.bank_gold += amount
 	count("banked", amount)
 	log_event("You deposit %d gold. Bank balance: %d." % [amount, property.bank_gold])

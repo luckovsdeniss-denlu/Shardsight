@@ -32,6 +32,10 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
   and stood there for the rest of the game. Forge trips now need something craftable (ore, or
   materials plus a tool kit), a fruitless visit waits 2 minutes, and missing tools are bought
   with only an 8-gold reserve.
+- All players now play like the hero: Aldric, Mira, Selene and Vex start with the hero's kit
+  (lute, pickaxe, hatchet, tool kit), gather and craft when idle, play bard songs (peace,
+  provoke, entice), tame animals, track, buy a lute, and bank their gold in their own account.
+  Tracking now works for crafters too (the hero never tracked before).
 - Two logs: your own events lower left, everyone else's (deaths, crimes, resurrections) lower right.
 
 ## 0.21.0
