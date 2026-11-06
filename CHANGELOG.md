@@ -4,9 +4,13 @@ Version lives in `project.godot` (`application/config/version`). Bump it there; 
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
 ## 0.34.0
-No more glitch.
+No more glitch; cast spells yourself.
 - The screen glitch effect is gone: no distortion on heavy hits, death, gates, level-ups,
   lightning or the title. The idle hologram stays; its switch is now Settings > Idle hologram.
+- Cast spells yourself: a Spells button (under Bag) opens your spellbook, circle by circle,
+  with each spell's mana and where it goes (at your foe, on you, all foes around you...).
+  Tap one to cast it; harmful spells go at your target or the nearest foe. Spells you can't
+  afford right now are greyed out, and the last one you cast is offered first ("Again").
 
 ## 0.33.0
 Performance.

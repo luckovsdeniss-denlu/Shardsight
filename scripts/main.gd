@@ -35,6 +35,9 @@ var players_panel: Control
 var players_box: VBoxContainer
 var bag_panel: Control
 var bag_box: VBoxContainer
+var spells_panel: Control
+var spells_box: VBoxContainer
+var last_spell := ""                   # the spell cast last from the Spells panel (offered first)
 var thief_panel: Control
 var thief_box: VBoxContainer
 var guild_panel: Control
@@ -185,6 +188,7 @@ func _ready() -> void:
 	corner.add_child(auto_button)
 	corner.add_child(_menu_button("Menu", _open_menu))
 	corner.add_child(_menu_button("Bag", _open_bag))
+	corner.add_child(_menu_button("Spells", _open_spells))
 	retreat_button = _menu_button("Retreat", _on_retreat)
 	corner.add_child(retreat_button)
 	ride_button = _menu_button("Ride", _on_ride)
@@ -208,6 +212,8 @@ func _ready() -> void:
 	players_box = players_panel.get_meta("box")
 	bag_panel = _make_overlay(layer)
 	bag_box = bag_panel.get_meta("box")
+	spells_panel = _make_overlay(layer)
+	spells_box = spells_panel.get_meta("box")
 	thief_panel = _make_overlay(layer)
 	thief_box = thief_panel.get_meta("box")
 	guild_panel = _make_overlay(layer)
@@ -1885,6 +1891,89 @@ func _open_bag() -> void:
 func _close_bag() -> void:
 	bag_panel.visible = false
 	_resume()
+
+
+# --- spells panel: cast from your spellbook ----------------------------------------
+
+## Where a spell goes, in a word or two, by its kind.
+static func _spell_aim(sp: Dictionary) -> String:
+	var k := String(sp["kind"])
+	if k in ["attack", "poison", "paralyze", "drain"] or (k == "curse" and not bool(sp.get("area", false))):
+		return "at your foe"
+	if k == "field":
+		return "at your foe's feet"
+	if k == "area" or k == "curse":
+		return "all foes around you"
+	if k == "summon":
+		return "summons an ally"
+	if k == "resurrect":
+		return "raises a ghost"
+	if k == "dispel":
+		return "dispels"
+	if k == "util":
+		return "utility"
+	return "on you"
+
+
+## The game pauses while you choose; picking a spell closes the book and starts the cast.
+func _open_spells() -> void:
+	paused = true
+	menu.visible = false
+	spells_panel.visible = true
+	_refresh_spells()
+
+
+func _close_spells() -> void:
+	spells_panel.visible = false
+	_resume()
+
+
+func _refresh_spells() -> void:
+	for c in spells_box.get_children():
+		spells_box.remove_child(c)
+		c.queue_free()
+	var title_label := _info("Spellbook (%d of %d spells)" % [hero.spellbook.size(), Spells.ORDER.size()])
+	title_label.add_theme_font_size_override("font_size", 30)
+	spells_box.add_child(title_label)
+	var foe := "none"
+	if hero.target != null and is_instance_valid(hero.target) and not hero.target.dead:
+		foe = hero.target.display_name
+	spells_box.add_child(_info("Mana %d / %d   Reagents %d   Magery %.1f   Target: %s (or the nearest foe)" % [
+		int(hero.mana), hero.stats.max_mana(), int(hero.reagents),
+		float(hero.stats.skills.get(Hero.Skill.MAGERY, 0.0)), foe]))
+	if hero.dead:
+		spells_box.add_child(_info("Ghosts can't cast. Find a healer or a shrine first."))
+	elif hero.casting_id != "":
+		spells_box.add_child(_info("You are already casting."))
+	if last_spell != "" and hero.spellbook.has(last_spell):
+		var lsp: Dictionary = Spells.LIST[last_spell]
+		spells_box.add_child(_action("Again: %s (%d mana)" % [lsp["name"], int(lsp["mana"])],
+			_on_cast_spell.bind(last_spell), hero.can_cast(last_spell)))
+	for circle in range(1, 9):
+		var ids: Array[String] = []
+		for id: String in Spells.ORDER:
+			if int(Spells.LIST[id]["circle"]) == circle and hero.spellbook.has(id) \
+					and String(Spells.LIST[id]["kind"]) != "travel":
+				ids.append(id)
+		if ids.is_empty():
+			continue
+		spells_box.add_child(_heading("Circle %d" % circle))
+		for id in ids:
+			var sp: Dictionary = Spells.LIST[id]
+			var b := _action("%s  -  %d mana, %s" % [sp["name"], int(sp["mana"]), _spell_aim(sp)],
+				_on_cast_spell.bind(id), hero.can_cast(id))
+			b.custom_minimum_size = Vector2(840, 72)
+			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			spells_box.add_child(b)
+	spells_box.add_child(_info("Greyed-out spells need more mana, reagents or Magery. Find or buy scrolls to fill your book; Recall, Mark and Gate Travel are under Menu > Travel."))
+	spells_box.add_child(_menu_button("Close", _close_spells))
+
+
+func _on_cast_spell(id: String) -> void:
+	last_spell = id
+	spells_panel.visible = false
+	_resume()
+	hero.cast_from_book(id)
 
 
 # --- players panel: what everyone wears ------------------------------------------
