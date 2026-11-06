@@ -782,6 +782,18 @@ func _autotest_tick(delta: float) -> void:
 	# Where the hero's time goes: game-seconds per state (first word of its state text).
 	var state_key := "t_" + hero.state_text().split(" ")[0]
 	counters[state_key] = float(counters.get(state_key, 0.0)) + delta
+	# What a "fighting" or "looting" hero is stuck on, and whether it is close enough to act.
+	if hero.target != null and is_instance_valid(hero.target) and not hero.dead:
+		var tk := "tt_" + hero.target.display_name
+		counters[tk] = float(counters.get(tk, 0.0)) + delta
+		var near := hero.position.distance_to(hero.target.position) <= Entity.MELEE_RANGE + 0.1
+		var fk := "t_fight_near" if near else ("t_fight_casting" if hero.casting_id != "" else "t_fight_far")
+		counters[fk] = float(counters.get(fk, 0.0)) + delta
+		if not near and hero.path.is_empty() and hero.casting_id == "":
+			counters["t_fight_far_no_path"] = float(counters.get("t_fight_far_no_path", 0.0)) + delta
+	if hero.loot_target != null and is_instance_valid(hero.loot_target):
+		var lk := "t_loot_no_path" if hero.path.is_empty() else "t_loot_walking"
+		counters[lk] = float(counters.get(lk, 0.0)) + delta
 	if not hero.dead and world.is_dungeon(world.to_tile(hero.position)):
 		counters["dungeon_seconds"] = float(counters.get("dungeon_seconds", 0.0)) + delta
 	_check_timer -= delta
@@ -834,7 +846,7 @@ func _autotest_finish() -> void:
 	counters["hero_gold"] = hero.gold
 	counters["dungeon_seconds"] = int(float(counters.get("dungeon_seconds", 0.0)))
 	for k in counters.keys():
-		if String(k).begins_with("t_"):
+		if String(k).begins_with("t_") or String(k).begins_with("tt_"):
 			counters[k] = int(float(counters[k]))
 	counters["bank_gold"] = property.bank_gold
 	print("AUTOTEST REPORT " + JSON.stringify(counters))
