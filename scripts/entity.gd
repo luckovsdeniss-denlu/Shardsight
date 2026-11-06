@@ -564,7 +564,7 @@ func take_damage(amount: float, from: Entity) -> void:
 		from.criminal_timer = CRIMINAL_SECONDS
 		var aid := from.get_instance_id()
 		if not attackers.has(aid):
-			game.log_event("%s attacks %s!" % [from.display_name, display_name])
+			game.event_about("%s attacks %s!" % [from.display_name, display_name], is_hero or from.is_hero)
 		attackers[aid] = MURDER_WINDOW
 	hp -= amount
 	if peaced_timer > 0.0 or (enticed_timer > 0.0 and from == enticer):
@@ -603,7 +603,7 @@ func _die(killer: Entity) -> void:
 	died_red = kind == Kind.PLAYER and notoriety() == Notoriety.RED
 	_settle_crimes(killer)
 	game.spawn_corpse(self)
-	game.log_event("%s was slain by %s" % [display_name, killer.display_name])
+	game.event_about("%s was slain by %s" % [display_name, killer.display_name], is_hero or killer.is_hero or (killer.kind == Kind.PET and killer.pet_owner != null and killer.pet_owner.is_hero))
 	game.on_kill(killer, self)
 	if is_hero:
 		game.count("hero_deaths")
@@ -641,9 +641,9 @@ func _respawn() -> void:
 		if died_red:
 			for st in [Hero.Stat.STR, Hero.Stat.DEX, Hero.Stat.INT]:
 				stats.set_stat(st, maxi(Rules.STAT_MIN, roundi(stats.get_stat(st) * 0.8)))
-			game.log_event("%s was raised at a shrine (murderer: -20%% stats and skills)." % display_name)
+			game.event_about("%s was raised at a shrine (murderer: -20%% stats and skills)." % display_name, is_hero)
 		else:
-			game.log_event("%s was raised at a shrine (-10%% skills)." % display_name)
+			game.event_about("%s was raised at a shrine (-10%% skills)." % display_name, is_hero)
 	died_red = false
 
 
@@ -1365,9 +1365,9 @@ func _tick_reputation(delta: float) -> void:
 func _add_murder(victim: Entity) -> void:
 	murder_counts += 1
 	murder_timer = MURDER_DECAY
-	game.log_event("%s is guilty of murdering %s." % [display_name, victim.display_name])
+	game.event_about("%s is guilty of murdering %s." % [display_name, victim.display_name], is_hero or victim.is_hero)
 	if murder_counts == MURDERER_COUNTS:
-		game.log_event("%s is now a murderer!" % display_name)
+		game.event_about("%s is now a murderer!" % display_name, is_hero)
 
 
 ## On death: pay the bounty on a murderer and charge anyone who recently hit an innocent us.
@@ -1377,7 +1377,7 @@ func _settle_crimes(killer: Entity) -> void:
 		killer._earn(bounty)
 		if killer.is_hero:
 			game.count("bounties")
-		game.log_event("%s collects a %d gold bounty on %s." % [killer.display_name, bounty, display_name])
+		game.event_about("%s collects a %d gold bounty on %s." % [killer.display_name, bounty, display_name], is_hero or killer.is_hero)
 	for id in attackers.keys():
 		var a := instance_from_id(int(id)) as Entity
 		if a != null and not a.dead:
@@ -1493,7 +1493,7 @@ func _resurrect_free(healer: Entity) -> void:
 	pause = 1.0
 	swing_cd = 1.0
 	path.clear()
-	game.log_event("%s resurrects %s." % [healer.display_name, display_name])
+	game.event_about("%s resurrects %s." % [healer.display_name, display_name], is_hero)
 
 
 # --- gathering and crafting ------------------------------------------------

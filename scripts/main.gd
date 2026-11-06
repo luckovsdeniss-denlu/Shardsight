@@ -23,6 +23,8 @@ var hud := Label.new()
 var log_label := Label.new()
 var auto_button := Button.new()
 var log_lines: Array[String] = []
+var world_label := Label.new()        # what happens to everyone else (lower right)
+var world_lines: Array[String] = []
 var held := false
 var auto := true
 var paused := false
@@ -117,10 +119,31 @@ func _ready() -> void:
 	log_label.add_theme_font_size_override("font_size", 28)
 	log_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	log_label.add_theme_constant_override("outline_size", 8)
-	log_label.custom_minimum_size = Vector2(700, 0)
+	log_label.custom_minimum_size = Vector2(640, 0)
 	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	log_label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	column.add_child(log_label)
+
+	# World log: everyone else's deaths, crimes and resurrections, lower right.
+	var wmargin := MarginContainer.new()
+	wmargin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["right", "bottom"]:
+		wmargin.add_theme_constant_override("margin_" + side, 16)
+	layer.add_child(wmargin)
+	wmargin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var wcolumn := VBoxContainer.new()
+	wcolumn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wcolumn.alignment = BoxContainer.ALIGNMENT_END
+	wmargin.add_child(wcolumn)
+	world_label.add_theme_font_size_override("font_size", 24)
+	world_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.8))
+	world_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	world_label.add_theme_constant_override("outline_size", 8)
+	world_label.custom_minimum_size = Vector2(480, 0)
+	world_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	world_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	world_label.size_flags_horizontal = Control.SIZE_SHRINK_END
+	wcolumn.add_child(world_label)
 
 	var corner := VBoxContainer.new()
 	corner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -1317,6 +1340,21 @@ func log_event(text: String) -> void:
 	while log_lines.size() > LOG_LINES:
 		log_lines.remove_at(0)
 	log_label.text = "\n".join(log_lines)
+
+
+## Goes to the player's log (left) if it involves the hero, otherwise to the world log (right).
+func event_about(text: String, mine: bool) -> void:
+	if mine:
+		log_event(text)
+	else:
+		world_event(text)
+
+
+func world_event(text: String) -> void:
+	world_lines.append(text)
+	while world_lines.size() > LOG_LINES:
+		world_lines.remove_at(0)
+	world_label.text = "\n".join(world_lines)
 
 
 # --- input -----------------------------------------------------------------
