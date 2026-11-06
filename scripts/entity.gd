@@ -771,6 +771,8 @@ func state_text() -> String:
 
 func _refresh_label() -> void:
 	var text := "%s\nHP %d/%d" % [display_name, ceili(hp), stats.max_hp()]
+	if kind == Kind.PLAYER:
+		text = "%s (Lv %d)\nHP %d/%d" % [display_name, stats.level(), ceili(hp), stats.max_hp()]
 	if kind == Kind.NPC:
 		text = "%s\n(%s)" % [display_name, role]
 	elif kind == Kind.PET:

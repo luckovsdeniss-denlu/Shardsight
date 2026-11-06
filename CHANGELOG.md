@@ -72,6 +72,8 @@ Magic, travel and housing depth.
 - Arrows and tool wear are saved.
 - Balance: natural healing pauses for 6 s after a blow, so monsters no longer heal
   mid-fight (it ate a third of the hero's damage; fights took about 45 s per kill).
+- Player level shown above every player's head ("Hero (Lv 157)") and at the start of the HUD's
+  HP line ("Level 157").
 - Player level 1 to 1000: shown in the HUD (Lv) and the Skills menu. It is derived from your
   total skill (700 = level 1000), so a new hero starts at level 1 and nothing extra is saved.
 - Priest: Father Corwin stands by the healer in town. Innocent players near him get poison

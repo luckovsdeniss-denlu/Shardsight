@@ -1920,8 +1920,8 @@ func _update_hud() -> void:
 		bag.resize(6)
 		bag.append("+%d more" % extra)
 	var bag_text := ", ".join(bag) if not bag.is_empty() else "empty"
-	hud.text = "Shardsight v%s   Lv %d   [%s]   %s   %s\nHP %d/%d%s   Stam %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s\n%s" % [
-		version, hero.stats.level(), hero.state_text(), hero.notoriety_text(), _clock_text(), ceili(hero.hp), s.max_hp(), _poison_text() + _bless_text(), int(hero.stamina), s.max_stamina(),
+	hud.text = "Shardsight v%s   [%s]   %s   %s\nLevel %d   HP %d/%d%s   Stam %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s\n%s" % [
+		version, hero.state_text(), hero.notoriety_text(), _clock_text(), hero.stats.level(), ceili(hero.hp), s.max_hp(), _poison_text() + _bless_text(), int(hero.stamina), s.max_stamina(),
 		floori(hero.mana), s.max_mana(),
 		floori(hero.reagents), hero.bandages, hero.gold,
 		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
