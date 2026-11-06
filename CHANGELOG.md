@@ -11,6 +11,11 @@ No more glitch; cast spells yourself.
   with each spell's mana and where it goes (at your foe, on you, all foes around you...).
   Tap one to cast it; harmful spells go at your target or the nearest foe. Spells you can't
   afford right now are greyed out, and the last one you cast is offered first ("Again").
+- Cast from the very beginning: circles 1 and 2 now have the classic negative minimum skill
+  (-20 and -6), so a new character with no Magery can cast them (half of first-circle casts
+  work at first, a sixth of second-circle ones) and Magery grows with every success. Before,
+  every spell needed some Magery, which a new character could never get. Your hero also
+  restocks reagents from the start.
 
 ## 0.33.0
 Performance.

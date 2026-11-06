@@ -11,6 +11,8 @@ class_name Spells
 ## (one-off effects handled by id), travel (Recall, Mark, Gate Travel: Menu > Travel).
 ## The full classic list: 8 spells in each of the 8 circles.
 ## A spell must be in the caster's spellbook (copied from a scroll) to be cast.
+## Circles 1 and 2 have the classic negative minimums (-20 and -6), so a beginner with no Magery
+## can already cast them, often fizzling at first (50% and 15%), and learns by doing.
 
 const ORDER := [
 	"magic_arrow", "heal", "clumsy", "create_food", "feeblemind", "night_sight", "reactive_armor",
@@ -39,22 +41,22 @@ const AREA_RADIUS := 5.0
 
 const LIST := {
 	"magic_arrow": {
-		"name": "Magic Arrow", "words": "In Por Ylem", "circle": 1, "mana": 4, "min": 0.1,
+		"name": "Magic Arrow", "words": "In Por Ylem", "circle": 1, "mana": 4, "min": -20.0,
 		"reagents": 1, "kind": "attack", "min_dmg": 3.0, "max_dmg": 7.0,
 		"color": Color(1.0, 0.85, 0.3),
 	},
 	"heal": {
-		"name": "Heal", "words": "In Mani", "circle": 1, "mana": 4, "min": 0.1,
+		"name": "Heal", "words": "In Mani", "circle": 1, "mana": 4, "min": -20.0,
 		"reagents": 1, "kind": "heal", "min_dmg": 6.0, "max_dmg": 10.0,
 		"color": Color(0.5, 1.0, 0.5),
 	},
 	"harm": {
-		"name": "Harm", "words": "An Mani", "circle": 2, "mana": 6, "min": 0.1,
+		"name": "Harm", "words": "An Mani", "circle": 2, "mana": 6, "min": -6.0,
 		"reagents": 1, "kind": "attack", "min_dmg": 4.0, "max_dmg": 9.0,
 		"color": Color(0.5, 0.8, 1.0),
 	},
 	"cure": {
-		"name": "Cure", "words": "An Nox", "circle": 2, "mana": 6, "min": 0.1,
+		"name": "Cure", "words": "An Nox", "circle": 2, "mana": 6, "min": -6.0,
 		"reagents": 2, "kind": "cure", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(0.6, 1.0, 0.6),
 	},
@@ -134,62 +136,62 @@ const LIST := {
 		"color": Color(0.4, 0.6, 1.0),
 	},
 	"clumsy": {
-		"name": "Clumsy", "words": "Uus Jux", "circle": 1, "mana": 4, "min": 0.1,
+		"name": "Clumsy", "words": "Uus Jux", "circle": 1, "mana": 4, "min": -20.0,
 		"reagents": 2, "kind": "curse", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(0.8, 0.6, 0.9), "mods": {"dex": -10}, "secs": 60.0,
 	},
 	"create_food": {
-		"name": "Create Food", "words": "In Mani Ylem", "circle": 1, "mana": 4, "min": 0.1,
+		"name": "Create Food", "words": "In Mani Ylem", "circle": 1, "mana": 4, "min": -20.0,
 		"reagents": 3, "kind": "util", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(1.0, 0.85, 0.5),
 	},
 	"feeblemind": {
-		"name": "Feeblemind", "words": "Rel Wis", "circle": 1, "mana": 4, "min": 0.1,
+		"name": "Feeblemind", "words": "Rel Wis", "circle": 1, "mana": 4, "min": -20.0,
 		"reagents": 2, "kind": "curse", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(0.8, 0.6, 0.9), "mods": {"int": -10}, "secs": 60.0,
 	},
 	"night_sight": {
-		"name": "Night Sight", "words": "In Lor", "circle": 1, "mana": 4, "min": 0.1,
+		"name": "Night Sight", "words": "In Lor", "circle": 1, "mana": 4, "min": -20.0,
 		"reagents": 2, "kind": "buff", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(1.0, 1.0, 0.7), "flag": "night_sight", "secs": 600.0,
 	},
 	"reactive_armor": {
-		"name": "Reactive Armor", "words": "Flam Sanct", "circle": 1, "mana": 4, "min": 0.1,
+		"name": "Reactive Armor", "words": "Flam Sanct", "circle": 1, "mana": 4, "min": -20.0,
 		"reagents": 3, "kind": "buff", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(1.0, 0.6, 0.3), "flag": "reactive_armor", "secs": 60.0,
 	},
 	"weaken": {
-		"name": "Weaken", "words": "Des Mani", "circle": 1, "mana": 4, "min": 0.1,
+		"name": "Weaken", "words": "Des Mani", "circle": 1, "mana": 4, "min": -20.0,
 		"reagents": 2, "kind": "curse", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(0.8, 0.6, 0.9), "mods": {"str": -10}, "secs": 60.0,
 	},
 	"agility": {
-		"name": "Agility", "words": "Ex Uus", "circle": 2, "mana": 6, "min": 0.1,
+		"name": "Agility", "words": "Ex Uus", "circle": 2, "mana": 6, "min": -6.0,
 		"reagents": 2, "kind": "buff", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(0.6, 1.0, 0.8), "mods": {"dex": 10}, "secs": 120.0,
 	},
 	"cunning": {
-		"name": "Cunning", "words": "Uus Wis", "circle": 2, "mana": 6, "min": 0.1,
+		"name": "Cunning", "words": "Uus Wis", "circle": 2, "mana": 6, "min": -6.0,
 		"reagents": 2, "kind": "buff", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(0.6, 0.8, 1.0), "mods": {"int": 10}, "secs": 120.0,
 	},
 	"magic_trap": {
-		"name": "Magic Trap", "words": "In Jux", "circle": 2, "mana": 6, "min": 0.1,
+		"name": "Magic Trap", "words": "In Jux", "circle": 2, "mana": 6, "min": -6.0,
 		"reagents": 3, "kind": "field", "min_dmg": 12.0, "max_dmg": 22.0,
 		"color": Color(1.0, 0.4, 0.2), "field": "trap", "secs": 300.0,
 	},
 	"magic_untrap": {
-		"name": "Magic Untrap", "words": "An Jux", "circle": 2, "mana": 6, "min": 0.1,
+		"name": "Magic Untrap", "words": "An Jux", "circle": 2, "mana": 6, "min": -6.0,
 		"reagents": 2, "kind": "dispel", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(0.7, 0.8, 1.0), "field": "trap",
 	},
 	"protection": {
-		"name": "Protection", "words": "Uus Sanct", "circle": 2, "mana": 6, "min": 0.1,
+		"name": "Protection", "words": "Uus Sanct", "circle": 2, "mana": 6, "min": -6.0,
 		"reagents": 3, "kind": "buff", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(0.7, 0.9, 1.0), "flag": "protection", "secs": 90.0,
 	},
 	"strength": {
-		"name": "Strength", "words": "Uus Mani", "circle": 2, "mana": 6, "min": 0.1,
+		"name": "Strength", "words": "Uus Mani", "circle": 2, "mana": 6, "min": -6.0,
 		"reagents": 2, "kind": "buff", "min_dmg": 0.0, "max_dmg": 0.0,
 		"color": Color(1.0, 0.7, 0.6), "mods": {"str": 10}, "secs": 120.0,
 	},

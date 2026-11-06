@@ -1163,7 +1163,7 @@ func _regen_mana(delta: float) -> void:
 
 ## Mages walk to the merchant when their reagents run low.
 func _resupply() -> bool:
-	if _skill(Hero.Skill.MAGERY) < 0.1:
+	if _skill(Hero.Skill.MAGERY) < 0.1 and not is_hero:   # the hero casts from the start
 		return false
 	# Only go if the merchant will actually sell (he keeps the supply reserve in mind),
 	# otherwise the trip would never end.
