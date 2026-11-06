@@ -206,6 +206,7 @@ func _ready() -> void:
 		log_event("Welcome back. Your progress was loaded.")
 		_restore_house()
 		_restore_pets()
+		_ensure_escort()
 		if saved_mounted:
 			for p in hero.pets:
 				if hero.can_ride(p):
@@ -773,14 +774,31 @@ func _make_overlay(layer: CanvasLayer) -> Control:
 
 # --- quests ----------------------------------------------------------------
 
+## A health bar for the boss while you fight it.
+func _boss_text() -> String:
+	var t := hero.target
+	if t == null or not is_instance_valid(t) or not t.is_boss or t.dead:
+		return ""
+	var frac := t.hp / float(t.stats.max_hp())
+	var bar := "#".repeat(roundi(frac * 20.0)) + "-".repeat(20 - roundi(frac * 20.0))
+	return "\n%s  [%s]  %d/%d" % [t.display_name, bar, ceili(t.hp), t.stats.max_hp()]
+
+
 func _quest_text() -> String:
 	if not property.quest_active:
 		return "Quest: visit %s in town for work." % Quests.GIVER
 	var q: Dictionary = Quests.LIST[property.quest_index]
-	var done := property.quest_kills >= int(q["count"])
-	return "Quest: slay %d %s (%d/%d), reward %d gold%s" % [
-		int(q["count"]), q["target"], mini(property.quest_kills, int(q["count"])), int(q["count"]),
-		int(q["reward"]), " - done, return to %s!" % Quests.GIVER if done else ""]
+	var done := _quest_done(q)
+	var back := " - done, return to %s!" % Quests.GIVER if done else ""
+	match Quests.kind(q):
+		"fetch":
+			return "Quest: bring %d %s (%d/%d), reward %d gold%s" % [Quests.goal(q), Items.item_name(String(q["item"])),
+				Quests.progress(q, 0, hero.inventory), Quests.goal(q), int(q["reward"]), back]
+		"escort":
+			return "Quest: lead %s to %s, reward %d gold%s" % [q["escort"], q["place"], int(q["reward"]), back]
+	return "Quest: slay %s%s (%d/%d), reward %d gold%s" % [
+		"" if Quests.goal(q) == 1 else "%d " % Quests.goal(q), q["target"],
+		Quests.progress(q, property.quest_kills, {}), Quests.goal(q), int(q["reward"]), back]
 
 
 ## Called by Entity._die for every death.
@@ -816,17 +834,98 @@ func _quest_tick() -> void:
 		return
 	if property.quest_active:
 		var q: Dictionary = Quests.LIST[property.quest_index]
-		if property.quest_kills < int(q["count"]):
+		if not _quest_done(q):
 			return
+		if Quests.kind(q) == "fetch":
+			Crafting.take_mats(hero.inventory, {String(q["item"]): int(q["count"])}, 1.0)
 		hero._earn(int(q["reward"]))
+		hero.add_fame(int(q["reward"]) / 3)
+		hero.add_karma(int(q["reward"]) / 4)
 		count("quests_completed")
+		count("quests_" + Quests.kind(q))
 		log_event("%s: Well done! Here are %d gold." % [Quests.GIVER, int(q["reward"])])
 		property.quest_active = false
 		property.quest_index = (property.quest_index + 1) % Quests.LIST.size()
 	var next: Dictionary = Quests.LIST[property.quest_index]
 	property.quest_active = true
 	property.quest_kills = 0
+	property.quest_escorted = false
 	log_event("%s: %s Reward: %d gold." % [Quests.GIVER, next["text"], int(next["reward"])])
+	_ensure_escort()
+
+
+func _quest_done(q: Dictionary) -> bool:
+	if Quests.kind(q) == "escort":
+		return property.quest_escorted
+	return Quests.progress(q, property.quest_kills, hero.inventory) >= Quests.goal(q)
+
+
+func _current_quest() -> Dictionary:
+	return Quests.LIST[property.quest_index] if property.quest_active else {}
+
+
+## The item an active fetch quest wants (the hero won't sell it), or "".
+func quest_item() -> String:
+	var q := _current_quest()
+	return String(q["item"]) if not q.is_empty() and Quests.kind(q) == "fetch" else ""
+
+
+## Where an escort is headed, or null.
+func escort_destination() -> Variant:
+	var q := _current_quest()
+	if q.is_empty() or Quests.kind(q) != "escort" or property.quest_escorted:
+		return null
+	return world.tile_center(Vector2i(int(q["to"][0]), int(q["to"][1])))
+
+
+## Where the hero on Auto should head for a quest: the escort's destination, or back to the
+## captain once a quest is done. null when there is nothing to walk to.
+func quest_walk_target() -> Variant:
+	var q := _current_quest()
+	if q.is_empty():
+		return null
+	if Quests.kind(q) == "escort" and not property.quest_escorted:
+		return escort_destination() if escortee != null else null
+	if _quest_done(q):
+		var captain := _role_entity("questgiver")
+		return captain.position if captain != null else null
+	return null
+
+
+var escortee: Entity = null
+
+
+## An escort quest is active and its traveller isn't with us yet: they appear next to the hero.
+func _ensure_escort() -> void:
+	var q := _current_quest()
+	if q.is_empty() or Quests.kind(q) != "escort" or property.quest_escorted or escortee != null:
+		return
+	escortee = _spawn(Entity.Kind.NPC, String(q["escort"]), Bestiary.ESCORT, Color("d8c8a0"), world.to_tile(hero.position))
+	log_event("%s: Lead the way to %s, I'll stay close behind you." % [q["escort"], q["place"]])
+
+
+func escort_arrived(e: Entity) -> void:
+	if property.quest_escorted:
+		return
+	property.quest_escorted = true
+	log_event("%s: We made it! Thank you. Captain Marcus will reward you." % e.display_name)
+	call_deferred("_despawn_escort")
+
+
+func _despawn_escort() -> void:
+	if escortee == null:
+		return
+	creatures.erase(escortee)
+	escortee.queue_free()
+	escortee = null
+
+
+## The Bone King calls two skeletons out of the ground; they crumble after a minute.
+func raise_minions(boss: Entity) -> void:
+	for i in range(2):
+		pending_spawns.append({"name": "Risen Skeleton", "cfg": Bestiary.SKELETON, "color": Color("d8d2c0"),
+			"tile": world.to_tile(boss.position), "temp_secs": 60.0})
+	event_about("%s raises the dead!" % boss.display_name, hero.target == boss)
 
 
 func _role_entity(r: String) -> Entity:
@@ -1276,6 +1375,10 @@ func _flush_spawns() -> void:
 	while not pending_spawns.is_empty():
 		var s: Dictionary = pending_spawns.pop_back()
 		var e := _spawn(Entity.Kind.MONSTER, String(s["name"]), s["cfg"], s["color"], s["tile"])
+		if s.has("temp_secs"):
+			e.summoned = true                # risen minions crumble on their own
+			e.summon_timer = float(s["temp_secs"])
+			continue
 		var summoner: Entity = s.get("summoner", null)
 		if summoner != null:
 			if not is_instance_valid(summoner) or summoner.dead:
@@ -1928,6 +2031,7 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.MONSTER, "Zombie", Bestiary.ZOMBIE, Color("6f8f5a"), Vector2i(44, 12))
 	_spawn(Entity.Kind.MONSTER, "Ogre", Bestiary.OGRE, Color("8a6a4a"), Vector2i(44, 20))
 	_spawn(Entity.Kind.MONSTER, "Lich", Bestiary.LICH, Color("6a4a8a"), Vector2i(48, 12))
+	_spawn(Entity.Kind.MONSTER, "The Bone King", Bestiary.BONE_KING, Color("3a2a4a"), Vector2i(48, 20))   # the deepest hall
 
 	# The eastern wilds: wolf packs, deer, the bear wood and the orc fort.
 	for t in [Vector2i(58, 10), Vector2i(60, 12), Vector2i(57, 13)]:
@@ -2261,7 +2365,7 @@ func _update_hud() -> void:
 		floori(hero.reagents), hero.bandages, hero.gold,
 		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
 		s.skill_total(), Rules.SKILL_CAP_TOTAL, tile.x, tile.y, hero.gear_text() + _pets_text(), bag_text,
-		_quest_text()]
+		_quest_text() + _boss_text()]
 
 
 ## factor > 1 zooms in.

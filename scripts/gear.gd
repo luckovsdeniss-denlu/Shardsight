@@ -22,6 +22,7 @@ const LIST := {
 	"kryss": {"name": "Kryss", "slot": "weapon", "skill": "fencing", "speed": 58, "min": 3.0, "max": 7.0, "str": 10, "value": 40},
 	"short_sword": {"name": "Short Sword", "slot": "weapon", "skill": "swords", "speed": 50, "min": 3.0, "max": 8.0, "str": 15, "value": 25},
 	"longsword": {"name": "Longsword", "slot": "weapon", "skill": "swords", "speed": 35, "min": 5.0, "max": 13.0, "str": 25, "value": 55},
+	"bonecleaver": {"name": "Bonecleaver", "slot": "weapon", "skill": "swords", "speed": 38, "min": 12.0, "max": 24.0, "str": 30, "value": 1200},
 	"broadsword": {"name": "Broadsword", "slot": "weapon", "skill": "swords", "speed": 30, "min": 7.0, "max": 15.0, "str": 35, "value": 90},
 	"halberd": {"name": "Halberd", "slot": "weapon", "skill": "swords", "speed": 25, "min": 8.0, "max": 18.0, "str": 50, "value": 160, "two_handed": true},
 	"mace": {"name": "Mace", "slot": "weapon", "skill": "mace", "speed": 40, "min": 4.0, "max": 10.0, "str": 20, "value": 35},

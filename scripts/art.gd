@@ -320,7 +320,7 @@ static func _weapon_parts(weapon: String) -> Array:
 		"dagger", "kryss":
 			p.append([box(0.04, 0.03, 0.32), at(0, hy, -0.2), STEEL])
 			p.append([box(0.14, 0.03, 0.03), at(0, hy, -0.04), DARK])
-		"short_sword", "longsword", "broadsword":
+		"short_sword", "longsword", "broadsword", "bonecleaver":
 			var length := 0.55 if Gear.base(weapon) == "short_sword" else 0.78
 			p.append([box(0.05, 0.03, length), at(0, hy, -length / 2.0 - 0.05), STEEL])
 			p.append([box(0.2, 0.04, 0.04), at(0, hy, -0.05), Color(0.6, 0.5, 0.2)])

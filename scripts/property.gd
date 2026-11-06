@@ -33,6 +33,7 @@ var runes: Array[Vector2i] = []        # the runebook: up to MAX_RUNES marked sp
 var quest_index := 0                   # which of Quests.LIST is next or active
 var quest_active := false
 var quest_kills := 0
+var quest_escorted := false            # escort quests: the traveller got there
 var vendor_hired := false              # a hired vendor in the house sells while you are away
 var vendor_stock := {}
 var vendor_gold := 0
@@ -147,7 +148,7 @@ func to_dict() -> Dictionary:
 	var d := {
 		"bank_gold": bank_gold, "bank_items": bank_items, "has_deed": has_deed, "deed_size": deed_size,
 		"rune": [rune.x, rune.y], "runes": _runes_list(), "quest_index": quest_index, "quest_active": quest_active,
-		"quest_kills": quest_kills,
+		"quest_kills": quest_kills, "quest_escorted": quest_escorted,
 		"sound_on": sound_on, "cam_zoom": cam_zoom, "cam_yaw": cam_yaw, "ruleset": ruleset,
 		"music_on": music_on, "weather_on": weather_on,
 		"vendor_hired": vendor_hired, "vendor_stock": vendor_stock, "vendor_gold": vendor_gold,
@@ -186,6 +187,7 @@ func load_dict(d: Dictionary) -> void:
 	quest_index = clampi(int(d.get("quest_index", 0)), 0, Quests.LIST.size() - 1)
 	quest_active = bool(d.get("quest_active", false))
 	quest_kills = maxi(0, int(d.get("quest_kills", 0)))
+	quest_escorted = bool(d.get("quest_escorted", false))
 	vendor_hired = bool(d.get("vendor_hired", false))
 	vendor_stock = _clean_items(d.get("vendor_stock", {}))
 	vendor_gold = maxi(0, int(d.get("vendor_gold", 0)))

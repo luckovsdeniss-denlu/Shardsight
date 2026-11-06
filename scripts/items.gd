@@ -6,6 +6,7 @@ const LIST := {
 	"wolf_pelt": {"name": "Wolf Pelt", "value": 8},
 	"orc_ear": {"name": "Orc Ear", "value": 10},
 	"mage_robe": {"name": "Mage Robe", "value": 20},
+	"crown_of_bones": {"name": "Crown of Bones", "value": 400},
 	# Potions (Alchemy, or bought from the merchant). Kept, never sold.
 	"potion_heal": {"name": "Heal Potion", "value": 15, "potion": true},
 	"potion_greater_heal": {"name": "Greater Heal Potion", "value": 30, "potion": true},

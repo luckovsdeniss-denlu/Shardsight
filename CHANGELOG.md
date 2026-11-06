@@ -3,6 +3,23 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.29.0
+Quests and a dungeon boss.
+- Captain Marcus's quests are now a chain of 13 of four kinds:
+  - kill quests as before;
+  - fetch quests: bring 3 wolf pelts, 5 iron ingots or 3 orc ears (they're kept out of sales
+    while the quest is on, and handed over at the end);
+  - escort quests: Tobin the Trader to Southmoor and Sister Ada to the outpost. The traveller
+    appears beside you and follows you; get them within 3 m of the goal;
+  - and the last: slay The Bone King.
+  Rewards now also give fame and karma. On Auto the hero leads escorts by itself and walks back
+  to the captain once a quest is done.
+- The Bone King, the dungeon's master, waits in its deepest hall: a towering lich (400 HP,
+  armour, every combat spell) who raises two skeletons out of the ground every 25 s while
+  he fights; they crumble after a minute. His health shows as a bar in the HUD while you fight
+  him. He carries 400-700 gold, the Crown of Bones, and may drop the Bonecleaver (a unique
+  sword, 12-24 damage), platemail and high-circle scrolls. He returns after 30 minutes.
+
 ## 0.28.0
 Weather and music.
 - Weather that changes every 3-7 minutes: clear, rain, fog or a storm. Rain falls round you

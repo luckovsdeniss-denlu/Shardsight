@@ -102,6 +102,21 @@ const LLAMA := {
 	"skills": {Hero.Skill.SWORDSMANSHIP: 20.0, Hero.Skill.TACTICS: 20.0},
 }
 
+# The dungeon's master, at the end of the quest chain: raises skeletons around him in a fight.
+const BONE_KING := {
+	"look": "lich", "boss": true,
+	"danger": 9,
+	"str": 400, "dex": 60, "int": 150, "wspeed": 30, "dmg_min": 15, "dmg_max": 28,
+	"move": 2.4, "leash": 3, "aggro": 8.0, "respawn": 1800.0, "reagents": 999, "armor": 6.0, "scale": 1.8,
+	"loot": {"gold_min": 400, "gold_max": 700, "reagents": 30,
+		"drops": [["bonecleaver", 0.5], ["crown_of_bones", 1.0], ["platemail", 0.4], ["scroll_meteor_swarm", 0.5], ["scroll_summon_daemon", 0.3]]},
+	"skills": {
+		Hero.Skill.MAGERY: 100.0, Hero.Skill.EVALUATING_INTELLECT: 90.0, Hero.Skill.RESISTING_SPELLS: 80.0,
+		Hero.Skill.SWORDSMANSHIP: 90.0, Hero.Skill.TACTICS: 90.0, Hero.Skill.MEDITATION: 80.0,
+	},
+}
+const ESCORT := {"str": 40, "dex": 20, "int": 20, "move": 3.8, "leash": 0, "role": "escort"}
+
 # Summoned by the circle 8 spell; fights for its caster for a while, then crumbles.
 const EARTH_ELEMENTAL := {
 	"look": "earth_elemental",

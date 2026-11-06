@@ -166,6 +166,8 @@ var is_thief := false          # computer thieves: sneak up, snoop and steal
 var mounted_on: Entity = null  # the pet this player is riding (parked out of the world meanwhile)
 var parked := false            # a mount being ridden: not in the world until its rider gets off
 var mount_speed := 1.0         # how much faster a rider of this animal goes
+var is_boss := false
+var minion_cd := 10.0
 var stealth_left := 0.0        # metres you can still walk hidden
 var thief_mark: Entity = null
 var steal_cd := 0.0
@@ -256,6 +258,7 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	fame = int(cfg.get("fame", 0))
 	is_thief = bool(cfg.get("thief", false))
 	mount_speed = float(cfg.get("mount_speed", 1.0))
+	is_boss = bool(cfg.get("boss", false))
 	karma = int(cfg.get("karma", 0))
 	# Players start with the first four circles and copy the rest from scrolls; monsters (and
 	# configs marked "all") know every spell.
@@ -317,6 +320,11 @@ func tick(delta: float) -> void:
 	bless_timer = maxf(bless_timer - delta, 0.0)
 	drain_cd = maxf(drain_cd - delta, 0.0)
 	steal_cd = maxf(steal_cd - delta, 0.0)
+	if is_boss and target != null:
+		minion_cd -= delta
+		if minion_cd <= 0.0:
+			minion_cd = 25.0
+			game.raise_minions(self)
 	hide_cd = maxf(hide_cd - delta, 0.0)
 	field_cd = maxf(field_cd - delta, 0.0)
 	if not effects.is_empty():
@@ -381,6 +389,9 @@ func tick(delta: float) -> void:
 # --- decisions -------------------------------------------------------------
 
 func _think(delta: float) -> void:
+	if role == "escort":
+		_escort_follow()
+		return
 	if target != null and (not is_instance_valid(target) or target.dead or target.kind == Kind.NPC \
 			or target.flags.has("invisible")):
 		target = null
@@ -409,6 +420,8 @@ func _think(delta: float) -> void:
 		if _try_resurrect_others():
 			return
 		if is_thief and _thief_step():
+			return
+		if is_hero and target == null and _quest_trip():
 			return
 		if _try_bard():
 			return
@@ -1133,6 +1146,8 @@ func trade(delta: float, s: Shop) -> void:
 			continue                       # potions are kept for emergencies
 		if crafter and Items.is_material(id):
 			continue                       # crafters keep their ore, ingots, logs and hides
+		if is_hero and id == game.quest_item():
+			continue                       # wanted for a fetch quest
 		if Items.is_tool_item(id) or (id == "log" and int(inventory[id]) <= 2):
 			continue                       # tools, and a couple of logs for a campfire
 		# The merchant pays less the more it already holds, and stops when overstocked or broke.
@@ -3624,3 +3639,36 @@ func _auto_mount() -> void:
 		if can_ride(p) and position.distance_to(p.position) <= 3.0:
 			mount(p)
 			return
+
+
+# --- quests: escorts and the way back to the captain ----------------------------------------
+
+## The traveller being escorted walks after the hero and tells the game when they arrive.
+func _escort_follow() -> void:
+	var h: Entity = game.hero
+	if h == null:
+		return
+	var dest: Variant = game.escort_destination()
+	if dest != null and position.distance_to(dest) <= 3.0:
+		game.escort_arrived(self)
+		return
+	if position.distance_to(h.position) > 2.2:
+		if path.is_empty() or repath_timer <= 0.0:
+			repath_timer = 0.5
+			go_to(h.position)
+	else:
+		path.clear()
+
+
+## On Auto: lead an escort to its destination, and walk back to the captain once a quest is done.
+func _quest_trip() -> bool:
+	var dest: Variant = game.quest_walk_target()
+	if dest == null:
+		return false
+	if position.distance_to(dest) <= 2.0:
+		return false
+	if path.is_empty() or repath_timer <= 0.0:
+		repath_timer = 1.0
+		if not go_to(dest):
+			return false
+	return true
