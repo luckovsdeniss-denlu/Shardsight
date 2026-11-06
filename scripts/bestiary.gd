@@ -20,6 +20,7 @@ const HERO := {
 const WARRIOR := {
 	"str": 35, "dex": 20, "int": 10, "wspeed": 45, "dmg_min": 5, "dmg_max": 10,
 	"move": 3.6, "leash": 8, "aggro": 5.0, "respawn": 5.0, "gold": 20, "weapon": "longsword", "wear": "chainmail",
+	"fame": 1500, "karma": 2000,
 	"shield": "bronze_shield", "bandages": 8,
 	"skills": {
 		Hero.Skill.SWORDSMANSHIP: 60.0, Hero.Skill.TACTICS: 50.0, Hero.Skill.ANATOMY: 40.0,
@@ -30,6 +31,7 @@ const FIGHTER := {
 	"str": 30, "dex": 25, "int": 10, "wspeed": 55, "dmg_min": 4, "dmg_max": 8,
 	"move": 3.8, "leash": 8, "aggro": 5.0, "respawn": 5.0, "gold": 20,
 	"weapon": "kryss", "wear": "studded_armor", "shield": "wooden_shield", "bandages": 8,
+	"fame": 800, "karma": 1300,
 	"skills": {
 		Hero.Skill.FENCING: 55.0, Hero.Skill.TACTICS: 55.0, Hero.Skill.ANATOMY: 45.0,
 		Hero.Skill.PARRYING: 40.0, Hero.Skill.HEALING: 30.0,
@@ -39,7 +41,7 @@ const FIGHTER := {
 const MAGE := {
 	"str": 20, "dex": 20, "int": 40, "wspeed": 30, "dmg_min": 2, "dmg_max": 4,
 	"move": 3.4, "leash": 8, "aggro": 6.0, "respawn": 5.0, "reagents": 40, "gold": 60, "weapon": "dagger", "bandages": 3,
-	"spellbook": "all",
+	"spellbook": "all", "fame": 1300, "karma": 1500,
 	"skills": {
 		Hero.Skill.FENCING: 20.0, Hero.Skill.MAGERY: 70.0, Hero.Skill.EVALUATING_INTELLECT: 50.0,
 		Hero.Skill.MEDITATION: 50.0, Hero.Skill.RESISTING_SPELLS: 30.0, Hero.Skill.HEALING: 20.0,
@@ -51,6 +53,7 @@ const ARCHER := {
 	"str": 30, "dex": 30, "int": 15, "wspeed": 45, "dmg_min": 3, "dmg_max": 6,
 	"move": 3.8, "leash": 9, "aggro": 7.0, "respawn": 5.0, "gold": 30,
 	"weapon": "bow", "arrows": 60, "wear": "leather_armor", "bandages": 6,
+	"fame": 900, "karma": 1000,
 	"skills": {
 		Hero.Skill.ARCHERY: 55.0, Hero.Skill.TACTICS: 45.0, Hero.Skill.ANATOMY: 30.0,
 		Hero.Skill.HEALING: 30.0, Hero.Skill.TRACKING: 30.0,
@@ -62,6 +65,7 @@ const PKILLER := {
 	"str": 30, "dex": 30, "int": 10, "wspeed": 58, "dmg_min": 1, "dmg_max": 2,
 	"move": 3.7, "leash": 9, "aggro": 7.0, "respawn": 8.0, "pk": true, "gold": 30,
 	"weapon": "kryss", "wear": "leather_armor", "bandages": 5,
+	"fame": 2600, "karma": -3000,
 	"skills": {
 		Hero.Skill.FENCING: 55.0, Hero.Skill.TACTICS: 45.0, Hero.Skill.ANATOMY: 30.0,
 		Hero.Skill.HEALING: 20.0,

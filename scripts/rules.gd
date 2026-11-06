@@ -157,3 +157,43 @@ static func spirit_speak_chance(spirit: float) -> float:
 ## better price, up to +50% at 100.
 static func appraisal_bonus(skill: float) -> float:
 	return 1.0 + clampf(skill, 0.0, 100.0) / 200.0
+
+
+# --- fame, karma and titles (mechanics reference: the classic fame x karma title table) ----
+
+const FAME_MAX := 10000
+const KARMA_MAX := 10000
+## Rows: fame 0-1249, 1250-2499, 2500-4999, 5000-9999, 10000. Columns: karma 10000+, 5000+,
+## 2500+, 1250+, around zero, -1250 or less, -2500, -5000, -10000.
+const TITLES := [
+	["Trustworthy", "Honest", "Good", "Fair", "", "Rude", "Unsavory", "Scoundrel", "Outcast"],
+	["Estimable", "Commendable", "Honorable", "Kind", "Notable", "Disreputable", "Dishonorable", "Malicious", "Wretched"],
+	["Great", "Famed", "Admirable", "Respectable", "Prominent", "Notorious", "Ignoble", "Vile", "Nefarious"],
+	["Illustrious", "Renowned", "Noble", "Proper", "Reputable", "Infamous", "Sinister", "Villainous", "Dread"],
+	["Glorious Lord", "Great Lord", "Noble Lord", "Lord", "Lord", "Dishonored Lord", "Sinister Lord", "Dark Lord", "Dread Lord"],
+]
+
+
+static func title(fame: int, karma: int) -> String:
+	var row := 0
+	for limit in [1250, 2500, 5000, 10000]:
+		if fame >= limit:
+			row += 1
+	var col := 4
+	if karma >= 10000:
+		col = 0
+	elif karma >= 5000:
+		col = 1
+	elif karma >= 2500:
+		col = 2
+	elif karma >= 1250:
+		col = 3
+	elif karma <= -10000:
+		col = 8
+	elif karma <= -5000:
+		col = 7
+	elif karma <= -2500:
+		col = 6
+	elif karma <= -1250:
+		col = 5
+	return TITLES[row][col]

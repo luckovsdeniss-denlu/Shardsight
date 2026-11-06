@@ -17,6 +17,9 @@ var world := World.new()
 var creatures: Array[Entity] = []
 var corpses: Array[Corpse] = []
 var hero: Entity
+var guilds := Guilds.new()
+var guild_panel: Control
+var guild_box: VBoxContainer
 var cam := Camera3D.new()
 var marker := MeshInstance3D.new()
 var hud := Label.new()
@@ -168,6 +171,8 @@ func _ready() -> void:
 	bard_panel = _make_overlay(layer)
 	prices_panel = _make_overlay(layer)
 	prices_box = prices_panel.get_meta("box")
+	guild_panel = _make_overlay(layer)
+	guild_box = guild_panel.get_meta("box")
 	bard_box = bard_panel.get_meta("box")
 	animals_box = animals_panel.get_meta("box")
 	settings_box = settings_panel.get_meta("box")
@@ -226,6 +231,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	box.add_child(_menu_button("Craft", _open_craft))
 	box.add_child(_menu_button("Bank & House", _open_property))
 	box.add_child(_menu_button("Travel & Spellbook", _open_travel))
+	box.add_child(_menu_button("Guild & Fame", _open_guild))
 	box.add_child(_menu_button("Animals", _open_animals))
 	box.add_child(_menu_button("Bard", _open_bard))
 	box.add_child(_menu_button("Prices", _open_prices))
@@ -757,6 +763,10 @@ func on_kill(killer: Entity, victim: Entity) -> void:
 		if killer.pet_owner.is_hero:
 			count("pet_kills")
 		killer = killer.pet_owner                # a pet's kill counts for its owner (quests too)
+	if killer != null and killer.kind == Entity.Kind.PLAYER and killer != victim:
+		killer.reputation_for_kill(victim)
+	if victim.kind == Entity.Kind.PLAYER:
+		victim.add_fame(-victim.fame / 10)       # dying costs a tenth of your fame
 	if killer != null and killer.is_hero:
 		count("kills")
 		count("hero_killed_" + victim.display_name)
@@ -1431,6 +1441,153 @@ func _refresh_prices() -> void:
 	prices_box.add_child(_menu_button("Back", _close_prices))
 
 
+# --- guild & fame panel ----------------------------------------------------
+
+func _refresh_guild() -> void:
+	for c in guild_box.get_children():
+		guild_box.remove_child(c)
+		c.queue_free()
+	var title_label := _info("Guild & Fame")
+	title_label.add_theme_font_size_override("font_size", 30)
+	guild_box.add_child(title_label)
+	guild_box.add_child(_info("You are %s. Fame %d, Karma %d. Killing monsters brings fame (and karma, unless it is just an animal); criminals and murderers bring karma; an innocent costs a lot of karma; dying costs a tenth of your fame." % [
+		hero.title_name(), hero.fame, hero.karma]))
+	var mine := hero.guild_id()
+	if mine == "":
+		guild_box.add_child(_info("You are in no guild. Guild members show green to each other and allies; guilds at war show orange and may fight anywhere outside town without becoming criminals."))
+	else:
+		var g: Dictionary = guilds.list[mine]
+		guild_box.add_child(_info("Your guild: %s [%s]%s. Members: %s." % [g["name"], g["abbr"],
+			" (you lead it)" if String(g["leader"]) == hero.display_name else "", ", ".join(g["members"])]))
+	# every guild and how it stands with yours
+	for id in guilds.list:
+		if id == mine:
+			continue
+		var g: Dictionary = guilds.list[id]
+		var stance := ""
+		if guilds.at_war(mine, id):
+			stance = " - AT WAR with you"
+		elif mine != "" and guilds.allied(mine, id):
+			stance = " - your ally"
+		guild_box.add_child(_info("%s [%s]: %s%s" % [g["name"], g["abbr"], ", ".join(g["members"]), stance]))
+		if mine == "":
+			var ok := _guild_accepts(id)
+			guild_box.add_child(_action("Join %s%s" % [g["name"], "" if ok else " (they won't have you: " + _guild_refusal(id) + ")"],
+				_on_guild_join.bind(id), ok and not hero.dead))
+	if mine == "":
+		guild_box.add_child(_action("Found your own guild (%d gold from the bank)" % Guilds.FOUND_COST,
+			_on_guild_found, property.bank_gold >= Guilds.FOUND_COST))
+	else:
+		guild_box.add_child(_action("Leave your guild", _on_guild_leave, true))
+	if mine == "player":
+		for e in creatures:
+			if e.kind != Entity.Kind.PLAYER or e.is_hero or e.guild_id() != "":
+				continue
+			var cd := float(guilds.invite_cd.get(e.display_name, 0.0))
+			guild_box.add_child(_action("Invite %s%s" % [e.display_name, " (asked recently)" if cd > 0.0 else ""],
+				_on_guild_invite.bind(e.display_name), cd <= 0.0))
+		for id in guilds.list:
+			if id == "player":
+				continue
+			var gname := String(guilds.list[id]["name"])
+			if guilds.at_war("player", id):
+				guild_box.add_child(_action("Make peace with " + gname, _on_guild_war.bind(id, false), true))
+			else:
+				guild_box.add_child(_action("Declare war on " + gname, _on_guild_war.bind(id, true), true))
+				if guilds.allied("player", id):
+					guild_box.add_child(_action("End the alliance with " + gname, _on_guild_ally.bind(id, false), true))
+				else:
+					guild_box.add_child(_action("Propose an alliance to " + gname, _on_guild_ally.bind(id, true), true))
+	guild_box.add_child(_menu_button("Back", _close_guild))
+
+
+## The computer guilds pick their members: honest guilds want good karma, Shadowclan bad.
+func _guild_accepts(id: String) -> bool:
+	return _guild_refusal(id) == ""
+
+
+func _guild_refusal(id: String) -> String:
+	if id == "shd":
+		return "" if hero.karma <= -1000 else "they want karma -1000 or less"
+	if hero.notoriety() != Entity.Notoriety.BLUE:
+		return "no criminals or murderers"
+	return "" if hero.karma >= 0 else "they want karma 0 or more"
+
+
+func _on_guild_join(id: String) -> void:
+	guilds.join(hero.display_name, id)
+	log_event("You join %s." % guilds.list[id]["name"])
+	_refresh_guild()
+
+
+func _on_guild_leave() -> void:
+	var id := hero.guild_id()
+	var gname := String(guilds.list[id]["name"]) if guilds.list.has(id) else "your guild"
+	guilds.leave(hero.display_name)
+	log_event("You leave %s." % gname)
+	_refresh_guild()
+
+
+func _on_guild_found() -> void:
+	property.bank_gold -= Guilds.FOUND_COST
+	guilds.found(hero.display_name, "%s's Company" % hero.display_name, hero.display_name.left(3).to_upper())
+	log_event("You found %s. Invite players to join you." % guilds.list["player"]["name"])
+	_refresh_guild()
+
+
+## A guildless player joins if your name means something to them (fame and good karma help).
+func _on_guild_invite(player_name: String) -> void:
+	var e: Entity = null
+	for c in creatures:
+		if c.display_name == player_name and c.kind == Entity.Kind.PLAYER:
+			e = c
+	if e == null:
+		return
+	var chance := 0.35 + float(hero.fame) / 10000.0 * 0.45 + (0.15 if hero.karma >= 1250 else 0.0)
+	if e.is_pk != (hero.karma < 0):
+		chance *= 0.3                    # player killers and honest folk don't mix
+	if randf() < chance:
+		guilds.join(player_name, "player")
+		log_event("%s joins %s!" % [player_name, guilds.list["player"]["name"]])
+	else:
+		guilds.invite_cd[player_name] = Guilds.INVITE_COOLDOWN
+		log_event("%s declines your invitation, for now." % player_name)
+	_refresh_guild()
+
+
+func _on_guild_war(id: String, on: bool) -> void:
+	guilds.set_war("player", id, on)
+	log_event(("You declare war on %s! Their members show orange." if on else "You make peace with %s.") % guilds.list[id]["name"])
+	_refresh_guild()
+
+
+## Honest guilds ally with an honest leader; Shadowclan only with a wicked one.
+func _on_guild_ally(id: String, on: bool) -> void:
+	if on:
+		var ok := hero.karma < 0 if id == "shd" else hero.karma >= 0 and not guilds.at_war(id, "player")
+		for other in guilds.list:              # nobody allies with their own enemy's friend
+			if other != id and other != "player" and guilds.allied("player", other) and guilds.at_war(id, other):
+				ok = false
+		if not ok:
+			log_event("%s turns down your alliance." % guilds.list[id]["name"])
+			_refresh_guild()
+			return
+	guilds.set_ally("player", id, on)
+	log_event(("%s is now your ally." if on else "Your alliance with %s is over.") % guilds.list[id]["name"])
+	_refresh_guild()
+
+
+func _open_guild() -> void:
+	menu.visible = false
+	guild_panel.visible = true
+	_refresh_guild()
+
+
+func _close_guild() -> void:
+	guild_panel.visible = false
+	menu.visible = true
+
+
 func _open_prices() -> void:
 	menu.visible = false
 	prices_panel.visible = true
@@ -1879,6 +2036,7 @@ func _process(delta: float) -> void:
 			log_event(String(_tips_left.pop_front()))
 	_campfire_tick(delta)
 	_fields_tick(delta)
+	guilds.tick(delta)
 	save_timer += delta
 	if save_timer >= 20.0:
 		save_timer = 0.0
@@ -1921,8 +2079,9 @@ func _update_hud() -> void:
 		bag.resize(6)
 		bag.append("+%d more" % extra)
 	var bag_text := ", ".join(bag) if not bag.is_empty() else "empty"
-	hud.text = "Shardsight v%s   [%s]   %s   %s\nLevel %d   HP %d/%d%s   Stam %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s\n%s" % [
-		version, hero.state_text(), hero.notoriety_text(), _clock_text(), hero.stats.level(), ceili(hero.hp), s.max_hp(), _poison_text() + _bless_text(), int(hero.stamina), s.max_stamina(),
+	hud.text = "Shardsight v%s   %s   [%s]   %s   %s\nLevel %d   Fame %d  Karma %d   HP %d/%d%s   Stam %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s\n%s" % [
+		version, hero.title_name() + ((" [%s]" % hero.guild_abbr()) if hero.guild_abbr() != "" else ""),
+		hero.state_text(), hero.notoriety_text(), _clock_text(), hero.stats.level(), hero.fame, hero.karma, ceili(hero.hp), s.max_hp(), _poison_text() + _bless_text(), int(hero.stamina), s.max_stamina(),
 		floori(hero.mana), s.max_mana(),
 		floori(hero.reagents), hero.bandages, hero.gold,
 		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
@@ -2065,9 +2224,21 @@ func _refresh_settings() -> void:
 	title.add_theme_font_size_override("font_size", 30)
 	settings_box.add_child(title)
 	settings_box.add_child(_menu_button("Sound: " + ("On" if property.sound_on else "Off"), _toggle_sound))
+	settings_box.add_child(_menu_button("Ruleset: " + ("Trammel (no player killing)" if property.ruleset == "trammel" else "Felucca (open player-vs-player)"), _toggle_ruleset))
+	settings_box.add_child(_info("Felucca: players may attack each other outside town (criminals and murderers face the guards). Trammel: players can't hurt each other at all, except guilds at war."))
 	settings_box.add_child(_info("Camera: pinch with two fingers to zoom, twist them to turn the view (mouse wheel zooms on a computer)."))
 	settings_box.add_child(_menu_button("Reset camera", _reset_camera))
 	settings_box.add_child(_menu_button("Back", _close_settings))
+
+
+func _toggle_ruleset() -> void:
+	property.ruleset = "felucca" if property.ruleset == "trammel" else "trammel"
+	for e in creatures:                          # stop any fight between players that is now forbidden
+		if e.target != null and is_instance_valid(e.target) and e.target.kind == Entity.Kind.PLAYER \
+				and e.kind == Entity.Kind.PLAYER and not e._is_fair_target(e.target):
+			e.target = null
+	log_event("The world follows %s rules now." % ("Trammel" if property.ruleset == "trammel" else "Felucca"))
+	_refresh_settings()
 
 
 func _toggle_sound() -> void:

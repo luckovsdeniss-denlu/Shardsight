@@ -3,6 +3,26 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.25.0
+Society (roadmap item 0.20; numbered 0.25 so phones see it as an update to 0.24).
+- Fame and karma, with the classic title table: "Hero the Notable", "Aldric the Honorable",
+  "Vex the Notorious", up to "the Glorious Lord" or "the Dread Lord" at 10000 fame. Monsters
+  give fame (and karma, unless just an animal); killing criminals and murderers gives karma; an
+  innocent costs 700 karma; guild-war kills give fame only; dying costs a tenth of your fame;
+  confessing to the priest and raising ghosts give karma, begging costs a little. Gains slow
+  down near the top. The HUD and every name label show the title; Menu > Guild & Fame explains
+  it. Computer players start with some fame and karma of their own (the player killers bad).
+- Guilds: the Order of the Silver Serpent [OSS] (Aldric, Mira, Gareth), the Wardens of
+  Southmoor [WOS] (Dorian, Lyra) and Shadowclan [SHD] (Vex, Morg). OSS and WOS are allies and
+  both at war with Shadowclan. Guild tags show on name labels; guildmates and allies show green,
+  enemies at war orange. Guilds at war fight anywhere outside town with no criminal flag or
+  murder counts; guildmates and allies never fight each other.
+- Join a guild (honest guilds want karma 0 or more, Shadowclan -1000 or less), or found your own
+  ("Hero's Company" [HER], 1000 gold from the bank), invite guildless players (fame and karma
+  make them more likely to say yes), and declare war, make peace, or propose alliances.
+- Rulesets (Menu > Settings): Felucca, open player-vs-player as before, or Trammel, where players
+  can't hurt each other at all except guilds at war. Saved with the game.
+
 ## 0.24.0
 Art: procedural low-poly models and textures, all built in code (no downloaded assets).
 - Characters: real figures instead of capsules. Players and townsfolk have legs, arms, a head

@@ -160,6 +160,8 @@ var last_curse_target: Entity = null
 var drain_cd := 0.0
 var field_cd := 0.0
 var bank_gold := 0             # other players' own bank (the hero's is game.property.bank_gold)
+var fame := 0
+var karma := 0
 var craft_cd := 0.0            # after a fruitless forge visit, wait before the next one
 var _priest_timer := 0.0
 var tame_walk := 0.0           # seconds spent walking after the animal being tamed
@@ -243,6 +245,8 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	poison_cfg = cfg.get("poison", [])
 	stamina = float(stats.max_stamina())
 	arrows = int(cfg.get("arrows", 0))
+	fame = int(cfg.get("fame", 0))
+	karma = int(cfg.get("karma", 0))
 	# Players start with the first four circles and copy the rest from scrolls; monsters (and
 	# configs marked "all") know every spell.
 	var book: Variant = cfg.get("spellbook", "all" if p_kind != Kind.PLAYER else Spells.STARTER)
@@ -617,7 +621,10 @@ func take_damage(amount: float, from: Entity) -> void:
 		return
 	# Hitting an innocent player makes the attacker a criminal and, if the victim dies soon
 	# after, a murderer. The victim can fight back freely.
-	if from != self and from.kind == Kind.PLAYER and kind == Kind.PLAYER and notoriety() == Notoriety.BLUE:
+	if from != self and from.kind == Kind.PLAYER and kind == Kind.PLAYER and _trammel() and not from.at_war_with(self):
+		return                             # Trammel: players can't hurt each other (guild wars aside)
+	if from != self and from.kind == Kind.PLAYER and kind == Kind.PLAYER and notoriety() == Notoriety.BLUE \
+			and not from.at_war_with(self):
 		from.criminal_timer = CRIMINAL_SECONDS
 		var aid := from.get_instance_id()
 		if not attackers.has(aid):
@@ -758,7 +765,8 @@ func state_text() -> String:
 func _refresh_label() -> void:
 	var text := "%s\nHP %d/%d" % [display_name, ceili(hp), stats.max_hp()]
 	if kind == Kind.PLAYER:
-		text = "%s (Lv %d)\nHP %d/%d" % [display_name, stats.level(), ceili(hp), stats.max_hp()]
+		var g := guild_abbr()
+		text = "%s\n%sLv %d  HP %d/%d" % [title_name(), ("[%s] " % g) if g != "" else "", stats.level(), ceili(hp), stats.max_hp()]
 	if kind == Kind.NPC:
 		text = "%s\n(%s)" % [display_name, role]
 	elif kind == Kind.PET:
@@ -908,6 +916,7 @@ func _finish_cast() -> void:
 			"resurrect":
 				if tgt.ghost and tgt.notoriety() != Notoriety.RED:
 					tgt._resurrect_free(self)
+					add_karma(100)
 					if is_hero:
 						game.count("resurrected_others")
 			"summon":
@@ -1490,6 +1499,12 @@ func _name_color() -> Color:
 				return Color(1.0, 0.3, 0.3)
 			Notoriety.GREY:
 				return Color(0.75, 0.75, 0.75)
+		var me: Entity = game.hero
+		if me != null and me != self:
+			if me.at_war_with(self):
+				return Color(1.0, 0.6, 0.15)    # orange: at war with your guild
+			if me.friends_with(self):
+				return Color(0.4, 1.0, 0.4)     # green: your guild or an ally
 	return base_label_color
 
 
@@ -1554,6 +1569,10 @@ func _is_fair_target(e: Entity) -> bool:
 		return not e.passive or e.target == self   # leave grazing animals be unless they bite
 	if e.kind != Kind.PLAYER or _in_town() or e._in_town():
 		return false
+	if at_war_with(e):
+		return true                        # guild war: fair game anywhere outside town
+	if friends_with(e) or _trammel():
+		return false                       # guildmates and allies; and no PvP at all in Trammel
 	if is_pk:
 		return not e.is_young() and not e.flags.has("incognito")   # young or unrecognised: left alone
 	return e.notoriety() != Notoriety.BLUE
@@ -2711,6 +2730,7 @@ func _try_beg() -> bool:
 		if randf() < Rules.beg_chance(_skill(Hero.Skill.BEGGING)):
 			var coins := randi_range(2, 5 + int(_skill(Hero.Skill.BEGGING) / 10.0))
 			_earn(coins)
+			add_karma(-15)                   # begging is a little shameful
 			npc._pop("here, %d gold" % coins, Color(1.0, 0.9, 0.5))
 			if is_hero:
 				game.count("begged")
@@ -2780,6 +2800,7 @@ func visit_priest(delta: float, priest: Entity) -> void:
 		return
 	if murder_counts > 0 and gold >= CONFESS_PRICE + SUPPLY_RESERVE:
 		_spend(CONFESS_PRICE)
+		add_karma(150)
 		murder_counts -= 1
 		murder_timer = MURDER_DECAY
 		if is_hero:
@@ -3257,3 +3278,80 @@ func _nearest_ghost(radius: float) -> Entity:
 		if e != self and e.ghost and e.kind == Kind.PLAYER and position.distance_to(e.position) <= radius:
 			return e
 	return null
+
+
+# --- society: fame, karma, titles, guilds, rulesets ----------------------------------------
+
+func _trammel() -> bool:
+	return game.property.ruleset == "trammel"
+
+
+func guild_id() -> String:
+	return game.guilds.guild_of(display_name) if kind == Kind.PLAYER else ""
+
+
+func guild_abbr() -> String:
+	return game.guilds.abbr(guild_id())
+
+
+## Same guild or allied guilds (players only).
+func friends_with(e: Entity) -> bool:
+	if e == self or kind != Kind.PLAYER or e.kind != Kind.PLAYER:
+		return false
+	return game.guilds.allied(guild_id(), e.guild_id())
+
+
+func at_war_with(e: Entity) -> bool:
+	if e == self or kind != Kind.PLAYER or e.kind != Kind.PLAYER:
+		return false
+	return game.guilds.at_war(guild_id(), e.guild_id())
+
+
+func title() -> String:
+	return Rules.title(fame, karma)
+
+
+func title_name() -> String:
+	var t := title()
+	return display_name if t == "" else "%s the %s" % [display_name, t]
+
+
+## Gains slow down near the top (and losses near the bottom), as in the classic game.
+func add_fame(n: int) -> void:
+	var before := title()
+	if n > 0:
+		n = maxi(1, roundi(n * (1.0 - float(fame) / 12000.0)))
+	fame = clampi(fame + n, 0, Rules.FAME_MAX)
+	_title_changed(before)
+
+
+func add_karma(n: int) -> void:
+	var before := title()
+	if n > 0:
+		n = maxi(1, roundi(n * (1.0 - float(maxi(karma, 0)) / 12000.0)))
+	karma = clampi(karma + n, -Rules.KARMA_MAX, Rules.KARMA_MAX)
+	_title_changed(before)
+
+
+func _title_changed(before: String) -> void:
+	if is_hero and title() != before:
+		game.log_event("You are now known as %s." % title_name())
+		game.count("title_changes")
+
+
+## Fame and karma for a kill: monsters give fame (and karma, unless just an animal); criminals
+## and murderers give karma; an innocent costs a lot of it; guild-war kills give fame only.
+func reputation_for_kill(v: Entity) -> void:
+	if v.kind == Kind.MONSTER or v.kind == Kind.PET:
+		add_fame(roundi(v.danger * 30.0))
+		if not v.passive and v.species == "":
+			add_karma(roundi(v.danger * 20.0))
+	elif v.kind == Kind.PLAYER:
+		if at_war_with(v):
+			add_fame(100)
+		elif v.notoriety() != Notoriety.BLUE:
+			add_fame(100)
+			add_karma(150)
+		else:
+			add_fame(50)
+			add_karma(-700)

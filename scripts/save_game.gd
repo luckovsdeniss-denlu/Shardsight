@@ -43,6 +43,9 @@ static func save(hero: Entity, property: Property) -> bool:
 		"arrows": hero.arrows,
 		"tool_uses": hero.tool_uses,
 		"murders": hero.murder_counts,
+		"fame": hero.fame,
+		"karma": hero.karma,
+		"guilds": hero.game.guilds.to_dict(hero.display_name),
 		"pets": _pets_of(hero),
 		"spellbook": hero.spellbook.keys(),
 		"property": property.to_dict(),
@@ -92,6 +95,15 @@ static func load_into(hero: Entity, property: Property) -> bool:
 			hero.stats.locks[id] = clampi(int(locks[key]), 0, 2)
 
 	hero.murder_counts = clampi(int(d.get("murders", 0)), 0, 99)
+	hero.fame = clampi(int(d.get("fame", 0)), 0, Rules.FAME_MAX)
+	hero.karma = clampi(int(d.get("karma", 0)), -Rules.KARMA_MAX, Rules.KARMA_MAX)
+	var gd: Variant = d.get("guilds", {})
+	if typeof(gd) == TYPE_DICTIONARY:
+		var names := []
+		for e in hero.game.creatures:
+			if e.kind == Entity.Kind.PLAYER:
+				names.append(e.display_name)
+		hero.game.guilds.load_dict(gd, hero.display_name, names)
 	var pets: Variant = d.get("pets", [])
 	if typeof(pets) == TYPE_ARRAY:
 		hero.game.saved_pets = pets            # spawned next to the hero once the world is up
