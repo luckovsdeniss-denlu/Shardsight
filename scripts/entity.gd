@@ -510,7 +510,7 @@ func _chase() -> void:
 	var reach := attack_range()
 	if (kind != Kind.PLAYER or ai_enabled) and _best_spell("attack") != "":
 		reach = maxf(reach, SPELL_RANGE)   # casters keep their distance
-	if position.distance_to(target.position) > reach:
+	if position.distance_to(target.position) > reach or not world.line_clear(position, target.position):
 		if repath_timer <= 0.0 or path.is_empty():
 			repath_timer = 0.4
 			var p: Array[Vector3] = world.find_path(position, target.position, _avoids_town())
