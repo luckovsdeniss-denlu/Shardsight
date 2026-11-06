@@ -44,6 +44,17 @@ const MAGE := {
 	},
 }
 
+# An archer: shoots from range with a bow and buys arrows from the merchant.
+const ARCHER := {
+	"str": 30, "dex": 30, "int": 15, "wspeed": 45, "dmg_min": 3, "dmg_max": 6,
+	"move": 3.8, "leash": 9, "aggro": 7.0, "respawn": 5.0, "gold": 30,
+	"weapon": "bow", "arrows": 60, "wear": "leather_armor", "bandages": 6,
+	"skills": {
+		Hero.Skill.ARCHERY: 55.0, Hero.Skill.TACTICS: 45.0, Hero.Skill.ANATOMY: 30.0,
+		Hero.Skill.HEALING: 30.0, Hero.Skill.TRACKING: 30.0,
+	},
+}
+
 # A player killer: preys on innocent players in the wilderness.
 const PKILLER := {
 	"str": 30, "dex": 30, "int": 10, "wspeed": 58, "dmg_min": 1, "dmg_max": 2,

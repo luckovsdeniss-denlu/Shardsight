@@ -915,6 +915,7 @@ func _open_help() -> void:
 		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked for the 700-point cap.",
 		"Die and you become a ghost: walk to a healer to be raised for free. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
+		"The world is bigger now: Southmoor, a third town, lies south. Wolf packs and an orc fort roam the far east, spiders the southern forest, and the restless dead an old graveyard in the south-east. The hills south-east are rich in ore.",
 		"Father Corwin, the priest by the healer, cures poison for free, blesses you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lifts a murder count for 50 gold. Just stand near him.",
 		"Menu also has Craft, Bank & House, Travel (Recall, Mark, Gate Travel) and Settings (sound, camera).",
 	]:
@@ -1261,6 +1262,12 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.PLAYER, "Mira", Bestiary.FIGHTER, blue, Vector2i(20, 18))
 	_spawn(Entity.Kind.PLAYER, "Selene", Bestiary.MAGE, blue, Vector2i(18, 8))
 	_spawn(Entity.Kind.PLAYER, "Vex", Bestiary.PKILLER, blue, Vector2i(15, 16))   # a player killer
+	_spawn(Entity.Kind.PLAYER, "Gareth", Bestiary.WARRIOR, blue, Vector2i(52, 35))
+	_spawn(Entity.Kind.PLAYER, "Lyra", Bestiary.MAGE, blue, Vector2i(47, 35))
+	_spawn(Entity.Kind.PLAYER, "Thorne", Bestiary.FIGHTER, blue, Vector2i(60, 6))
+	_spawn(Entity.Kind.PLAYER, "Brina", Bestiary.ARCHER, blue, Vector2i(12, 26))
+	_spawn(Entity.Kind.PLAYER, "Dorian", Bestiary.WARRIOR, blue, Vector2i(54, 37))
+	_spawn(Entity.Kind.PLAYER, "Morg", Bestiary.PKILLER, blue, Vector2i(70, 30))  # another player killer
 
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(25, 13))
@@ -1276,6 +1283,13 @@ func _spawn_all() -> void:
 	# The outpost, east of the main town, near the dungeon.
 	_spawn(Entity.Kind.NPC, "Brother Aldo", Bestiary.HEALER, cream, Vector2i(35, 4))
 	_spawn(Entity.Kind.NPC, "Outpost Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(38, 6))
+	# Southmoor, the southern town: its merchant pays a little more and charges a little more.
+	_spawn(Entity.Kind.NPC, "Sister Maeve", Bestiary.HEALER, cream, Vector2i(46, 31))
+	var hollis := _spawn(Entity.Kind.NPC, "Hollis", Bestiary.MERCHANT, cream, Vector2i(53, 31))
+	hollis.shop = Shop.new("Southmoor", 1.15, 1.1)
+	_spawn(Entity.Kind.NPC, "Pell", Bestiary.BANKER, cream, Vector2i(46, 37))
+	_spawn(Entity.Kind.NPC, "Southmoor Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(44, 34))
+	_spawn(Entity.Kind.NPC, "Southmoor Guard", Bestiary.GUARD, Color("9aa7b5"), Vector2i(55, 34))
 
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(12, 8))
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(6, 11))
@@ -1293,6 +1307,39 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.MONSTER, "Zombie", Bestiary.ZOMBIE, Color("6f8f5a"), Vector2i(44, 12))
 	_spawn(Entity.Kind.MONSTER, "Ogre", Bestiary.OGRE, Color("8a6a4a"), Vector2i(44, 20))
 	_spawn(Entity.Kind.MONSTER, "Lich", Bestiary.LICH, Color("6a4a8a"), Vector2i(48, 12))
+
+	# The eastern wilds: wolf packs, deer, the bear wood and the orc fort.
+	for t in [Vector2i(58, 10), Vector2i(60, 12), Vector2i(57, 13)]:
+		_spawn(Entity.Kind.MONSTER, "Wolf", Bestiary.WOLF, red, t)
+	for t in [Vector2i(75, 18), Vector2i(88, 15)]:
+		_spawn(Entity.Kind.MONSTER, "Hind", Bestiary.HIND, Color("b08a5a"), t)
+	for t in [Vector2i(63, 17), Vector2i(67, 18)]:
+		_spawn(Entity.Kind.MONSTER, "Brown Bear", Bestiary.BROWN_BEAR, Color("6b4a2a"), t)
+	for t in [Vector2i(55, 4), Vector2i(70, 3)]:
+		_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, t)
+	for t in [Vector2i(84, 4), Vector2i(87, 6), Vector2i(90, 4), Vector2i(86, 8)]:
+		_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, t)
+	_spawn(Entity.Kind.MONSTER, "Ogre", Bestiary.OGRE, Color("8a6a4a"), Vector2i(88, 3))
+	# The southern forest: spiders, wolves, deer.
+	for t in [Vector2i(10, 34), Vector2i(22, 38)]:
+		_spawn(Entity.Kind.MONSTER, "Giant Spider", Bestiary.GIANT_SPIDER, Color("3a3a2a"), t)
+	for t in [Vector2i(15, 28), Vector2i(26, 44)]:
+		_spawn(Entity.Kind.MONSTER, "Wolf", Bestiary.WOLF, red, t)
+	_spawn(Entity.Kind.MONSTER, "Hind", Bestiary.HIND, Color("b08a5a"), Vector2i(8, 30))
+	_spawn(Entity.Kind.MONSTER, "Brown Bear", Bestiary.BROWN_BEAR, Color("6b4a2a"), Vector2i(20, 33))
+	# The swamp, the hills and the plains round Southmoor.
+	for t in [Vector2i(40, 43), Vector2i(31, 35)]:
+		_spawn(Entity.Kind.MONSTER, "Zombie", Bestiary.ZOMBIE, Color("6f8f5a"), t)
+	_spawn(Entity.Kind.MONSTER, "Ogre", Bestiary.OGRE, Color("8a6a4a"), Vector2i(70, 44))
+	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(66, 41))
+	_spawn(Entity.Kind.MONSTER, "Evil Mage", Bestiary.EVIL_MAGE, red, Vector2i(78, 26))
+	for t in [Vector2i(40, 30), Vector2i(58, 36), Vector2i(45, 26), Vector2i(62, 28)]:
+		_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, t)
+	# The old graveyard in the south-east: the restless dead.
+	for t in [Vector2i(85, 30), Vector2i(90, 34), Vector2i(86, 38)]:
+		_spawn(Entity.Kind.MONSTER, "Skeleton", Bestiary.SKELETON, Color("d8d2c0"), t)
+	_spawn(Entity.Kind.MONSTER, "Zombie", Bestiary.ZOMBIE, Color("6f8f5a"), Vector2i(89, 30))
+	_spawn(Entity.Kind.MONSTER, "Lich", Bestiary.LICH, Color("6a4a8a"), Vector2i(91, 35))
 
 
 func _spawn(kind: int, label_text: String, cfg: Dictionary, color: Color, tile: Vector2i) -> Entity:

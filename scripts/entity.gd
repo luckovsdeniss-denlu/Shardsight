@@ -966,7 +966,7 @@ func _resupply() -> bool:
 	if not restocking:
 		return false
 	target = null
-	var m := _find_role("merchant")
+	var m := _nearest_role("merchant")
 	if m != null and position.distance_to(m.position) > 2.0 and path.is_empty():
 		go_to(m.position)
 	return true
@@ -1775,7 +1775,7 @@ func _bank_trip() -> bool:
 		banking = true
 	if not banking:
 		return false
-	var banker := _find_role("banker")
+	var banker := _nearest_role("banker")
 	if banker == null:
 		banking = false
 		return false

@@ -36,6 +36,18 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
   (lute, pickaxe, hatchet, tool kit), gather and craft when idle, play bard songs (peace,
   provoke, entice), tame animals, track, buy a lute, and bank their gold in their own account.
   Tracking now works for crafters too (the hero never tracked before).
+- A world four times bigger (96x48 tiles, was 52x24). The old map is unchanged in the north-west,
+  with new land east and south:
+  - Southmoor, a third town (healer Sister Maeve, merchant Hollis, banker Pell, two guards).
+  - The eastern wilds with wolf packs, deer, a bear wood, a lake, and a walled orc fort with an ogre.
+  - A dense southern forest (spiders, wolves), a swamp with zombies, ore-rich hills.
+  - An old walled graveyard in the south-east: skeletons, a zombie and a lich.
+  - About 40 more monsters, so roughly twice as many in all.
+- Six more players (eleven in all): Gareth and Dorian (warriors), Lyra (mage), Thorne
+  (fencer), Brina (a new archer with a bow and arrows) and Morg (a second player killer).
+- Players resupply and bank at the nearest merchant and banker, not always the first one.
+- The minimap shrinks its tiles to stay 240 px wide, and trees, rocks, walls and water are drawn
+  in batches (one draw call per kind) so the bigger map stays fast on phones.
 - Two logs: your own events lower left, everyone else's (deaths, crimes, resurrections) lower right.
 
 ## 0.21.0

@@ -4,7 +4,8 @@ extends Control
 ## (you in white, pets green, monsters and murderers red, criminals grey, other players blue,
 ## NPCs cream).
 
-const PX := 4.0
+const MAX_WIDTH := 240.0         # the bigger the map, the smaller each tile on the minimap
+var px := 4.0
 const COLORS := {
 	World.Tile.GRASS: Color(0.20, 0.36, 0.22),
 	World.Tile.WALL: Color(0.45, 0.46, 0.50),
@@ -23,7 +24,8 @@ var _timer := 0.0
 func setup(p_game, p_world: World) -> void:
 	game = p_game
 	world = p_world
-	custom_minimum_size = Vector2(world.cols, world.rows) * PX
+	px = minf(4.0, MAX_WIDTH / float(world.cols))
+	custom_minimum_size = Vector2(world.cols, world.rows) * px
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
@@ -46,13 +48,13 @@ func _draw() -> void:
 				col = Color(0.55, 0.50, 0.36)
 			elif world.is_dungeon(c) and world.tiles[y * world.cols + x] == World.Tile.GRASS:
 				col = Color(0.17, 0.15, 0.14)
-			draw_rect(Rect2(Vector2(x, y) * PX, Vector2(PX, PX)), col)
+			draw_rect(Rect2(Vector2(x, y) * px, Vector2(px, px)), col)
 	var list: Array = game.creatures
 	for item in list:
 		var e := item as Entity
 		if e.dead and not e.ghost:
 			continue
-		var p := Vector2(e.position.x, e.position.z) / World.TILE * PX
+		var p := Vector2(e.position.x, e.position.z) / World.TILE * px
 		draw_circle(p, 3.0 if e.is_hero else 2.0, _dot_color(e))
 
 
