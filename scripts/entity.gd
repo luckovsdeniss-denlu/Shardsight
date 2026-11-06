@@ -115,7 +115,7 @@ var spawn_color := Color.WHITE
 var species := ""              # tameable animals only
 var tame_min := -1.0           # minimum Animal Taming to tame it (-1: can't be tamed)
 var passive := false           # never starts a fight
-var owner: Entity = null       # for pets
+var pet_owner: Entity = null       # for pets
 var pets: Array[Entity] = []
 var tame_target: Entity = null
 var tame_timer := 0.0
@@ -606,7 +606,7 @@ func _refresh_label() -> void:
 	if kind == Kind.NPC:
 		text = "%s\n(%s)" % [display_name, role]
 	elif kind == Kind.PET:
-		text += "\n(%s's pet)" % (owner.display_name if owner != null else "a")
+		text += "\n(%s's pet)" % (pet_owner.display_name if pet_owner != null else "a")
 	elif ghost:
 		text = "%s\n(ghost)" % display_name
 	elif kind == Kind.PLAYER and notoriety() == Notoriety.RED:
@@ -1817,20 +1817,20 @@ func _spend(n: int) -> void:
 
 ## Pets follow their owner, attack what the owner attacks (monsters only) and defend themselves.
 func _pet_think() -> void:
-	if owner == null or not is_instance_valid(owner):
+	if pet_owner == null or not is_instance_valid(pet_owner):
 		return
-	if target == null and owner.target != null and is_instance_valid(owner.target) \
-			and not owner.target.dead and owner.target.kind == Kind.MONSTER:
-		target = owner.target
-	if target != null and position.distance_to(owner.position) > PET_LEASH:
+	if target == null and pet_owner.target != null and is_instance_valid(pet_owner.target) \
+			and not pet_owner.target.dead and pet_owner.target.kind == Kind.MONSTER:
+		target = pet_owner.target
+	if target != null and position.distance_to(pet_owner.position) > PET_LEASH:
 		target = null                        # don't chase off too far
 	if target != null:
 		_chase()
 		return
-	if position.distance_to(owner.position) > 2.5:
+	if position.distance_to(pet_owner.position) > 2.5:
 		if repath_timer <= 0.0 or path.is_empty():
 			repath_timer = 0.5
-			go_to(owner.position)
+			go_to(pet_owner.position)
 	else:
 		path.clear()
 
@@ -1931,7 +1931,7 @@ func _tame_channel(delta: float) -> void:
 ## Turns a wild animal into this player's pet.
 func adopt_pet(p: Entity) -> void:
 	p.kind = Kind.PET
-	p.owner = self
+	p.pet_owner = self
 	p.target = null
 	p.path.clear()
 	p.passive = false
@@ -1942,7 +1942,7 @@ func adopt_pet(p: Entity) -> void:
 func release_pet(p: Entity) -> void:
 	pets.erase(p)
 	p.kind = Kind.MONSTER
-	p.owner = null
+	p.pet_owner = null
 	p.target = null
 	p.home = p.position
 	p._last_text = ""

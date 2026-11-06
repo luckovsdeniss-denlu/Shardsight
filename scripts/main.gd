@@ -590,10 +590,10 @@ func _quest_text() -> String:
 
 ## Called by Entity._die for every death.
 func on_kill(killer: Entity, victim: Entity) -> void:
-	if killer != null and killer.kind == Entity.Kind.PET and killer.owner != null:
-		if killer.owner.is_hero:
+	if killer != null and killer.kind == Entity.Kind.PET and killer.pet_owner != null:
+		if killer.pet_owner.is_hero:
 			count("pet_kills")
-		killer = killer.owner                # a pet's kill counts for its owner (quests too)
+		killer = killer.pet_owner                # a pet's kill counts for its owner (quests too)
 	if killer != null and killer.is_hero:
 		count("kills")
 		count("hero_killed_" + victim.display_name)
@@ -859,9 +859,9 @@ func tame(tamer: Entity, animal: Entity) -> void:
 
 
 func on_pet_died(p: Entity) -> void:
-	if p.owner != null:
-		p.owner.pets.erase(p)
-		if p.owner.is_hero:
+	if p.pet_owner != null:
+		p.pet_owner.pets.erase(p)
+		if p.pet_owner.is_hero:
 			log_event("Your %s has died." % p.display_name)
 
 
