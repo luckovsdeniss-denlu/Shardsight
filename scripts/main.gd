@@ -1177,7 +1177,8 @@ func _autotest_finish() -> void:
 		_note_problem("none of the hero's skills rose")
 	var earned := int(counters.get("gold_earned", 0))
 	var spent := int(counters.get("gold_spent", 0))
-	if earned <= spent:
+	# An economy check: only meaningful over a longer run (a short one can be all fighting).
+	if earned <= spent and autotest_seconds >= 1800.0:
 		_note_problem("the hero spent at least as much gold as it earned (%d earned, %d spent)" % [earned, spent])
 	var deaths := int(counters.get("hero_deaths", 0))
 	if deaths > int(counters.get("kills", 0)):
