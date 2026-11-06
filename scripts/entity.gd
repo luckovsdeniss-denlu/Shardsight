@@ -701,6 +701,8 @@ func take_damage(amount: float, from: Entity) -> void:
 		tame_target = null
 		_pop("interrupted", Color(0.75, 0.75, 0.75))
 	_pop("-%d" % maxi(1, roundi(amount)), Color(1.0, 0.45, 0.4))
+	if from != target and not retreating and _outmatched(from) and kind == Kind.PLAYER and (ai_enabled or not is_hero):
+		start_retreat()                # mid-fight, something far stronger joins in: get out
 	if target == null and not recovering and not retreating:
 		if _outmatched(from) and (kind != Kind.PLAYER or ai_enabled or not is_hero):
 			start_retreat()            # far too strong: run for a healer in a safe town
