@@ -3910,10 +3910,10 @@ func toggle_ride() -> String:
 func _holo_step(delta: float, moving: bool) -> void:
 	if kind != Kind.PLAYER:
 		return
-	var busy := moving or dead or target != null or casting_id != "" or perform_timer > 0.0 \
+	var busy: bool = moving or dead or target != null or casting_id != "" or perform_timer > 0.0 \
 		or bandage_timer > 0.0 or tame_timer > 0.0 or gather_tile.x >= 0 or swing_anim > 0.0
 	idle_time = 0.0 if busy else idle_time + delta
-	var want := idle_time >= 3.0 and bool(game.property.glitch_on) and not game.autotest
+	var want: bool = idle_time >= 3.0 and bool(game.property.glitch_on) and not bool(game.autotest)
 	if want == holo:
 		return
 	holo = want
