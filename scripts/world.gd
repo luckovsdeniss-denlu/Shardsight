@@ -84,6 +84,7 @@ var astar_outside := AStarGrid2D.new()   # same grid, but the towns are walled o
 var forge_tile := Vector2i(-1, -1)
 var house_nodes := {}            # house origin -> Node3D holding its meshes
 var decor: Array = []            # the grass tufts and flowers (hidden on Low graphics)
+var revision := 0                # bumped when tiles change (houses), so the minimap redraws them
 var _harvest_left := {}          # tile -> tries left
 var _regrow_at := {}             # tile -> Time.get_ticks_msec() when an exhausted node recovers
 
@@ -272,6 +273,7 @@ func can_place_house(o: Vector2i, occupied: Dictionary, size := 3) -> bool:
 
 
 func place_house(parent: Node3D, o: Vector2i, size := 3) -> void:
+	revision += 1
 	for c in house_wall_tiles(o, size):
 		tiles[c.y * cols + c.x] = Tile.HOUSE
 		astar.set_point_solid(c, true)
@@ -304,6 +306,7 @@ func place_house(parent: Node3D, o: Vector2i, size := 3) -> void:
 
 
 func remove_house(o: Vector2i, size := 3) -> void:
+	revision += 1
 	for c in house_wall_tiles(o, size):
 		tiles[c.y * cols + c.x] = Tile.GRASS
 		astar.set_point_solid(c, false)

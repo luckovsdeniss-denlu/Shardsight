@@ -2234,6 +2234,7 @@ func _spawn_all() -> void:
 
 	hero = _spawn(Entity.Kind.PLAYER, "Hero", Bestiary.HERO, gold, Vector2i(5, 5))
 	hero.is_hero = true
+	hero._think_every = 0.05                  # the hero decides quickly, so taps feel immediate
 	_spawn(Entity.Kind.PLAYER, "Aldric", Bestiary.WARRIOR, blue, Vector2i(10, 10))
 	_spawn(Entity.Kind.PLAYER, "Mira", Bestiary.FIGHTER, blue, Vector2i(20, 18))
 	_spawn(Entity.Kind.PLAYER, "Selene", Bestiary.MAGE, blue, Vector2i(18, 8))
@@ -2634,7 +2635,13 @@ func _process(delta: float) -> void:
 		marker.visible = true
 		marker.position = hero.path[hero.path.size() - 1] + Vector3(0.0, 0.03, 0.0)
 	_follow_camera()
-	_update_hud()
+	_hud_timer -= delta
+	if _hud_timer <= 0.0:
+		_hud_timer = 0.2                     # the HUD text five times a second
+		_update_hud()
+
+
+var _hud_timer := 0.0
 
 
 func _update_hud() -> void:

@@ -210,6 +210,12 @@ var anim_t := 0.0
 var swing_anim := 0.0
 var _last_pos := Vector3.ZERO
 var idle_time := 0.0           # seconds standing still with nothing to do
+var _think_acc := 0.0
+var _think_every := 0.12       # seconds between decisions (the hero decides faster)
+var _aura_acc := 0.0
+var _label_acc := 0.0
+var _cull_timer := 0.0
+var _near := true              # close enough to the camera to be drawn and animated
 var holo := false              # showing the idle hologram
 
 
@@ -271,6 +277,8 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	mount_carry = float(cfg.get("mount_carry", 1.0))
 	saddle = float(cfg.get("saddle", 0.62))
 	is_boss = bool(cfg.get("boss", false))
+	_think_every = randf_range(0.1, 0.16)    # staggered, so not everyone decides on the same frame
+	_think_acc = randf() * _think_every
 	karma = int(cfg.get("karma", 0)) if p_kind != Kind.PLAYER else 0
 	# Players start with the first four circles and copy the rest from scrolls; monsters (and
 	# configs marked "all") know every spell.
@@ -309,13 +317,19 @@ func tick(delta: float) -> void:
 	if dead:
 		if ghost:
 			_ghost_tick(delta)
-			_animate(delta)
+			if _near:
+				_animate(delta)
 		else:
 			dead_timer -= delta
 			if dead_timer <= 0.0:
 				_respawn()
 		return
-	_animate(delta)
+	_cull_timer -= delta
+	if _cull_timer <= 0.0:
+		_cull_timer = 0.5
+		_update_cull()
+	if _near:
+		_animate(delta)
 	gate_cd = maxf(gate_cd - delta, 0.0)
 	swing_cd = maxf(swing_cd - delta, 0.0)
 	cast_cd = maxf(cast_cd - delta, 0.0)
@@ -360,31 +374,36 @@ func tick(delta: float) -> void:
 			return
 	if paralyzed_timer > 0.0:
 		paralyzed_timer -= delta          # frozen: no moving, swinging or casting
-		_refresh_label()
+		_maybe_label(delta)
 		return
-	if role == "healer":
-		_heal_aura(delta)
-	elif role == "merchant":
-		_market_aura(delta)
-	elif role == "priest":
-		_priest_aura(delta)
+	if role == "healer" or role == "merchant" or role == "priest":
+		_aura_acc += delta
+		if _aura_acc >= 0.25:              # town services 4 times a second, not every frame
+			match role:
+				"healer":
+					_heal_aura(_aura_acc)
+				"merchant":
+					_market_aura(_aura_acc)
+				"priest":
+					_priest_aura(_aura_acc)
+			_aura_acc = 0.0
 	if casting_id != "":
 		_cast_step(delta)
-		_refresh_label()
+		_maybe_label(delta)
 		return
 	if tame_timer > 0.0:
 		_tame_channel(delta)
-		_refresh_label()
+		_maybe_label(delta)
 		return
 	if perform_timer > 0.0:
 		_perform_channel(delta)
-		_refresh_label()
+		_maybe_label(delta)
 		return
 	if bandage_timer > 0.0:
 		bandage_timer -= delta
 		if bandage_timer <= 0.0:
 			_finish_bandage()
-		_refresh_label()
+		_maybe_label(delta)
 		return
 	_gear_timer -= delta
 	if _gear_timer <= 0.0:
@@ -393,10 +412,14 @@ func tick(delta: float) -> void:
 			_manage_gear()
 			if kind == Kind.PLAYER and (ai_enabled or not is_hero):
 				_auto_mount()
-	_think(delta)
+	# Decisions a few times a second (they scan everyone around); moving and swinging every frame.
+	_think_acc += delta
+	if _think_acc >= _think_every:
+		_think(_think_acc)
+		_think_acc = 0.0
 	_follow_path(delta)
 	_fight()
-	_refresh_label()
+	_maybe_label(delta)
 
 
 # --- decisions -------------------------------------------------------------
@@ -3921,3 +3944,31 @@ func _holo_step(delta: float, moving: bool) -> void:
 		(mi as MeshInstance3D).material_overlay = Art.holo_mat() if holo else null
 	if holo and is_hero:
 		game.glitch(0.25, 0.15)              # a little flicker as it switches over
+
+
+# --- performance: what runs how often ------------------------------------------------------
+
+## Labels are rebuilt five times a second, and only for creatures near the camera.
+func _maybe_label(delta: float) -> void:
+	_label_acc += delta
+	if _label_acc >= 0.2 and _near:
+		_label_acc = 0.0
+		_refresh_label()
+
+
+## Creatures well outside the view aren't drawn or animated (they still act as usual).
+func _update_cull() -> void:
+	var h: Entity = game.hero
+	var near_now := true
+	if h != null and h != self and pet_owner != h:
+		var reach := 26.0 * float(game.property.cam_zoom) + 6.0
+		near_now = position.distance_squared_to(h.position) <= reach * reach
+	if near_now == _near:
+		return
+	_near = near_now
+	if rig != null:
+		rig.visible = _near
+	if label != null:
+		label.visible = _near
+	if _near:
+		_label_acc = 1.0                      # refresh the label at once

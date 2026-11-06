@@ -19,6 +19,26 @@ const COLORS := {
 var game
 var world: World
 var _timer := 0.0
+var _terrain: ImageTexture       # the map itself, drawn once (and again when a house changes it)
+var _revision := -1
+
+
+## Paints the terrain into a small image, one pixel per tile, scaled up when drawn.
+func _bake_terrain() -> void:
+	var img := Image.create(world.cols, world.rows, false, Image.FORMAT_RGBA8)
+	for y in range(world.rows):
+		for x in range(world.cols):
+			var c := Vector2i(x, y)
+			var t: int = world.tiles[y * world.cols + x]
+			var col: Color = COLORS.get(t, Color(0, 0, 0))
+			if t == World.Tile.GRASS and world.is_town(c):
+				col = Color(0.55, 0.50, 0.36)
+			elif t == World.Tile.GRASS and world.is_dungeon(c):
+				col = Color(0.17, 0.15, 0.14)
+			col.a = 0.85
+			img.set_pixel(x, y, col)
+	_terrain = ImageTexture.create_from_image(img)
+	_revision = world.revision
 
 
 func setup(p_game, p_world: World) -> void:
@@ -26,6 +46,7 @@ func setup(p_game, p_world: World) -> void:
 	world = p_world
 	px = minf(4.0, MAX_WIDTH / float(world.cols))
 	custom_minimum_size = Vector2(world.cols, world.rows) * px
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST   # crisp tiles when the baked map is scaled up
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
@@ -39,16 +60,9 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if world == null:
 		return
-	draw_rect(Rect2(Vector2.ZERO, custom_minimum_size), Color(0, 0, 0, 0.5))
-	for y in range(world.rows):
-		for x in range(world.cols):
-			var c := Vector2i(x, y)
-			var col: Color = COLORS.get(world.tiles[y * world.cols + x], Color(0, 0, 0))
-			if world.is_town(c) and world.tiles[y * world.cols + x] == World.Tile.GRASS:
-				col = Color(0.55, 0.50, 0.36)
-			elif world.is_dungeon(c) and world.tiles[y * world.cols + x] == World.Tile.GRASS:
-				col = Color(0.17, 0.15, 0.14)
-			draw_rect(Rect2(Vector2(x, y) * px, Vector2(px, px)), col)
+	if _terrain == null or _revision != world.revision:
+		_bake_terrain()
+	draw_texture_rect(_terrain, Rect2(Vector2.ZERO, custom_minimum_size), false)
 	var list: Array = game.creatures
 	for item in list:
 		var e := item as Entity

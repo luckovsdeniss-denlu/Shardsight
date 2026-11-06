@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.33.0
+Performance.
+- Faster: creatures decide 7-10 times a second instead of every frame (the hero 20 times, so
+  taps still feel immediate), with movement, swings and animation still every frame; creatures
+  well outside the view aren't drawn or animated (they keep acting); name labels refresh 5
+  times a second and only nearby; town services (healer, merchant, priest) run 4 times a
+  second; the minimap's terrain is drawn once into a picture instead of 4,600 squares four
+  times a second; the HUD text refreshes 5 times a second.
+
 ## 0.32.0
 Mounts.
 - Fix: monsters noticed and spellcasters hit targets through walls (the dungeon's Bone King
