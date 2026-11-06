@@ -24,6 +24,12 @@ const MAX_REAGENTS := 60.0
 const BANDAGE_PRICE := 2
 const MAX_BANDAGES := 10
 const MARKET_RANGE := 4.0          # the merchant trades with players this close
+const PRIEST_RANGE := 4.0          # the priest serves players this close
+const BLESS_PRICE := 25            # gold for the priest's blessing
+const BLESS_SECONDS := 300.0       # how long a blessing lasts
+const BLESS_DAMAGE := 1.1          # blessed: +10% damage dealt...
+const BLESS_ARMOR := 0.9           # ...and -10% damage taken
+const CONFESS_PRICE := 50          # gold to have one murder count lifted
 const GATHER_TIME := 2.0           # seconds per swing of the pickaxe or hatchet
 const CARRY_MATERIALS := 30        # gatherers stop when carrying this many materials
 const SWING_ANIM := 0.22           # seconds of the attack lunge
@@ -44,6 +50,7 @@ const LUTE_PRICE := 20
 const ARROW_PRICE := 1
 const TOOL_PRICE := 12
 const TOOL_USES := 40              # a pickaxe, hatchet or tool kit lasts this many uses
+const TOOL_RESERVE := 8            # gold kept back when buying a missing tool
 const TOOLS := ["pickaxe", "hatchet", "tool_kit"]
 const SUPPLY_RESERVE := 30         # gold kept back when restocking supplies at the merchant
 const CRIMINAL_SECONDS := 60.0     # grey after attacking an innocent
@@ -135,6 +142,9 @@ var bandage_target: Entity = null
 var shop: Shop = null          # merchants: their purse, shelves and town prices
 var arrows := 0
 var hurt_timer := 0.0          # natural healing stops for a while after taking a blow
+var bless_timer := 0.0         # seconds of the priest's blessing left
+var craft_cd := 0.0            # after a fruitless forge visit, wait before the next one
+var _priest_timer := 0.0
 var tame_walk := 0.0           # seconds spent walking after the animal being tamed
 var tool_uses := {}            # tool id -> uses left on the one in hand
 var track_cd := 0.0
@@ -275,6 +285,8 @@ func tick(delta: float) -> void:
 	poison_immune = maxf(poison_immune - delta, 0.0)
 	tame_cd = maxf(tame_cd - delta, 0.0)
 	track_cd = maxf(track_cd - delta, 0.0)
+	bless_timer = maxf(bless_timer - delta, 0.0)
+	craft_cd = maxf(craft_cd - delta, 0.0)
 	camp_cd = maxf(camp_cd - delta, 0.0)
 	if game.near_campfire(position):
 		hp = minf(hp + REGEN_PER_SEC * 3.0 * delta, float(stats.max_hp()))   # resting by a fire
@@ -289,6 +301,8 @@ func tick(delta: float) -> void:
 		_heal_aura(delta)
 	elif role == "merchant":
 		_market_aura(delta)
+	elif role == "priest":
+		_priest_aura(delta)
 	if casting_id != "":
 		_cast_step(delta)
 		_refresh_label()
@@ -520,6 +534,8 @@ func _fight() -> void:
 		var anatomy: float = stats.skills.get(Hero.Skill.ANATOMY, 0.0)
 		var dmg := randf_range(lo, hi) * Rules.damage_multiplier(
 			float(stats.strength), tactics, anatomy)
+		if bless_timer > 0.0:
+			dmg *= BLESS_DAMAGE
 		var dealt := target._absorb(dmg)
 		if is_hero:
 			game.count("hero_hits")
@@ -540,6 +556,8 @@ func _fight() -> void:
 
 ## Armor soaks a random half-to-all of its rating, but a hit always does at least 1.
 func _absorb(amount: float) -> float:
+	if bless_timer > 0.0:
+		amount *= BLESS_ARMOR
 	if shield_id != "":
 		if kind == Kind.PLAYER:
 			stats.try_gain(Hero.Skill.PARRYING)     # every attack at a shield-bearer trains it
@@ -1023,7 +1041,7 @@ func trade(delta: float, s: Shop) -> void:
 			arrows += 10
 		for tool in _needed_tools():
 			var tp := s.price(TOOL_PRICE)
-			if gold >= tp + SUPPLY_RESERVE:
+			if gold >= tp + TOOL_RESERVE:      # tools earn the gold back: a small reserve will do
 				_pay(s, tp)
 				inventory[tool] = 1
 				tool_uses[tool] = TOOL_USES
@@ -1584,20 +1602,28 @@ func _start_gathering_nearby() -> bool:
 	return true
 
 
+## Worth a trip to the forge: ore to smelt (no tool needed), or materials to craft with a tool kit.
 func _has_craft_load() -> bool:
-	return Crafting.ore_count(inventory) >= 5 or Crafting.ingot_count(inventory) >= 3 \
+	if Crafting.ore_count(inventory) >= 5:
+		return true
+	if Crafting.count(inventory, "tool_kit") <= 0:
+		return false
+	return Crafting.ingot_count(inventory) >= 3 \
 		or Crafting.count(inventory, "wolf_pelt") >= 3 or Crafting.count(inventory, "log") >= 5
 
 
 ## With enough materials, walk to the forge, smelt and craft. Returns true while busy.
 func _craft_trip() -> bool:
-	if not crafting_trip and _has_craft_load() and gather_tile.x < 0:
+	if not crafting_trip and craft_cd <= 0.0 and _has_craft_load() and gather_tile.x < 0:
 		crafting_trip = true
 	if not crafting_trip:
 		return false
 	if world.near_forge(position):
 		crafting_trip = false
+		var before := inventory.duplicate()
 		craft_at_forge()
+		if inventory == before:
+			craft_cd = 120.0               # nothing could be made: don't keep coming back
 		return true
 	if path.is_empty():
 		var stand := world.stand_tile_for(world.forge_tile, position)
@@ -2539,3 +2565,46 @@ func _finish_spirit_speak() -> void:
 	_pop("+%d" % roundi(amount), Color(0.6, 0.8, 1.0))
 	if is_hero:
 		game.count("spirit_speak")
+
+
+# --- the priest -------------------------------------------------------------
+
+## The priest serves innocent players standing nearby (criminals and murderers are turned away).
+func _priest_aura(delta: float) -> void:
+	var list: Array = game.creatures
+	for item in list:
+		var other := item as Entity
+		if other.dead or other.kind != Kind.PLAYER or other.notoriety() != Notoriety.BLUE:
+			continue
+		if position.distance_to(other.position) <= PRIEST_RANGE:
+			other.visit_priest(delta, self)
+
+
+## Standing by the priest: poison is cured for free, a blessing is bought when there is gold to
+## spare, and murder counts can be confessed away one at a time.
+func visit_priest(delta: float, priest: Entity) -> void:
+	_priest_timer += delta
+	if _priest_timer < 1.0:
+		return
+	_priest_timer = 0.0
+	if poison_level > 0:
+		_cure("cured by %s" % priest.display_name)
+		if is_hero:
+			game.log_event("%s draws the poison out of you." % priest.display_name)
+			game.count("priest_cured")
+		return
+	if murder_counts > 0 and gold >= CONFESS_PRICE + SUPPLY_RESERVE:
+		_spend(CONFESS_PRICE)
+		murder_counts -= 1
+		murder_timer = MURDER_DECAY
+		if is_hero:
+			game.log_event("You confess to %s. One murder count is lifted (%d left)." % [priest.display_name, murder_counts])
+			game.count("confessed")
+		return
+	if bless_timer <= 0.0 and gold >= BLESS_PRICE + SUPPLY_RESERVE:
+		_spend(BLESS_PRICE)
+		bless_timer = BLESS_SECONDS
+		_pop("blessed", Color(1.0, 0.95, 0.6))
+		if is_hero:
+			game.log_event("%s blesses you: +10%% damage, -10%% damage taken for 5 minutes (%d gold)." % [priest.display_name, BLESS_PRICE])
+			game.count("blessed")

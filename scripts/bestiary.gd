@@ -59,6 +59,8 @@ const VENDOR := {"str": 20, "dex": 15, "int": 20, "move": 0.0, "leash": 0, "role
 const BANKER := {"str": 20, "dex": 15, "int": 30, "move": 1.2, "leash": 1, "role": "banker"}
 const QUESTGIVER := {"str": 50, "dex": 30, "int": 20, "move": 1.2, "leash": 1, "role": "questgiver"}
 const HEALER := {"str": 25, "dex": 15, "int": 35, "move": 1.5, "leash": 2, "role": "healer"}
+## Cures poison for free, sells a blessing and hears confessions (see Entity.visit_priest).
+const PRIEST := {"str": 20, "dex": 15, "int": 45, "move": 1.0, "leash": 1, "role": "priest"}
 
 # Hostile monsters.
 const RAT := {

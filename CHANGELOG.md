@@ -25,6 +25,13 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
   mid-fight (it ate a third of the hero's damage; fights took about 45 s per kill).
 - Player level 1 to 1000: shown in the HUD (Lv) and the Skills menu. It is derived from your
   total skill (700 = level 1000), so a new hero starts at level 1 and nothing extra is saved.
+- Priest: Father Corwin stands by the healer in town. Innocent players near him get poison
+  cured for free, can buy a blessing (25 gold: +10% damage dealt, -10% damage taken for
+  5 minutes, shown in the HUD) and can confess one murder count away for 50 gold.
+- Fix: a crafter whose tool kit broke kept walking back to the forge with nothing it could make
+  and stood there for the rest of the game. Forge trips now need something craftable (ore, or
+  materials plus a tool kit), a fruitless visit waits 2 minutes, and missing tools are bought
+  with only an 8-gold reserve.
 - Two logs: your own events lower left, everyone else's (deaths, crimes, resurrections) lower right.
 
 ## 0.21.0

@@ -912,6 +912,7 @@ func _open_help() -> void:
 		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked for the 700-point cap.",
 		"Die and you become a ghost: walk to a healer to be raised for free. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
+		"Father Corwin, the priest by the healer, cures poison for free, blesses you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lifts a murder count for 50 gold. Just stand near him.",
 		"Menu also has Craft, Bank & House, Travel (Recall, Mark, Gate Travel) and Settings (sound, camera).",
 	]:
 		settings_box.add_child(_info("• " + String(line)))
@@ -1259,6 +1260,7 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.PLAYER, "Vex", Bestiary.PKILLER, blue, Vector2i(15, 16))   # a player killer
 
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
+	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(25, 13))
 	var bran := _spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
 	bran.shop = Shop.new("town", 1.0, 1.0)
 	# The outpost is remote: its merchant pays more for goods and charges more for supplies.
@@ -1550,7 +1552,7 @@ func _update_hud() -> void:
 		bag.append("+%d more" % extra)
 	var bag_text := ", ".join(bag) if not bag.is_empty() else "empty"
 	hud.text = "Shardsight v%s   Lv %d   [%s]   %s   %s\nHP %d/%d%s   Stam %d/%d   Mana %d/%d   Reagents %d   Bandages %d   Gold %d\nStr %d  Dex %d  Int %d  (%d/%d)   Skills %.1f/%d (Menu > Skills)   Tile %d,%d\n%s\nBag: %s\n%s" % [
-		version, hero.stats.level(), hero.state_text(), hero.notoriety_text(), _clock_text(), ceili(hero.hp), s.max_hp(), _poison_text(), int(hero.stamina), s.max_stamina(),
+		version, hero.stats.level(), hero.state_text(), hero.notoriety_text(), _clock_text(), ceili(hero.hp), s.max_hp(), _poison_text() + _bless_text(), int(hero.stamina), s.max_stamina(),
 		floori(hero.mana), s.max_mana(),
 		floori(hero.reagents), hero.bandages, hero.gold,
 		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
@@ -1648,6 +1650,12 @@ func _apply_daylight() -> void:
 	sun.rotation_degrees = Vector3(-20.0 - 50.0 * maxf(sun_height, 0.0), day_time * 360.0, 0.0)
 	env.background_color = Color("0d1426").lerp(Color("87a8c9"), light)
 	env.ambient_light_energy = lerpf(0.45, 0.8, light)
+
+
+func _bless_text() -> String:
+	if hero.bless_timer <= 0.0:
+		return ""
+	return " (blessed %d:%02d)" % [int(hero.bless_timer) / 60, int(hero.bless_timer) % 60]
 
 
 func _poison_text() -> String:
