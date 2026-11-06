@@ -2093,8 +2093,8 @@ func _joystick_step(delta: float) -> void:
 	hero.gather_tile = Vector2i(-1, -1)
 	hero.crafting_trip = false
 	var dir := Vector3(v.x, 0.0, v.y).normalized().rotated(Vector3.UP, property.cam_yaw)
-	for step in [2.0, 1.2, 0.7]:
-		var dest := hero.position + dir * step
+	for step: float in [2.0, 1.2, 0.7]:
+		var dest: Vector3 = hero.position + dir * step
 		if not world.is_blocked(world.to_tile(dest)) and hero.go_to(dest):
 			return
 
