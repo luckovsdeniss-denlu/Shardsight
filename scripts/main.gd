@@ -28,6 +28,7 @@ var _music_timer := 0.0
 var rain: CPUParticles3D
 var rain_sound := AudioStreamPlayer.new()
 var _joy_timer := 0.0
+var retreat_button: Button
 var players_panel: Control
 var players_box: VBoxContainer
 var bag_panel: Control
@@ -179,6 +180,8 @@ func _ready() -> void:
 	corner.add_child(auto_button)
 	corner.add_child(_menu_button("Menu", _open_menu))
 	corner.add_child(_menu_button("Bag", _open_bag))
+	retreat_button = _menu_button("Retreat", _on_retreat)
+	corner.add_child(retreat_button)
 	minimap.setup(self, world)
 	corner.add_child(minimap)
 	corner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
@@ -1913,10 +1916,32 @@ func _refresh_players(focus: Entity) -> void:
 			p.mounted_on.display_name if p.mounted_on != null else "on foot"]))
 		if focus != null:
 			players_box.add_child(_action("Walk over to %s" % p.display_name, _on_walk_to_player.bind(p), not hero.dead))
-			if hero._is_fair_target(p):
-				players_box.add_child(_action("Attack %s" % p.display_name, _on_attack_player.bind(p), not hero.dead))
+			var problem := hero.pvp_problem(p)
+			var innocent := p.notoriety() == Entity.Notoriety.BLUE and not hero.at_war_with(p)
+			if problem == "":
+				players_box.add_child(_action("Attack %s%s" % [p.display_name,
+					" (an innocent: you become a criminal)" if innocent else ""], _on_attack_player.bind(p), not hero.dead))
+			else:
+				players_box.add_child(_info("You can't attack %s: %s." % [p.display_name, problem]))
 			players_box.add_child(_menu_button("All players", _open_players.bind(null)))
 	players_box.add_child(_menu_button("Back", _close_players))
+
+
+## The Retreat button: break off and heal (press again to stop).
+func _on_retreat() -> void:
+	if hero.dead:
+		return
+	if hero.retreating:
+		hero.stop_retreat()
+		log_event("You stop retreating.")
+	else:
+		hero.start_retreat()
+	_update_retreat_button()
+
+
+func _update_retreat_button() -> void:
+	if retreat_button != null:
+		retreat_button.text = "Retreating..." if hero.retreating else "Retreat"
 
 
 func _on_walk_to_player(p: Entity) -> void:
@@ -1927,7 +1952,11 @@ func _on_walk_to_player(p: Entity) -> void:
 
 func _on_attack_player(p: Entity) -> void:
 	_close_players()
+	hero.retreating = false
+	hero.recovering = false
+	hero.pause = MANUAL_PAUSE
 	hero.target = p
+	log_event("You attack %s!" % p.display_name)
 
 
 func _open_players(focus: Entity) -> void:
@@ -2478,6 +2507,7 @@ func _process(delta: float) -> void:
 	if autotest:
 		_autotest_tick(delta)
 	_joystick_step(delta)
+	_update_retreat_button()
 	if not _tips_left.is_empty():
 		_tip_timer -= delta
 		if _tip_timer <= 0.0:

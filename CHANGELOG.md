@@ -5,6 +5,13 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 
 ## 0.30.0
 Platform.
+- Players can attack each other by hand: tap a player (or Menu > Players) and Attack. Outside
+  town in Felucca anyone is fair game except your guild and allies; attacking an innocent makes
+  you a criminal (and a murderer if they die). Not in town, and not in Trammel except guild wars.
+- A Retreat button (under Bag): breaks off the fight and heals as you go (potions, bandages,
+  Cure and Heal spells, Invisibility / Teleport / a wall if something is right on you), walking
+  to the nearest healer in a safe town. Stops by itself once you're healed and cured; press it
+  again ("Retreating...") to stop sooner. Nothing pulls you back into a fight on the way.
 - See what other players wear: tap a player in the world, or open Menu > Players (everyone,
   nearest first). It shows title, guild, level, HP, standing (innocent, criminal, murderer,
   ghost), how they stand with your guild, distance, and their weapon (damage, speed, skill),

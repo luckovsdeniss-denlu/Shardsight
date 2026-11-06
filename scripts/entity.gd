@@ -168,6 +168,7 @@ var parked := false            # a mount being ridden: not in the world until it
 var mount_speed := 1.0         # how much faster a rider of this animal goes
 var is_boss := false
 var auto_equip := true         # put on better gear by itself (off after a choice made by hand)
+var retreating := false        # the Retreat button: break off, heal up, get to a healer
 var minion_cd := 10.0
 var stealth_left := 0.0        # metres you can still walk hidden
 var thief_mark: Entity = null
@@ -400,6 +401,9 @@ func _think(delta: float) -> void:
 		target = null
 	if kind == Kind.PET:
 		_pet_think()
+		return
+	if retreating:
+		_retreat_step()
 		return
 	if kind == Kind.PLAYER and (_try_potion() or _try_bandage()):
 		return
@@ -693,7 +697,7 @@ func take_damage(amount: float, from: Entity) -> void:
 		tame_target = null
 		_pop("interrupted", Color(0.75, 0.75, 0.75))
 	_pop("-%d" % maxi(1, roundi(amount)), Color(1.0, 0.45, 0.4))
-	if target == null and not recovering:
+	if target == null and not recovering and not retreating:
 		target = from                  # fight back
 	if hp <= 0.0:
 		_die(from)
@@ -3721,4 +3725,68 @@ func equip_problem(id: String) -> String:
 		return "your weapon needs both hands"
 	if bool(g.get("two_handed", false)) and shield_id != "":
 		return "needs both hands: take off the shield"
+	return ""
+
+
+# --- retreat and heal; attacking players by hand ------------------------------------------
+
+## Retreat: drop the fight, use what heals (potions, bandages, healing spells, Spirit Speak) and
+## head for the nearest healer, who stands in a safe town. Ends once healed and cured.
+func start_retreat() -> void:
+	retreating = true
+	target = null
+	loot_target = null
+	gather_tile = Vector2i(-1, -1)
+	crafting_trip = false
+	if casting_id != "" and String(Spells.LIST[casting_id]["kind"]) in HARMFUL_KINDS:
+		_fizzle("you break off")
+	if is_hero:
+		game.log_event("You break off and retreat to heal.")
+
+
+func stop_retreat() -> void:
+	retreating = false
+
+
+func _retreat_step() -> void:
+	target = null
+	var max_hp := float(stats.max_hp())
+	if hp >= max_hp * 0.95 and poison_level <= 0:
+		retreating = false
+		if is_hero:
+			game.log_event("You are healed and ready.")
+		return
+	_try_potion()
+	if casting_id == "" and cast_cd <= 0.0:
+		if _nearest_threat(5.0) != null and _try_escape_magic():
+			return
+		if poison_level > 0 and _best_spell("cure") != "":
+			start_cast(_best_spell("cure"), self)
+			return
+		var heal_id := _best_spell("heal")
+		if heal_id != "":
+			start_cast(heal_id, self)
+			return
+	if _try_bandage():
+		return
+	var healer := _nearest_role("healer")
+	if healer != null and position.distance_to(healer.position) > 2.0:
+		if path.is_empty() or repath_timer <= 0.0:
+			repath_timer = 0.8
+			go_to(healer.position)
+	else:
+		path.clear()                         # by the healer (or nowhere to go): rest
+
+
+## Why the hero can't attack another player by hand, or "" if it can. Outside town in Felucca
+## anyone is fair game; hitting an innocent makes you a criminal (and a murderer if they die).
+func pvp_problem(v: Entity) -> String:
+	if v == null or v.dead or v == self or v.kind != Kind.PLAYER:
+		return "nobody to attack"
+	if _in_town() or v._in_town():
+		return "nobody fights in town"
+	if _trammel() and not at_war_with(v):
+		return "no player fighting in Trammel"
+	if friends_with(v):
+		return "they're in your guild or an ally"
 	return ""
