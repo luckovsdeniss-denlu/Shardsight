@@ -2463,6 +2463,60 @@ func _tap(screen: Vector2) -> void:
 	hero.go_to(e.position if e != null else dest)
 
 
+## Loot rising out of a corpse: an icon and a coloured "+..." label for each thing taken, one
+## after another, drifting over to whoever took it. Only shown near the hero.
+func show_loot(from_pos: Vector3, looter: Entity, got: Dictionary, what: String) -> void:
+	if hero == null or from_pos.distance_to(hero.position) > 18.0:
+		return
+	var entries: Array = []
+	if int(got["gold"]) > 0:
+		entries.append(["gold", "+%d gold" % int(got["gold"])])
+	if int(got["reagents"]) > 0:
+		entries.append(["reagents", "+%d reagents" % int(got["reagents"])])
+	var found: Dictionary = got["items"]
+	for id in found:
+		var n := int(found[id])
+		entries.append([String(id), "+" + Items.item_name(id) + (" x%d" % n if n > 1 else "")])
+	if not looter.is_hero and not entries.is_empty():
+		var names: Array[String] = []
+		for e in entries:
+			names.append(String(e[1]).trim_prefix("+"))
+		world_event("%s loots %s: %s" % [looter.display_name, what, ", ".join(names)])
+	for i in range(entries.size()):
+		var id := String(entries[i][0])
+		var node := Node3D.new()
+		add_child(node)
+		node.position = from_pos + Vector3(0.0, 0.5, 0.0)
+		node.scale = Vector3.ONE * 0.01
+		var icon := MeshInstance3D.new()
+		icon.mesh = Art.item_icon(id)
+		icon.material_override = Art.vc_mat()
+		icon.scale = Vector3.ONE * 1.6
+		node.add_child(icon)
+		var lab := Label3D.new()
+		lab.text = String(entries[i][1])
+		lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		lab.no_depth_test = true
+		lab.pixel_size = 0.007
+		lab.font_size = 40
+		lab.outline_size = 12
+		lab.modulate = Art.item_color(id)
+		lab.position = Vector3(0.0, 0.45, 0.0)
+		node.add_child(lab)
+		var delay := 0.18 * i
+		var rise := from_pos + Vector3(randf_range(-0.3, 0.3), 1.6 + 0.25 * i, randf_range(-0.3, 0.3))
+		var tw := node.create_tween()
+		tw.tween_interval(delay)
+		tw.tween_property(node, "scale", Vector3.ONE, 0.15)
+		tw.tween_property(node, "position", rise, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(icon, "rotation:y", TAU, 1.2)
+		tw.tween_interval(0.5)
+		tw.tween_property(node, "position", looter.position + Vector3(0.0, 1.2, 0.0), 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(lab, "modulate:a", 0.0, 0.35)
+		tw.parallel().tween_property(node, "scale", Vector3.ONE * 0.3, 0.35)
+		tw.tween_callback(node.queue_free)
+
+
 func _corpse_near(p: Vector3) -> Corpse:
 	var best: Corpse = null
 	var best_d := 1.0

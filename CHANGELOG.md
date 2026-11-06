@@ -5,6 +5,11 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 
 ## 0.30.0
 Platform.
+- Loot you can see: a corpse's label now lists what's in it ("23 gold, Orc Ear, Longsword +2
+  more"). When anyone loots near you, each thing rises out of the corpse as a little 3D icon
+  (coin, sword, armour, shield, scroll, potion, ingot, log, pelt, pouch...) with a coloured
+  "+..." label, then drifts over to whoever took it. Other players' looting also goes to the
+  world log on the right.
 - Every use of a skill teaches it: +0.1 each time, no more dice (still up to 100 per skill and
   the 700-point total; locks still apply). The level follows, so a hero levels up about every
   seven uses: "Level N!" pops above the head, with a log line every 10 levels.

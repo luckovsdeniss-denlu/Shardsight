@@ -53,6 +53,21 @@ func setup(p_name: String, p_open: bool, p_is_player: bool, p_owner_id: int,
 	_refresh_label()
 
 
+## What's inside, for the label: "23 gold, Orc Ear, Longsword +2 more".
+func contents_text(max_entries: int) -> String:
+	var parts: Array[String] = []
+	if gold > 0:
+		parts.append("%d gold" % gold)
+	if reagents > 0:
+		parts.append("%d reagents" % reagents)
+	for id in items:
+		var n := int(items[id])
+		parts.append(Items.item_name(id) + (" x%d" % n if n > 1 else ""))
+	if parts.size() <= max_entries:
+		return ", ".join(parts)
+	return ", ".join(parts.slice(0, max_entries)) + " +%d more" % (parts.size() - max_entries)
+
+
 func is_empty() -> bool:
 	return gold <= 0 and reagents <= 0 and items.is_empty()
 
@@ -86,7 +101,7 @@ func tick(delta: float) -> void:
 func _refresh_label() -> void:
 	var text := title if title != "" else "%s's corpse" % owner_name
 	if not is_empty():
-		text += "\n(loot)"
+		text += "\n" + contents_text(3)
 	if text != _last_text:
 		_last_text = text
 		label.text = text

@@ -1302,6 +1302,7 @@ func _loot_step() -> bool:
 
 func _take(c: Corpse) -> void:
 	var got: Dictionary = c.take_all()
+	game.show_loot(c.position, self, got, c.title if c.title != "" else "%s's corpse" % c.owner_name)
 	_earn(int(got["gold"]))
 	reagents = minf(reagents + float(got["reagents"]), MAX_REAGENTS)
 	var parts: Array[String] = []

@@ -511,3 +511,84 @@ static func _spinner(model: Dictionary, look: String) -> void:
 ## A deterministic colour pick for a name (skin and hair of players and townsfolk).
 static func pick(list: Array, seed_text: String) -> Color:
 	return list[absi(seed_text.hash()) % list.size()]
+
+
+# --- loot icons -------------------------------------------------------------
+
+## The kind of thing an item is, for its icon and colour.
+static func item_category(id: String) -> String:
+	if id == "gold" or id == "reagents":
+		return id
+	if Gear.has(id):
+		return String(Gear.stats(id)["slot"])
+	if Items.is_scroll(id):
+		return "scroll"
+	if Items.is_potion(id):
+		return "potion"
+	if Items.is_food(id):
+		return "food"
+	if Items.is_tool_item(id):
+		return "tool"
+	if Items.is_instrument(id):
+		return "instrument"
+	if id == "log":
+		return "log"
+	if id.begins_with("ingot_") or id.begins_with("ore_"):
+		return "metal"
+	if id == "wolf_pelt":
+		return "pelt"
+	return "trophy"
+
+
+static func item_color(id: String) -> Color:
+	match item_category(id):
+		"gold":
+			return Color(1.0, 0.85, 0.3)
+		"reagents":
+			return Color(0.75, 0.55, 0.95)
+		"weapon", "armor", "shield":
+			return Color(0.7, 0.85, 1.0)
+		"scroll":
+			return Color(0.95, 0.9, 0.7)
+		"potion":
+			return Color(1.0, 0.5, 0.5)
+		"metal", "log", "pelt":
+			return Color(0.85, 0.7, 0.5)
+	return Color(0.92, 0.92, 0.88)
+
+
+## A small icon for a looted item (cached per kind).
+static func item_icon(id: String) -> ArrayMesh:
+	var cat := item_category(id)
+	return _cached("icon|" + cat, func() -> Array:
+		match cat:
+			"gold":
+				return [[cone(0.12, 0.03, 0.12, 10), at(0, 0, 0, Vector3(PI / 2, 0, 0)), Color(1.0, 0.82, 0.25)],
+					[cone(0.12, 0.03, 0.12, 10), at(0.08, -0.06, 0.02, Vector3(PI / 2, 0, 0)), Color(0.95, 0.75, 0.2)]]
+			"reagents":
+				return [[ball(0.12, 6, 3), at(0, -0.02, 0), Color(0.45, 0.3, 0.55)], [box(0.06, 0.06, 0.06), at(0, 0.11, 0), Color(0.3, 0.2, 0.35)]]
+			"weapon":
+				return [[box(0.04, 0.4, 0.02), at(0, 0.06, 0), STEEL], [box(0.16, 0.03, 0.04), at(0, -0.14, 0), Color(0.6, 0.5, 0.2)],
+					[box(0.04, 0.1, 0.04), at(0, -0.2, 0), WOOD]]
+			"armor":
+				return [[box(0.26, 0.24, 0.08), at(0, 0, 0), CHAIN], [box(0.36, 0.08, 0.09), at(0, 0.1, 0), CHAIN.lightened(0.15)]]
+			"shield":
+				return [[cone(0.16, 0.03, 0.16, 10), at(0, 0, 0, Vector3(PI / 2, 0, 0)), WOOD], [ball(0.04, 5, 3), at(0, 0, -0.02), STEEL]]
+			"scroll":
+				return [[cone(0.05, 0.26, 0.05, 7), at(0, 0, 0, Vector3(0, 0, PI / 2)), Color(0.93, 0.87, 0.68)],
+					[box(0.02, 0.12, 0.12), at(0, 0, 0), Color(0.7, 0.2, 0.2)]]
+			"potion":
+				return [[ball(0.09, 7, 4), at(0, -0.04, 0), Color(0.9, 0.25, 0.25)], [box(0.04, 0.1, 0.04), at(0, 0.08, 0), Color(0.8, 0.85, 0.9)]]
+			"food":
+				return [[ball(0.12, 6, 3), at(0, 0, 0, Vector3.ZERO, Vector3(1.3, 0.7, 0.9)), Color(0.8, 0.6, 0.3)]]
+			"tool":
+				return [[box(0.04, 0.34, 0.04), at(0, 0, 0), WOOD], [box(0.2, 0.06, 0.05), at(0, 0.15, 0), STEEL]]
+			"instrument":
+				return [[ball(0.1, 7, 4), at(0, -0.06, 0), WOOD], [box(0.04, 0.24, 0.03), at(0, 0.1, 0), WOOD.darkened(0.3)]]
+			"metal":
+				return [[box(0.24, 0.07, 0.11), at(0, 0, 0), Color(0.62, 0.62, 0.66)]]
+			"log":
+				return [[cone(0.06, 0.3, 0.06, 6), at(0, 0, 0, Vector3(0, 0, PI / 2)), Color(0.45, 0.3, 0.15)]]
+			"pelt":
+				return [[box(0.3, 0.03, 0.22), at(0, 0, 0, Vector3(0.6, 0, 0)), Color(0.55, 0.55, 0.58)]]
+		return [[ball(0.08, 6, 3), at(0, 0, 0), Color(0.85, 0.85, 0.8)], [box(0.05, 0.12, 0.05), at(0, 0.08, 0), Color(0.75, 0.75, 0.7)]])
