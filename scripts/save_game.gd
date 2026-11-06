@@ -48,6 +48,7 @@ static func save(hero: Entity, property: Property) -> bool:
 		"guilds": hero.game.guilds.to_dict(hero.display_name),
 		"pets": _pets_of(hero),
 		"mounted": hero.mounted_on != null,
+		"auto_equip": hero.auto_equip,
 		"spellbook": hero.spellbook.keys(),
 		"property": property.to_dict(),
 		"shield": hero.shield_id,
@@ -109,6 +110,7 @@ static func load_into(hero: Entity, property: Property) -> bool:
 	if typeof(pets) == TYPE_ARRAY:
 		hero.game.saved_pets = pets            # spawned next to the hero once the world is up
 	hero.game.saved_mounted = bool(d.get("mounted", false))
+	hero.auto_equip = bool(d.get("auto_equip", true))
 	hero.murder_timer = Entity.MURDER_DECAY
 	hero.bandages = clampi(int(d.get("bandages", hero.bandages)), 0, Entity.MAX_BANDAGES)
 	hero.arrows = clampi(int(d.get("arrows", hero.arrows)), 0, 500)

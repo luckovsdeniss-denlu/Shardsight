@@ -28,6 +28,8 @@ var _music_timer := 0.0
 var rain: CPUParticles3D
 var rain_sound := AudioStreamPlayer.new()
 var _joy_timer := 0.0
+var bag_panel: Control
+var bag_box: VBoxContainer
 var thief_panel: Control
 var thief_box: VBoxContainer
 var guild_panel: Control
@@ -174,6 +176,7 @@ func _ready() -> void:
 	auto_button.pressed.connect(_toggle_auto)
 	corner.add_child(auto_button)
 	corner.add_child(_menu_button("Menu", _open_menu))
+	corner.add_child(_menu_button("Bag", _open_bag))
 	minimap.setup(self, world)
 	corner.add_child(minimap)
 	corner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
@@ -189,6 +192,8 @@ func _ready() -> void:
 	bard_panel = _make_overlay(layer)
 	prices_panel = _make_overlay(layer)
 	prices_box = prices_panel.get_meta("box")
+	bag_panel = _make_overlay(layer)
+	bag_box = bag_panel.get_meta("box")
 	thief_panel = _make_overlay(layer)
 	thief_box = thief_panel.get_meta("box")
 	guild_panel = _make_overlay(layer)
@@ -1745,6 +1750,117 @@ func _on_guild_ally(id: String, on: bool) -> void:
 	guilds.set_ally("player", id, on)
 	log_event(("%s is now your ally." if on else "Your alliance with %s is over.") % guilds.list[id]["name"])
 	_refresh_guild()
+
+
+# --- equipment & bag panel --------------------------------------------------------
+
+## What the hero wears and wields, and everything in the bag. Opened from the Bag button.
+func _refresh_bag() -> void:
+	for c in bag_box.get_children():
+		bag_box.remove_child(c)
+		c.queue_free()
+	var title_label := _info("Equipment & Bag")
+	title_label.add_theme_font_size_override("font_size", 30)
+	bag_box.add_child(title_label)
+	# equipped
+	bag_box.add_child(_heading("Equipped"))
+	for slot: String in ["weapon", "armor", "shield"]:
+		var id := hero._equipped_id(slot)
+		var label := slot.capitalize() + ": "
+		if id == "":
+			label += "nothing" + (" (bare hands)" if slot == "weapon" else "")
+		else:
+			label += _gear_line(id)
+			if slot == "weapon" and Gear.is_ranged(id):
+				label += ", %d arrows" % hero.arrows
+		var row := HBoxContainer.new()
+		var info := _info(label)
+		info.custom_minimum_size = Vector2(560, 0)
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(info)
+		if id != "":
+			row.add_child(_action("Take off", _on_unequip.bind(slot), not hero.dead))
+		bag_box.add_child(row)
+	bag_box.add_child(_info("Riding: %s" % (hero.mounted_on.display_name if hero.mounted_on != null else "on foot")))
+	bag_box.add_child(_action("Auto-equip better gear: %s" % ("On" if hero.auto_equip else "Off (you choose)"), _on_toggle_auto_equip, true))
+	# supplies
+	bag_box.add_child(_heading("Supplies"))
+	bag_box.add_child(_info("Gold %d (bank %d)   Reagents %d   Bandages %d   Arrows %d" % [
+		hero.gold, property.bank_gold, floori(hero.reagents), hero.bandages, hero.arrows]))
+	# the bag
+	var total := 0
+	for id in hero.inventory:
+		total += int(hero.inventory[id])
+	bag_box.add_child(_heading("Bag (%d item%s)" % [total, "" if total == 1 else "s"]))
+	if hero.inventory.is_empty():
+		bag_box.add_child(_info("Your bag is empty."))
+	var ids := hero.inventory.keys()
+	ids.sort_custom(func(a, b) -> bool: return Items.item_name(a) < Items.item_name(b))
+	for id in ids:
+		var n := int(hero.inventory[id])
+		var line := "%s x%d" % [Items.item_name(id), n]
+		if Gear.has(id):
+			line = "%s x%d: %s" % [Items.item_name(id), n, _gear_line(id)]
+		elif Items.is_tool_item(id):
+			line += " (%d uses left)" % int(hero.tool_uses.get(id, Entity.TOOL_USES))
+		if Items.is_known(id) and not Items.is_tool_item(id):
+			line += "   worth %d each" % Items.value(id)
+		var row := HBoxContainer.new()
+		var info := _info(line)
+		info.custom_minimum_size = Vector2(560, 0)
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(info)
+		if Gear.has(id):
+			var problem := hero.equip_problem(id)
+			row.add_child(_action("Equip" if problem == "" else "Can't: " + problem, _on_equip.bind(id), problem == "" and not hero.dead))
+		bag_box.add_child(row)
+	bag_box.add_child(_menu_button("Back", _close_bag))
+
+
+func _heading(text: String) -> Label:
+	var l := _info(text)
+	l.add_theme_font_size_override("font_size", 26)
+	l.add_theme_color_override("font_color", Color(0.95, 0.85, 0.5))
+	return l
+
+
+## One line about a piece of gear: damage and speed, armour or block, and what it needs.
+func _gear_line(id: String) -> String:
+	var g := Gear.stats(id)
+	match String(g["slot"]):
+		"weapon":
+			return "%s, %d-%d damage, speed %d (%s)%s" % [Items.item_name(id), int(g["min"]), int(g["max"]),
+				int(g["speed"]), String(g["skill"]).capitalize(), ", two-handed" if bool(g.get("two_handed", false)) else ""]
+		"shield":
+			return "%s, blocks %d%%" % [Items.item_name(id), roundi(float(g["block"]) * 100.0)]
+	return "%s, armour %d" % [Items.item_name(id), int(g["rating"])]
+
+
+func _on_equip(id: String) -> void:
+	hero.equip_by_hand(id)
+	_refresh_bag()
+
+
+func _on_unequip(slot: String) -> void:
+	hero.unequip(slot)
+	_refresh_bag()
+
+
+func _on_toggle_auto_equip() -> void:
+	hero.auto_equip = not hero.auto_equip
+	_refresh_bag()
+
+
+func _open_bag() -> void:
+	paused = true
+	menu.visible = false
+	bag_panel.visible = true
+	_refresh_bag()
+
+
+func _close_bag() -> void:
+	bag_panel.visible = false
+	_resume()
 
 
 # --- thievery panel ----------------------------------------------------------

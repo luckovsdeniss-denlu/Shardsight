@@ -5,6 +5,10 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 
 ## 0.30.0
 Platform.
+- A Bag button (under Menu): what the hero has equipped (weapon with damage, speed and skill;
+  armour; shield; mount), supplies (gold, bank, reagents, bandages, arrows) and every item in
+  the bag with its value and tool wear. Equip gear from the bag or take it off; choosing by
+  hand turns off auto-equip (a toggle there turns it back on). Saved.
 - Every player starts from zero: the hero and all computer players begin a new game with no
   skills (level 1) and no fame or karma, and earn everything by use. Stats, gear, gold and
   the starter kit stay. Under 200 skill points everyone counts as "young", so the player

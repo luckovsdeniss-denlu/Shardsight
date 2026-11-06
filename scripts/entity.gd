@@ -167,6 +167,7 @@ var mounted_on: Entity = null  # the pet this player is riding (parked out of th
 var parked := false            # a mount being ridden: not in the world until its rider gets off
 var mount_speed := 1.0         # how much faster a rider of this animal goes
 var is_boss := false
+var auto_equip := true         # put on better gear by itself (off after a choice made by hand)
 var minion_cd := 10.0
 var stealth_left := 0.0        # metres you can still walk hidden
 var thief_mark: Entity = null
@@ -1377,7 +1378,10 @@ func _slot_value(id: String) -> float:
 
 
 ## Equips any carried piece that beats what is worn (and the old piece goes into the bag).
+## Off once the player has chosen gear by hand (the Bag screen can turn it back on).
 func _manage_gear() -> void:
+	if not auto_equip:
+		return
 	for id in inventory.keys():
 		if _is_usable_upgrade(id):
 			_equip(id)
@@ -3674,3 +3678,47 @@ func _quest_trip() -> bool:
 		if not go_to(dest):
 			return false
 	return true
+
+
+# --- the Bag screen: equipping by hand ---------------------------------------
+
+## Puts on a piece from the bag (what was worn goes into the bag). Returns false if it can't.
+func equip_by_hand(id: String) -> bool:
+	if dead or not inventory.has(id) or not Gear.has(id) or not _can_use(id):
+		return false
+	auto_equip = false
+	_equip(id)
+	return true
+
+
+## Takes off what is worn in a slot ("weapon", "armor" or "shield") and puts it in the bag.
+func unequip(slot: String) -> void:
+	var id := _equipped_id(slot)
+	if id == "":
+		return
+	auto_equip = false
+	inventory[id] = int(inventory.get(id, 0)) + 1
+	match slot:
+		"weapon":
+			weapon = ""
+		"shield":
+			shield_id = ""
+		_:
+			armor_id = ""
+	refresh_look()
+	if is_hero:
+		game.log_event("You take off the %s." % Items.item_name(id))
+
+
+## Why a piece from the bag can't be worn, or "" if it can.
+func equip_problem(id: String) -> String:
+	var g := Gear.stats(id)
+	if stats.strength < int(g["str"]):
+		return "needs %d Strength" % int(g["str"])
+	if Gear.is_metal(id) and _skill(Hero.Skill.MAGERY) >= 30.0:
+		return "metal would ruin your spellcasting"
+	if String(g["slot"]) == "shield" and weapon != "" and bool(Gear.stats(weapon).get("two_handed", false)):
+		return "your weapon needs both hands"
+	if bool(g.get("two_handed", false)) and shield_id != "":
+		return "needs both hands: take off the shield"
+	return ""
