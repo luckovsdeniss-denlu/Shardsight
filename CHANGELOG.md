@@ -48,6 +48,8 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
 - Players resupply and bank at the nearest merchant and banker, not always the first one.
 - The minimap shrinks its tiles to stay 240 px wide, and trees, rocks, walls and water are drawn
   in batches (one draw call per kind) so the bigger map stays fast on phones.
+- Fix: a creature raised or respawned at its home kept walking its old route in a straight
+  line (through trees and walls) toward where it had been heading.
 - Two logs: your own events lower left, everyone else's (deaths, crimes, resurrections) lower right.
 
 ## 0.21.0

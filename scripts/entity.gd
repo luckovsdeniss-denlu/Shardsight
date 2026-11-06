@@ -655,6 +655,7 @@ func _respawn() -> void:
 	_set_ghost_look(false)
 	visible = true
 	position = home
+	path.clear()                  # an old route (e.g. a ghost's walk to the healer) starts somewhere else
 	hp = float(stats.max_hp())
 	mana = float(stats.max_mana())
 	pause = 2.0
