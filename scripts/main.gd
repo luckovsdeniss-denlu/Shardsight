@@ -753,6 +753,9 @@ func _note_problem(msg: String) -> void:
 
 func _autotest_tick(delta: float) -> void:
 	autotest_time += delta
+	# Where the hero's time goes: game-seconds per state (first word of its state text).
+	var state_key := "t_" + hero.state_text().split(" ")[0]
+	counters[state_key] = float(counters.get(state_key, 0.0)) + delta
 	if not hero.dead and world.is_dungeon(world.to_tile(hero.position)):
 		counters["dungeon_seconds"] = float(counters.get("dungeon_seconds", 0.0)) + delta
 	_check_timer -= delta
@@ -804,6 +807,9 @@ func _autotest_finish() -> void:
 	counters["skill_points_gained"] = snappedf(hero.stats.skill_total() - _start_skill_total, 0.1)
 	counters["hero_gold"] = hero.gold
 	counters["dungeon_seconds"] = int(float(counters.get("dungeon_seconds", 0.0)))
+	for k in counters.keys():
+		if String(k).begins_with("t_"):
+			counters[k] = int(float(counters[k]))
 	counters["bank_gold"] = property.bank_gold
 	print("AUTOTEST REPORT " + JSON.stringify(counters))
 	if int(counters.get("kills", 0)) == 0:

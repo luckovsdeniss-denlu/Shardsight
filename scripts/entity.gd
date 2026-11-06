@@ -630,6 +630,12 @@ func state_text() -> String:
 		return "ghost" if ghost else "dead"
 	if casting_id != "":
 		return "casting " + String(Spells.LIST[casting_id]["name"])
+	if perform_timer > 0.0:
+		return "playing " + perform_kind
+	if tame_timer > 0.0 or tame_target != null:
+		return "taming"
+	if bandage_timer > 0.0:
+		return "bandaging"
 	if loot_target != null:
 		return "looting"
 	if target == null and gather_tile.x >= 0:
@@ -2080,6 +2086,8 @@ func bard_problem(what: String) -> String:
 
 ## Begin playing. `a` (and `b` for Provocation) are the creatures to work on.
 func start_perform(what: String, a: Entity, b: Entity) -> void:
+	if is_hero:
+		game.count("perform_" + what)
 	perform_kind = what
 	perform_a = a
 	perform_b = b
