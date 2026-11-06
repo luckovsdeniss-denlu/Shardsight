@@ -515,13 +515,21 @@ func _fight() -> void:
 		var anatomy: float = stats.skills.get(Hero.Skill.ANATOMY, 0.0)
 		var dmg := randf_range(lo, hi) * Rules.damage_multiplier(
 			float(stats.strength), tactics, anatomy)
-		target.take_damage(target._absorb(dmg), self)
+		var dealt := target._absorb(dmg)
+		if is_hero:
+			game.count("hero_hits")
+			game.count("hero_dmg_dealt", roundi(dealt))
+		elif target.is_hero:
+			game.count("hero_dmg_taken_melee", roundi(dealt))
+		target.take_damage(dealt, self)
 		if poison_cfg.size() == 2 and not target.dead and randf() < float(poison_cfg[1]):
 			target.apply_poison(int(poison_cfg[0]), self)
 		if kind == Kind.PLAYER:
 			stats.try_gain(skill)
 			stats.try_gain(Hero.Skill.TACTICS)
 	else:
+		if is_hero:
+			game.count("hero_misses")
 		target._pop("miss", Color(0.8, 0.8, 0.8))
 
 
@@ -664,6 +672,8 @@ func state_text() -> String:
 		return "taming"
 	if bandage_timer > 0.0:
 		return "bandaging"
+	if target != null:
+		return "fighting " + target.display_name
 	if loot_target != null:
 		return "looting"
 	if target == null and gather_tile.x >= 0:

@@ -791,7 +791,7 @@ func _autotest_tick(delta: float) -> void:
 		counters[fk] = float(counters.get(fk, 0.0)) + delta
 		if not near and hero.path.is_empty() and hero.casting_id == "":
 			counters["t_fight_far_no_path"] = float(counters.get("t_fight_far_no_path", 0.0)) + delta
-	if hero.loot_target != null and is_instance_valid(hero.loot_target):
+	if hero.target == null and hero.loot_target != null and is_instance_valid(hero.loot_target):
 		var lk := "t_loot_no_path" if hero.path.is_empty() else "t_loot_walking"
 		counters[lk] = float(counters.get(lk, 0.0)) + delta
 	if not hero.dead and world.is_dungeon(world.to_tile(hero.position)):
