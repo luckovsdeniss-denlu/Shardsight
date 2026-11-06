@@ -7,8 +7,8 @@ class_name Bestiary
 const HERO := {
 	"str": 25, "dex": 20, "int": 20, "wspeed": 45, "dmg_min": 5, "dmg_max": 10,
 	"move": 4.0, "leash": 8, "aggro": 5.0, "respawn": 5.0,
-	"reagents": 30, "gold": 20, "weapon": "dagger", "bandages": 5, "crafter": true,
-	"inventory": {"lute": 1},
+	"reagents": 30, "gold": 20, "weapon": "short_sword", "bandages": 5, "crafter": true,
+	"arrows": 0, "inventory": {"lute": 1, "pickaxe": 1, "hatchet": 1, "tool_kit": 1},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 50.0, Hero.Skill.TACTICS: 30.0, Hero.Skill.MAGERY: 30.0},
 }
 
@@ -27,7 +27,7 @@ const FIGHTER := {
 	"move": 3.8, "leash": 8, "aggro": 5.0, "respawn": 5.0, "gold": 20,
 	"weapon": "kryss", "wear": "studded_armor", "shield": "wooden_shield", "bandages": 8,
 	"skills": {
-		Hero.Skill.SWORDSMANSHIP: 55.0, Hero.Skill.TACTICS: 55.0, Hero.Skill.ANATOMY: 45.0,
+		Hero.Skill.FENCING: 55.0, Hero.Skill.TACTICS: 55.0, Hero.Skill.ANATOMY: 45.0,
 		Hero.Skill.PARRYING: 40.0, Hero.Skill.HEALING: 30.0,
 	},
 }
@@ -36,7 +36,7 @@ const MAGE := {
 	"str": 20, "dex": 20, "int": 40, "wspeed": 30, "dmg_min": 2, "dmg_max": 4,
 	"move": 3.4, "leash": 8, "aggro": 6.0, "respawn": 5.0, "reagents": 40, "gold": 60, "weapon": "dagger", "bandages": 3,
 	"skills": {
-		Hero.Skill.SWORDSMANSHIP: 20.0, Hero.Skill.MAGERY: 70.0, Hero.Skill.EVALUATING_INTELLECT: 50.0,
+		Hero.Skill.FENCING: 20.0, Hero.Skill.MAGERY: 70.0, Hero.Skill.EVALUATING_INTELLECT: 50.0,
 		Hero.Skill.MEDITATION: 50.0, Hero.Skill.RESISTING_SPELLS: 30.0, Hero.Skill.HEALING: 20.0,
 	},
 }
@@ -47,7 +47,7 @@ const PKILLER := {
 	"move": 3.7, "leash": 9, "aggro": 7.0, "respawn": 8.0, "pk": true, "gold": 30,
 	"weapon": "kryss", "wear": "leather_armor", "bandages": 5,
 	"skills": {
-		Hero.Skill.SWORDSMANSHIP: 55.0, Hero.Skill.TACTICS: 45.0, Hero.Skill.ANATOMY: 30.0,
+		Hero.Skill.FENCING: 55.0, Hero.Skill.TACTICS: 45.0, Hero.Skill.ANATOMY: 30.0,
 		Hero.Skill.HEALING: 20.0,
 	},
 }

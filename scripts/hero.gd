@@ -11,6 +11,8 @@ enum Skill {
 	MINING, LUMBERJACKING, BLACKSMITHY, TAILORING, CARPENTRY, ALCHEMY,
 	ANIMAL_TAMING, ANIMAL_LORE, VETERINARY,
 	MUSICIANSHIP, PEACEMAKING, PROVOCATION, ENTICEMENT,
+	ARCHERY, FENCING, MACE_FIGHTING, TRACKING, CAMPING, ARMS_LORE, ITEM_IDENTIFICATION, BEGGING,
+	SPIRIT_SPEAK,
 }
 enum Lock { UP, DOWN, LOCKED }   # up: may rise; down: may be lost near the cap; locked: frozen
 enum Stat { STR, DEX, INT }
@@ -26,6 +28,9 @@ const STAT_OF := {
 	Skill.ANIMAL_TAMING: Stat.INT, Skill.ANIMAL_LORE: Stat.INT, Skill.VETERINARY: Stat.DEX,
 	Skill.MUSICIANSHIP: Stat.DEX, Skill.PEACEMAKING: Stat.INT, Skill.PROVOCATION: Stat.INT,
 	Skill.ENTICEMENT: Stat.INT,
+	Skill.ARCHERY: Stat.DEX, Skill.FENCING: Stat.DEX, Skill.MACE_FIGHTING: Stat.STR,
+	Skill.TRACKING: Stat.INT, Skill.CAMPING: Stat.INT, Skill.ARMS_LORE: Stat.INT,
+	Skill.ITEM_IDENTIFICATION: Stat.INT, Skill.BEGGING: Stat.DEX, Skill.SPIRIT_SPEAK: Stat.INT,
 }
 const STAT_GAIN_CHANCE := 0.06   # per skill gain: stats rise much slower than skills
 

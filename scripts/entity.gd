@@ -40,6 +40,10 @@ const BARD_RANGE := 8.0
 const PEACE_SECONDS := 15.0
 const ENTICE_SECONDS := 8.0
 const LUTE_PRICE := 20
+const ARROW_PRICE := 1
+const TOOL_PRICE := 12
+const TOOL_USES := 40              # a pickaxe, hatchet or tool kit lasts this many uses
+const TOOLS := ["pickaxe", "hatchet", "tool_kit"]
 const SUPPLY_RESERVE := 30         # gold kept back when restocking supplies at the merchant
 const CRIMINAL_SECONDS := 60.0     # grey after attacking an innocent
 const MURDER_WINDOW := 30.0        # an innocent dying this soon after your attack is a murder
@@ -128,6 +132,12 @@ var tame_target: Entity = null
 var tame_timer := 0.0
 var bandage_target: Entity = null
 var shop: Shop = null          # merchants: their purse, shelves and town prices
+var arrows := 0
+var tool_uses := {}            # tool id -> uses left on the one in hand
+var track_cd := 0.0
+var camp_cd := 0.0
+var beg_cd := {}               # NPC instance id -> msec until they can be asked again
+var spirit_channel := false    # the current "bandage" timer is really Spirit Speak
 var tame_cd := 0.0
 var bard_cd := 0.0
 var perform_timer := 0.0
@@ -196,6 +206,7 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	danger = float(cfg.get("danger", 1.0))
 	poison_cfg = cfg.get("poison", [])
 	stamina = float(stats.max_stamina())
+	arrows = int(cfg.get("arrows", 0))
 	crafter = bool(cfg.get("crafter", false))
 	stats.skill_gained.connect(_on_skill_gained)
 	stats.stat_gained.connect(_on_stat_gained)
@@ -258,6 +269,10 @@ func tick(delta: float) -> void:
 	potion_cd = maxf(potion_cd - delta, 0.0)
 	poison_immune = maxf(poison_immune - delta, 0.0)
 	tame_cd = maxf(tame_cd - delta, 0.0)
+	track_cd = maxf(track_cd - delta, 0.0)
+	camp_cd = maxf(camp_cd - delta, 0.0)
+	if game.near_campfire(position):
+		hp = minf(hp + REGEN_PER_SEC * 3.0 * delta, float(stats.max_hp()))   # resting by a fire
 	bard_cd = maxf(bard_cd - delta, 0.0)
 	peaced_timer = maxf(peaced_timer - delta, 0.0)
 	enticed_timer = maxf(enticed_timer - delta, 0.0)
@@ -356,8 +371,12 @@ func _think(delta: float) -> void:
 	if autonomous and pause <= 0.0 and path.is_empty():
 		idle_timer -= delta
 		if idle_timer <= 0.0:
+			if kind == Kind.PLAYER and (_try_camp() or _try_beg()):
+				idle_timer = randf_range(1.5, 4.0)
+				return
 			if not (crafter and randf() < 0.5 and _start_gathering_nearby()) \
-					and not (is_hero and randf() < 0.3 and _start_taming_nearby()):
+					and not (is_hero and randf() < 0.3 and _start_taming_nearby()) \
+					and not (kind == Kind.PLAYER and not crafter and randf() < 0.5 and _track_hunt()):
 				_wander()
 			idle_timer = randf_range(1.5, 4.0)
 
@@ -384,9 +403,9 @@ func _recover() -> bool:
 
 
 func _chase() -> void:
-	var reach := MELEE_RANGE
+	var reach := attack_range()
 	if (kind != Kind.PLAYER or ai_enabled) and _best_spell("attack") != "":
-		reach = SPELL_RANGE            # casters keep their distance
+		reach = maxf(reach, SPELL_RANGE)   # casters keep their distance
 	if position.distance_to(target.position) > reach:
 		if repath_timer <= 0.0 or path.is_empty():
 			repath_timer = 0.4
@@ -468,21 +487,29 @@ func _fight() -> void:
 	var d := position.distance_to(target.position)
 	if (kind != Kind.PLAYER or ai_enabled) and _try_auto_cast(d):
 		return
-	if swing_cd > 0.0 or d > MELEE_RANGE:
+	if swing_cd > 0.0 or d > attack_range():
 		return
 	var ws := weapon_speed
 	var lo := dmg_min
 	var hi := dmg_max
-	if weapon != "":
-		var w: Dictionary = Gear.LIST[weapon]
+	var wielded := _wielded()
+	if wielded != "":
+		var w: Dictionary = Gear.stats(wielded)
 		ws = int(w["speed"])
 		lo = float(w["min"])
 		hi = float(w["max"])
+		if Gear.is_ranged(wielded):
+			arrows -= 1
+			_bolt(target.position, Color(0.85, 0.75, 0.5))
+	elif kind == Kind.PLAYER:
+		lo = 1.0                           # bare hands
+		hi = 4.0
 	swing_cd = Rules.swing_seconds(maxi(1, int(stamina)), ws)   # tired fighters swing slower
 	stamina = maxf(stamina - SWING_STAMINA, 0.0)
 	swing_anim = SWING_ANIM
-	var atk: float = stats.skills.get(Hero.Skill.SWORDSMANSHIP, 0.0)
-	var def: float = target.stats.skills.get(Hero.Skill.SWORDSMANSHIP, 0.0)
+	var skill := _weapon_skill()
+	var atk := _skill(skill)
+	var def := target._skill(target._weapon_skill())
 	if randf() < Rules.hit_chance(atk, def):
 		var tactics: float = stats.skills.get(Hero.Skill.TACTICS, 0.0)
 		var anatomy: float = stats.skills.get(Hero.Skill.ANATOMY, 0.0)
@@ -492,7 +519,7 @@ func _fight() -> void:
 		if poison_cfg.size() == 2 and not target.dead and randf() < float(poison_cfg[1]):
 			target.apply_poison(int(poison_cfg[0]), self)
 		if kind == Kind.PLAYER:
-			stats.try_gain(Hero.Skill.SWORDSMANSHIP)
+			stats.try_gain(skill)
 			stats.try_gain(Hero.Skill.TACTICS)
 	else:
 		target._pop("miss", Color(0.8, 0.8, 0.8))
@@ -504,7 +531,7 @@ func _absorb(amount: float) -> float:
 		if kind == Kind.PLAYER:
 			stats.try_gain(Hero.Skill.PARRYING)     # every attack at a shield-bearer trains it
 		if randf() < Rules.parry_chance(_skill(Hero.Skill.PARRYING)):
-			amount *= 1.0 - float(Gear.LIST[shield_id]["block"])
+			amount *= 1.0 - float(Gear.stats(shield_id)["block"])
 			_pop("parried", Color(0.8, 0.9, 1.0))
 	var rating := _armor_rating()
 	if rating <= 0.0:
@@ -516,7 +543,7 @@ func _absorb(amount: float) -> float:
 func _armor_rating() -> float:
 	var worn := 0.0
 	if armor_id != "":
-		worn = float(Gear.LIST[armor_id]["rating"])
+		worn = float(Gear.stats(armor_id)["rating"])
 	return armor + worn
 
 
@@ -929,6 +956,8 @@ func trade(delta: float, s: Shop) -> void:
 			continue                       # potions are kept for emergencies
 		if crafter and Items.is_material(id):
 			continue                       # crafters keep their ore, ingots, logs and hides
+		if Items.is_tool(id) or (id == "log" and int(inventory[id]) <= 2):
+			continue                       # tools, and a couple of logs for a campfire
 		# The merchant pays less the more it already holds, and stops when overstocked or broke.
 		var n := int(inventory[id])
 		var sold := 0
@@ -936,7 +965,7 @@ func trade(delta: float, s: Shop) -> void:
 			var p := s.buy_from_player(id)
 			if p <= 0:
 				break
-			earned += p
+			earned += p + _appraise(id, p)
 			sold += 1
 		if sold >= n:
 			inventory.erase(id)
@@ -971,6 +1000,18 @@ func trade(delta: float, s: Shop) -> void:
 		if reagents < 20.0 and gold >= reagent_pair + SUPPLY_RESERVE:
 			_pay(s, reagent_pair)
 			reagents = minf(reagents + 2.0, MAX_REAGENTS)
+		var arrow_pack := s.price(ARROW_PRICE * 10)
+		if _wants_arrows() and arrows < 30 and gold >= arrow_pack + SUPPLY_RESERVE:
+			_pay(s, arrow_pack)
+			arrows += 10
+		for tool in _needed_tools():
+			var tp := s.price(TOOL_PRICE)
+			if gold >= tp + SUPPLY_RESERVE:
+				_pay(s, tp)
+				inventory[tool] = 1
+				tool_uses[tool] = TOOL_USES
+				if is_hero:
+					game.log_event("You buy a %s." % Items.item_name(tool))
 		_buy_gear(s)
 
 
@@ -1079,14 +1120,14 @@ func _seek_loot() -> bool:
 # --- equipment -------------------------------------------------------------
 
 func _can_use(id: String) -> bool:
-	if stats.strength < int(Gear.LIST[id]["str"]):
+	if stats.strength < int(Gear.stats(id)["str"]):
 		return false
 	# Mages stay in cloth: metal armor would ruin their Meditation.
 	if Gear.is_metal(id) and _skill(Hero.Skill.MAGERY) >= 30.0:
 		return false
 	# Two-handed weapons and shields are mutually exclusive.
-	var g: Dictionary = Gear.LIST[id]
-	if String(g["slot"]) == "shield" and weapon != "" and bool(Gear.LIST[weapon].get("two_handed", false)):
+	var g: Dictionary = Gear.stats(id)
+	if String(g["slot"]) == "shield" and weapon != "" and bool(Gear.stats(weapon).get("two_handed", false)):
 		return false
 	if bool(g.get("two_handed", false)) and shield_id != "":
 		return false
@@ -1094,9 +1135,9 @@ func _can_use(id: String) -> bool:
 
 
 func _is_usable_upgrade(id: String) -> bool:
-	if not Gear.LIST.has(id) or not _can_use(id):
+	if not Gear.has(id) or not _can_use(id):
 		return false
-	return Gear.score(id) > _equipped_score(String(Gear.LIST[id]["slot"]))
+	return _slot_value(id) > _equipped_score(String(Gear.stats(id)["slot"])) + 0.01
 
 
 func _equipped_id(slot: String) -> String:
@@ -1110,7 +1151,20 @@ func _equipped_id(slot: String) -> String:
 
 
 func _equipped_score(slot: String) -> float:
-	return Gear.score(_equipped_id(slot))
+	return _slot_value(_equipped_id(slot))
+
+
+## How good a piece is for THIS character: a weapon counts for little without its skill, and a
+## bow needs arrows.
+func _slot_value(id: String) -> float:
+	if not Gear.has(id):
+		return 0.0
+	var g := Gear.stats(id)
+	if String(g["slot"]) != "weapon":
+		return Gear.score(id)
+	if Gear.is_ranged(id) and arrows < 5:
+		return 0.0
+	return Gear.score(id) * (0.4 + _skill(skill_for(String(g["skill"]))) / 100.0)
 
 
 ## Equips any carried piece that beats what is worn (and the old piece goes into the bag).
@@ -1121,7 +1175,7 @@ func _manage_gear() -> void:
 
 
 func _equip(id: String) -> void:
-	var slot := String(Gear.LIST[id]["slot"])
+	var slot := String(Gear.stats(id)["slot"])
 	var old := _equipped_id(slot)
 	inventory[id] = int(inventory.get(id, 0)) - 1
 	if int(inventory[id]) <= 0:
@@ -1149,17 +1203,17 @@ func _buy_gear(s: Shop) -> void:
 	var best := ""
 	var best_gain := 0.0
 	for id in Gear.ORDER:
-		var g: Dictionary = Gear.LIST[id]
+		var g: Dictionary = Gear.stats(id)
 		var price := s.price(int(g["value"]))
 		if price + 8 > gold or not _can_use(id) or inventory.has(id):
 			continue
-		var gain := Gear.score(id) - _equipped_score(String(g["slot"]))
+		var gain := _slot_value(id) - _equipped_score(String(g["slot"]))
 		if gain > best_gain:
 			best_gain = gain
 			best = id
 	if best == "":
 		return
-	var cost := s.price(int(Gear.LIST[best]["value"]))
+	var cost := s.price(int(Gear.stats(best)["value"]))
 	_pay(s, cost)
 	inventory[best] = int(inventory.get(best, 0)) + 1
 	_manage_gear()
@@ -1170,14 +1224,14 @@ func _buy_gear(s: Shop) -> void:
 func gear_text() -> String:
 	var w := "fists"
 	if weapon != "":
-		var g: Dictionary = Gear.LIST[weapon]
+		var g: Dictionary = Gear.stats(weapon)
 		w = "%s %d-%d" % [g["name"], int(g["min"]), int(g["max"])]
 	var a := "none"
 	if armor_id != "":
-		a = "%s (AR %d)" % [Gear.LIST[armor_id]["name"], int(Gear.LIST[armor_id]["rating"])]
+		a = "%s (AR %d)" % [Gear.stats(armor_id)["name"], int(Gear.stats(armor_id)["rating"])]
 	var s := "none"
 	if shield_id != "":
-		s = String(Gear.LIST[shield_id]["name"])
+		s = String(Gear.stats(shield_id)["name"])
 	return "Weapon: %s   Armor: %s   Shield: %s" % [w, a, s]
 
 
@@ -1186,7 +1240,9 @@ func gear_text() -> String:
 ## Players bandage themselves when hurt and no monster is close. Bandages take a few seconds
 ## (faster with Healing) and are interrupted by taking damage.
 func _try_bandage() -> bool:
-	if bandages <= 0 or casting_id != "" or bandage_timer > 0.0:
+	if bandages <= 0:
+		return _try_spirit_speak()
+	if casting_id != "" or bandage_timer > 0.0:
 		return false
 	if _nearest(Kind.MONSTER, 2.5) != null:
 		return false
@@ -1202,6 +1258,7 @@ func _try_bandage() -> bool:
 	if bandage_target == null:
 		return false
 	bandages -= 1
+	spirit_channel = false
 	var skill: int = Hero.Skill.HEALING if bandage_target == self else Hero.Skill.VETERINARY
 	bandage_timer = maxf(2.0, 5.0 - _skill(skill) / 40.0)
 	path.clear()
@@ -1210,6 +1267,10 @@ func _try_bandage() -> bool:
 
 
 func _finish_bandage() -> void:
+	if spirit_channel:
+		spirit_channel = false
+		_finish_spirit_speak()
+		return
 	if bandage_target != null and bandage_target != self:
 		_finish_vet(bandage_target)
 		return
@@ -1349,7 +1410,7 @@ func is_young() -> bool:
 
 ## Rough fighting strength: best weapon or magic skill, plus worn armor.
 func power() -> float:
-	var best := maxf(_skill(Hero.Skill.SWORDSMANSHIP), _skill(Hero.Skill.MAGERY))
+	var best := maxf(_skill(_weapon_skill()), _skill(Hero.Skill.MAGERY))
 	return best / 20.0 + _armor_rating() / 4.0
 
 
@@ -1465,6 +1526,11 @@ func _gather_step(delta: float) -> bool:
 func _harvest_once() -> void:
 	var is_ore := world.resource_kind(gather_tile) == "ore"
 	var skill: int = Hero.Skill.MINING if is_ore else Hero.Skill.LUMBERJACKING
+	if not _use_tool("pickaxe" if is_ore else "hatchet"):
+		if is_hero:
+			game.log_event("You need a %s for that." % ("pickaxe" if is_ore else "hatchet"))
+		gather_tile = Vector2i(-1, -1)
+		return
 	world.take_harvest(gather_tile)
 	if randf() >= Rules.gather_chance(_skill(skill)):
 		_pop("nothing", Color(0.75, 0.75, 0.75))
@@ -1485,9 +1551,16 @@ func _start_gathering_nearby() -> bool:
 		return false
 	var metal := Crafting.ore_count(inventory) + Crafting.ingot_count(inventory)
 	var want := "ore" if metal <= Crafting.count(inventory, "log") else "wood"
+	if Crafting.count(inventory, "pickaxe") <= 0:
+		want = "wood"
+	if Crafting.count(inventory, "hatchet") <= 0:
+		if want == "wood" and Crafting.count(inventory, "pickaxe") <= 0:
+			return false
+		want = "ore"
 	var t := world.find_harvest_near(position, want, 10)
-	if t.x < 0:
-		t = world.find_harvest_near(position, "wood" if want == "ore" else "ore", 10)
+	var other := "wood" if want == "ore" else "ore"
+	if t.x < 0 and Crafting.count(inventory, "hatchet" if other == "wood" else "pickaxe") > 0:
+		t = world.find_harvest_near(position, other, 10)
 	if t.x < 0:
 		return false
 	start_gathering(t)
@@ -1564,6 +1637,8 @@ func craft_problem(id: String) -> String:
 		return "needs " + Items.mats_text(r["mats"])
 	if skill == Hero.Skill.BLACKSMITHY and not world.near_forge(position):
 		return "needs the forge"
+	if skill != Hero.Skill.ALCHEMY and Crafting.count(inventory, "tool_kit") <= 0:
+		return "needs a tool kit"
 	return ""
 
 
@@ -1577,14 +1652,37 @@ func craft(id: String) -> void:
 		return
 	var r: Dictionary = Crafting.RECIPES[id]
 	var skill := int(r["skill"])
+	if skill != Hero.Skill.ALCHEMY:
+		_use_tool("tool_kit")
+	var mats: Dictionary = r["mats"]
+	# Enough ingots of one coloured metal make a piece of that metal.
+	var metal := ""
+	if mats.has("ingot"):
+		metal = Crafting.best_single_tier(inventory, int(mats["ingot"]))
 	if randf() < Rules.craft_chance(_skill(skill), float(r["min"])):
-		_take_mats(r["mats"], 1.0)
-		inventory[id] = int(inventory.get(id, 0)) + 1
+		var made := id
+		if metal != "":
+			var only: Dictionary = mats.duplicate()
+			only.erase("ingot")
+			Crafting.take_mats(inventory, {"ingot_" + metal: int(mats["ingot"])}, 1.0)
+			_take_mats(only, 1.0)
+			if Crafting.tier_index(metal) > 0:
+				made += "@" + metal
+		else:
+			_take_mats(mats, 1.0)
+		var ex := Gear.has(id) and randf() < Rules.exceptional_chance(_skill(skill))
+		if ex:
+			made += "@ex"
+		inventory[made] = int(inventory.get(made, 0)) + 1
 		if kind == Kind.PLAYER:
 			stats.try_gain(skill)
 		if is_hero:
-			game.log_event("You make a %s." % item_label)
+			game.log_event("You make %s." % Items.item_name(made))
 			game.count("crafted")
+			if ex:
+				game.count("crafted_exceptional")
+			if metal != "" and Crafting.tier_index(metal) > 0:
+				game.count("crafted_colored")
 	else:
 		_take_mats(r["mats"], 0.5)
 		if is_hero:
@@ -2222,3 +2320,198 @@ func _do_entice() -> void:
 	else:
 		a.target = self
 		a._pop("not fooled", Color(0.75, 0.75, 0.75))
+
+
+# --- weapons, tools and the lesser skills ----------------------------------
+
+static func skill_for(weapon_skill: String) -> int:
+	match weapon_skill:
+		"fencing":
+			return Hero.Skill.FENCING
+		"mace":
+			return Hero.Skill.MACE_FIGHTING
+		"archery":
+			return Hero.Skill.ARCHERY
+	return Hero.Skill.SWORDSMANSHIP
+
+
+## The weapon actually in use: a bow without arrows is no weapon at all (bare hands).
+func _wielded() -> String:
+	if weapon != "" and Gear.is_ranged(weapon) and arrows <= 0:
+		return ""
+	return weapon
+
+
+func _weapon_skill() -> int:
+	var w := _wielded()
+	if w == "":
+		return Hero.Skill.SWORDSMANSHIP     # natural attacks and bare hands
+	return skill_for(String(Gear.stats(w)["skill"]))
+
+
+func attack_range() -> float:
+	var w := _wielded()
+	if w != "" and Gear.is_ranged(w):
+		return float(Gear.stats(w)["range"])
+	return MELEE_RANGE
+
+
+func _wants_arrows() -> bool:
+	if Gear.is_ranged(weapon):
+		return true
+	for id in inventory:
+		if Gear.is_ranged(id):
+			return true
+	return _skill(Hero.Skill.ARCHERY) >= 30.0
+
+
+## Tools the merchant should sell us: gatherers want both, and anyone who crafts wants a kit.
+func _needed_tools() -> Array:
+	var out := []
+	if not (crafter or is_hero):
+		return out
+	for t in TOOLS:
+		if Crafting.count(inventory, t) <= 0:
+			out.append(t)
+	return out
+
+
+## Uses up a tool; the last use breaks it. Returns false if there is none to use.
+func _use_tool(tool: String) -> bool:
+	if Crafting.count(inventory, tool) <= 0:
+		return false
+	var left := int(tool_uses.get(tool, TOOL_USES)) - 1
+	if left <= 0:
+		Crafting.take_mats(inventory, {tool: 1}, 1.0)
+		tool_uses[tool] = TOOL_USES
+		if is_hero:
+			game.log_event("Your %s breaks." % Items.item_name(tool))
+			game.count("tools_broken")
+	else:
+		tool_uses[tool] = left
+	return true
+
+
+## Arms Lore (weapons and armor) and Item Identification (everything else): knowing what a
+## thing is really worth gets a better price. Returns the extra gold.
+func _appraise(id: String, paid: int) -> int:
+	if kind != Kind.PLAYER:
+		return 0
+	var skill: int = Hero.Skill.ARMS_LORE if Gear.has(id) else Hero.Skill.ITEM_IDENTIFICATION
+	stats.try_gain(skill)
+	var extra := floori(paid * (Rules.appraisal_bonus(_skill(skill)) - 1.0))
+	if extra > 0 and is_hero:
+		game.count("appraisal_gold", extra)
+	return extra
+
+
+## Tracking: find something worth hunting beyond sight, and head that way.
+func _track_hunt() -> bool:
+	if track_cd > 0.0 or kind != Kind.PLAYER:
+		return false
+	track_cd = 20.0
+	var radius := 14.0 + _skill(Hero.Skill.TRACKING) / 4.0
+	var best: Entity = null
+	var best_d := radius
+	var list: Array = game.creatures
+	for item in list:
+		var x := item as Entity
+		if x.dead or x.kind != Kind.MONSTER or x.passive or not _worth_fighting(x) or x._in_town():
+			continue
+		var dd := position.distance_to(x.position)
+		if dd > aggro_range and dd < best_d:
+			best = x
+			best_d = dd
+	if best == null:
+		return false
+	if randf() >= Rules.track_chance(_skill(Hero.Skill.TRACKING)):
+		return false
+	stats.try_gain(Hero.Skill.TRACKING)
+	if not go_to(best.position):
+		return false
+	if is_hero:
+		game.count("tracked")
+	return true
+
+
+## Camping: hurt and alone in the wild, make a fire from a log and rest by it.
+func _try_camp() -> bool:
+	if camp_cd > 0.0 or kind != Kind.PLAYER or _in_town() or game.near_campfire(position):
+		return false
+	if hp >= float(stats.max_hp()) * 0.75 or Crafting.count(inventory, "log") <= 0:
+		return false
+	if _nearest(Kind.MONSTER, 7.0) != null:
+		return false
+	camp_cd = 90.0
+	Crafting.take_mats(inventory, {"log": 1}, 1.0)
+	if randf() >= Rules.camp_chance(_skill(Hero.Skill.CAMPING)):
+		_pop("the kindling won't catch", Color(0.75, 0.75, 0.75))
+		return false
+	stats.try_gain(Hero.Skill.CAMPING)
+	game.light_campfire(position)
+	path.clear()
+	pause = 8.0                           # sit by the fire a while
+	if is_hero:
+		game.log_event("You make a campfire and rest.")
+		game.count("camped")
+	return true
+
+
+## Begging: broke and standing by a townsperson, ask for a coin (each one once in a while).
+func _try_beg() -> bool:
+	if gold >= 15 or kind != Kind.PLAYER:
+		return false
+	var now := Time.get_ticks_msec()
+	for id in beg_cd.keys():
+		if now > int(beg_cd[id]):
+			beg_cd.erase(id)
+	var list: Array = game.creatures
+	for item in list:
+		var npc := item as Entity
+		if npc.kind != Kind.NPC or npc.role == "guard":
+			continue
+		if beg_cd.has(npc.get_instance_id()) or position.distance_to(npc.position) > 3.0:
+			continue
+		beg_cd[npc.get_instance_id()] = now + 300000
+		if randf() < Rules.beg_chance(_skill(Hero.Skill.BEGGING)):
+			var coins := randi_range(2, 5 + int(_skill(Hero.Skill.BEGGING) / 10.0))
+			_earn(coins)
+			npc._pop("here, %d gold" % coins, Color(1.0, 0.9, 0.5))
+			if is_hero:
+				game.count("begged")
+				game.count("begged_gold", coins)
+		else:
+			npc._pop("away with you", Color(0.75, 0.75, 0.75))
+		stats.try_gain(Hero.Skill.BEGGING)
+		return true
+	return false
+
+
+## Spirit Speak: with no bandages left, commune with the dead to mend your own wounds.
+func _try_spirit_speak() -> bool:
+	if kind != Kind.PLAYER or casting_id != "" or bandage_timer > 0.0:
+		return false
+	if hp >= float(stats.max_hp()) * 0.5 or _nearest(Kind.MONSTER, 2.5) != null:
+		return false
+	if mana < 10.0:
+		return false
+	mana -= 10.0
+	bandage_target = self
+	spirit_channel = true
+	bandage_timer = maxf(2.0, 4.0 - _skill(Hero.Skill.SPIRIT_SPEAK) / 50.0)
+	path.clear()
+	_pop("channelling", Color(0.7, 0.8, 1.0))
+	return true
+
+
+func _finish_spirit_speak() -> void:
+	var spirit := _skill(Hero.Skill.SPIRIT_SPEAK)
+	stats.try_gain(Hero.Skill.SPIRIT_SPEAK)
+	if randf() >= Rules.spirit_speak_chance(spirit):
+		_pop("the spirits are silent", Color(0.75, 0.75, 0.75))
+		return
+	var amount := 4.0 + spirit / 8.0
+	hp = minf(hp + amount, float(stats.max_hp()))
+	_pop("+%d" % roundi(amount), Color(0.6, 0.8, 1.0))
+	if is_hero:
+		game.count("spirit_speak")

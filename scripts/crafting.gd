@@ -30,6 +30,11 @@ const RECIPES := {
 	"leather_armor": {"skill": Hero.Skill.TAILORING, "min": 0.0, "mats": {"wolf_pelt": 3}},
 	"studded_armor": {"skill": Hero.Skill.TAILORING, "min": 35.0, "mats": {"wolf_pelt": 5}},
 	"wooden_shield": {"skill": Hero.Skill.CARPENTRY, "min": 0.0, "mats": {"log": 5}},
+	"short_sword": {"skill": Hero.Skill.BLACKSMITHY, "min": 10.0, "mats": {"ingot": 6}},
+	"mace": {"skill": Hero.Skill.BLACKSMITHY, "min": 15.0, "mats": {"ingot": 7}},
+	"war_hammer": {"skill": Hero.Skill.BLACKSMITHY, "min": 50.0, "mats": {"ingot": 16}},
+	"bow": {"skill": Hero.Skill.CARPENTRY, "min": 30.0, "mats": {"log": 7}},
+	"crossbow": {"skill": Hero.Skill.CARPENTRY, "min": 55.0, "mats": {"log": 10}},
 	"potion_refresh": {"skill": Hero.Skill.ALCHEMY, "min": 0.0, "mats": {"reagent": 1}},
 	"potion_cure": {"skill": Hero.Skill.ALCHEMY, "min": 0.0, "mats": {"reagent": 2}},
 	"potion_heal": {"skill": Hero.Skill.ALCHEMY, "min": 15.0, "mats": {"reagent": 2}},
@@ -39,8 +44,25 @@ const POTIONS := ["potion_greater_heal", "potion_heal", "potion_cure", "potion_r
 const ORDER := [
 	"dagger", "kryss", "longsword", "broadsword", "halberd", "bronze_shield", "heater_shield",
 	"chainmail", "platemail", "leather_armor", "studded_armor", "wooden_shield",
+	"short_sword", "mace", "war_hammer", "bow", "crossbow",
 	"potion_refresh", "potion_cure", "potion_heal", "potion_greater_heal",
 ]
+
+
+static func tier_index(tier_id: String) -> int:
+	for i in range(ORE_TIERS.size()):
+		if String(ORE_TIERS[i]["id"]) == tier_id:
+			return i
+	return -1
+
+
+## The best metal with at least `n` ingots of its own, or "" if no single metal has enough.
+static func best_single_tier(inv: Dictionary, n: int) -> String:
+	for i in range(ORE_TIERS.size() - 1, -1, -1):
+		var id := String(ORE_TIERS[i]["id"])
+		if count(inv, "ingot_" + id) >= n:
+			return id
+	return ""
 
 
 static func tier(tier_id: String) -> Dictionary:

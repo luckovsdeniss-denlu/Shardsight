@@ -13,6 +13,10 @@ const LIST := {
 	"potion_refresh": {"name": "Refresh Potion", "value": 10, "potion": true},
 	# Instruments (bards need one to play). Kept, never sold.
 	"lute": {"name": "Lute", "value": 20, "instrument": true},
+	# Tools wear out with use and break (they are kept, never sold).
+	"pickaxe": {"name": "Pickaxe", "value": 12, "tool": true},
+	"hatchet": {"name": "Hatchet", "value": 12, "tool": true},
+	"tool_kit": {"name": "Tool Kit", "value": 15, "tool": true},
 }
 
 
@@ -35,8 +39,12 @@ static func is_instrument(id: String) -> bool:
 	return LIST.has(id) and bool(LIST[id].get("instrument", false))
 
 
+static func is_tool(id: String) -> bool:
+	return LIST.has(id) and bool(LIST[id].get("tool", false))
+
+
 static func is_known(id: String) -> bool:
-	return Gear.LIST.has(id) or LIST.has(id) or is_material(id)
+	return Gear.has(id) or LIST.has(id) or is_material(id)
 
 
 static func item_name(id: String) -> String:
@@ -46,8 +54,9 @@ static func item_name(id: String) -> String:
 		return String(Crafting.tier(id.trim_prefix("ore_"))["name"]) + " Ore"
 	if id.begins_with("ingot_") and is_material(id):
 		return String(Crafting.tier(id.trim_prefix("ingot_"))["name"]) + " Ingot"
-	if Gear.LIST.has(id):
-		return String(Gear.LIST[id]["name"])
+	if Gear.has(id):
+		var g := Gear.stats(id)
+		return String(g["name"]) + (" (your maker's mark)" if bool(g["exceptional"]) else "")
 	return String(LIST[id]["name"])
 
 
@@ -59,8 +68,8 @@ static func value(id: String) -> int:
 		return int(Crafting.tier(id.trim_prefix("ore_"))["value"])
 	if id.begins_with("ingot_") and is_material(id):
 		return int(Crafting.tier(id.trim_prefix("ingot_"))["value"]) * 2
-	if Gear.LIST.has(id):
-		return maxi(1, int(Gear.LIST[id]["value"]) / 2)
+	if Gear.has(id):
+		return maxi(1, int(Gear.stats(id)["value"]) / 2)
 	return int(LIST[id]["value"])
 
 

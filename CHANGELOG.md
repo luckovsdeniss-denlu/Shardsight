@@ -3,6 +3,25 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.22.0
+- Weapon skills: Fencing (dagger, kryss), Mace Fighting (mace, war hammer), Archery (bow,
+  crossbow) join Swordsmanship. Hit chance and gains use the skill of the weapon in hand, and
+  the AI values a weapon by how well it can use it.
+- New weapons: short sword, mace, war hammer, bow and crossbow (ranged, 7 m). Bows use one arrow
+  a shot; merchants sell arrows (10 for 10 gold). Out of arrows means bare hands.
+- Tools: mining needs a pickaxe, lumberjacking a hatchet, smithing and carpentry a tool kit.
+  Each lasts about 40 uses, then breaks; merchants sell new ones for 12 gold. Tools are never sold.
+- Coloured ore: enough ingots of one metal make a piece of that metal (+4% per tier on damage,
+  armor and value). Grandmaster-level crafters sometimes make Exceptional pieces (+20%), which
+  carry your maker's mark.
+- Arms Lore and Item Identification: selling gear or goods trains them and adds up to 50% to the
+  price.
+- Tracking: an idle hunter finds monsters beyond sight and heads for them.
+- Camping: hurt in the wild with a log, light a campfire and rest (triple regeneration nearby).
+- Begging: with under 15 gold, ask townsfolk for coins (each once every 5 minutes).
+- Spirit Speak: out of bandages, channel to mend your wounds for 10 mana.
+- Arrows and tool wear are saved.
+
 ## 0.21.0
 (0.20, society, comes later.)
 - Shops with supply and demand (`scripts/shop.gd`, from the reference): each merchant has a purse

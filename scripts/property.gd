@@ -136,8 +136,8 @@ static func _clean_items(raw: Variant) -> Dictionary:
 
 ## What a player vendor asks: the full value of an item (merchants pay half for used gear).
 static func vendor_price(id: String) -> int:
-	if Gear.LIST.has(id):
-		return int(Gear.LIST[id]["value"])
+	if Gear.has(id):
+		return int(Gear.stats(id)["value"])
 	return Items.value(id)
 
 

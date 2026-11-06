@@ -127,3 +127,33 @@ static func music_chance(musicianship: float) -> float:
 ## difficulty (0..100, from how dangerous it is). Musicianship helps every one of them.
 static func bard_chance(skill: float, musicianship: float, difficulty: float) -> float:
 	return clampf(0.5 + (skill + musicianship) / 400.0 - difficulty / 100.0, 0.05, 0.95)
+
+
+## Approximate: Grandmaster-level crafters (90+) sometimes make exceptional pieces with a maker's mark.
+static func exceptional_chance(skill: float) -> float:
+	if skill < 90.0:
+		return 0.0
+	return clampf((skill - 80.0) / 100.0, 0.0, 0.3)
+
+
+## Approximate: chances for the lesser skills.
+static func track_chance(tracking: float) -> float:
+	return clampf(0.4 + tracking / 150.0, 0.4, 0.95)
+
+
+static func camp_chance(camping: float) -> float:
+	return clampf(0.5 + camping / 200.0, 0.5, 0.98)
+
+
+static func beg_chance(begging: float) -> float:
+	return clampf(0.2 + begging / 150.0, 0.2, 0.85)
+
+
+static func spirit_speak_chance(spirit: float) -> float:
+	return clampf(0.3 + spirit / 150.0, 0.3, 0.95)
+
+
+## Arms Lore (gear) and Item Identification (everything else): knowing an item's worth gets a
+## better price, up to +50% at 100.
+static func appraisal_bonus(skill: float) -> float:
+	return 1.0 + clampf(skill, 0.0, 100.0) / 200.0

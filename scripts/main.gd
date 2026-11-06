@@ -817,7 +817,7 @@ func _check_invariants() -> void:
 			_note_problem("%s is inside a wall at %s" % [e.display_name, world.to_tile(p)])
 		if e.hp > float(e.stats.max_hp()) + 0.01:
 			_note_problem("%s has more HP than its maximum" % e.display_name)
-		if e.gold < 0 or e.reagents < 0.0 or e.bandages < 0:
+		if e.gold < 0 or e.reagents < 0.0 or e.bandages < 0 or e.arrows < 0:
 			_note_problem("%s has negative gold, reagents or bandages" % e.display_name)
 	if property.bank_gold < 0:
 		_note_problem("the bank balance is negative")
@@ -1466,6 +1466,7 @@ func _process(delta: float) -> void:
 		if _tip_timer <= 0.0:
 			_tip_timer = 15.0
 			log_event(String(_tips_left.pop_front()))
+	_campfire_tick(delta)
 	save_timer += delta
 	if save_timer >= 20.0:
 		save_timer = 0.0
@@ -1537,6 +1538,63 @@ func _pinch() -> void:
 
 
 ## Sound effects near the hero (within 12 m), if sound is on.
+# --- campfires (Camping) ----------------------------------------------------
+
+const CAMPFIRE_SECONDS := 60.0
+const CAMPFIRE_RANGE := 2.0
+var campfires: Array = []          # [{"node": Node3D, "left": seconds}]
+
+
+func light_campfire(at: Vector3) -> void:
+	var fire := Node3D.new()
+	var logs := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.25
+	cyl.bottom_radius = 0.3
+	cyl.height = 0.15
+	logs.mesh = cyl
+	logs.material_override = World._mat(Color(0.35, 0.22, 0.12))
+	fire.add_child(logs)
+	var flame := MeshInstance3D.new()
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.2
+	cone.height = 0.45
+	flame.mesh = cone
+	var fm := StandardMaterial3D.new()
+	fm.albedo_color = Color(1.0, 0.55, 0.15)
+	fm.emission_enabled = true
+	fm.emission = Color(1.0, 0.5, 0.1)
+	fm.emission_energy_multiplier = 2.0
+	flame.material_override = fm
+	flame.position.y = 0.3
+	fire.add_child(flame)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.6, 0.3)
+	light.omni_range = 4.0
+	light.position.y = 0.6
+	fire.add_child(light)
+	add_child(fire)
+	fire.position = Vector3(at.x + 0.6, 0.0, at.z)
+	campfires.append({"node": fire, "left": CAMPFIRE_SECONDS})
+
+
+func near_campfire(p: Vector3) -> bool:
+	for c in campfires:
+		var n: Node3D = c["node"]
+		if Vector2(n.position.x - p.x, n.position.z - p.z).length() <= CAMPFIRE_RANGE:
+			return true
+	return false
+
+
+func _campfire_tick(delta: float) -> void:
+	for i in range(campfires.size() - 1, -1, -1):
+		campfires[i]["left"] = float(campfires[i]["left"]) - delta
+		if float(campfires[i]["left"]) <= 0.0:
+			(campfires[i]["node"] as Node3D).queue_free()
+			campfires.remove_at(i)
+
+
 func sound(sound_name: String, at: Vector3) -> void:
 	if property.sound_on and hero != null and at.distance_to(hero.position) <= 12.0:
 		sfx.play(sound_name)

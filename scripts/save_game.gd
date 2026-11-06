@@ -40,6 +40,8 @@ static func save(hero: Entity, property: Property) -> bool:
 		"skills": skills,
 		"locks": locks,
 		"bandages": hero.bandages,
+		"arrows": hero.arrows,
+		"tool_uses": hero.tool_uses,
 		"murders": hero.murder_counts,
 		"pets": _pets_of(hero),
 		"property": property.to_dict(),
@@ -94,6 +96,12 @@ static func load_into(hero: Entity, property: Property) -> bool:
 		hero.game.saved_pets = pets            # spawned next to the hero once the world is up
 	hero.murder_timer = Entity.MURDER_DECAY
 	hero.bandages = clampi(int(d.get("bandages", hero.bandages)), 0, Entity.MAX_BANDAGES)
+	hero.arrows = clampi(int(d.get("arrows", hero.arrows)), 0, 500)
+	var uses = d.get("tool_uses", {})
+	if uses is Dictionary:
+		for t in Entity.TOOLS:
+			if uses.has(t):
+				hero.tool_uses[t] = clampi(int(uses[t]), 1, Entity.TOOL_USES)
 	hero.gold = maxi(0, int(d.get("gold", 0)))
 	hero.reagents = clampf(float(d.get("reagents", hero.reagents)), 0.0, Entity.MAX_REAGENTS)
 
@@ -105,11 +113,11 @@ static func load_into(hero: Entity, property: Property) -> bool:
 			hero.inventory[item_id] = maxi(1, int(inv[key]))
 
 	var w := String(d.get("weapon", hero.weapon))
-	hero.weapon = w if Gear.LIST.has(w) and String(Gear.LIST[w]["slot"]) == "weapon" else ""
+	hero.weapon = w if Gear.has(w) and String(Gear.stats(w)["slot"]) == "weapon" else ""
 	var a := String(d.get("armor", hero.armor_id))
-	hero.armor_id = a if Gear.LIST.has(a) and String(Gear.LIST[a]["slot"]) == "armor" else ""
+	hero.armor_id = a if Gear.has(a) and String(Gear.stats(a)["slot"]) == "armor" else ""
 	var sh := String(d.get("shield", hero.shield_id))
-	hero.shield_id = sh if Gear.LIST.has(sh) and String(Gear.LIST[sh]["slot"]) == "shield" else ""
+	hero.shield_id = sh if Gear.has(sh) and String(Gear.stats(sh)["slot"]) == "shield" else ""
 
 	var t: Array = d.get("tile", [])
 	if t.size() == 2:
