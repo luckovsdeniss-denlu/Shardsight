@@ -1,5 +1,5 @@
 class_name Hero
-## Three stats, skills 0..100 and hard caps. Skills rise with every use (+0.1 each time), and
+## Three stats, skills 0..100 and hard caps. Skills rise with every use (+1 each time, 1% of the maximum), and
 ## the level (1..1000) follows the skill total. Stats rise only by use too.
 
 signal skill_gained(skill_name: String, value: float)
@@ -36,6 +36,7 @@ const STAT_OF := {
 	Skill.SNOOPING: Stat.DEX, Skill.STEALING: Stat.DEX, Skill.HIDING: Stat.DEX,
 	Skill.STEALTH: Stat.DEX, Skill.DETECTING_HIDDEN: Stat.INT,
 }
+const SKILL_GAIN := 1.0          # skill points per use (1% of the 100 maximum)
 const STAT_GAIN_CHANCE := 0.06   # per skill gain: stats rise much slower than skills
 
 var strength := 25
@@ -126,13 +127,19 @@ func try_gain(skill: int) -> bool:
 	var v: float = skills[skill]
 	if v >= Rules.SKILL_MAX:
 		return false
-	# Every use teaches: +0.1 each time (no dice), up to 100 and the 700-point cap.
-	if skill_total() + 0.1 > Rules.SKILL_CAP_TOTAL + 0.001 and not _take_from_down_skill(skill):
-		return false
+	# Every use teaches: +1 each time (1% of the 100 maximum, no dice), up to 100 and the
+	# 700-point cap; at the cap the gain is paid for by a skill marked "down".
+	var gain := minf(SKILL_GAIN, Rules.SKILL_MAX - v)
+	var room := float(Rules.SKILL_CAP_TOTAL) - skill_total()
+	if room < gain - 0.001:
+		gain = maxf(room, 0.0) + _take_from_down_skill(skill, gain - maxf(room, 0.0))
+		if gain < 0.05:
+			return false
 	var before := level()
-	var nv := snappedf(minf(v + 0.1, Rules.SKILL_MAX), 0.1)
+	var nv := snappedf(minf(v + gain, Rules.SKILL_MAX), 0.1)
 	skills[skill] = nv
-	if floorf(nv) > floorf(v):
+	# Announced every 5 points (and at 100), not on every use.
+	if floorf(nv / 5.0) > floorf(v / 5.0) or nv >= Rules.SKILL_MAX:
 		skill_gained.emit(skill_name(skill), nv)
 	if level() > before:
 		level_up.emit(level())
@@ -140,7 +147,8 @@ func try_gain(skill: int) -> bool:
 	return true
 
 
-func _take_from_down_skill(except: int) -> bool:
+## Lowers the highest skill marked "down" by up to `amount`; returns how much it gave.
+func _take_from_down_skill(except: int, amount: float) -> float:
 	var best := -1
 	var best_v := 0.0
 	for s in skills:
@@ -150,9 +158,10 @@ func _take_from_down_skill(except: int) -> bool:
 			best = s
 			best_v = float(skills[s])
 	if best < 0 or best_v < 0.1:
-		return false
-	skills[best] = snappedf(best_v - 0.1, 0.1)
-	return true
+		return 0.0
+	var taken := minf(amount, best_v)
+	skills[best] = snappedf(best_v - taken, 0.1)
+	return taken
 
 
 ## Using a skill slowly raises its stat. At the 225 stat cap, raising one lowers another.

@@ -4,12 +4,16 @@ Version lives in `project.godot` (`application/config/version`). Bump it there; 
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
 ## 0.34.1
-Harder hitting.
+Harder hitting, faster learning.
 - Players hit more often and harder in melee. A new character with no weapon skill landed
   about a quarter of its swings against a seasoned monster (and zero Tactics halved every
   blow). Now players land at least 60% of swings (rising with skill: 85% at 100, or more
   where the classic formula gives more), deal 1.5x melee damage, and bare hands do 2-6
   instead of 1-4. Weapon skill and Tactics now train on every swing, hit or miss.
+- Skills rise ten times faster: +1 point (1% of the 100 maximum) on every use, instead of +0.1.
+  A skill reaches 100 after 100 uses, and the level follows. The log announces a skill every
+  5 points rather than on every use. At the 700-point cap, a skill marked "down" still pays for
+  the gain.
 
 ## 0.34.0
 No more glitch; cast spells yourself.
