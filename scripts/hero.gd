@@ -91,7 +91,7 @@ func skill_total() -> float:
 
 
 ## Player level 1..1000 from the total of all the hero's skills: no skills is level 1, and the
-## full 700-point skill cap is level 1000 (about 1.43 levels per skill point). Derived, so
+## full skill total (all 37 skills at 100, 3700 points) is level 1000. Derived, so
 ## nothing is saved.
 const LEVEL_MAX := 1000
 
@@ -120,7 +120,7 @@ func set_stat(stat: int, value: int) -> void:
 			intelligence = value
 
 
-## Skills rise only by use: gains slow as a skill climbs. At the 700-point cap a gain must be
+## Skills rise only by use: gains slow as a skill climbs. At the skill cap a gain must be
 ## paid for by a skill marked "down"; if there is none, the gain is refused.
 func try_gain(skill: int) -> bool:
 	if int(locks.get(skill, Lock.UP)) != Lock.UP:
@@ -129,7 +129,7 @@ func try_gain(skill: int) -> bool:
 	if v >= Rules.SKILL_MAX:
 		return false
 	# Every use teaches: +1 each time (1% of the 100 maximum, no dice), up to 100 and the
-	# 700-point cap; at the cap the gain is paid for by a skill marked "down".
+	# skill cap (every skill at 100); at the cap the gain is paid for by a skill marked "down".
 	var gain := minf(SKILL_GAIN, Rules.SKILL_MAX - v)
 	var room := float(Rules.SKILL_CAP_TOTAL) - skill_total()
 	if room < gain - 0.001:

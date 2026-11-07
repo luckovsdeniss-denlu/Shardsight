@@ -432,7 +432,7 @@ func _close_craft() -> void:
 	menu.visible = true
 
 
-## Rebuilds the skills list. Lock arrows: Up = may rise, Down = may be lost when the 700-point
+## Rebuilds the skills list. Lock arrows: Up = may rise, Down = may be lost when the skill
 ## cap is reached (so another skill can rise), Locked = frozen.
 func _refresh_skills() -> void:
 	for c in skills_box.get_children():
@@ -1263,7 +1263,7 @@ func _open_help() -> void:
 		"Tap the ground to walk there. Tap a monster to attack it, a corpse to loot it, a rock to mine it, a tree to chop it.",
 		"The Menu button (top right) opens every button: Auto, Main Menu, Bag, Spells, Retreat, Ride, Mute, and switches to show names, stats and the map. Auto lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
 		"Names (Menu > Show names): blue innocent, grey criminal, red murderer or monster. The tan towns are safe: nobody can be hurt inside a town, and nobody can attack out of one.",
-		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked for the 700-point cap.",
+		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked. There's no real cap: every skill can reach 100.",
 		"Die and you become a ghost: walk to a healer to be raised for free. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
 		"The world is bigger now: Southmoor, a third town, lies south. Wolf packs and an orc fort roam the far east, spiders the southern forest, and the restless dead an old graveyard in the south-east. The hills south-east are rich in ore.",

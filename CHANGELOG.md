@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.42.4
+- The skill cap is raised to the maximum: every one of the 37 skills can reach 100 (3700
+  points; it was 700, "seven skills at 100"). Level 1000 now means every skill mastered, so
+  each skill point is about 0.27 of a level: 100 points is level 28, 370 is 100, 1850 is
+  500.
+
 ## 0.42.3
 - Level runs from 1 to 1000 again, from the total of all the hero's skills: no skills is level
   1, the full 700-point skill cap is level 1000 (about 1.43 levels a skill point). It was the
