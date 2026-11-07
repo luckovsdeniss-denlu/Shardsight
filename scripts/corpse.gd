@@ -97,9 +97,9 @@ func take_all() -> Dictionary:
 	return out
 
 
-## Turns this into a treasure chest that drops from `height` above and bounces as it lands,
-## with a golden beam up to the sky and a warm light round it until it's emptied.
-func make_chest(height: float) -> void:
+## Turns this into a treasure chest on the ground, appearing in a burst of gold sparkles, with a
+## golden beam up to the sky and a warm light round it until it's emptied.
+func make_chest() -> void:
 	is_chest = true
 	life = CHEST_LIFETIME
 	if _body != null:
@@ -143,12 +143,7 @@ func make_chest(height: float) -> void:
 	title = "Treasure Chest"
 	_last_text = ""
 	_refresh_label()
-	model.position.y = height
-	var tw := model.create_tween()
-	tw.tween_property(model, "position:y", 0.0, 1.1).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
-	tw.tween_callback(func() -> void:
-		if is_inside_tree():
-			Fx.sparkle(get_parent(), global_position + Vector3(0.0, 0.3, 0.0), Color(1.0, 0.85, 0.45), 26))
+	Fx.sparkle(get_parent(), global_position + Vector3(0.0, 0.3, 0.0), Color(1.0, 0.85, 0.45), 26)
 
 
 func set_title(t: String) -> void:

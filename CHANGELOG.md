@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.44.2
+- Treasure chests no longer fall from the sky: a slain monster (10%) leaves one on the ground
+  beside its body, appearing in a burst of gold sparkles, with the golden beam and light as before.
+
 ## 0.44.1
 Artifacts that look the part.
 - Artifact weapons glow in their colour: runes down the blade and a gem at the guard on swords

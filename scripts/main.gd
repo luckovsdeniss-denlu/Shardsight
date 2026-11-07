@@ -2578,7 +2578,7 @@ func spawn_corpse(victim: Entity) -> void:
 		_drop_chest(victim)
 
 
-const CHEST_CHANCE := 0.10             # any slain monster: a treasure chest falls from the sky
+const CHEST_CHANCE := 0.10             # any slain monster may leave a treasure chest
 
 
 ## A treasure chest with an artifact, gold and reagents drops beside a slain monster; anyone may
@@ -2594,10 +2594,10 @@ func _drop_chest(victim: Entity) -> void:
 	var c := Corpse.new()
 	add_child(c)
 	c.setup("Treasure", true, false, 0, pos, loot)
-	c.make_chest(9.0)
+	c.make_chest()
 	corpses.append(c)
 	if hero != null and pos.distance_to(hero.position) <= 25.0:
-		log_event("A treasure chest falls from the sky by the %s! (%s inside)" % [victim.display_name, Items.item_name(art)])
+		log_event("The %s leaves a treasure chest! (%s inside)" % [victim.display_name, Items.item_name(art)])
 		sound("loot", pos)
 
 
