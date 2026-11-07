@@ -3241,10 +3241,22 @@ func _campfire_tick(delta: float) -> void:
 			campfires.remove_at(i)
 
 
-## Sound effects play only for what the camera can see (weather, music and thunder are global).
+## Sound effects are heard only from the middle of the screen: a box SOUND_ZONE (35%) of the
+## screen's width and height, centred, i.e. round the hero. Weather, music and thunder are global.
+const SOUND_ZONE := 0.35
+
+
 func sound(sound_name: String, at: Vector3) -> void:
-	if property.sound_on and hero != null and in_view(at + Vector3(0.0, 0.5, 0.0), 0.5):
+	if property.sound_on and hero != null and _in_sound_zone(at + Vector3(0.0, 0.5, 0.0)):
 		sfx.play(sound_name)
+
+
+func _in_sound_zone(p: Vector3) -> bool:
+	if cam.is_position_behind(p):
+		return false
+	var size := get_viewport().get_visible_rect().size
+	var off := (cam.unproject_position(p) - size / 2.0).abs()
+	return off.x <= size.x * SOUND_ZONE / 2.0 and off.y <= size.y * SOUND_ZONE / 2.0
 
 
 ## Moves the sun and dims the sky over the day; nights stay readable.

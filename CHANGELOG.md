@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.41.2
+- Sound effects are heard only from the middle of the screen: a centred box 35% of the
+  screen's width and height, round the hero (it was the whole camera view). Music, rain and
+  thunder stay global.
+
 ## 0.41.1
 - Sound effects play only for what's on screen: swings, hits, spells, bows and the rest are
   heard when the camera can see where they happen (it was anything within 12 tiles of the hero,
