@@ -862,7 +862,7 @@ func _refresh_label() -> void:
 	var text := "%s\nHP %d/%d" % [display_name, ceili(hp), stats.max_hp()]
 	if kind == Kind.PLAYER:
 		var g := guild_abbr()
-		text = "%s\n%sLv %d  HP %d/%d" % [title_name(), ("[%s] " % g) if g != "" else "", stats.level(), ceili(hp), stats.max_hp()]
+		text = "%s\n%sLvl %d  HP %d/%d" % [title_name(), ("[%s] " % g) if g != "" else "", stats.level(), ceili(hp), stats.max_hp()]
 	if kind == Kind.NPC:
 		text = "%s\n(%s)" % [display_name, role]
 	elif kind == Kind.PET:
@@ -884,7 +884,7 @@ func _refresh_label() -> void:
 	if paralyzed_timer > 0.0:
 		text += "\n(paralyzed)"
 	if is_hero and not bool(game.property.names_on):
-		text = "Lv %d  HP %d/%d" % [stats.level(), ceili(hp), stats.max_hp()]   # just the numbers
+		text = "Lvl %d  HP %d/%d" % [stats.level(), ceili(hp), stats.max_hp()]   # just the numbers
 	label.modulate = _name_color()
 	if text != _last_text:
 		_last_text = text

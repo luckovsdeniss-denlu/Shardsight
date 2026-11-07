@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.35.2
+- The label over heads reads "Lvl" instead of "Lv" ("Lvl 12  HP 34/40").
+
 ## 0.35.1
 Your level and HP, always; solid menus.
 - Your hero's level and HP always show over its head ("Lv 12  HP 34/40"), even with names
