@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.35.0
+A cleaner screen.
+- One Menu button in the upper right opens all the others, in two columns: Auto, Main Menu
+  (what was Menu), Bag, Spells, Retreat, Ride, and new switches: Mute / Unmute (music and sound
+  effects together), Show / Hide names, Show / Hide stats (the text in the upper left) and Show /
+  Hide map. The minimap stays under the Menu button unless hidden. The switches are saved.
+- Names (and health) over heads are hidden by default; Menu > Show names brings them back.
+- "Level N!" now shows every 5 levels (5, 10, 15...), not every level, for everyone.
+- The idle hologram is gone, and with it its setting.
+- Players miss much less at the start: they land at least 85% of melee swings, rising with
+  weapon skill to 95% (it was 60%).
+
 ## 0.34.2
 No thumb stick.
 - The on-screen thumb stick is gone; tap or hold on the ground to walk, as before.

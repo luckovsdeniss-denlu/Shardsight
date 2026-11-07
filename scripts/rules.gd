@@ -17,14 +17,14 @@ static func hit_chance(attacker_skill: float, defender_skill: float) -> float:
 
 
 ## Players (the hero and the computer players) land at least this share of their swings, so a
-## new character with no weapon skill isn't missing three blows in four; skill still raises it.
-const PLAYER_HIT_FLOOR := 0.6
+## new character with no weapon skill hits most of the time; skill raises it to 95%.
+const PLAYER_HIT_FLOOR := 0.85
 ## Players' melee damage is multiplied by this (zero Tactics would otherwise halve every blow).
 const PLAYER_MELEE_BONUS := 1.5
 
 
 static func player_hit_chance(attacker_skill: float, defender_skill: float) -> float:
-	return maxf(hit_chance(attacker_skill, defender_skill), PLAYER_HIT_FLOOR + attacker_skill / 400.0)
+	return maxf(hit_chance(attacker_skill, defender_skill), minf(PLAYER_HIT_FLOOR + attacker_skill / 1000.0, 0.95))
 
 
 ## Reconstruction: seconds per swing = 15000 / ((stamina + 100) * weapon_speed).

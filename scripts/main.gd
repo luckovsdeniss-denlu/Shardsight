@@ -31,6 +31,12 @@ var ride_button: Button
 var players_panel: Control
 var players_box: VBoxContainer
 var bag_panel: Control
+var corner_toggle: Button              # the Menu button in the upper right
+var corner_grid: GridContainer         # the buttons it opens
+var mute_button: Button
+var names_button: Button
+var stats_button: Button
+var map_button: Button
 var bag_box: VBoxContainer
 var spells_panel: Control
 var spells_box: VBoxContainer
@@ -170,24 +176,42 @@ func _ready() -> void:
 	world_label.size_flags_horizontal = Control.SIZE_SHRINK_END
 	wcolumn.add_child(world_label)
 
+	# Upper right: one Menu button that opens every other button (two columns, so they fit the
+	# screen), with the minimap under it.
 	var corner := VBoxContainer.new()
 	corner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	corner.alignment = BoxContainer.ALIGNMENT_BEGIN
 	layer.add_child(corner)
-	auto_button.custom_minimum_size = Vector2(240, 80)
-	auto_button.add_theme_font_size_override("font_size", 28)
+	corner_toggle = _menu_button("Menu", _toggle_corner)
+	corner_toggle.size_flags_horizontal = Control.SIZE_SHRINK_END
+	corner.add_child(corner_toggle)
+	corner_grid = GridContainer.new()
+	corner_grid.columns = 2
+	corner_grid.visible = false
+	corner.add_child(corner_grid)
 	auto_button.pressed.connect(_toggle_auto)
-	corner.add_child(auto_button)
-	corner.add_child(_menu_button("Menu", _open_menu))
-	corner.add_child(_menu_button("Bag", _open_bag))
-	corner.add_child(_menu_button("Spells", _open_spells))
+	_corner_add(auto_button)
+	_corner_add(_menu_button("Main Menu", _open_menu))
+	_corner_add(_menu_button("Bag", _open_bag))
+	_corner_add(_menu_button("Spells", _open_spells))
 	retreat_button = _menu_button("Retreat", _on_retreat)
-	corner.add_child(retreat_button)
+	_corner_add(retreat_button)
 	ride_button = _menu_button("Ride", _on_ride)
-	corner.add_child(ride_button)
+	_corner_add(ride_button)
+	mute_button = _menu_button("", _toggle_mute)
+	_corner_add(mute_button)
+	names_button = _menu_button("", _toggle_names)
+	_corner_add(names_button)
+	stats_button = _menu_button("", _toggle_stats)
+	_corner_add(stats_button)
+	map_button = _menu_button("", _toggle_map)
+	_corner_add(map_button)
 	minimap.setup(self, world)
+	minimap.size_flags_horizontal = Control.SIZE_SHRINK_END
 	corner.add_child(minimap)
 	corner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
 	_update_button()
+	_update_corner_buttons()
 	_build_menu(layer)
 	_build_skills_panel(layer)
 	_build_craft_panel(layer)
@@ -235,6 +259,9 @@ func _ready() -> void:
 	else:
 		log_event("Welcome to Shardsight. Tap a monster to attack it.")
 		_tips_left = TIPS.duplicate()        # first launch: a few tips over the first minute
+	_update_corner_buttons()                 # the saved switches: stats, map
+	for e in creatures:
+		e.show_name(property.names_on)
 	if property.rune.x < 0 or property.runes.is_empty():
 		property.rune = DEFAULT_RUNE         # a starting rune marked in town, for Recall
 		property.runes.clear()
@@ -1222,8 +1249,8 @@ func _open_help() -> void:
 	settings_box.add_child(title)
 	for line in [
 		"Tap the ground to walk there. Tap a monster to attack it, a corpse to loot it, a rock to mine it, a tree to chop it.",
-		"Auto (top right) lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
-		"Names: blue innocent, grey criminal, red murderer or monster. The tan towns are safe: nobody can be hurt inside a town, and nobody can attack out of one.",
+		"The Menu button (top right) opens every button: Auto, Main Menu, Bag, Spells, Retreat, Ride, Mute, and switches to show names, stats and the map. Auto lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
+		"Names (Menu > Show names): blue innocent, grey criminal, red murderer or monster. The tan towns are safe: nobody can be hurt inside a town, and nobody can attack out of one.",
 		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked for the 700-point cap.",
 		"Die and you become a ghost: walk to a healer to be raised for free. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
@@ -2645,6 +2672,56 @@ func _update_button() -> void:
 	auto_button.text = "Auto: ON" if auto else "Auto: OFF"
 
 
+# --- the corner menu and its switches ------------------------------------------------
+
+func _corner_add(b: Button) -> void:
+	b.custom_minimum_size = Vector2(200, 68)
+	b.add_theme_font_size_override("font_size", 24)
+	corner_grid.add_child(b)
+
+
+func _toggle_corner() -> void:
+	corner_grid.visible = not corner_grid.visible
+	corner_toggle.text = "Close" if corner_grid.visible else "Menu"
+
+
+func _update_corner_buttons() -> void:
+	var muted := not property.sound_on and not property.music_on
+	mute_button.text = "Unmute" if muted else "Mute"
+	names_button.text = "Hide names" if property.names_on else "Show names"
+	stats_button.text = "Hide stats" if property.stats_on else "Show stats"
+	map_button.text = "Hide map" if property.minimap_on else "Show map"
+	hud.visible = property.stats_on
+	minimap.visible = property.minimap_on
+
+
+## Mute silences both music and sound effects; Unmute turns both back on.
+func _toggle_mute() -> void:
+	var on := not property.sound_on and not property.music_on
+	property.sound_on = on
+	property.music_on = on
+	music.set_enabled(on)
+	_update_corner_buttons()
+
+
+## Names (and health) over everyone's heads: off by default.
+func _toggle_names() -> void:
+	property.names_on = not property.names_on
+	for e in creatures:
+		e.show_name(property.names_on)
+	_update_corner_buttons()
+
+
+func _toggle_stats() -> void:
+	property.stats_on = not property.stats_on
+	_update_corner_buttons()
+
+
+func _toggle_map() -> void:
+	property.minimap_on = not property.minimap_on
+	_update_corner_buttons()
+
+
 # --- frame -----------------------------------------------------------------
 
 func _process(delta: float) -> void:
@@ -3043,7 +3120,6 @@ func _refresh_settings() -> void:
 	settings_box.add_child(title)
 	settings_box.add_child(_menu_button("Sound: " + ("On" if property.sound_on else "Off"), _toggle_sound))
 	settings_box.add_child(_menu_button("Music: " + ("On" if property.music_on else "Off"), _toggle_music))
-	settings_box.add_child(_menu_button("Idle hologram: " + ("On" if property.glitch_on else "Off"), _toggle_glitch))
 	settings_box.add_child(_menu_button("Graphics: " + property.graphics.capitalize(), _cycle_graphics))
 	settings_box.add_child(_info("Graphics: Low turns off shadows and grass details and renders at 70% (smoothest on older phones); Medium keeps shadows at 85%; High renders at full resolution with smoother edges."))
 	settings_box.add_child(_menu_button("Weather: " + ("On" if property.weather_on else "Off (always clear)"), _toggle_weather))
@@ -3085,14 +3161,10 @@ func _apply_graphics() -> void:
 		rain.amount = 250 if g == "low" else (800 if weather == "storm" else 500)
 
 
-func _toggle_glitch() -> void:
-	property.glitch_on = not property.glitch_on
-	_refresh_settings()
-
-
 func _toggle_music() -> void:
 	property.music_on = not property.music_on
 	music.set_enabled(property.music_on)
+	_update_corner_buttons()
 	_refresh_settings()
 
 
@@ -3105,6 +3177,7 @@ func _toggle_weather() -> void:
 
 func _toggle_sound() -> void:
 	property.sound_on = not property.sound_on
+	_update_corner_buttons()
 	_refresh_settings()
 
 

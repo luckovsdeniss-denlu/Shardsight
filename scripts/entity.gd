@@ -209,14 +209,13 @@ var visual_scale := 1.0
 var anim_t := 0.0
 var swing_anim := 0.0
 var _last_pos := Vector3.ZERO
-var idle_time := 0.0           # seconds standing still with nothing to do
 var _think_acc := 0.0
+var _announced_level := 0      # the last multiple of 5 announced
 var _think_every := 0.12       # seconds between decisions (the hero decides faster)
 var _aura_acc := 0.0
 var _label_acc := 0.0
 var _cull_timer := 0.0
 var _near := true              # close enough to the camera to be drawn and animated
-var holo := false              # showing the idle hologram
 
 
 func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, tile: Vector2i) -> void:
@@ -307,6 +306,7 @@ func _build_visual(color: Color, s: float) -> void:
 	label.modulate = base_label_color
 	label.position = Vector3(0.0, 1.5 * s + 0.25, 0.0)
 	add_child(label)
+	label.visible = bool(game.property.names_on)
 
 
 func tick(delta: float) -> void:
@@ -1752,7 +1752,6 @@ func refresh_look() -> void:
 		(model["root"] as Node3D).queue_free()
 	if model.has("mount_root"):
 		(model["mount_root"] as Node3D).queue_free()
-	holo = false                         # the new model starts solid
 	model = Art.creature(look, _look_style(), visual_scale)
 	rig.add_child(model["root"])
 	if look == "nightmare":
@@ -2215,7 +2214,6 @@ func _animate(delta: float) -> void:
 	swing_anim = maxf(swing_anim - delta, 0.0)
 	var moving := position.distance_to(_last_pos) > 0.001
 	_last_pos = position
-	_holo_step(delta, moving)
 	var y := 0.0
 	var tilt := 0.0
 	if ghost:
@@ -3866,12 +3864,21 @@ func pvp_problem(v: Entity) -> String:
 
 ## A level gained: a pop above the head every time, a log line every 10 levels.
 func _on_level_up(lv: int) -> void:
-	_pop("Level %d!" % lv, Color(1.0, 0.85, 0.3))
 	if is_hero:
 		game.count("levels_gained")
-		if lv % 10 == 0:
-			game.log_event("You reach level %d!" % lv)
-			game.sound("gain", position)
+	# Announced every 5 levels. A gain can jump a level or two, so announce on passing a
+	# multiple of 5, not only on landing on one.
+	if _announced_level == 0:              # first gain this session (a loaded hero may be high)
+		_announced_level = floori(maxi(lv - 2, 0) / 5.0) * 5
+	var mark := floori(lv / 5.0) * 5
+	if mark <= _announced_level:
+		return
+	_announced_level = mark
+	lv = mark
+	_pop("Level %d!" % lv, Color(1.0, 0.85, 0.3))
+	if is_hero:
+		game.log_event("You reach level %d!" % lv)
+		game.sound("gain", position)
 
 
 # --- fire -------------------------------------------------------------------
@@ -3923,30 +3930,13 @@ func toggle_ride() -> String:
 	return ""
 
 
-# --- idle hologram ------------------------------------------------------------
-
-## A player standing idle for a few seconds turns into a flickering hologram (cyan edges,
-## scrolling scanlines, slices jumping sideways); anything they do snaps them back.
-func _holo_step(delta: float, moving: bool) -> void:
-	if kind != Kind.PLAYER:
-		return
-	var busy: bool = moving or dead or target != null or casting_id != "" or perform_timer > 0.0 \
-		or bandage_timer > 0.0 or tame_timer > 0.0 or gather_tile.x >= 0 or swing_anim > 0.0
-	idle_time = 0.0 if busy else idle_time + delta
-	var want: bool = idle_time >= 3.0 and bool(game.property.glitch_on) and not bool(game.autotest)
-	if want == holo:
-		return
-	holo = want
-	for mi in model.get("meshes", []):
-		(mi as MeshInstance3D).material_overlay = Art.holo_mat() if holo else null
-
-
 # --- performance: what runs how often ------------------------------------------------------
 
-## Labels are rebuilt five times a second, and only for creatures near the camera.
+## Labels are rebuilt five times a second, and only when names are shown and the creature is
+## near the camera.
 func _maybe_label(delta: float) -> void:
 	_label_acc += delta
-	if _label_acc >= 0.2 and _near:
+	if _label_acc >= 0.2 and _near and label.visible:
 		_label_acc = 0.0
 		_refresh_label()
 
@@ -3963,7 +3953,13 @@ func _update_cull() -> void:
 	if rig != null:
 		rig.visible = _near
 		rig.process_mode = Node.PROCESS_MODE_INHERIT if _near else Node.PROCESS_MODE_DISABLED   # pauses its flames
-	if label != null:
-		label.visible = _near
-	if _near:
+	show_name(bool(game.property.names_on))
+
+
+## Shows or hides the name and health over this creature's head (Show names in the menu).
+func show_name(on: bool) -> void:
+	if label == null:
+		return
+	label.visible = on and _near
+	if label.visible:
 		_label_acc = 1.0                      # refresh the label at once
