@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.45.1
+Use your bow.
+- Menu > Bow draws the best bow or crossbow in your bag in one tap; a bow needs both hands, so
+  your shield goes into the bag. The button turns into Melee, which brings back your best hand
+  weapon and the shield. Before, the Bag refused a bow while you held a shield. You're told how
+  many arrows you have, or to buy some from a merchant if you have none.
+- Heroes from older saves who have no bow or crossbow find a bow and 40 arrows in their pack.
+
 ## 0.45.0
 Pick a player, attack in one tap.
 - Tapping a player no longer pauses the game and opens a panel: it picks them, with a blue ring

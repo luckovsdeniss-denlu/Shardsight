@@ -119,6 +119,7 @@ var _gear_timer := 0.0
 var _trade_timer := 0.0
 var label: Label3D
 var hp_bar: MeshInstance3D      # over the head while hurt or fighting
+var stowed_shield := ""        # the shield put away to draw a bow (back on when you switch back)
 var hide_self := false         # the hero in first person: its own model, bar and label hidden
 var _hit_sound := ""            # set by whoever strikes us, so the blow sounds like what hit what
 var cast_bar: MeshInstance3D    # the hero's casting progress, under the health bar
@@ -3961,6 +3962,43 @@ func _quest_trip() -> bool:
 # --- the Bag screen: equipping by hand ---------------------------------------
 
 ## Puts on a piece from the bag (what was worn goes into the bag). Returns false if it can't.
+## Switches between the best bow or crossbow in the bag and the best hand weapon. A bow needs
+## both hands, so a shield goes into the bag and comes back out when you switch back. Returns
+## a message for the log ("" if all is well).
+func switch_weapon() -> String:
+	if dead:
+		return "You can't do that now."
+	var to_ranged := not Gear.is_ranged(weapon)
+	var best := ""
+	var best_score := -1.0
+	for id in inventory:
+		var sid := String(id)
+		if not Gear.has(sid) or String(Gear.stats(sid)["slot"]) != "weapon" or Gear.is_ranged(sid) != to_ranged:
+			continue
+		if stats.strength < int(Gear.stats(sid)["str"]):
+			continue
+		if Gear.score(sid) > best_score:
+			best_score = Gear.score(sid)
+			best = sid
+	auto_equip = false                     # your choice sticks (Bag can turn auto back on)
+	if best == "":
+		if to_ranged:
+			return "You have no bow or crossbow you can use. Merchants sell bows."
+		unequip("weapon")                  # no hand weapon: fists, and the shield back on
+	else:
+		if to_ranged and shield_id != "":
+			stowed_shield = shield_id
+			unequip("shield")
+		_equip(best)
+	if not to_ranged and stowed_shield != "" and inventory.has(stowed_shield) and equip_problem(stowed_shield) == "":
+		_equip(stowed_shield)
+	if not to_ranged:
+		stowed_shield = ""
+	if to_ranged and arrows <= 0:
+		return "You have no arrows: buy them from a merchant (10 at a time)."
+	return ""
+
+
 func equip_by_hand(id: String) -> bool:
 	if dead or not inventory.has(id) or not Gear.has(id) or not _can_use(id):
 		return false

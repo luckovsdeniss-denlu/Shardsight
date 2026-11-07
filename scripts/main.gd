@@ -38,6 +38,7 @@ var mute_button: Button
 var names_button: Button
 var stats_button: Button
 var map_button: Button
+var bow_button: Button
 var view_button: Button
 var bag_box: VBoxContainer
 var spells_panel: Control
@@ -211,6 +212,8 @@ func _ready() -> void:
 	_corner_add(retreat_button)
 	ride_button = _menu_button("Ride", _on_ride)
 	_corner_add(ride_button)
+	bow_button = _menu_button("Bow", _on_switch_weapon)
+	_corner_add(bow_button)
 	mute_button = _menu_button("", _toggle_mute)
 	_corner_add(mute_button)
 	names_button = _menu_button("", _toggle_names)
@@ -262,6 +265,10 @@ func _ready() -> void:
 		print("AUTOTEST start: %d game-seconds" % int(autotest_seconds))
 	elif SaveGame.load_into(hero, property):
 		hero.refresh_look()                  # the saved gear shows on the model
+		if not hero._has_ranged():           # heroes from before bows: one in the pack
+			hero.inventory["bow"] = 1
+			hero.arrows = maxi(hero.arrows, Bestiary.PLAYER_ARROWS)
+			log_event("You find a bow and %d arrows in your pack (Menu > Bow to draw it)." % hero.arrows)
 		log_event("Welcome back. Your progress was loaded.")
 		_restore_house()
 		_restore_pets()
@@ -1265,7 +1272,7 @@ func _open_help() -> void:
 	settings_box.add_child(title)
 	for line in [
 		"Tap the ground to walk there. Tap a monster to attack it, a corpse to loot it, a rock to mine it, a tree to chop it. Tap a player to pick them: Attack and Info buttons appear at the bottom.",
-		"The Menu button (top right) opens every button: Auto, Main Menu, Bag, Spells, Retreat, Ride, Mute, and switches to show names, stats and the map, and First person / Top view (in first person you see through the hero's eyes; twist two fingers to look around). Auto lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
+		"The Menu button (top right) opens every button: Auto, Main Menu, Bag, Spells, Retreat, Ride, Mute, and switches to show names, stats and the map, Bow / Melee (draw your bow, the shield goes in the bag; switch back for sword and shield), and First person / Top view (in first person you see through the hero's eyes; twist two fingers to look around). Auto lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
 		"Names (Menu > Show names): blue innocent, grey criminal, red murderer or monster. The tan towns are safe: nobody can be hurt inside a town, and nobody can attack out of one.",
 		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked. There's no real cap: every skill can reach 100.",
 		"Die and you become a ghost: walk to a healer to be raised for free. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
@@ -2153,6 +2160,19 @@ func _update_retreat_button() -> void:
 		retreat_button.text = "Retreating..." if hero.retreating else "Retreat"
 	if ride_button != null:
 		ride_button.text = "Dismount" if hero.mounted_on != null else "Ride"
+	if bow_button != null:
+		bow_button.text = "Melee" if Gear.is_ranged(hero.weapon) else "Bow"
+
+
+## The Bow / Melee button: draw the best bow or crossbow (the shield goes in the bag), or go back
+## to the best hand weapon and shield.
+func _on_switch_weapon() -> void:
+	var msg := hero.switch_weapon()
+	if msg != "":
+		log_event(msg)
+	elif Gear.is_ranged(hero.weapon):
+		log_event("Bow ready: %d arrows. Archers keep their distance and shoot from up to %d m." % [
+			hero.arrows, int(hero.attack_range())])
 
 
 ## The Ride button: mount the nearest own mount, or get off.
