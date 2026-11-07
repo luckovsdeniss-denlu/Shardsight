@@ -635,8 +635,8 @@ func _fight() -> void:
 			_bolt(target.position, Color(0.85, 0.75, 0.5))
 			game.sound("bow", position)
 	elif kind == Kind.PLAYER:
-		lo = 1.0                           # bare hands
-		hi = 4.0
+		lo = 2.0                           # bare hands
+		hi = 6.0
 	if flags.has("invisible"):
 		_end_flag("invisible")              # attacking reveals you
 	swing_cd = Rules.swing_seconds(maxi(1, int(stamina)), ws)   # tired fighters swing slower
@@ -645,11 +645,17 @@ func _fight() -> void:
 	var skill := _weapon_skill()
 	var atk := _skill(skill)
 	var def := target._skill(target._weapon_skill())
-	if randf() < Rules.hit_chance(atk, def):
+	if kind == Kind.PLAYER:
+		stats.try_gain(skill)               # every swing trains, hit or miss
+		stats.try_gain(Hero.Skill.TACTICS)
+	var chance := Rules.player_hit_chance(atk, def) if kind == Kind.PLAYER else Rules.hit_chance(atk, def)
+	if randf() < chance:
 		var tactics: float = stats.skills.get(Hero.Skill.TACTICS, 0.0)
 		var anatomy: float = stats.skills.get(Hero.Skill.ANATOMY, 0.0)
 		var dmg := randf_range(lo, hi) * Rules.damage_multiplier(
 			float(stats.eff_str()), tactics, anatomy)
+		if kind == Kind.PLAYER:
+			dmg *= Rules.PLAYER_MELEE_BONUS
 		if bless_timer > 0.0:
 			dmg *= BLESS_DAMAGE
 		var dealt := target._absorb(dmg)
@@ -663,9 +669,6 @@ func _fight() -> void:
 			_reflect_blow(dealt * 0.25, target)   # Reactive Armor sends part of a blow back
 		if poison_cfg.size() == 2 and not target.dead and randf() < float(poison_cfg[1]):
 			target.apply_poison(int(poison_cfg[0]), self)
-		if kind == Kind.PLAYER:
-			stats.try_gain(skill)
-			stats.try_gain(Hero.Skill.TACTICS)
 	else:
 		if is_hero:
 			game.count("hero_misses")
