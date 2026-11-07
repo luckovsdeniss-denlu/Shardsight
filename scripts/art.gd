@@ -258,7 +258,7 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 		"leather_armor":
 			torso_col = LEATHER
 			pants = LEATHER.darkened(0.25)
-	var ranged := Gear.base(weapon) in ["bow", "crossbow"]
+	var ranged := Gear.is_ranged(weapon)
 	var w := 0.7 if bony else build
 	var key := "hum|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [look, skin.to_html(), hair.to_html(), cloth.to_html(),
 		torso_col.to_html(), robe, hat, shield, w, ab, ex, ranged]
@@ -443,9 +443,24 @@ static func _weapon_parts(weapon: String) -> Array:
 			p.append([box(0.03, 0.4, 0.03), at(0, hy + 0.2, -0.12, Vector3(-0.35, 0, 0)), WOOD])
 			p.append([box(0.03, 0.4, 0.03), at(0, hy - 0.2, -0.12, Vector3(0.35, 0, 0)), WOOD])
 			p.append([box(0.01, 0.75, 0.01), at(0, hy, -0.01), Color(0.9, 0.9, 0.85)])
+		"composite_bow":                               # a recurve: darker limbs with horn tips
+			var horn := Color(0.85, 0.8, 0.65)
+			var limb := Color(0.3, 0.18, 0.1)
+			p.append([box(0.035, 0.42, 0.035), at(0, hy + 0.22, -0.14, Vector3(-0.45, 0, 0)), limb])
+			p.append([box(0.035, 0.42, 0.035), at(0, hy - 0.22, -0.14, Vector3(0.45, 0, 0)), limb])
+			p.append([box(0.03, 0.1, 0.03), at(0, hy + 0.43, -0.16, Vector3(0.5, 0, 0)), horn])
+			p.append([box(0.03, 0.1, 0.03), at(0, hy - 0.43, -0.16, Vector3(-0.5, 0, 0)), horn])
+			p.append([box(0.05, 0.12, 0.05), at(0, hy, -0.05), DARK])      # the grip
+			p.append([box(0.01, 0.84, 0.01), at(0, hy, -0.01), Color(0.9, 0.9, 0.85)])
 		"crossbow":
 			p.append([box(0.06, 0.06, 0.55), at(0, hy, -0.22), WOOD])
 			p.append([box(0.55, 0.04, 0.04), at(0, hy, -0.42), WOOD.darkened(0.3)])
+			p.append([box(0.5, 0.01, 0.01), at(0, hy + 0.035, -0.36), Color(0.9, 0.9, 0.85)])   # the string
+		"heavy_crossbow":                              # bigger, with a steel prod and a crank
+			p.append([box(0.08, 0.08, 0.7), at(0, hy, -0.28), WOOD.darkened(0.15)])
+			p.append([box(0.7, 0.05, 0.06), at(0, hy, -0.55), steel])
+			p.append([box(0.64, 0.01, 0.01), at(0, hy + 0.04, -0.46), Color(0.9, 0.9, 0.85)])
+			p.append([ball(0.05, 6, 3), at(0.07, hy, 0.02), steel])
 	return p
 
 

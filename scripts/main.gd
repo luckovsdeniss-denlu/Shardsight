@@ -2354,6 +2354,7 @@ func _spawn_all() -> void:
 		["Vex", Bestiary.PKILLER], ["Gareth", Bestiary.WARRIOR], ["Lyra", Bestiary.MAGE],
 		["Thorne", Bestiary.FIGHTER], ["Brina", Bestiary.ARCHER], ["Dorian", Bestiary.WARRIOR],
 		["Sly", Bestiary.THIEF], ["Morg", Bestiary.PKILLER], ["Pip", Bestiary.THIEF],
+		["Fenn", Bestiary.CROSSBOWMAN],
 	]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 777                           # the same layout every game
@@ -2442,6 +2443,11 @@ func _spawn_all() -> void:
 		_spawn(Entity.Kind.MONSTER, "Skeleton", Bestiary.SKELETON, Color("d8d2c0"), t)
 	_spawn(Entity.Kind.MONSTER, "Zombie", Bestiary.ZOMBIE, Color("6f8f5a"), Vector2i(89, 30))
 	_spawn(Entity.Kind.MONSTER, "Lich", Bestiary.LICH, Color("6a4a8a"), Vector2i(91, 35))
+	# Monsters that shoot: crossbow orcs in the fort, skeleton archers in the graveyard and dungeon.
+	for t in [Vector2i(84, 4), Vector2i(90, 7)]:
+		_spawn(Entity.Kind.MONSTER, "Orc Archer", Bestiary.ORC_ARCHER, red, t)
+	for t in [Vector2i(88, 29), Vector2i(84, 35), Vector2i(41, 17)]:
+		_spawn(Entity.Kind.MONSTER, "Skeleton Archer", Bestiary.SKELETON_ARCHER, Color("d8d2c0"), t)
 	_even_out_monsters(rng)
 
 

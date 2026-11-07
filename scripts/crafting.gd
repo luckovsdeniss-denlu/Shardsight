@@ -33,8 +33,10 @@ const RECIPES := {
 	"short_sword": {"skill": Hero.Skill.BLACKSMITHY, "min": 10.0, "mats": {"ingot": 6}},
 	"mace": {"skill": Hero.Skill.BLACKSMITHY, "min": 15.0, "mats": {"ingot": 7}},
 	"war_hammer": {"skill": Hero.Skill.BLACKSMITHY, "min": 50.0, "mats": {"ingot": 16}},
-	"bow": {"skill": Hero.Skill.CARPENTRY, "min": 30.0, "mats": {"log": 7}},
-	"crossbow": {"skill": Hero.Skill.CARPENTRY, "min": 55.0, "mats": {"log": 10}},
+	"bow": {"skill": Hero.Skill.CARPENTRY, "min": 0.0, "mats": {"log": 7}},
+	"crossbow": {"skill": Hero.Skill.CARPENTRY, "min": 25.0, "mats": {"log": 10}},
+	"composite_bow": {"skill": Hero.Skill.CARPENTRY, "min": 45.0, "mats": {"log": 9}},
+	"heavy_crossbow": {"skill": Hero.Skill.CARPENTRY, "min": 65.0, "mats": {"log": 14}},
 	"potion_refresh": {"skill": Hero.Skill.ALCHEMY, "min": 0.0, "mats": {"reagent": 1}},
 	"potion_cure": {"skill": Hero.Skill.ALCHEMY, "min": 0.0, "mats": {"reagent": 2}},
 	"potion_heal": {"skill": Hero.Skill.ALCHEMY, "min": 15.0, "mats": {"reagent": 2}},
@@ -44,7 +46,7 @@ const POTIONS := ["potion_greater_heal", "potion_heal", "potion_cure", "potion_r
 const ORDER := [
 	"dagger", "kryss", "longsword", "broadsword", "halberd", "bronze_shield", "heater_shield",
 	"chainmail", "platemail", "leather_armor", "studded_armor", "wooden_shield",
-	"short_sword", "mace", "war_hammer", "bow", "crossbow",
+	"short_sword", "mace", "war_hammer", "bow", "crossbow", "composite_bow", "heavy_crossbow",
 	"potion_refresh", "potion_cure", "potion_heal", "potion_greater_heal",
 ]
 

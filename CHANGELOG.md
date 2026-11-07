@@ -3,6 +3,21 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.39.0
+Bows and crossbows.
+- Every player now starts with a bow and 40 arrows in the bag (equip it from Bag). Anyone with
+  no bow buys one from a merchant when they can afford it, so saved heroes get one too, and
+  arrows are restocked 10 at a time as before. Archery trains with every shot.
+- Two new ranged weapons: the Composite Bow (a recurve: faster and longer-ranged than the bow)
+  and the Heavy Crossbow (slow, but hits hardest), each with its own model. All four are made
+  with Carpentry: bow from the start (was 30), crossbow 25 (was 55), composite bow 45, heavy
+  crossbow 65.
+- Bows and crossbows drop from monsters: orcs and skeletons carry bows, ogres heavy crossbows.
+- Monsters that shoot: Orc Archers with crossbows guard the orc fort, and Skeleton Archers
+  haunt the graveyard and the dungeon. They keep their distance and fire from range.
+- A new player, Fenn, fights with a crossbow.
+- The crossbow model now has a string.
+
 ## 0.38.0
 Gear you can see.
 - Each kind of armor has its own look on the model, not just a torso colour:

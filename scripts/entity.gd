@@ -271,6 +271,8 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	poison_cfg = cfg.get("poison", [])
 	stamina = float(stats.max_stamina())
 	arrows = int(cfg.get("arrows", 0))
+	if kind == Kind.PLAYER:
+		arrows = maxi(arrows, Bestiary.PLAYER_ARROWS)   # every player starts with a bow and arrows
 	fame = int(cfg.get("fame", 0)) if p_kind != Kind.PLAYER else 0
 	is_thief = bool(cfg.get("thief", false))
 	mount_speed = float(cfg.get("mount_speed", 1.0))
@@ -1281,6 +1283,12 @@ func trade(delta: float, s: Shop) -> void:
 		if reagents < 20.0 and gold >= reagent_pair + SUPPLY_RESERVE:
 			_pay(s, reagent_pair)
 			reagents = minf(reagents + 2.0, MAX_REAGENTS)
+		var bow_price := s.price(int(Gear.stats("bow")["value"]))
+		if kind == Kind.PLAYER and not _has_ranged() and gold >= bow_price + SUPPLY_RESERVE:
+			_pay(s, bow_price)                 # everyone keeps a bow for things best shot from afar
+			inventory["bow"] = int(inventory.get("bow", 0)) + 1
+			if is_hero:
+				game.log_event("You buy a bow.")
 		var arrow_pack := s.price(ARROW_PRICE * 10)
 		if _wants_arrows() and arrows < 30 and gold >= arrow_pack + SUPPLY_RESERVE:
 			_pay(s, arrow_pack)
@@ -2776,6 +2784,15 @@ func attack_range() -> float:
 	if w != "" and Gear.is_ranged(w):
 		return float(Gear.stats(w)["range"])
 	return MELEE_RANGE
+
+
+func _has_ranged() -> bool:
+	if Gear.is_ranged(weapon):
+		return true
+	for id in inventory:
+		if Gear.is_ranged(String(id)):
+			return true
+	return false
 
 
 func _wants_arrows() -> bool:

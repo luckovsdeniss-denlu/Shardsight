@@ -12,7 +12,7 @@ class_name Gear
 
 const ORDER := [
 	"dagger", "kryss", "short_sword", "longsword", "broadsword", "halberd",
-	"mace", "war_hammer", "bow", "crossbow",
+	"mace", "war_hammer", "bow", "composite_bow", "crossbow", "heavy_crossbow",
 	"leather_armor", "studded_armor", "chainmail", "platemail",
 	"wooden_shield", "bronze_shield", "heater_shield",
 ]
@@ -28,6 +28,8 @@ const LIST := {
 	"mace": {"name": "Mace", "slot": "weapon", "skill": "mace", "speed": 40, "min": 4.0, "max": 10.0, "str": 20, "value": 35},
 	"war_hammer": {"name": "War Hammer", "slot": "weapon", "skill": "mace", "speed": 28, "min": 8.0, "max": 16.0, "str": 45, "value": 110, "two_handed": true},
 	"bow": {"name": "Bow", "slot": "weapon", "skill": "archery", "speed": 30, "min": 5.0, "max": 12.0, "str": 20, "value": 50, "two_handed": true, "range": 7.0},
+	"composite_bow": {"name": "Composite Bow", "slot": "weapon", "skill": "archery", "speed": 34, "min": 6.0, "max": 14.0, "str": 30, "value": 110, "two_handed": true, "range": 8.0},
+	"heavy_crossbow": {"name": "Heavy Crossbow", "slot": "weapon", "skill": "archery", "speed": 18, "min": 12.0, "max": 22.0, "str": 45, "value": 160, "two_handed": true, "range": 8.0},
 	"crossbow": {"name": "Crossbow", "slot": "weapon", "skill": "archery", "speed": 22, "min": 8.0, "max": 16.0, "str": 35, "value": 90, "two_handed": true, "range": 7.0},
 	"leather_armor": {"name": "Leather Armor", "slot": "armor", "rating": 2.0, "str": 10, "value": 25, "metal": false},
 	"studded_armor": {"name": "Studded Armor", "slot": "armor", "rating": 3.0, "str": 25, "value": 60, "metal": false},
