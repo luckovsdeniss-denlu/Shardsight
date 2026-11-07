@@ -44,6 +44,7 @@ var music_on := true
 var names_on := false                  # names over heads (off: a clean screen)
 var stats_on := true                   # the stats text in the upper left
 var minimap_on := true
+var corpse_names_on := true           # labels over corpses and treasure chests
 var first_person := false              # the camera at the hero's eyes instead of above
 var graphics := "medium"               # low, medium or high
 var weather_on := true
@@ -155,7 +156,7 @@ func to_dict() -> Dictionary:
 		"rune": [rune.x, rune.y], "runes": _runes_list(), "quest_index": quest_index, "quest_active": quest_active,
 		"quest_kills": quest_kills, "quest_escorted": quest_escorted,
 		"sound_on": sound_on, "cam_zoom": cam_zoom, "cam_yaw": cam_yaw, "ruleset": ruleset,
-		"music_on": music_on, "weather_on": weather_on, "names_on": names_on, "stats_on": stats_on, "minimap_on": minimap_on, "first_person": first_person, "graphics": graphics,
+		"music_on": music_on, "weather_on": weather_on, "names_on": names_on, "stats_on": stats_on, "minimap_on": minimap_on, "first_person": first_person, "corpse_names_on": corpse_names_on, "graphics": graphics,
 		"vendor_hired": vendor_hired, "vendor_stock": vendor_stock, "vendor_gold": vendor_gold,
 		"vendor_last": vendor_last,
 	}
@@ -203,6 +204,7 @@ func load_dict(d: Dictionary) -> void:
 	stats_on = bool(d.get("stats_on", true))
 	minimap_on = bool(d.get("minimap_on", true))
 	first_person = bool(d.get("first_person", false))
+	corpse_names_on = bool(d.get("corpse_names_on", true))
 	graphics = String(d.get("graphics", "medium"))
 	if not graphics in ["low", "medium", "high"]:
 		graphics = "medium"

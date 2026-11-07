@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.45.2
+- Menu > Hide corpse names / Show corpse names turns the labels over corpses and treasure
+  chests (whose they are and what's inside) off and on. On by default; the choice is saved.
+
 ## 0.45.1
 Use your bow.
 - Menu > Bow draws the best bow or crossbow in your bag in one tap; a bow needs both hands, so

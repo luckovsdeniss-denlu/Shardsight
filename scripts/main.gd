@@ -40,6 +40,7 @@ var stats_button: Button
 var map_button: Button
 var bow_button: Button
 var view_button: Button
+var corpse_button: Button
 var bag_box: VBoxContainer
 var spells_panel: Control
 var priest_panel: Control
@@ -222,6 +223,8 @@ func _ready() -> void:
 	_corner_add(map_button)
 	view_button = _menu_button("", _toggle_view)
 	_corner_add(view_button)
+	corpse_button = _menu_button("", _toggle_corpse_names)
+	_corner_add(corpse_button)
 	minimap.setup(self, world)
 	minimap.size_flags_horizontal = Control.SIZE_SHRINK_END
 	corner.add_child(minimap)
@@ -792,6 +795,7 @@ func _restore_house() -> void:
 		Property.merge(property.bank_items, property.lockdowns)   # lock-downs survive the collapse
 		ruins.life = 600.0
 		corpses.append(ruins)
+		ruins.label.visible = property.corpse_names_on
 		property.clear_house()
 		log_event("Your neglected house has collapsed! Its chest lies in the ruins for anyone to take; your lock-downs were saved to the bank.")
 		return
@@ -2674,6 +2678,7 @@ func spawn_corpse(victim: Entity) -> void:
 	c.setup(victim.display_name, open_to_all, victim.kind == Entity.Kind.PLAYER,
 		victim.get_instance_id(), victim.position, victim.make_loot())
 	corpses.append(c)
+	c.label.visible = property.corpse_names_on
 	if victim.kind == Entity.Kind.MONSTER and not victim.summoned and randf() < CHEST_CHANCE:
 		_drop_chest(victim)
 
@@ -2696,6 +2701,7 @@ func _drop_chest(victim: Entity) -> void:
 	c.setup("Treasure", true, false, 0, pos, loot)
 	c.make_chest()
 	corpses.append(c)
+	c.label.visible = property.corpse_names_on
 	if hero != null and pos.distance_to(hero.position) <= 25.0:
 		log_event("The %s leaves a treasure chest! (%s inside)" % [victim.display_name, Items.item_name(art)])
 		sound("loot", pos)
@@ -3015,6 +3021,7 @@ func _update_corner_buttons() -> void:
 	stats_button.text = "Hide stats" if property.stats_on else "Show stats"
 	map_button.text = "Hide map" if property.minimap_on else "Show map"
 	view_button.text = "Top view" if property.first_person else "First person"
+	corpse_button.text = "Hide corpse names" if property.corpse_names_on else "Show corpse names"
 	_apply_view()
 	hud.visible = property.stats_on
 	minimap.visible = property.minimap_on
@@ -3034,6 +3041,14 @@ func _toggle_names() -> void:
 	property.names_on = not property.names_on
 	for e in creatures:
 		e.show_name(property.names_on)
+	_update_corner_buttons()
+
+
+## The labels over corpses and chests (whose they are and what's inside).
+func _toggle_corpse_names() -> void:
+	property.corpse_names_on = not property.corpse_names_on
+	for c in corpses:
+		c.label.visible = property.corpse_names_on
 	_update_corner_buttons()
 
 
