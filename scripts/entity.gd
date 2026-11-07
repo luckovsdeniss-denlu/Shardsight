@@ -118,6 +118,9 @@ var _gear_timer := 0.0
 var _trade_timer := 0.0
 var label: Label3D
 var hp_bar: MeshInstance3D      # over the head while hurt or fighting
+var cast_bar: MeshInstance3D    # the hero's casting progress, under the health bar
+var cast_total := 1.0           # seconds the current cast takes
+var _cast_fx: CPUParticles3D    # motes round a caster while the spell is spoken
 var _last_text := ""
 var base_label_color := Color.WHITE
 var murder_counts := 0
@@ -755,8 +758,11 @@ func take_damage(amount: float, from: Entity) -> void:
 		peaced_timer = 0.0                   # a blow breaks the spell of the music
 		enticed_timer = 0.0
 	game.sound("hit", position)
-	if casting_id != "" and not flags.has("protection"):
-		_fizzle("disrupted")      # taking damage breaks a spell in progress (not under Protection)
+	# A blow may break a spell in progress: likely for a novice, rare for a grandmaster, never
+	# under Protection.
+	if casting_id != "" and not flags.has("protection") \
+			and randf() < Rules.disrupt_chance(_skill(Hero.Skill.MAGERY)):
+		_fizzle("disrupted")
 	if bandage_timer > 0.0:
 		bandage_timer = 0.0
 		_pop("interrupted", Color(0.75, 0.75, 0.75))
@@ -784,6 +790,7 @@ func _die(killer: Entity) -> void:
 	_recompute_effects()
 	hp = 0.0
 	poison_level = 0
+	_end_cast_fx()
 	casting_id = ""
 	bandage_timer = 0.0
 	loot_target = null
@@ -984,7 +991,9 @@ func start_cast(id: String, tgt: Entity) -> bool:
 	reagents -= float(sp["reagents"])
 	casting_id = id
 	cast_target = tgt
-	cast_timer = 0.5 + 0.25 * float(sp["circle"])
+	cast_timer = Rules.cast_seconds(int(sp["circle"]), _skill(Hero.Skill.MAGERY))   # skill casts faster
+	cast_total = cast_timer
+	_start_cast_fx(sp["color"])
 	path.clear()
 	_pop(String(sp["words"]), Color(0.7, 0.85, 1.0))
 	game.sound("cast", position)
@@ -1008,6 +1017,9 @@ func cast_manual(id: String) -> void:
 
 func _cast_step(delta: float) -> void:
 	cast_timer -= delta
+	if cast_bar != null:
+		(cast_bar.material_override as ShaderMaterial).set_shader_parameter(
+			"fill", clampf(1.0 - cast_timer / maxf(cast_total, 0.01), 0.0, 1.0))
 	if cast_target != null and cast_target != self:
 		_face(cast_target.position - position)
 	if cast_timer <= 0.0:
@@ -1015,6 +1027,9 @@ func _cast_step(delta: float) -> void:
 
 
 func _fizzle(reason: String) -> void:
+	_end_cast_fx()
+	if is_hero:
+		game.log_event("Your spell is %s." % ("disrupted" if reason == "disrupted" else "lost"))
 	casting_id = ""
 	cast_target = null
 	cast_cd = CAST_RECOVERY
@@ -1022,6 +1037,7 @@ func _fizzle(reason: String) -> void:
 
 
 func _finish_cast() -> void:
+	_end_cast_fx()
 	var id := casting_id
 	var sp: Dictionary = Spells.LIST[casting_id]
 	var tgt := cast_target
@@ -1055,6 +1071,8 @@ func _finish_cast() -> void:
 				game.summon_creature(self, id)
 			"buff":
 				add_effect(id, sp)
+				if _near_hero():
+					Fx.sparkle(get_parent(), position + Vector3(0.0, 0.6, 0.0), sp["color"])
 			"curse":
 				_curse(tgt, id, sp)
 			"drain":
@@ -1096,12 +1114,14 @@ func _finish_cast() -> void:
 		return
 	var amount := randf_range(float(sp["min_dmg"]), float(sp["max_dmg"]))
 	if String(sp["kind"]) == "heal":
+		amount *= Rules.heal_power(_skill(Hero.Skill.MAGERY))       # skilled mages heal more
 		tgt.hp = minf(tgt.hp + amount, float(tgt.stats.max_hp()))
 		tgt._pop("+%d" % roundi(amount), Color(0.5, 1.0, 0.5))
+		if _near_hero():
+			Fx.sparkle(get_parent(), tgt.position + Vector3(0.0, 0.6, 0.0), sp["color"])
 	else:
-		if not _spell_fire(id, tgt):
-			_bolt(tgt.position, sp["color"])
-		amount *= Rules.spell_damage_multiplier(_skill(Hero.Skill.EVALUATING_INTELLECT))
+		_spell_visual(id, tgt, sp["color"])
+		amount *= Rules.spell_power(_skill(Hero.Skill.MAGERY), _skill(Hero.Skill.EVALUATING_INTELLECT))
 		if randf() < Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)):
 			amount *= 0.5
 			tgt._pop("resisted", Color(0.7, 0.9, 1.0))
@@ -2168,10 +2188,16 @@ func _area_blast(sp: Dictionary) -> void:
 			continue
 		if position.distance_to(e.position) > Spells.AREA_RADIUS or not world.line_clear(position, e.position):
 			continue
-		if String(sp["name"]) == "Meteor Swarm" and _near_hero():
-			Fx.meteor(get_parent(), e.position, randf_range(0.0, 0.4))
+		if _near_hero():
+			match String(sp["name"]):
+				"Meteor Swarm":
+					Fx.meteor(get_parent(), e.position, randf_range(0.0, 0.4))
+				"Chain Lightning":
+					Fx.lightning(get_parent(), e.position, sp["color"])
+				_:
+					Fx.sparkle(get_parent(), e.position + Vector3(0.0, 0.4, 0.0), sp["color"], 12)
 		var amount := randf_range(float(sp["min_dmg"]), float(sp["max_dmg"])) \
-			* Rules.spell_damage_multiplier(_skill(Hero.Skill.EVALUATING_INTELLECT))
+			* Rules.spell_power(_skill(Hero.Skill.MAGERY), _skill(Hero.Skill.EVALUATING_INTELLECT))
 		if randf() < Rules.resist_chance(e._skill(Hero.Skill.RESISTING_SPELLS)):
 			amount *= 0.5
 			e._pop("resisted", Color(0.7, 0.9, 1.0))
@@ -3935,6 +3961,49 @@ func _near_hero() -> bool:
 
 
 ## Fire spells get real fire instead of a plain bolt. Returns true if it drew something.
+## How an attack spell looks: fire for the fire spells, a bolt from the sky for Lightning, a
+## glowing orb in the spell's colour for the rest (only drawn near the hero).
+func _spell_visual(id: String, tgt: Entity, c: Color) -> void:
+	if _spell_fire(id, tgt) or not _near_hero():
+		return
+	var up := Vector3(0.0, 1.0, 0.0)
+	match id:
+		"lightning":
+			Fx.lightning(get_parent(), tgt.position, c)
+		"energy_bolt", "mind_blast":
+			Fx.orb(get_parent(), position + up, tgt.position + up, c, 1.4, 0.25)
+		_:
+			Fx.orb(get_parent(), position + up, tgt.position + up, c, 0.9, 0.3)
+
+
+## Motes swirl round a caster while the spell is spoken (near the hero), and the hero gets a
+## casting bar under its health bar.
+func _start_cast_fx(c: Color) -> void:
+	_end_cast_fx()
+	if _near_hero():
+		_cast_fx = Fx.cast_glow(c)
+		add_child(_cast_fx)
+		_cast_fx.position = Vector3(0.0, 0.15, 0.0)
+		_cast_fx.emitting = true
+	if is_hero:
+		if cast_bar == null:
+			cast_bar = Art.hp_bar()
+			(cast_bar.material_override as ShaderMaterial).set_shader_parameter("tint", Color(0.45, 0.65, 1.0, 1.0))
+			cast_bar.scale = Vector3(1.0, 0.7, 1.0)
+			add_child(cast_bar)
+			cast_bar.position = hp_bar.position - Vector3(0.0, 0.14, 0.0)
+		(cast_bar.material_override as ShaderMaterial).set_shader_parameter("fill", 0.0)
+		cast_bar.visible = true
+
+
+func _end_cast_fx() -> void:
+	if _cast_fx != null and is_instance_valid(_cast_fx):
+		_cast_fx.queue_free()
+	_cast_fx = null
+	if cast_bar != null:
+		cast_bar.visible = false
+
+
 func _spell_fire(id: String, tgt: Entity) -> bool:
 	if not _near_hero():
 		return id in ["fireball", "flamestrike", "explosion"]

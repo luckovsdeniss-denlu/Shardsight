@@ -1990,6 +1990,7 @@ func _refresh_spells() -> void:
 			b.custom_minimum_size = Vector2(840, 72)
 			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			spells_box.add_child(b)
+	spells_box.add_child(_info("Magery makes spells hit and heal harder and cast faster; Evaluating Intellect adds damage. A blow while you cast may break the spell (less likely the better your Magery); the Protection spell stops that."))
 	spells_box.add_child(_info("Greyed-out spells need more mana, reagents or Magery. Find or buy scrolls to fill your book; Recall, Mark and Gate Travel are under Menu > Travel."))
 	spells_box.add_child(_menu_button("Close", _close_spells))
 

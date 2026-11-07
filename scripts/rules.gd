@@ -51,6 +51,28 @@ static func cast_chance(magery: float, min_skill: float) -> float:
 	return clampf((magery - min_skill) / 40.0, 0.05, 1.0)
 
 
+## Spell damage grows with both Magery and Evaluating Intellect: up to +50% each at 100
+## (so a grandmaster mage with both hits 2.25x as hard as a beginner).
+static func spell_power(magery: float, eval_int: float) -> float:
+	return (1.0 + magery / 200.0) * spell_damage_multiplier(eval_int)
+
+
+## Healing spells grow with Magery: up to +67% at 100.
+static func heal_power(magery: float) -> float:
+	return 1.0 + magery / 150.0
+
+
+## The chance a blow taken while casting breaks the spell: 90% for a novice, falling to 10% for
+## a grandmaster. The Protection spell stops it entirely.
+static func disrupt_chance(magery: float) -> float:
+	return clampf(0.9 - magery / 110.0, 0.1, 0.9)
+
+
+## Seconds to cast a spell of `circle`: higher circles take longer; skill speeds it up by up to 25%.
+static func cast_seconds(circle: int, magery: float) -> float:
+	return (0.5 + 0.25 * circle) * (1.0 - clampf(magery, 0.0, 100.0) / 400.0)
+
+
 ## Approximate: Evaluating Intellect raises spell damage, up to +50% at 100.
 static func spell_damage_multiplier(eval_int: float) -> float:
 	return 1.0 + eval_int / 200.0

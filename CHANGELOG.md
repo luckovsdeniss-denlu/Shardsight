@@ -3,6 +3,22 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.40.0
+Better magic.
+- Spells grow with skill: damage rises with Magery (up to +50% at 100) on top of Evaluating
+  Intellect (+50%), so a grandmaster hits 2.25x as hard as a beginner; healing spells rise with
+  Magery (up to +67%). Area spells use the same power.
+- Faster casting with skill: up to 25% quicker at Magery 100.
+- Disruption by chance: a blow taken while casting used to break every spell. Now the chance
+  is 90% for a novice, falling to 10% for a grandmaster; the Protection spell still stops it
+  entirely. Your log says when your spell is disrupted.
+- You can see magic happen: motes of the spell's colour swirl round a caster while it speaks
+  the words, your hero gets a blue casting bar under its health bar, Lightning and Chain
+  Lightning strike from the sky as jagged bolts with a flash, other attack spells fly as glowing
+  orbs in their colour (Energy Bolt and Mind Blast bigger), and heals, buffs and area spells
+  sparkle on whoever they touch.
+- The Spells panel explains how Magery, Evaluating Intellect and Protection work.
+
 ## 0.39.0
 Bows and crossbows.
 - Every player now starts with a bow and 40 arrows in the bag (equip it from Bag). Anyone with

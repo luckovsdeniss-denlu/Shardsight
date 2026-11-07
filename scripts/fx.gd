@@ -164,3 +164,136 @@ static func meteor(parent: Node, at: Vector3, delay: float) -> void:
 	var t := parent.get_tree().create_timer(delay)
 	t.timeout.connect(func() -> void:
 		fireball(parent, at + Vector3(-2.5, 9.0, -1.5), at + Vector3(0, 0.3, 0), 1.3, 0.45))
+
+
+# --- magic --------------------------------------------------------------------
+
+## A colour that fades out over a particle's life.
+static func _fade_ramp(c: Color) -> Gradient:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.3, 1.0])
+	g.colors = PackedColorArray([Color(1, 1, 1, 0.9).lerp(c, 0.4), c, Color(c.r, c.g, c.b, 0.0)])
+	return g
+
+
+## Motes of the spell's colour swirling up round a caster while the spell is spoken. The caller
+## frees it when the cast ends.
+static func cast_glow(c: Color) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.amount = 16
+	p.lifetime = 0.7
+	p.mesh = _quad(0.12, Color.WHITE)
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	p.emission_ring_axis = Vector3.UP
+	p.emission_ring_radius = 0.55
+	p.emission_ring_inner_radius = 0.4
+	p.emission_ring_height = 0.1
+	p.direction = Vector3.UP
+	p.spread = 10.0
+	p.gravity = Vector3(0.0, 0.6, 0.0)
+	p.initial_velocity_min = 0.6
+	p.initial_velocity_max = 1.3
+	p.color_ramp = _fade_ramp(c)
+	return p
+
+
+## A one-shot burst of sparkles rising from `at` (heals, blessings, a bolt striking home).
+static func sparkle(parent: Node, at: Vector3, c: Color, amount := 20) -> void:
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.7
+	p.amount = amount
+	p.lifetime = 0.9
+	p.mesh = _quad(0.14, Color.WHITE)
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 0.45
+	p.direction = Vector3.UP
+	p.spread = 30.0
+	p.gravity = Vector3(0.0, 0.5, 0.0)
+	p.initial_velocity_min = 0.6
+	p.initial_velocity_max = 1.6
+	p.color_ramp = _fade_ramp(c)
+	parent.add_child(p)
+	p.global_position = at
+	p.emitting = true
+	var tw := p.create_tween()
+	tw.tween_interval(1.3)
+	tw.tween_callback(p.queue_free)
+
+
+## A glowing orb in the spell's colour flying from `from` to `to` with a trail, sparkling on arrival
+## (Magic Arrow, Harm, Mind Blast, Energy Bolt...).
+static func orb(parent: Node, from: Vector3, to: Vector3, c: Color, size := 1.0, seconds := 0.3) -> void:
+	var ball := Node3D.new()
+	parent.add_child(ball)
+	ball.global_position = from
+	var trail := CPUParticles3D.new()
+	trail.amount = 24
+	trail.lifetime = 0.3
+	trail.local_coords = false
+	trail.mesh = _quad(0.18 * size, Color.WHITE)
+	trail.gravity = Vector3.ZERO
+	trail.initial_velocity_min = 0.0
+	trail.initial_velocity_max = 0.2
+	trail.color_ramp = _fade_ramp(c)
+	ball.add_child(trail)
+	var core := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = 0.13 * size
+	s.height = 0.26 * size
+	core.mesh = s
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c.lightened(0.4)
+	m.emission_enabled = true
+	m.emission = c
+	m.emission_energy_multiplier = 3.0
+	core.material_override = m
+	ball.add_child(core)
+	var tw := ball.create_tween()
+	tw.tween_property(ball, "global_position", to, seconds)
+	tw.tween_callback(func() -> void:
+		sparkle(parent, to, c, 14)
+		trail.emitting = false
+		core.visible = false)
+	tw.tween_interval(0.35)
+	tw.tween_callback(ball.queue_free)
+
+
+## A jagged bolt of lightning from the sky onto `at`, with a flash of light.
+static func lightning(parent: Node, at: Vector3, c := Color(0.85, 0.9, 1.0)) -> void:
+	var root := Node3D.new()
+	parent.add_child(root)
+	root.global_position = Vector3.ZERO
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = c
+	mat.emission_enabled = true
+	mat.emission = c
+	mat.emission_energy_multiplier = 4.0
+	var pts: Array[Vector3] = []
+	var top := at + Vector3(randf_range(-1.0, 1.0), 9.0, randf_range(-1.0, 1.0))
+	for i in range(7):
+		var t := float(i) / 6.0
+		var jitter := Vector3(randf_range(-0.45, 0.45), 0.0, randf_range(-0.45, 0.45)) * (1.0 if i > 0 and i < 6 else 0.0)
+		pts.append(top.lerp(at + Vector3(0.0, 0.2, 0.0), t) + jitter)
+	for i in range(pts.size() - 1):
+		var a: Vector3 = pts[i]
+		var b: Vector3 = pts[i + 1]
+		var seg := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = Vector3(0.07, 0.07, a.distance_to(b))
+		seg.mesh = box
+		seg.material_override = mat
+		seg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(seg)
+		seg.look_at_from_position((a + b) / 2.0, b, Vector3.RIGHT)
+	var light := OmniLight3D.new()
+	light.light_color = c
+	light.light_energy = 4.0
+	light.omni_range = 7.0
+	root.add_child(light)
+	light.global_position = at + Vector3(0.0, 1.5, 0.0)
+	sparkle(parent, at + Vector3(0.0, 0.3, 0.0), c, 16)
+	var tw := root.create_tween()
+	tw.tween_property(light, "light_energy", 0.0, 0.25)
+	tw.tween_callback(root.queue_free)

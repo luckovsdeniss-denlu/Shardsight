@@ -772,6 +772,7 @@ const HP_BAR_SHADER := """
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_test_disabled, depth_draw_never, shadows_disabled, fog_disabled;
 uniform float fill = 1.0;
+uniform vec4 tint : source_color = vec4(0.0);    // alpha > 0.5: a fixed colour (the cast bar)
 
 void vertex() {
 	// always face the camera
@@ -783,6 +784,9 @@ void fragment() {
 	vec3 half_hp = vec3(0.95, 0.8, 0.2);
 	vec3 low = vec3(0.9, 0.2, 0.15);
 	vec3 bar = fill > 0.5 ? mix(half_hp, full, (fill - 0.5) * 2.0) : mix(low, half_hp, fill * 2.0);
+	if (tint.a > 0.5) {
+		bar = tint.rgb;
+	}
 	vec3 col = UV.x < fill ? bar : vec3(0.12, 0.12, 0.14);
 	float edge = step(UV.x, 0.025) + step(0.975, UV.x) + step(UV.y, 0.15) + step(0.85, UV.y);
 	ALBEDO = edge > 0.0 ? vec3(0.02) : col;
