@@ -128,7 +128,7 @@ func _ready() -> void:
 	add_child(cam)
 	cam.make_current()
 
-	get_tree().root.theme = _solid_theme()     # buttons and panels with solid backgrounds
+	_make_ui_solid(ThemeDB.get_default_theme())   # buttons and panels with solid backgrounds
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	# Upper left: a button that shows or hides the stats text under it.
@@ -2709,9 +2709,10 @@ func _update_button() -> void:
 
 # --- the corner menu and its switches ------------------------------------------------
 
-## A theme with opaque buttons and panels (Godot's default ones are see-through).
-func _solid_theme() -> Theme:
-	var t := Theme.new()
+## Makes the buttons and panels opaque (Godot's default ones are see-through). Applied to the
+## engine's default theme, so it reaches every menu (a theme set on the window doesn't pass
+## through the CanvasLayer the menus live on).
+func _make_ui_solid(t: Theme) -> void:
 	var looks := {
 		"normal": Color(0.16, 0.17, 0.21), "hover": Color(0.22, 0.24, 0.30),
 		"pressed": Color(0.30, 0.33, 0.42), "disabled": Color(0.12, 0.12, 0.14),
@@ -2738,7 +2739,6 @@ func _solid_theme() -> Theme:
 	panel.set_corner_radius_all(8)
 	t.set_stylebox("panel", "PanelContainer", panel)
 	t.set_stylebox("panel", "Panel", panel)
-	return t
 
 
 func _corner_add(b: Button) -> void:

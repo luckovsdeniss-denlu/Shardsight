@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.36.1
+- Menus really are solid now. 0.35.1 set the solid look on the window, but a theme there doesn't
+  reach controls on a CanvasLayer, so buttons and panels stayed see-through. It now changes
+  Godot's default theme, which every button and panel uses.
+
 ## 0.36.0
 Spread out.
 - The map is split into 8 equal regions (4 across, 2 down) and the other players are spread
