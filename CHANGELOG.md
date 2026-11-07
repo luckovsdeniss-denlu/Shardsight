@@ -3,6 +3,23 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.38.0
+Gear you can see.
+- Each kind of armor has its own look on the model, not just a torso colour:
+  - Platemail: a closed helm with an eye slit and a plume in the wearer's colour, pauldrons
+    (the right one moves with the sword arm), gorget, chest ridge, tassets, plate gauntlets,
+    knee cops, greaves and sabatons.
+  - Chainmail: a mail coif round the face, a hauberk skirt and mail leggings.
+  - Studded armor: rows of studs on the chest, a shoulder guard, leather leggings, tall boots.
+  - Leather armor: a cross strap, bracers, leather leggings and tall boots.
+- Each shield has its own shape: the wooden one round with planks and a rim, the bronze one
+  round with a boss, the heater shield a pointed knight's shield with a cross in the wearer's
+  colour.
+- Archers carry a quiver of arrows on the back.
+- Gear made from coloured ingots shows its metal (copper, bronze, golden, agapite, verite,
+  valorite...) on plate, mail, blades, mace heads and heater shields; exceptional
+  (master-made) armor has gold trim and the belt turns gold.
+
 ## 0.37.0
 A clearer picture.
 - Health bars: a small bar over anyone hurt or fighting (and always over your hero), green to

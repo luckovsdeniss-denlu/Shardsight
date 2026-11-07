@@ -14,6 +14,21 @@ const CHAIN := Color(0.52, 0.54, 0.58)
 const STUDDED := Color(0.32, 0.23, 0.16)
 const LEATHER := Color(0.5, 0.33, 0.19)
 const STEEL := Color(0.78, 0.8, 0.84)
+const TRIM := Color(0.92, 0.74, 0.25)       # gold trim on exceptional (master-made) armor
+## Gear made from coloured ingots ("longsword@valorite") shows the colour of its metal.
+const METAL_TINT := {
+	"dull_copper": Color(0.62, 0.48, 0.38), "shadow_iron": Color(0.36, 0.36, 0.42),
+	"copper": Color(0.8, 0.5, 0.3), "bronze": Color(0.76, 0.56, 0.3), "golden": Color(0.92, 0.78, 0.32),
+	"agapite": Color(0.78, 0.5, 0.5), "verite": Color(0.45, 0.66, 0.45), "valorite": Color(0.48, 0.58, 0.9),
+}
+
+
+## The metal colour of an item id, or `fallback` if it's plain iron/steel.
+static func metal_of(id: String, fallback: Color) -> Color:
+	for part in id.split("@"):
+		if METAL_TINT.has(part):
+			return METAL_TINT[part]
+	return fallback
 const WOOD := Color(0.45, 0.3, 0.16)
 const DARK := Color(0.16, 0.13, 0.11)
 const SKINS := [Color(0.96, 0.8, 0.66), Color(0.86, 0.66, 0.5), Color(0.66, 0.46, 0.32), Color(0.45, 0.31, 0.21)]
@@ -219,25 +234,46 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			cloth = Color(0.3, 0.06, 0.05)
 			build = 1.25
 	var torso_col := cloth
-	match Gear.base(armor):
+	var ab := Gear.base(armor)                  # armor kind
+	var ex := armor.contains("@ex")             # exceptional: gold trim
+	var belt := TRIM if ex else DARK
+	var boots := DARK
+	var hands := skin
+	match ab:
 		"platemail":
-			torso_col = PLATE
+			torso_col = metal_of(armor, PLATE)
+			pants = torso_col.darkened(0.08)
+			boots = torso_col.darkened(0.2)
+			hands = torso_col
+			if hat == "":
+				hat = "plate_helm"
 		"chainmail":
-			torso_col = CHAIN
+			torso_col = metal_of(armor, CHAIN)
+			pants = torso_col.darkened(0.12)
+			if hat == "":
+				hat = "coif"
 		"studded_armor":
 			torso_col = STUDDED
+			pants = STUDDED.darkened(0.15)
 		"leather_armor":
 			torso_col = LEATHER
+			pants = LEATHER.darkened(0.25)
+	var ranged := Gear.base(weapon) in ["bow", "crossbow"]
 	var w := 0.7 if bony else build
-	var key := "hum|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [look, skin.to_html(), hair.to_html(), cloth.to_html(),
-		torso_col.to_html(), robe, hat, shield, w]
+	var key := "hum|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [look, skin.to_html(), hair.to_html(), cloth.to_html(),
+		torso_col.to_html(), robe, hat, shield, w, ab, ex, ranged]
 	var body := _cached(key, func() -> Array:
 		var p := []
 		# torso, belt, tabard in the identity colour
 		p.append([box(0.46 * w, 0.56, 0.28 * w), at(0, 1.0, 0), torso_col])
-		p.append([box(0.48 * w, 0.08, 0.3 * w), at(0, 0.75, 0), DARK])
+		p.append([box(0.48 * w, 0.08, 0.3 * w), at(0, 0.75, 0), belt])
 		if torso_col != cloth:
 			p.append([box(0.2, 0.42, 0.02), at(0, 1.0, -0.15 * w), cloth])
+		_armor_parts(p, ab, torso_col, cloth, w, ex)
+		if ranged:                                     # a quiver of arrows on the back
+			p.append([box(0.11, 0.44, 0.11), at(0.1, 1.05, 0.19, Vector3(0, 0, 0.3)), LEATHER.darkened(0.1)])
+			for i in range(3):
+				p.append([box(0.03, 0.08, 0.03), at(0.17 + 0.03 * i, 1.3, 0.19 + 0.02 * (i - 1), Vector3(0, 0, 0.3)), Color(0.92, 0.92, 0.88)])
 		if bony:
 			for i in range(3):
 				p.append([box(0.5 * w, 0.04, 0.3 * w), at(0, 0.88 + 0.12 * i, 0), Color(0.3, 0.28, 0.24)])
@@ -245,7 +281,7 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			p.append([ball(0.3, 7, 4), at(0, 0.92, -0.12), skin])          # a big belly
 		# head, hair, eyes
 		p.append([ball(0.17, 8, 5), at(0, 1.43, 0), skin])
-		if not bony and hat != "hood":
+		if not bony and not hat in ["hood", "plate_helm", "coif"]:
 			p.append([box(0.32, 0.1, 0.32), at(0, 1.57, 0.02), hair])
 			p.append([box(0.32, 0.18, 0.08), at(0, 1.47, 0.14), hair])
 		p.append([box(0.05, 0.05, 0.03), at(-0.07, 1.45, -0.16), DARK])
@@ -269,18 +305,21 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 				p.append([cone(0.2, 0.1, 0.18, 8), at(0, 1.6, 0), cloth.darkened(0.3)])
 			"hood":
 				p.append([ball(0.22, 8, 5), at(0, 1.46, 0.03), cloth])
+			"plate_helm":                                # a closed helm, eye slit and a plume
+				p.append([ball(0.215, 8, 5), at(0, 1.46, 0), torso_col])
+				p.append([box(0.3, 0.2, 0.06), at(0, 1.42, -0.17), torso_col.darkened(0.1)])
+				p.append([box(0.24, 0.035, 0.02), at(0, 1.46, -0.205), DARK])
+				p.append([box(0.05, 0.14, 0.3), at(0, 1.7, 0.04), cloth])
+				if ex:
+					p.append([box(0.32, 0.03, 0.08), at(0, 1.33, -0.15), TRIM])
+			"coif":                                      # a mail hood, the face showing
+				p.append([ball(0.215, 8, 5), at(0, 1.47, 0.04), torso_col])
+				p.append([box(0.36, 0.12, 0.34), at(0, 1.25, 0.0), torso_col])
 		# left arm (with the shield) is part of the body; the right arm swings separately
 		p.append([box(0.12 * w, 0.48, 0.14 * w), at(-0.3 * w, 0.98, 0), torso_col])
-		p.append([ball(0.07, 6, 3), at(-0.3 * w, 0.71, 0), skin])
+		p.append([ball(0.07, 6, 3), at(-0.3 * w, 0.71, 0), hands])
 		if shield != "":
-			var sc := WOOD
-			match Gear.base(shield):
-				"bronze_shield":
-					sc = Color(0.72, 0.5, 0.25)
-				"heater_shield":
-					sc = Color(0.55, 0.6, 0.7)
-			p.append([cone(0.22, 0.04, 0.22, 10), at(-0.41 * w, 0.95, 0, Vector3(0, 0, PI / 2)), sc])
-			p.append([ball(0.05, 6, 3), at(-0.44 * w, 0.95, 0), STEEL])
+			_shield_parts(p, shield, cloth, w)
 		# legs: a robe, or the hips the legs hang from
 		if robe:
 			p.append([cone(0.36, 0.78, 0.2, 9), at(0, 0.39, 0), cloth])
@@ -295,18 +334,30 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 		_instance(root, eyes, glow_mat(Color(0.5, 1.0, 0.6)), meshes)
 	# legs (pivot at the hip)
 	if not robe:
-		var leg := _cached("leg|%s|%s" % [pants.to_html(), w], func() -> Array:
-			return [[box(0.15 * w, 0.62, 0.17 * w), at(0, -0.31, 0), pants],
-				[box(0.17 * w, 0.1, 0.24 * w), at(0, -0.64, -0.03), DARK]])
+		var leg := _cached("leg|%s|%s|%s|%s" % [pants.to_html(), w, ab, boots.to_html()], func() -> Array:
+			var lp := [[box(0.15 * w, 0.62, 0.17 * w), at(0, -0.31, 0), pants],
+				[box(0.17 * w, 0.1, 0.24 * w), at(0, -0.64, -0.03), boots]]
+			match ab:
+				"platemail":                         # knee cop and a tall greave
+					lp.append([ball(0.075, 6, 3), at(0, -0.33, -0.08), pants.lightened(0.1)])
+					lp.append([box(0.17 * w, 0.22, 0.19 * w), at(0, -0.5, 0), boots])
+				"leather_armor", "studded_armor":   # tall boots
+					lp.append([box(0.165 * w, 0.2, 0.185 * w), at(0, -0.52, 0), Color(0.22, 0.15, 0.1)])
+			return lp)
 		for side in [-1.0, 1.0]:
 			var piv := _pivot(root, Vector3(0.11 * w * side, 0.7, 0))
 			_instance(piv, leg, vc_mat(), meshes)
 			model["legs"].append(piv)
 	# right arm with the weapon (pivot at the shoulder)
 	var arm_piv := _pivot(root, Vector3(0.3 * w, 1.22, 0))
-	var arm := _cached("arm|%s|%s|%s|%s" % [torso_col.to_html(), skin.to_html(), weapon, w], func() -> Array:
+	var arm := _cached("arm|%s|%s|%s|%s|%s" % [torso_col.to_html(), hands.to_html(), weapon, w, ab], func() -> Array:
 		var p := [[box(0.12 * w, 0.48, 0.14 * w), at(0, -0.24, 0), torso_col],
-			[ball(0.07, 6, 3), at(0, -0.51, 0), skin]]
+			[ball(0.07, 6, 3), at(0, -0.51, 0), hands]]
+		match ab:
+			"platemail":                             # the right pauldron moves with the arm
+				p.append([ball(0.14, 7, 4), at(0.02, 0.0, 0, Vector3.ZERO, Vector3(1.1, 0.75, 1.1)), torso_col.lightened(0.08)])
+			"leather_armor", "studded_armor":         # a bracer
+				p.append([box(0.14 * w, 0.14, 0.16 * w), at(0, -0.38, 0), Color(0.22, 0.15, 0.1)])
 		p.append_array(_weapon_parts(weapon))
 		return p)
 	_instance(arm_piv, arm, vc_mat(), meshes)
@@ -314,29 +365,80 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 	model["arm"] = arm_piv
 
 
+## The extra pieces of each kind of armor on the body (the left arm is part of the body).
+static func _armor_parts(p: Array, ab: String, col: Color, cloth: Color, w: float, ex: bool) -> void:
+	match ab:
+		"platemail":
+			p.append([ball(0.14, 7, 4), at(-0.32 * w, 1.22, 0, Vector3.ZERO, Vector3(1.1, 0.75, 1.1)), col.lightened(0.08)])
+			p.append([box(0.26, 0.08, 0.22), at(0, 1.3, 0), col.darkened(0.1)])          # gorget
+			p.append([box(0.06, 0.4, 0.04), at(0, 1.02, -0.15 * w), col.lightened(0.12)])  # chest ridge
+			p.append([box(0.5 * w, 0.14, 0.32 * w), at(0, 0.66, 0), col.darkened(0.06)])  # tassets
+			if ex:
+				p.append([box(0.47 * w, 0.03, 0.29 * w), at(0, 1.27, 0), TRIM])
+		"chainmail":
+			p.append([box(0.5 * w, 0.18, 0.31 * w), at(0, 0.65, 0), col.darkened(0.1)])   # the hauberk's skirt
+			if ex:
+				p.append([box(0.5 * w, 0.03, 0.31 * w), at(0, 0.57, 0), TRIM])
+		"studded_armor":
+			for row in range(3):
+				for c in range(3):
+					p.append([box(0.035, 0.035, 0.02), at((c - 1) * 0.12 * w, 1.15 - row * 0.13, -0.145 * w), TRIM if ex else STEEL])
+			p.append([box(0.14, 0.06, 0.3 * w), at(-0.3 * w, 1.24, 0), STUDDED.darkened(0.2)])
+		"leather_armor":
+			p.append([box(0.06, 0.62, 0.02), at(0, 1.0, -0.145 * w, Vector3(0, 0, 0.65)), Color(0.22, 0.15, 0.1)])  # a strap
+			p.append([box(0.14 * w, 0.14, 0.16 * w), at(-0.3 * w, 0.84, 0), Color(0.22, 0.15, 0.1)])            # a bracer
+			if ex:
+				p.append([box(0.47 * w, 0.03, 0.29 * w), at(0, 1.27, 0), TRIM])
+
+
+## Each shield has its own shape: a round wooden one with planks and a rim, a round bronze one
+## with a boss, and a heater (the classic knight's shield) with a cross in the bearer's colour.
+static func _shield_parts(p: Array, shield: String, cloth: Color, w: float) -> void:
+	var x := -0.42 * w
+	match Gear.base(shield):
+		"heater_shield":
+			var sc := metal_of(shield, Color(0.6, 0.64, 0.72))
+			p.append([box(0.04, 0.34, 0.36), at(x, 1.02, 0), sc])
+			p.append([box(0.04, 0.26, 0.26), at(x, 0.84, 0, Vector3(PI / 4, 0, 0)), sc])    # the point
+			p.append([box(0.01, 0.4, 0.07), at(x - 0.025, 0.95, 0), cloth])                  # the cross
+			p.append([box(0.01, 0.07, 0.28), at(x - 0.025, 1.04, 0), cloth])
+		"bronze_shield":
+			var bc := metal_of(shield, Color(0.74, 0.52, 0.26))
+			p.append([cone(0.23, 0.04, 0.23, 12), at(x, 0.95, 0, Vector3(0, 0, PI / 2)), bc])
+			p.append([cone(0.25, 0.02, 0.25, 12), at(x + 0.01, 0.95, 0, Vector3(0, 0, PI / 2)), bc.darkened(0.3)])
+			p.append([ball(0.07, 6, 3), at(x - 0.03, 0.95, 0), bc.lightened(0.25)])          # the boss
+		_:
+			p.append([cone(0.22, 0.04, 0.22, 10), at(x, 0.95, 0, Vector3(0, 0, PI / 2)), WOOD])
+			p.append([cone(0.235, 0.025, 0.235, 10), at(x + 0.01, 0.95, 0, Vector3(0, 0, PI / 2)), DARK])  # rim
+			for i in [-1, 1]:
+				p.append([box(0.01, 0.4, 0.02), at(x - 0.022, 0.95, 0.07 * i), WOOD.darkened(0.35)])     # planks
+			p.append([ball(0.045, 6, 3), at(x - 0.03, 0.95, 0), STEEL])
+
+
 ## A weapon held in the right hand (the hand is at y -0.51 in the arm's space).
 static func _weapon_parts(weapon: String) -> Array:
 	var p := []
 	var hy := -0.51
+	var steel := metal_of(weapon, STEEL)        # blades and heads take their metal's colour
 	match Gear.base(weapon):
 		"dagger", "kryss":
-			p.append([box(0.04, 0.03, 0.32), at(0, hy, -0.2), STEEL])
+			p.append([box(0.04, 0.03, 0.32), at(0, hy, -0.2), steel])
 			p.append([box(0.14, 0.03, 0.03), at(0, hy, -0.04), DARK])
 		"short_sword", "longsword", "broadsword", "bonecleaver":
 			var length := 0.55 if Gear.base(weapon) == "short_sword" else 0.78
-			p.append([box(0.05, 0.03, length), at(0, hy, -length / 2.0 - 0.05), STEEL])
+			p.append([box(0.05, 0.03, length), at(0, hy, -length / 2.0 - 0.05), steel])
 			p.append([box(0.2, 0.04, 0.04), at(0, hy, -0.05), Color(0.6, 0.5, 0.2)])
 			p.append([box(0.04, 0.04, 0.14), at(0, hy, 0.04), WOOD])
 		"mace", "club":
 			p.append([box(0.04, 0.04, 0.5), at(0, hy, -0.22), WOOD])
 			var is_mace := Gear.base(weapon) == "mace"
-			p.append([ball(0.09 if is_mace else 0.12, 6, 3), at(0, hy, -0.5), STEEL if is_mace else WOOD.darkened(0.2)])
+			p.append([ball(0.09 if is_mace else 0.12, 6, 3), at(0, hy, -0.5), steel if is_mace else WOOD.darkened(0.2)])
 		"war_hammer":
 			p.append([box(0.04, 0.04, 0.7), at(0, hy, -0.3), WOOD])
-			p.append([box(0.24, 0.12, 0.12), at(0, hy, -0.66), STEEL])
+			p.append([box(0.24, 0.12, 0.12), at(0, hy, -0.66), steel])
 		"halberd":
 			p.append([box(0.04, 1.5, 0.04), at(0, hy + 0.3, -0.06), WOOD])
-			p.append([box(0.03, 0.26, 0.2), at(0, hy + 0.98, -0.14), STEEL])
+			p.append([box(0.03, 0.26, 0.2), at(0, hy + 0.98, -0.14), steel])
 		"bow":
 			p.append([box(0.03, 0.4, 0.03), at(0, hy + 0.2, -0.12, Vector3(-0.35, 0, 0)), WOOD])
 			p.append([box(0.03, 0.4, 0.03), at(0, hy - 0.2, -0.12, Vector3(0.35, 0, 0)), WOOD])
