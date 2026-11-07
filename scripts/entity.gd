@@ -20,6 +20,8 @@ const CAST_RECOVERY := 0.8     # seconds between casts
 const LOOT_RANGE := 1.6
 const LOOT_SEEK := 9.0         # how far players look for corpses
 const REAGENT_PRICE := 2       # gold per reagent at the merchant
+const MEDITATION_EVERY := 10.0 # seconds of resting with mana short per Meditation gain
+const PARRY_TRAIN_CHANCE := 0.1   # each blow taken with a shield trains Parrying this often
 const MAX_REAGENTS := 60.0
 const BANDAGE_PRICE := 2
 const MAX_BANDAGES := 10
@@ -681,8 +683,8 @@ func _absorb(amount: float) -> float:
 	if bless_timer > 0.0:
 		amount *= BLESS_ARMOR
 	if shield_id != "":
-		if kind == Kind.PLAYER:
-			stats.try_gain(Hero.Skill.PARRYING)     # every attack at a shield-bearer trains it
+		if kind == Kind.PLAYER and randf() < PARRY_TRAIN_CHANCE:
+			stats.try_gain(Hero.Skill.PARRYING)     # blows at a shield-bearer now and then train it
 		if randf() < Rules.parry_chance(_skill(Hero.Skill.PARRYING)):
 			amount *= 1.0 - float(Gear.stats(shield_id)["block"])
 			_pop("parried", Color(0.8, 0.9, 1.0))
@@ -1159,7 +1161,7 @@ func _regen_mana(delta: float) -> void:
 	mana = minf(mana + Rules.mana_regen(med, resting) * delta, max_mana)
 	if resting and mana < max_mana and kind == Kind.PLAYER:
 		_med_timer += delta
-		if _med_timer >= 1.0:
+		if _med_timer >= MEDITATION_EVERY:
 			_med_timer = 0.0
 			stats.try_gain(Hero.Skill.MEDITATION)   # resting while drained trains Meditation
 
