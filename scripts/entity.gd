@@ -668,7 +668,7 @@ func _fight() -> void:
 		if Gear.is_ranged(wielded):
 			arrows -= 1
 			_bolt(target.position, Color(0.85, 0.75, 0.5))
-			game.sound("bow", position)
+			game.sound("crossbow" if "crossbow" in Gear.base(wielded) else "bow", position)
 	elif kind == Kind.PLAYER:
 		lo = 2.0                           # bare hands
 		hi = 6.0
@@ -835,7 +835,7 @@ func _die(killer: Entity) -> void:
 	if is_hero:
 		game.count("hero_deaths")
 		game.count("hero_killed_by_" + killer.display_name)
-	game.sound("death", position)
+	game.sound("death", position, 1.2 / maxf(visual_scale, 0.4))   # big creatures die lower
 	if kind == Kind.PLAYER:
 		ghost = true                   # players become ghosts and look for a healer
 		dead_timer = RED_GHOST_TIMEOUT if died_red else GHOST_TIMEOUT
@@ -1023,7 +1023,7 @@ func start_cast(id: String, tgt: Entity) -> bool:
 	_start_cast_fx(sp["color"])
 	path.clear()
 	_pop(String(sp["words"]), Color(0.7, 0.85, 1.0))
-	game.sound("cast", position)
+	game.sound("cast", position, 1.15 - 0.04 * float(sp["circle"]))   # higher circles sound deeper
 	if is_hero:
 		game.count("spells_cast")
 	return true
@@ -1969,7 +1969,7 @@ func _harvest_once() -> void:
 	var id := Crafting.roll_ore(_skill(skill)) if is_ore else "log"
 	inventory[id] = int(inventory.get(id, 0)) + 1
 	_pop("+1 " + Items.item_name(id), Color(0.9, 0.85, 0.6))
-	game.sound("gather", position)
+	game.sound("mine" if is_ore else "chop", position)
 	if is_hero:
 		game.count("gathered")
 	if kind == Kind.PLAYER:

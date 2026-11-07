@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.42.2
+- The other sounds vary too, each with several takes picked at random and a slightly random
+  pitch: mining rings like a pick on stone and chopping thocks like an axe in wood (they were
+  one sound); spells shimmer in four different sweeps, deeper for higher circles; deaths fall
+  in three ways, lower for big creatures; loot chimes and skill-gain arpeggios have three tunes
+  each; bows twang and crossbows snap and thunk; thunder rolls three different ways.
+
 ## 0.42.1
 Blows that sound different.
 - Each blow sounds like what hit what: a blade slashes with a ring of steel, a mace, club or
