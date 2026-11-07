@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.42.3
+- Level runs from 1 to 1000 again, from the total of all the hero's skills: no skills is level
+  1, the full 700-point skill cap is level 1000 (about 1.43 levels a skill point). It was the
+  plain skill total, 1 to 700.
+
 ## 0.42.2
 - The other sounds vary too, each with several takes picked at random and a slightly random
   pitch: mining rings like a pick on stone and chopping thocks like an axe in wood (they were
