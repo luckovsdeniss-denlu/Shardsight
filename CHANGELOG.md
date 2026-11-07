@@ -3,16 +3,6 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
-## 0.35.1
-Steadier levelling.
-- Levels no longer race up on their own. Meditation trained a full point every second spent
-  resting with mana short (harmless at +0.1 a use, a level and a half a second at +1), so a
-  hero standing still after a spell climbed 5 levels every few seconds. It now trains once per
-  10 seconds of rest. Blows taken with a shield train Parrying 1 time in 10 instead of every time.
-- The level curve is gentler at first: level follows the share of the 700-point skill cap to
-  the power 1.5, not in a straight line. 50 skill points is level 20 (was 72), 350 is
-  354 (was 500); the full cap is still level 1000. Skills still rise +1 per use.
-
 ## 0.35.0
 A cleaner screen.
 - One Menu button in the upper right opens all the others, in two columns: Auto, Main Menu
