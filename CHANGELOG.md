@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.43.0
+First person.
+- Menu > First person puts the camera at your hero's eyes, looking where it faces and a little
+  down so the ground shows; the view turns smoothly as the hero does, and sits higher in the
+  saddle. A wider lens; your own body, health bar, label and ring are hidden. Tap the ground to
+  walk and a monster to attack, as before; twist two fingers to look round. Menu > Top view
+  goes back. The choice is saved.
+
 ## 0.42.5
 - Level counts combat skills only: Swordsmanship, Fencing, Mace Fighting, Archery, Wrestling,
   Tactics, Anatomy, Parrying, Healing, Magery, Evaluating Intellect, Meditation and Resisting

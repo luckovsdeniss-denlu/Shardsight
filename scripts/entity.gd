@@ -119,6 +119,7 @@ var _gear_timer := 0.0
 var _trade_timer := 0.0
 var label: Label3D
 var hp_bar: MeshInstance3D      # over the head while hurt or fighting
+var hide_self := false         # the hero in first person: its own model, bar and label hidden
 var _hit_sound := ""            # set by whoever strikes us, so the blow sounds like what hit what
 var cast_bar: MeshInstance3D    # the hero's casting progress, under the health bar
 var cast_total := 1.0           # seconds the current cast takes
@@ -4172,7 +4173,7 @@ func _maybe_label(delta: float) -> void:
 ## The health bar shows over anyone hurt or fighting (and always over the hero), not townsfolk.
 func _update_hp_bar() -> void:
 	var max_hp := float(stats.max_hp())
-	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 \
+	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self \
 		and (is_hero or hp < max_hp - 0.5 or target != null)
 	hp_bar.visible = show
 	if show:
@@ -4198,6 +4199,6 @@ func _update_cull() -> void:
 func show_name(on: bool) -> void:
 	if label == null:
 		return
-	label.visible = (on or is_hero) and _near     # your own level and HP always show
+	label.visible = (on or is_hero) and _near and not hide_self   # your own level and HP always show
 	if label.visible:
 		_label_acc = 1.0                      # refresh the label at once

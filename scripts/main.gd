@@ -38,6 +38,7 @@ var mute_button: Button
 var names_button: Button
 var stats_button: Button
 var map_button: Button
+var view_button: Button
 var bag_box: VBoxContainer
 var spells_panel: Control
 var priest_panel: Control
@@ -216,6 +217,8 @@ func _ready() -> void:
 	_corner_add(names_button)
 	map_button = _menu_button("", _toggle_map)
 	_corner_add(map_button)
+	view_button = _menu_button("", _toggle_view)
+	_corner_add(view_button)
 	minimap.setup(self, world)
 	minimap.size_flags_horizontal = Control.SIZE_SHRINK_END
 	corner.add_child(minimap)
@@ -1261,7 +1264,7 @@ func _open_help() -> void:
 	settings_box.add_child(title)
 	for line in [
 		"Tap the ground to walk there. Tap a monster to attack it, a corpse to loot it, a rock to mine it, a tree to chop it.",
-		"The Menu button (top right) opens every button: Auto, Main Menu, Bag, Spells, Retreat, Ride, Mute, and switches to show names, stats and the map. Auto lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
+		"The Menu button (top right) opens every button: Auto, Main Menu, Bag, Spells, Retreat, Ride, Mute, and switches to show names, stats and the map, and First person / Top view (in first person you see through the hero's eyes; twist two fingers to look around). Auto lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
 		"Names (Menu > Show names): blue innocent, grey criminal, red murderer or monster. The tan towns are safe: nobody can be hurt inside a town, and nobody can attack out of one.",
 		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked. There's no real cap: every skill can reach 100.",
 		"Die and you become a ghost: walk to a healer to be raised for free. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
@@ -2618,7 +2621,7 @@ func _build_rings() -> void:
 
 
 func _update_rings() -> void:
-	hero_ring.visible = not hero.dead
+	hero_ring.visible = not hero.dead and not property.first_person
 	hero_ring.position = hero.position + Vector3(0.0, 0.04, 0.0)
 	var t := hero.target
 	var show := t != null and is_instance_valid(t) and not t.dead and t.visible
@@ -2883,6 +2886,8 @@ func _update_corner_buttons() -> void:
 	names_button.text = "Hide names" if property.names_on else "Show names"
 	stats_button.text = "Hide stats" if property.stats_on else "Show stats"
 	map_button.text = "Hide map" if property.minimap_on else "Show map"
+	view_button.text = "Top view" if property.first_person else "First person"
+	_apply_view()
 	hud.visible = property.stats_on
 	minimap.visible = property.minimap_on
 
@@ -3134,11 +3139,52 @@ var _title_close: Callable
 
 
 func _hero_cam_pos() -> Vector3:
+	if property.first_person:
+		return _eye()
 	return hero.position + CAM_OFFSET.rotated(Vector3.UP, property.cam_yaw) * property.cam_zoom
 
 
 func _hero_cam_look() -> Vector3:
+	if property.first_person:
+		return _eye() + _fp_forward() * 4.0 + Vector3(0.0, -0.7, 0.0)   # a little downward
 	return hero.position + Vector3(0.0, 0.5, 0.0)
+
+
+# --- first person ----------------------------------------------------------------
+
+var _fp_yaw := 0.0                     # where the first-person view faces (eases after the hero)
+
+
+func _fp_forward() -> Vector3:
+	return Vector3(-sin(_fp_yaw), 0.0, -cos(_fp_yaw))
+
+
+## The hero's eyes (higher in the saddle), a touch ahead of the head so it doesn't show.
+func _eye() -> Vector3:
+	var h := 1.55 * hero.visual_scale
+	if hero.mounted_on != null:
+		h += hero.mounted_on.saddle * hero.mounted_on.visual_scale
+	return hero.position + Vector3(0.0, h, 0.0) + _fp_forward() * 0.2
+
+
+func _toggle_view() -> void:
+	property.first_person = not property.first_person
+	_update_corner_buttons()
+
+
+## Applies the camera mode: a wider lens and the hero's own model hidden in first person.
+func _apply_view() -> void:
+	var fp := property.first_person
+	if fp:
+		_fp_yaw = hero.rotation.y + property.cam_yaw     # start facing where the hero faces
+	cam.fov = 75.0 if fp else 50.0
+	cam.far = 80.0 if fp else 4000.0
+	hero.hide_self = fp
+	if hero.rig != null:
+		hero.rig.visible = not fp
+	hero.show_name(property.names_on)
+	if hero_ring != null:
+		hero_ring.visible = not fp
 
 
 func _skip_flyby() -> void:
@@ -3500,8 +3546,12 @@ func _close_settings() -> void:
 
 
 func _follow_camera() -> void:
-	cam.position = hero.position + CAM_OFFSET.rotated(Vector3.UP, property.cam_yaw) * property.cam_zoom
-	cam.look_at(hero.position + Vector3(0.0, 0.5, 0.0), Vector3.UP)
+	if property.first_person:
+		_fp_yaw = lerp_angle(_fp_yaw, hero.rotation.y + property.cam_yaw, 0.12)   # turn smoothly
+		if hero.rig != null and hero.rig.visible:
+			hero.rig.visible = false        # the hero's own body stays out of view
+	cam.position = _hero_cam_pos()
+	cam.look_at(_hero_cam_look(), Vector3.UP)
 	view_planes = cam.get_frustum()
 
 
