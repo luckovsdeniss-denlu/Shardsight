@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.44.0
+Treasure from the sky.
+- Every slain monster (not summons) has a 10% chance to drop a treasure chest from the sky: it
+  falls, bounces as it lands with a burst of gold sparkles, and a golden beam rises from it to the
+  sky with a warm light round it. Inside: an artifact, gold (more from dangerous monsters) and
+  some reagents. Anyone may take it, so be quick; an untouched chest lasts 3 minutes, an emptied
+  one vanishes. Your log tells you when one falls nearby and what's in it.
+- Ten artifacts, legendary named gear 50-65% stronger than the ordinary kind and worth six
+  times as much, each showing in its own colour on the model: Blade of Vengeance (longsword),
+  Dawnbreaker (broadsword), Frostbite (kryss), Thunderfist (war hammer), Whisperwind (composite
+  bow), Doombolt (heavy crossbow), Starforged Plate, Moonweave Mail, Shadowhide (studded armor)
+  and the Aegis of the Dawn (heater shield).
+
 ## 0.43.0
 First person.
 - Menu > First person puts the camera at your hero's eyes, looking where it faces and a little

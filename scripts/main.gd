@@ -2574,6 +2574,31 @@ func spawn_corpse(victim: Entity) -> void:
 	c.setup(victim.display_name, open_to_all, victim.kind == Entity.Kind.PLAYER,
 		victim.get_instance_id(), victim.position, victim.make_loot())
 	corpses.append(c)
+	if victim.kind == Entity.Kind.MONSTER and not victim.summoned and randf() < CHEST_CHANCE:
+		_drop_chest(victim)
+
+
+const CHEST_CHANCE := 0.10             # any slain monster: a treasure chest falls from the sky
+
+
+## A treasure chest with an artifact, gold and reagents drops beside a slain monster; anyone may
+## take it, so be quick.
+func _drop_chest(victim: Entity) -> void:
+	var arts := Gear.artifact_ids()
+	var art := arts[randi() % arts.size()]
+	var loot := {"gold": randi_range(40, 120) * maxi(1, int(victim.danger)), "reagents": randi_range(0, 10),
+		"items": {art: 1}}
+	var pos := victim.position + Vector3(randf_range(-0.9, 0.9), 0.0, randf_range(-0.9, 0.9))
+	if world.is_blocked(world.to_tile(pos)):
+		pos = victim.position
+	var c := Corpse.new()
+	add_child(c)
+	c.setup("Treasure", true, false, 0, pos, loot)
+	c.make_chest(9.0)
+	corpses.append(c)
+	if hero != null and pos.distance_to(hero.position) <= 25.0:
+		log_event("A treasure chest falls from the sky by the %s! (%s inside)" % [victim.display_name, Items.item_name(art)])
+		sound("loot", pos)
 
 
 func _build_environment() -> void:

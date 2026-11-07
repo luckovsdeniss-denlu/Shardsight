@@ -28,6 +28,8 @@ static func metal_of(id: String, fallback: Color) -> Color:
 	for part in id.split("@"):
 		if METAL_TINT.has(part):
 			return METAL_TINT[part]
+		if Gear.ARTIFACTS.has(part):
+			return Gear.ARTIFACTS[part]["color"]      # artifacts show in their own colour
 	return fallback
 const WOOD := Color(0.45, 0.3, 0.16)
 const DARK := Color(0.16, 0.13, 0.11)

@@ -17,6 +17,10 @@ var label: Label3D
 var _last_text := ""
 var title := ""                  # overrides "<name>'s corpse" (e.g. house ruins)
 var sealed_by := 0               # Magic Lock: only this creature may loot it (0: not sealed)
+var is_chest := false            # a treasure chest fallen from the sky (with an artifact inside)
+var _body: MeshInstance3D
+var _beam: MeshInstance3D
+const CHEST_LIFETIME := 180.0
 
 
 func setup(p_name: String, p_open: bool, p_is_player: bool, p_owner_id: int,
@@ -32,6 +36,7 @@ func setup(p_name: String, p_open: bool, p_is_player: bool, p_owner_id: int,
 		life = PLAYER_LIFETIME
 	# A dropped sack with a couple of bones beside it.
 	var body := MeshInstance3D.new()
+	_body = body
 	var bone := Color(0.86, 0.84, 0.76)
 	body.mesh = Art.merge([[Art.ball(0.22, 7, 4), Art.at(0, 0.16, 0, Vector3.ZERO, Vector3(1, 0.75, 1)), Color(0.45, 0.35, 0.22)],
 		[Art.box(0.08, 0.1, 0.08), Art.at(0, 0.32, 0), Color(0.32, 0.24, 0.14)],
@@ -84,8 +89,66 @@ func take_all() -> Dictionary:
 	gold = 0
 	reagents = 0
 	items.clear()
+	if is_chest:
+		life = minf(life, 3.0)           # an emptied chest soon vanishes
+		if _beam != null:
+			_beam.visible = false
 	_refresh_label()
 	return out
+
+
+## Turns this into a treasure chest that drops from `height` above and bounces as it lands,
+## with a golden beam up to the sky and a warm light round it until it's emptied.
+func make_chest(height: float) -> void:
+	is_chest = true
+	life = CHEST_LIFETIME
+	if _body != null:
+		_body.queue_free()
+	var model := Node3D.new()
+	add_child(model)
+	var wood := Color(0.42, 0.26, 0.12)
+	var gold_c := Color(0.95, 0.78, 0.3)
+	var chest := MeshInstance3D.new()
+	chest.mesh = Art.merge([[Art.box(0.72, 0.4, 0.46), Art.at(0, 0.2, 0), wood],
+		[Art.box(0.74, 0.18, 0.48), Art.at(0, 0.49, 0), wood.darkened(0.15)],     # the lid
+		[Art.box(0.08, 0.6, 0.5), Art.at(-0.26, 0.3, 0), gold_c],                  # gold bands
+		[Art.box(0.08, 0.6, 0.5), Art.at(0.26, 0.3, 0), gold_c],
+		[Art.box(0.12, 0.14, 0.04), Art.at(0, 0.36, -0.25), gold_c.lightened(0.2)]])   # the lock
+	chest.material_override = Art.vc_mat()
+	chest.rotation.y = randf() * TAU
+	model.add_child(chest)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.85, 0.45)
+	light.light_energy = 1.2
+	light.omni_range = 3.5
+	light.position = Vector3(0.0, 0.8, 0.0)
+	model.add_child(light)
+	_beam = MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.1
+	cyl.bottom_radius = 0.18
+	cyl.height = 7.0
+	_beam.mesh = cyl
+	var bm := StandardMaterial3D.new()
+	bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	bm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	bm.albedo_color = Color(1.0, 0.82, 0.4, 0.35)
+	_beam.material_override = bm
+	_beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_beam.position = Vector3(0.0, 3.5, 0.0)
+	add_child(_beam)
+	label.modulate = Color(1.0, 0.85, 0.45)
+	label.position.y = 1.0
+	title = "Treasure Chest"
+	_last_text = ""
+	_refresh_label()
+	model.position.y = height
+	var tw := model.create_tween()
+	tw.tween_property(model, "position:y", 0.0, 1.1).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func() -> void:
+		if is_inside_tree():
+			Fx.sparkle(get_parent(), global_position + Vector3(0.0, 0.3, 0.0), Color(1.0, 0.85, 0.45), 26))
 
 
 func set_title(t: String) -> void:

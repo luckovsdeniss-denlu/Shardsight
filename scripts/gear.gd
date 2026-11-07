@@ -44,6 +44,35 @@ const TIER_BONUS := 0.04          # per metal tier above iron
 const EXCEPTIONAL_BONUS := 0.2
 
 
+## Artifacts: legendary, named versions of ordinary gear, found only in the treasure chests that
+## fall from the sky when monsters die. Id "<base>@art_<name>" (so the model is the base's,
+## tinted in the artifact's colour); stats are the base's raised by "bonus".
+const ARTIFACTS := {
+	"art_vengeance": {"base": "longsword", "name": "Blade of Vengeance", "bonus": 0.6, "color": Color(0.85, 0.2, 0.2)},
+	"art_dawnbreaker": {"base": "broadsword", "name": "Dawnbreaker", "bonus": 0.6, "color": Color(1.0, 0.8, 0.35)},
+	"art_frostbite": {"base": "kryss", "name": "Frostbite", "bonus": 0.65, "color": Color(0.55, 0.85, 1.0)},
+	"art_thunderfist": {"base": "war_hammer", "name": "Thunderfist", "bonus": 0.55, "color": Color(0.6, 0.65, 0.95)},
+	"art_whisperwind": {"base": "composite_bow", "name": "Whisperwind", "bonus": 0.55, "color": Color(0.6, 0.9, 0.6)},
+	"art_doombolt": {"base": "heavy_crossbow", "name": "Doombolt", "bonus": 0.5, "color": Color(0.45, 0.25, 0.55)},
+	"art_starplate": {"base": "platemail", "name": "Starforged Plate", "bonus": 0.5, "color": Color(0.45, 0.55, 0.95)},
+	"art_moonweave": {"base": "chainmail", "name": "Moonweave Mail", "bonus": 0.5, "color": Color(0.82, 0.86, 0.95)},
+	"art_shadowhide": {"base": "studded_armor", "name": "Shadowhide", "bonus": 0.6, "color": Color(0.2, 0.18, 0.24)},
+	"art_aegis": {"base": "heater_shield", "name": "Aegis of the Dawn", "bonus": 0.5, "color": Color(1.0, 0.85, 0.45)},
+}
+
+
+## Every artifact as an item id ("longsword@art_vengeance"...).
+static func artifact_ids() -> Array[String]:
+	var out: Array[String] = []
+	for k: String in ARTIFACTS:
+		out.append(String(ARTIFACTS[k]["base"]) + "@" + k)
+	return out
+
+
+static func is_artifact(id: String) -> bool:
+	return id.contains("@art_")
+
+
 static func base(id: String) -> String:
 	return id.split("@")[0]
 
@@ -59,9 +88,13 @@ static func stats(id: String) -> Dictionary:
 	var mult := 1.0
 	var prefix := ""
 	var exceptional := false
+	var art_name := ""
 	for i in range(1, parts.size()):
 		var p := parts[i]
-		if p == "ex":
+		if ARTIFACTS.has(p):
+			mult += float(ARTIFACTS[p]["bonus"])
+			art_name = String(ARTIFACTS[p]["name"])
+		elif p == "ex":
 			exceptional = true
 			mult += EXCEPTIONAL_BONUS
 		else:
@@ -71,9 +104,10 @@ static func stats(id: String) -> Dictionary:
 				prefix = String(Crafting.ORE_TIERS[t]["name"]) + " " + prefix
 	if exceptional:
 		prefix = "Exceptional " + prefix
-	g["name"] = prefix + String(g["name"])
+	g["name"] = art_name if art_name != "" else prefix + String(g["name"])
 	g["exceptional"] = exceptional
-	g["value"] = roundi(int(g["value"]) * mult * (1.25 if exceptional else 1.0))
+	g["artifact"] = art_name != ""
+	g["value"] = roundi(int(g["value"]) * mult * (1.25 if exceptional else 1.0) * (6.0 if art_name != "" else 1.0))
 	match String(g["slot"]):
 		"weapon":
 			g["min"] = float(g["min"]) * mult
