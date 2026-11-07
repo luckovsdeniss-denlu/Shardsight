@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.36.0
+Spread out.
+- The map is split into 8 equal regions (4 across, 2 down) and the other players are spread
+  over them evenly, 1-2 each: every one starts in its own home region, hunts there, and heads
+  back after trips to a town's healer, merchant or bank. Before, 5 of the 13 started round the
+  main town and the north-east and south-east had no players at all. The two player killers and
+  the two thieves start in different regions.
+- Thinner regions get extra monsters so each has as many as the busiest one (rats near the
+  start, wolves, orcs, zombies and skeletons further out). Spawn spots are always reachable.
+
 ## 0.35.2
 - The label over heads reads "Lvl" instead of "Lv" ("Lvl 12  HP 34/40").
 

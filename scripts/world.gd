@@ -371,6 +371,35 @@ func _add_floor(parent: Node3D, r: Rect2i, color: Color, mat: Material = null) -
 		Vector3(r.position.x + r.size.x / 2.0, 0.01, r.position.y + r.size.y / 2.0) * TILE)
 
 
+## The map split into equal regions (4 across, 2 down) so players and monsters can be spread
+## evenly over all of it.
+const ZONE_COLS := 4
+const ZONE_ROWS := 2
+const SPAWN_CHECK_TILE := Vector2i(24, 11)   # in the main town, by the healer
+
+
+func zone_count() -> int:
+	return ZONE_COLS * ZONE_ROWS
+
+
+func zone_rect(i: int) -> Rect2i:
+	var w := cols / ZONE_COLS
+	var h := rows / ZONE_ROWS
+	var zx := i % ZONE_COLS
+	var zy := (i / ZONE_COLS) % ZONE_ROWS
+	return Rect2i(zx * w, zy * h, w, h)
+
+
+## A random open tile in `r`, outside the towns and the dungeon (for spawning).
+func open_tile_in(r: Rect2i, rng: RandomNumberGenerator) -> Vector2i:
+	for _i in range(300):
+		var c := r.position + Vector2i(rng.randi_range(0, r.size.x - 1), rng.randi_range(0, r.size.y - 1))
+		if not is_blocked(c) and not is_town(c) and not is_dungeon(c) \
+				and not find_path(tile_center(c), tile_center(SPAWN_CHECK_TILE)).is_empty():
+			return c                           # reachable from town, not a walled-off pocket
+	return r.get_center()
+
+
 func is_blocked(c: Vector2i) -> bool:
 	return not in_bounds(c) or tiles[c.y * cols + c.x] != Tile.GRASS
 

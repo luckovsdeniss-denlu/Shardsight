@@ -2345,18 +2345,21 @@ func _spawn_all() -> void:
 	hero = _spawn(Entity.Kind.PLAYER, "Hero", Bestiary.HERO, gold, Vector2i(5, 5))
 	hero.is_hero = true
 	hero._think_every = 0.05                  # the hero decides quickly, so taps feel immediate
-	_spawn(Entity.Kind.PLAYER, "Aldric", Bestiary.WARRIOR, blue, Vector2i(10, 10))
-	_spawn(Entity.Kind.PLAYER, "Mira", Bestiary.FIGHTER, blue, Vector2i(20, 18))
-	_spawn(Entity.Kind.PLAYER, "Selene", Bestiary.MAGE, blue, Vector2i(18, 8))
-	_spawn(Entity.Kind.PLAYER, "Vex", Bestiary.PKILLER, blue, Vector2i(15, 16))   # a player killer
-	_spawn(Entity.Kind.PLAYER, "Gareth", Bestiary.WARRIOR, blue, Vector2i(52, 35))
-	_spawn(Entity.Kind.PLAYER, "Lyra", Bestiary.MAGE, blue, Vector2i(47, 35))
-	_spawn(Entity.Kind.PLAYER, "Thorne", Bestiary.FIGHTER, blue, Vector2i(60, 6))
-	_spawn(Entity.Kind.PLAYER, "Brina", Bestiary.ARCHER, blue, Vector2i(12, 26))
-	_spawn(Entity.Kind.PLAYER, "Dorian", Bestiary.WARRIOR, blue, Vector2i(54, 37))
-	_spawn(Entity.Kind.PLAYER, "Morg", Bestiary.PKILLER, blue, Vector2i(70, 30))  # another player killer
-	_spawn(Entity.Kind.PLAYER, "Sly", Bestiary.THIEF, blue, Vector2i(12, 24))     # thieves
-	_spawn(Entity.Kind.PLAYER, "Pip", Bestiary.THIEF, blue, Vector2i(60, 24))
+	# The other players, spread evenly over the map's 8 regions (4 across, 2 down): each gets a
+	# home region, starts there and keeps to it. Two player killers and two thieves, kept apart.
+	var others := [
+		["Aldric", Bestiary.WARRIOR], ["Mira", Bestiary.FIGHTER], ["Selene", Bestiary.MAGE],
+		["Vex", Bestiary.PKILLER], ["Gareth", Bestiary.WARRIOR], ["Lyra", Bestiary.MAGE],
+		["Thorne", Bestiary.FIGHTER], ["Brina", Bestiary.ARCHER], ["Dorian", Bestiary.WARRIOR],
+		["Sly", Bestiary.THIEF], ["Morg", Bestiary.PKILLER], ["Pip", Bestiary.THIEF],
+	]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 777                           # the same layout every game
+	for i in range(others.size()):
+		var zone := world.zone_rect(i % world.zone_count())
+		var cfg: Dictionary = others[i][1]
+		var p := _spawn(Entity.Kind.PLAYER, String(others[i][0]), cfg, blue, world.open_tile_in(zone, rng))
+		p.roam = zone
 
 	_build_braziers()
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
@@ -2437,6 +2440,33 @@ func _spawn_all() -> void:
 		_spawn(Entity.Kind.MONSTER, "Skeleton", Bestiary.SKELETON, Color("d8d2c0"), t)
 	_spawn(Entity.Kind.MONSTER, "Zombie", Bestiary.ZOMBIE, Color("6f8f5a"), Vector2i(89, 30))
 	_spawn(Entity.Kind.MONSTER, "Lich", Bestiary.LICH, Color("6a4a8a"), Vector2i(91, 35))
+	_even_out_monsters(rng)
+
+
+## Tops up the thinner regions so every one has about as many monsters as the busiest, picking
+## a creature that suits the area (the start area stays gentle).
+func _even_out_monsters(rng: RandomNumberGenerator) -> void:
+	var counts: Array[int] = []
+	counts.resize(world.zone_count())
+	counts.fill(0)
+	for e in creatures:
+		if e.kind == Entity.Kind.MONSTER:
+			for i in range(world.zone_count()):
+				if world.zone_rect(i).has_point(world.to_tile(e.home)):
+					counts[i] += 1
+	var goal: int = counts.max()
+	var red := Color("c0392b")
+	# What each region gets: north-west (by the start) to south-east (the graveyard).
+	var picks := [
+		["Rat", Bestiary.RAT, red], ["Orc", Bestiary.ORC, red], ["Wolf", Bestiary.WOLF, red],
+		["Orc", Bestiary.ORC, red], ["Wolf", Bestiary.WOLF, red], ["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")],
+		["Orc", Bestiary.ORC, red], ["Skeleton", Bestiary.SKELETON, Color("d8d2c0")],
+	]
+	for i in range(world.zone_count()):
+		for _k in range(goal - counts[i]):
+			var pick: Array = picks[i]
+			var cfg: Dictionary = pick[1]
+			_spawn(Entity.Kind.MONSTER, String(pick[0]), cfg, pick[2], world.open_tile_in(world.zone_rect(i), rng))
 
 
 func _spawn(kind: int, label_text: String, cfg: Dictionary, color: Color, tile: Vector2i) -> Entity:

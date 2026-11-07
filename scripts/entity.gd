@@ -78,6 +78,7 @@ var dmg_max := 10.0
 var armor := 0.0
 var role := ""
 var leash := 8
+var roam := Rect2i()           # a computer player's home region (empty: roam anywhere)
 var aggro_range := 5.0
 var respawn_time := 8.0
 var ai_enabled := true         # for players: false = only obeys taps
@@ -544,10 +545,29 @@ func _chase() -> void:
 
 
 func _wander() -> void:
+	if kind == Kind.PLAYER and roam.size != Vector2i.ZERO:
+		_wander_in_region()
+		return
 	var center: Vector2i = world.to_tile(position if kind == Kind.PLAYER else home)
 	for _i in range(12):
 		var c := center + Vector2i(randi_range(-leash, leash), randi_range(-leash, leash))
 		if c != center and go_to(world.tile_center(c)):
+			return
+
+
+## Computer players keep to their home region, so they spread over the whole map: inside it they
+## stroll as usual; outside it (after a trip to town, say) they head back in.
+func _wander_in_region() -> void:
+	var here: Vector2i = world.to_tile(position)
+	var inside := roam.has_point(here)
+	for _i in range(12):
+		var c: Vector2i
+		if inside:
+			c = (here + Vector2i(randi_range(-leash, leash), randi_range(-leash, leash))).clamp(
+				roam.position, roam.end - Vector2i.ONE)
+		else:
+			c = roam.position + Vector2i(randi_range(0, roam.size.x - 1), randi_range(0, roam.size.y - 1))
+		if c != here and not world.is_blocked(c) and go_to(world.tile_center(c)):
 			return
 
 
@@ -2814,6 +2834,8 @@ func _track_hunt() -> bool:
 		var x := item as Entity
 		if x.dead or x.kind != Kind.MONSTER or x.passive or not _worth_fighting(x) or x._in_town():
 			continue
+		if roam.size != Vector2i.ZERO and not roam.has_point(world.to_tile(x.position)):
+			continue                       # hunt in our own region
 		var dd := position.distance_to(x.position)
 		if dd > aggro_range and dd < best_d:
 			best = x
