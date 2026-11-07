@@ -85,6 +85,16 @@ static func ball(r: float, segments := 7, rings := 4) -> SphereMesh:
 	return m
 
 
+## A thin flat ring (a halo).
+static func ring_mesh(inner: float, outer: float) -> TorusMesh:
+	var t := TorusMesh.new()
+	t.inner_radius = inner
+	t.outer_radius = outer
+	t.rings = 20
+	t.ring_segments = 5
+	return t
+
+
 static func cone(bottom: float, height: float, top := 0.0, segments := 7) -> CylinderMesh:
 	var m := CylinderMesh.new()
 	m.top_radius = top
@@ -194,6 +204,7 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 	var weapon := String(style.get("weapon", ""))
 	var shield := String(style.get("shield", ""))
 	var build := float(style.get("build", 1.0))
+	var holy := bool(style.get("holy", false))     # a priest: white robes, gold, a halo
 	var bony := look == "skeleton"
 	var pants := Color(0.25, 0.2, 0.17)
 	match look:
@@ -260,8 +271,8 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			pants = LEATHER.darkened(0.25)
 	var ranged := Gear.is_ranged(weapon)
 	var w := 0.7 if bony else build
-	var key := "hum|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [look, skin.to_html(), hair.to_html(), cloth.to_html(),
-		torso_col.to_html(), robe, hat, shield, w, ab, ex, ranged]
+	var key := "hum|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [look, skin.to_html(), hair.to_html(), cloth.to_html(),
+		torso_col.to_html(), robe, hat, shield, w, ab, ex, ranged, holy]
 	var body := _cached(key, func() -> Array:
 		var p := []
 		# torso, belt, tabard in the identity colour
@@ -270,6 +281,13 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 		if torso_col != cloth:
 			p.append([box(0.2, 0.42, 0.02), at(0, 1.0, -0.15 * w), cloth])
 		_armor_parts(p, ab, torso_col, cloth, w, ex)
+		if holy:                                       # a gold ankh, a stole and trim on the hood
+			p.append([box(0.04, 0.2, 0.02), at(0, 1.02, -0.16 * w), TRIM])
+			p.append([box(0.14, 0.04, 0.02), at(0, 1.08, -0.16 * w), TRIM])
+			p.append([ball(0.04, 6, 3), at(0, 1.15, -0.16 * w), TRIM])
+			p.append([box(0.07, 0.62, 0.02), at(-0.12, 0.72, -0.17 * w), TRIM.darkened(0.15)])
+			p.append([box(0.07, 0.62, 0.02), at(0.12, 0.72, -0.17 * w), TRIM.darkened(0.15)])
+			p.append([box(0.3, 0.04, 0.1), at(0, 1.3, -0.12), TRIM])
 		if ranged:                                     # a quiver of arrows on the back
 			p.append([box(0.11, 0.44, 0.11), at(0.1, 1.05, 0.19, Vector3(0, 0, 0.3)), LEATHER.darkened(0.1)])
 			for i in range(3):
@@ -327,6 +345,10 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			p.append([box(0.4 * w, 0.12, 0.24 * w), at(0, 0.7, 0), pants])
 		return p)
 	_instance(root, body, vc_mat(), meshes)
+	if holy:                                           # a glowing halo over the hood
+		var halo := _cached("halo", func() -> Array:
+			return [[ring_mesh(0.17, 0.2), at(0, 1.78, 0.02), Color(1.0, 0.86, 0.4)]])
+		_instance(root, halo, glow_mat(Color(1.0, 0.82, 0.35)), meshes)
 	if look == "lich":
 		var eyes := _cached("lich_eyes", func() -> Array:
 			return [[box(0.05, 0.04, 0.02), at(-0.07, 1.45, -0.19), Color(0.6, 1.0, 0.7)],
@@ -443,6 +465,11 @@ static func _weapon_parts(weapon: String) -> Array:
 			p.append([box(0.03, 0.4, 0.03), at(0, hy + 0.2, -0.12, Vector3(-0.35, 0, 0)), WOOD])
 			p.append([box(0.03, 0.4, 0.03), at(0, hy - 0.2, -0.12, Vector3(0.35, 0, 0)), WOOD])
 			p.append([box(0.01, 0.75, 0.01), at(0, hy, -0.01), Color(0.9, 0.9, 0.85)])
+		"priest_staff":                                # a pale staff topped with a gold sunburst
+			p.append([box(0.05, 1.6, 0.05), at(0, hy + 0.3, -0.06), Color(0.85, 0.8, 0.68)])
+			p.append([ball(0.1, 7, 4), at(0, hy + 1.12, -0.06), Color(1.0, 0.9, 0.55)])
+			p.append([box(0.3, 0.03, 0.03), at(0, hy + 1.12, -0.06), TRIM])
+			p.append([box(0.03, 0.3, 0.03), at(0, hy + 1.12, -0.06), TRIM])
 		"composite_bow":                               # a recurve: darker limbs with horn tips
 			var horn := Color(0.85, 0.8, 0.65)
 			var limb := Color(0.3, 0.18, 0.1)

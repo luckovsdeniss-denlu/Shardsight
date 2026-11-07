@@ -40,6 +40,9 @@ var stats_button: Button
 var map_button: Button
 var bag_box: VBoxContainer
 var spells_panel: Control
+var priest_panel: Control
+var priest_box: VBoxContainer
+var priest_open: Entity                  # the priest whose panel is showing
 var spells_box: VBoxContainer
 var last_spell := ""                   # the spell cast last from the Spells panel (offered first)
 var thief_panel: Control
@@ -236,6 +239,8 @@ func _ready() -> void:
 	bag_box = bag_panel.get_meta("box")
 	spells_panel = _make_overlay(layer)
 	spells_box = spells_panel.get_meta("box")
+	priest_panel = _make_overlay(layer)
+	priest_box = priest_panel.get_meta("box")
 	thief_panel = _make_overlay(layer)
 	thief_box = thief_panel.get_meta("box")
 	guild_panel = _make_overlay(layer)
@@ -1262,7 +1267,7 @@ func _open_help() -> void:
 		"Die and you become a ghost: walk to a healer to be raised for free. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
 		"The world is bigger now: Southmoor, a third town, lies south. Wolf packs and an orc fort roam the far east, spiders the southern forest, and the restless dead an old graveyard in the south-east. The hills south-east are rich in ore.",
-		"Father Corwin, the priest by the healer, cures poison for free, blesses you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lifts a murder count for 50 gold. Just stand near him.",
+		"Priests (Father Corwin by the healer, Brother Anselm at the outpost, Mother Isolde in Southmoor) cure poison, lift curses, restore mana and raise the dead for free, bless you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lift a murder count for 50 gold. Stand near one, or tap them.",
 		"Menu also has Craft, Bank & House (deeds, lock-downs, co-owners), Travel & Spellbook (a runebook of up to 8 runes for Recall and Gate Travel, and the spells you know) and Settings (sound, camera).",
 		"Spells must be in your spellbook. You start with circles 1-4; scrolls for more drop from monsters (tougher ones carry higher circles) or are sold by merchants (circles 1-6), and are copied in as soon as you pick them up.",
 	]:
@@ -1918,6 +1923,77 @@ func _close_bag() -> void:
 	_resume()
 
 
+# --- priest panel: what a priest does, and buying a blessing or confession -----------------
+
+func _open_priest(p: Entity) -> void:
+	priest_open = p
+	paused = true
+	menu.visible = false
+	priest_panel.visible = true
+	_refresh_priest()
+
+
+func _close_priest() -> void:
+	priest_panel.visible = false
+	_resume()
+
+
+func _refresh_priest() -> void:
+	for c in priest_box.get_children():
+		priest_box.remove_child(c)
+		c.queue_free()
+	var p := priest_open
+	var title_label := _info(p.display_name)
+	title_label.add_theme_font_size_override("font_size", 30)
+	title_label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5))
+	priest_box.add_child(title_label)
+	priest_box.add_child(_info("\"Peace be with you, traveller.\" Stand near %s and, for free, poison is drawn out, curses are lifted, your mana is restored by prayer and the dead are raised. A blessing and confession ask a donation." % p.display_name))
+	var near := hero.position.distance_to(p.position) <= Entity.PRIEST_RANGE and not hero.dead
+	var cursed: Array[String] = []
+	for id in hero.effects:
+		if Spells.LIST.has(id) and String(Spells.LIST[id]["kind"]) == "curse":
+			cursed.append(String(Spells.LIST[id]["name"]))
+	priest_box.add_child(_heading("You"))
+	priest_box.add_child(_info("Gold %d   Mana %d / %d   %s   %s   %s   Murder counts %d" % [
+		hero.gold, int(hero.mana), hero.stats.max_mana(),
+		"poisoned" if hero.poison_level > 0 else "not poisoned",
+		("cursed: " + ", ".join(cursed)) if not cursed.is_empty() else "no curses",
+		("blessed %d:%02d" % [int(hero.bless_timer) / 60, int(hero.bless_timer) % 60]) if hero.bless_timer > 0.0 else "not blessed",
+		hero.murder_counts]))
+	if hero.notoriety() != Entity.Notoriety.BLUE:
+		priest_box.add_child(_info("The priest will not serve criminals or murderers until their name is clear."))
+	priest_box.add_child(_heading("Services"))
+	if not near:
+		priest_box.add_child(_action("Walk to %s" % p.display_name, _walk_to_priest, not hero.dead))
+	var ok := near and hero.notoriety() == Entity.Notoriety.BLUE
+	priest_box.add_child(_action("Blessing: +10%% damage, -10%% damage taken, 5 minutes (%d gold)" % Entity.BLESS_PRICE,
+		_on_priest_bless, ok and hero.bless_timer <= 0.0 and hero.gold >= Entity.BLESS_PRICE))
+	priest_box.add_child(_action("Confession: lift one murder count (%d gold)" % Entity.CONFESS_PRICE,
+		_on_priest_confess, near and hero.murder_counts > 0 and hero.gold >= Entity.CONFESS_PRICE))
+	priest_box.add_child(_info("Priests: Father Corwin in the main town, Brother Anselm at the outpost and Mother Isolde, the abbess of Southmoor."))
+	priest_box.add_child(_menu_button("Close", _close_priest))
+
+
+func _walk_to_priest() -> void:
+	hero.target = null
+	hero.go_to(priest_open.position)
+	_close_priest()
+
+
+func _on_priest_bless() -> void:
+	var msg := hero.buy_blessing(priest_open)
+	if msg != "":
+		log_event(msg)
+	_refresh_priest()
+
+
+func _on_priest_confess() -> void:
+	var msg := hero.confess_to(priest_open)
+	if msg != "":
+		log_event(msg)
+	_refresh_priest()
+
+
 # --- spells panel: cast from your spellbook ----------------------------------------
 
 ## Where a spell goes, in a word or two, by its kind.
@@ -2378,8 +2454,10 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.NPC, Quests.GIVER, Bestiary.QUESTGIVER, Color("c9a86a"), Vector2i(22, 13))
 	# The outpost, east of the main town, near the dungeon.
 	_spawn(Entity.Kind.NPC, "Brother Aldo", Bestiary.HEALER, cream, Vector2i(35, 4))
+	_spawn(Entity.Kind.NPC, "Brother Anselm", Bestiary.PRIEST, Color("c8d0e8"), Vector2i(39, 5))
 	# Southmoor, the southern town: its merchant pays a little more and charges a little more.
 	_spawn(Entity.Kind.NPC, "Sister Maeve", Bestiary.HEALER, cream, Vector2i(46, 31))
+	_spawn(Entity.Kind.NPC, "Mother Isolde", Bestiary.PRIEST, Color("eef2fa"), Vector2i(48, 32))   # the abbess
 	var hollis := _spawn(Entity.Kind.NPC, "Hollis", Bestiary.MERCHANT, cream, Vector2i(53, 31))
 	hollis.shop = Shop.new("Southmoor", 1.15, 1.1)
 	_spawn(Entity.Kind.NPC, "Pell", Bestiary.BANKER, cream, Vector2i(46, 37))
@@ -2642,6 +2720,9 @@ func _tap(screen: Vector2) -> void:
 		return
 	if e != null and e.kind == Entity.Kind.PLAYER and not e.flags.has("invisible"):
 		_open_players(e)                 # tap a player to see what they wear and wield
+		return
+	if e != null and e.role == "priest":
+		_open_priest(e)                  # tap a priest for blessings, confession and the rest
 		return
 	hero.target = null
 	hero.recovering = false

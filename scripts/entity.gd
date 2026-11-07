@@ -30,6 +30,7 @@ const BLESS_SECONDS := 300.0       # how long a blessing lasts
 const BLESS_DAMAGE := 1.1          # blessed: +10% damage dealt...
 const BLESS_ARMOR := 0.9           # ...and -10% damage taken
 const CONFESS_PRICE := 50          # gold to have one murder count lifted
+const PRIEST_MANA_PER_SEC := 5.0   # prayer by a priest restores mana this fast
 const SCROLL_DROP_CHANCE := 0.12   # a monster that carries gold may carry a spell scroll
 const HARMFUL_KINDS := ["attack", "poison", "paralyze", "curse", "drain"]
 const MONSTER_KINDS := ["attack", "heal", "cure", "poison", "area", "paralyze", "curse", "drain"]
@@ -296,6 +297,8 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	stats.level_up.connect(_on_level_up)
 	stats.stat_gained.connect(_on_stat_gained)
 	refresh_look()                       # now that gear and role are known
+	if role == "priest":
+		_add_holy_light()
 
 
 func _build_visual(color: Color, s: float) -> void:
@@ -1850,6 +1853,8 @@ func _look_style() -> Dictionary:
 			st["hat"] = "cap"
 		"priest":
 			st["hat"] = "hood"
+			st["holy"] = true
+			st["weapon"] = "priest_staff"
 	return st
 
 
@@ -1864,7 +1869,7 @@ func _ghost_tick(delta: float) -> void:
 		return
 	if notoriety() != Notoriety.BLUE:
 		return       # healers turn criminals and murderers away
-	var healer := _nearest_role("healer")
+	var healer := _nearest_holy()          # a healer or a priest raises the dead
 	if healer == null:
 		return
 	if position.distance_to(healer.position) <= HEAL_RANGE:
@@ -2150,6 +2155,17 @@ func _bank_trip() -> bool:
 		banking = false
 		return false
 	return true
+
+
+## The nearest healer or priest.
+func _nearest_holy() -> Entity:
+	var h := _nearest_role("healer")
+	var p := _nearest_role("priest")
+	if h == null:
+		return p
+	if p == null:
+		return h
+	return h if position.distance_to(h.position) <= position.distance_to(p.position) else p
 
 
 func _nearest_role(r: String) -> Entity:
@@ -3005,28 +3021,97 @@ func visit_priest(delta: float, priest: Entity) -> void:
 	if _priest_timer < 1.0:
 		return
 	_priest_timer = 0.0
+	# Prayer restores mana for free while you stand by.
+	var max_mana := float(stats.max_mana())
+	if mana < max_mana:
+		mana = minf(mana + PRIEST_MANA_PER_SEC, max_mana)
 	if poison_level > 0:
 		_cure("cured by %s" % priest.display_name)
+		_holy_sparkle()
 		if is_hero:
 			game.log_event("%s draws the poison out of you." % priest.display_name)
 			game.count("priest_cured")
 		return
+	if lift_curses(priest):
+		return
 	if murder_counts > 0 and gold >= CONFESS_PRICE + SUPPLY_RESERVE:
-		_spend(CONFESS_PRICE)
-		add_karma(150)
-		murder_counts -= 1
-		murder_timer = MURDER_DECAY
-		if is_hero:
-			game.log_event("You confess to %s. One murder count is lifted (%d left)." % [priest.display_name, murder_counts])
-			game.count("confessed")
+		confess_to(priest)
 		return
 	if bless_timer <= 0.0 and gold >= BLESS_PRICE + SUPPLY_RESERVE:
-		_spend(BLESS_PRICE)
-		bless_timer = BLESS_SECONDS
-		_pop("blessed", Color(1.0, 0.95, 0.6))
-		if is_hero:
-			game.log_event("%s blesses you: +10%% damage, -10%% damage taken for 5 minutes (%d gold)." % [priest.display_name, BLESS_PRICE])
-			game.count("blessed")
+		buy_blessing(priest)
+
+
+## The priest lifts every curse on you (Clumsy, Weaken, Feeblemind, Curse...) for free.
+## Returns true if there was any.
+func lift_curses(priest: Entity) -> bool:
+	var lifted: Array[String] = []
+	for id in effects.keys():
+		if Spells.LIST.has(id) and String(Spells.LIST[id]["kind"]) == "curse":
+			lifted.append(String(Spells.LIST[id]["name"]))
+			effects.erase(id)
+	if lifted.is_empty():
+		return false
+	_recompute_effects()
+	_holy_sparkle()
+	_pop("curse lifted", Color(1.0, 0.95, 0.6))
+	if is_hero:
+		game.log_event("%s lifts %s from you." % [priest.display_name, ", ".join(lifted)])
+	return true
+
+
+## Pays for a blessing: +10% damage dealt and -10% taken for 5 minutes. Returns a problem or "".
+func buy_blessing(priest: Entity) -> String:
+	if gold < BLESS_PRICE:
+		return "A blessing costs %d gold." % BLESS_PRICE
+	_spend(BLESS_PRICE)
+	bless_timer = BLESS_SECONDS
+	_pop("blessed", Color(1.0, 0.95, 0.6))
+	_holy_sparkle()
+	if is_hero:
+		game.log_event("%s blesses you: +10%% damage, -10%% damage taken for 5 minutes (%d gold)." % [priest.display_name, BLESS_PRICE])
+		game.count("blessed")
+	return ""
+
+
+## Confession lifts one murder count for a donation. Returns a problem or "".
+func confess_to(priest: Entity) -> String:
+	if murder_counts <= 0:
+		return "You have nothing to confess."
+	if gold < CONFESS_PRICE:
+		return "Confession asks a donation of %d gold." % CONFESS_PRICE
+	_spend(CONFESS_PRICE)
+	add_karma(150)
+	murder_counts -= 1
+	murder_timer = MURDER_DECAY
+	_holy_sparkle()
+	if is_hero:
+		game.log_event("You confess to %s. One murder count is lifted (%d left)." % [priest.display_name, murder_counts])
+		game.count("confessed")
+	return ""
+
+
+func _holy_sparkle() -> void:
+	if _near_hero():
+		Fx.sparkle(get_parent(), position + Vector3(0.0, 0.7, 0.0), Color(1.0, 0.88, 0.45), 22)
+
+
+## A priest's soft golden light and the motes drifting round them (only simulated on screen).
+func _add_holy_light() -> void:
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.86, 0.55)
+	l.light_energy = 0.7
+	l.omni_range = 4.5
+	l.position = Vector3(0.0, 1.9, 0.0)
+	add_child(l)
+	var motes := Fx.cast_glow(Color(1.0, 0.88, 0.45))
+	motes.amount = 8
+	motes.lifetime = 1.4
+	motes.initial_velocity_min = 0.2
+	motes.initial_velocity_max = 0.5
+	motes.position = Vector3(0.0, 0.2, 0.0)
+	add_child(motes)
+	motes.emitting = true
+	motes.add_to_group("view_fx")
 
 
 # --- spellbook, scrolls, Paralyze, summons, Resurrection ---------------------

@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.41.0
+The priesthood.
+- Two more priests: Mother Isolde, the abbess of Southmoor, and Brother Anselm at the outpost,
+  alongside Father Corwin in the main town.
+- Priests look the part: white and coloured robes with a gold ankh, stole and hood trim, a pale
+  staff crowned with a gold sunburst, a glowing halo, a soft golden light round them and motes
+  drifting up (only animated on screen).
+- More they do for free while you stand near: lift curses (Clumsy, Weaken, Feeblemind, Curse...),
+  restore mana by prayer (5 a second), and raise the dead: ghosts now walk to the nearest healer
+  or priest. Poison is cured as before. Every service sparkles gold.
+- Tap a priest for a panel: what they offer, your state (gold, mana, poison, curses, blessing
+  time, murder counts), buttons to buy a blessing or confess, or to walk over if you're too far.
+  Murderers can now confess by hand (the priest still won't serve them automatically).
+
 ## 0.40.0
 Better magic.
 - Spells grow with skill: damage rises with Magery (up to +50% at 100) on top of Evaluating
