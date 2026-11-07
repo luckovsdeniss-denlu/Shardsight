@@ -883,6 +883,8 @@ func _refresh_label() -> void:
 		text = text.replace(display_name, "Someone")
 	if paralyzed_timer > 0.0:
 		text += "\n(paralyzed)"
+	if is_hero and not bool(game.property.names_on):
+		text = "Lv %d  HP %d/%d" % [stats.level(), ceili(hp), stats.max_hp()]   # just the numbers
 	label.modulate = _name_color()
 	if text != _last_text:
 		_last_text = text
@@ -3960,6 +3962,6 @@ func _update_cull() -> void:
 func show_name(on: bool) -> void:
 	if label == null:
 		return
-	label.visible = on and _near
+	label.visible = (on or is_hero) and _near     # your own level and HP always show
 	if label.visible:
 		_label_acc = 1.0                      # refresh the label at once
