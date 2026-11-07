@@ -4,9 +4,13 @@ Version lives in `project.godot` (`application/config/version`). Bump it there; 
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
 ## 0.35.1
-Your level and HP, always.
+Your level and HP, always; solid menus.
 - Your hero's level and HP always show over its head ("Lv 12  HP 34/40"), even with names
   hidden; Show names adds the full label as before.
+- A Hide stats / Show stats button sits in the upper left, above the stats text (it moved out
+  of the corner Menu).
+- Buttons and panels are solid now (Godot's default ones are see-through): the corner Menu and
+  everything it opens, with a thin gold edge.
 
 ## 0.35.0
 A cleaner screen.

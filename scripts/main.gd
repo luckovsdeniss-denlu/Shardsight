@@ -128,9 +128,16 @@ func _ready() -> void:
 	add_child(cam)
 	cam.make_current()
 
+	get_tree().root.theme = _solid_theme()     # buttons and panels with solid backgrounds
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	hud.position = Vector2(16, 12)
+	# Upper left: a button that shows or hides the stats text under it.
+	stats_button = _menu_button("", _toggle_stats)
+	stats_button.custom_minimum_size = Vector2(180, 60)
+	stats_button.add_theme_font_size_override("font_size", 24)
+	stats_button.position = Vector2(16, 12)
+	layer.add_child(stats_button)
+	hud.position = Vector2(16, 82)
 	hud.add_theme_font_size_override("font_size", 26)
 	layer.add_child(hud)
 
@@ -202,8 +209,6 @@ func _ready() -> void:
 	_corner_add(mute_button)
 	names_button = _menu_button("", _toggle_names)
 	_corner_add(names_button)
-	stats_button = _menu_button("", _toggle_stats)
-	_corner_add(stats_button)
 	map_button = _menu_button("", _toggle_map)
 	_corner_add(map_button)
 	minimap.setup(self, world)
@@ -2673,6 +2678,38 @@ func _update_button() -> void:
 
 
 # --- the corner menu and its switches ------------------------------------------------
+
+## A theme with opaque buttons and panels (Godot's default ones are see-through).
+func _solid_theme() -> Theme:
+	var t := Theme.new()
+	var looks := {
+		"normal": Color(0.16, 0.17, 0.21), "hover": Color(0.22, 0.24, 0.30),
+		"pressed": Color(0.30, 0.33, 0.42), "disabled": Color(0.12, 0.12, 0.14),
+		"focus": Color(0.16, 0.17, 0.21),
+	}
+	for state: String in looks:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = looks[state]
+		sb.border_color = Color(0.45, 0.40, 0.28)       # a thin gold-brown edge
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(6)
+		sb.content_margin_left = 10.0
+		sb.content_margin_right = 10.0
+		sb.content_margin_top = 6.0
+		sb.content_margin_bottom = 6.0
+		if state == "focus":
+			sb.draw_center = false                      # just the edge over the normal look
+		t.set_stylebox(state, "Button", sb)
+	t.set_color("font_disabled_color", "Button", Color(0.5, 0.5, 0.5))
+	var panel := StyleBoxFlat.new()
+	panel.bg_color = Color(0.09, 0.10, 0.12)
+	panel.border_color = Color(0.45, 0.40, 0.28)
+	panel.set_border_width_all(2)
+	panel.set_corner_radius_all(8)
+	t.set_stylebox("panel", "PanelContainer", panel)
+	t.set_stylebox("panel", "Panel", panel)
+	return t
+
 
 func _corner_add(b: Button) -> void:
 	b.custom_minimum_size = Vector2(200, 68)
