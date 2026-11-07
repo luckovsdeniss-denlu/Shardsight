@@ -387,6 +387,70 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 	_instance(arm_piv, arm, vc_mat(), meshes)
 	arm_piv.rotation.x = float(model["arm_rest"])
 	model["arm"] = arm_piv
+	_artifact_parts(root, arm_piv, meshes, armor, weapon, shield, hat, w)
+
+
+## Artifacts stand out: glowing runes on the blade (or a glowing head, string or prod), a cape in
+## the artifact's colour with glowing rune bands on the armor and a glowing eye slit or circlet,
+## and a glowing rim and boss on a shield. The glow is a separate material so it can bloom.
+static func _artifact_parts(root: Node3D, arm_piv: Node3D, meshes: Array, armor: String, weapon: String,
+		shield: String, hat: String, w: float) -> void:
+	if Gear.is_artifact(weapon):
+		var wc := metal_of(weapon, STEEL)
+		var wg := _cached("artw|" + weapon, func() -> Array:
+			return _weapon_glow_parts(weapon, wc))
+		_instance(arm_piv, wg, glow_mat(wc), meshes)
+	if Gear.is_artifact(armor):
+		var ac := metal_of(armor, PLATE)
+		var runes := _cached("arta|%s|%s|%s" % [armor, hat, w], func() -> Array:
+			var p := [[box(0.04, 0.36, 0.02), at(-0.1 * w, 1.0, -0.158 * w), ac],
+				[box(0.04, 0.36, 0.02), at(0.1 * w, 1.0, -0.158 * w), ac],
+				[box(0.49 * w, 0.025, 0.31 * w), at(0, 1.2, 0), ac],
+				[box(0.49 * w, 0.025, 0.31 * w), at(0, 0.8, 0), ac]]
+			match hat:
+				"plate_helm":
+					p.append([box(0.25, 0.04, 0.02), at(0, 1.46, -0.213), ac])        # glowing eyes
+				"coif":
+					p.append([ring_mesh(0.19, 0.215), at(0, 1.55, 0.02), ac])         # a circlet
+			return p)
+		_instance(root, runes, glow_mat(ac), meshes)
+		var cape := _cached("cape|%s|%s" % [ac.to_html(), w], func() -> Array:
+			return [[box(0.44 * w, 0.95, 0.03), at(0, 0.8, 0.19 * w, Vector3(0.12, 0, 0)), ac.darkened(0.35)],
+				[box(0.4 * w, 0.06, 0.035), at(0, 0.34, 0.25 * w, Vector3(0.12, 0, 0)), ac.darkened(0.1)],
+				[box(0.46 * w, 0.05, 0.06), at(0, 1.27, 0.17 * w), ac]])
+		_instance(root, cape, vc_mat(), meshes)
+	if Gear.is_artifact(shield):
+		var sc := metal_of(shield, STEEL)
+		var x := -0.42 * w - 0.03
+		var sg := _cached("arts|%s|%s" % [shield, w], func() -> Array:
+			return [[box(0.012, 0.42, 0.035), at(x, 0.97, 0.17), sc], [box(0.012, 0.42, 0.035), at(x, 0.97, -0.17), sc],
+				[box(0.012, 0.035, 0.36), at(x, 1.18, 0), sc], [ball(0.06, 6, 3), at(x - 0.01, 1.0, 0), sc]])
+		_instance(root, sg, glow_mat(sc), meshes)
+
+
+## The glowing part of an artifact weapon, in the arm's space (the hand is at y -0.51).
+static func _weapon_glow_parts(weapon: String, c: Color) -> Array:
+	var hy := -0.51
+	match Gear.base(weapon):
+		"short_sword", "longsword", "broadsword", "bonecleaver":
+			var length := 0.55 if Gear.base(weapon) == "short_sword" else 0.78
+			return [[box(0.014, 0.036, length * 0.85), at(0, hy + 0.012, -length / 2.0 - 0.07), c],
+				[ball(0.04, 6, 3), at(0, hy + 0.03, -0.05), c]]
+		"dagger", "kryss":
+			return [[box(0.014, 0.036, 0.27), at(0, hy + 0.012, -0.21), c], [ball(0.035, 6, 3), at(0, hy + 0.025, -0.04), c]]
+		"mace", "club":
+			return [[ball(0.11, 7, 4), at(0, hy, -0.5), c]]
+		"war_hammer":
+			return [[box(0.26, 0.05, 0.14), at(0, hy + 0.05, -0.66), c], [box(0.26, 0.05, 0.14), at(0, hy - 0.05, -0.66), c]]
+		"halberd":
+			return [[box(0.036, 0.22, 0.17), at(0, hy + 0.98, -0.14), c]]
+		"bow", "composite_bow":
+			return [[box(0.014, 0.82, 0.014), at(0, hy, -0.01), c], [ball(0.035, 6, 3), at(0, hy + 0.43, -0.16), c],
+				[ball(0.035, 6, 3), at(0, hy - 0.43, -0.16), c]]
+		"crossbow", "heavy_crossbow":
+			var z := -0.55 if Gear.base(weapon) == "heavy_crossbow" else -0.42
+			return [[box(0.6, 0.03, 0.03), at(0, hy + 0.035, z), c], [ball(0.04, 6, 3), at(0, hy + 0.05, -0.1), c]]
+	return []
 
 
 ## The extra pieces of each kind of armor on the body (the left arm is part of the body).

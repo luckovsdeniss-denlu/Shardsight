@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.44.1
+Artifacts that look the part.
+- Artifact weapons glow in their colour: runes down the blade and a gem at the guard on swords
+  and daggers, a glowing head on maces and hammers, the blade of a halberd, the string and limb
+  tips of bows, the prod of crossbows.
+- Artifact armor adds a cape in the artifact's colour and glowing rune bands across the chest
+  and round the waist; a plate helm's eye slit glows, a mail coif wears a glowing circlet.
+- An artifact shield has a glowing rim and boss.
+- Anyone carrying an artifact has motes of its colour swirling round their feet.
+- On Medium and High graphics the glowing parts bloom softly.
+
 ## 0.44.0
 Treasure from the sky.
 - Every slain monster (not summons) has a 10% chance to drop a treasure chest from the sky: it

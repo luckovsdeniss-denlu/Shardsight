@@ -1846,6 +1846,7 @@ func refresh_look() -> void:
 		var sparks := Fx.embers(0.5)
 		sparks.position.y = 1.0
 		(model["root"] as Node3D).add_child(sparks)
+	_artifact_aura()
 	if mounted_on != null:
 		# Sitting in the saddle: the mount's legs do the walking, the rider's hang still.
 		var m := Art.creature(mounted_on.look, {}, mounted_on.visual_scale)
@@ -1881,6 +1882,26 @@ func _look_style() -> Dictionary:
 			st["holy"] = true
 			st["weapon"] = "priest_staff"
 	return st
+
+
+## Whoever carries an artifact has motes of its colour swirling round their feet (part of the
+## model, so they pause off screen with it).
+func _artifact_aura() -> void:
+	var art := ""
+	for id in [weapon, armor_id, shield_id]:
+		if Gear.is_artifact(String(id)):
+			art = String(id)
+			break
+	if art == "":
+		return
+	var aura := Fx.cast_glow(Art.metal_of(art, Color.WHITE))
+	aura.amount = 10
+	aura.lifetime = 1.3
+	aura.initial_velocity_min = 0.3
+	aura.initial_velocity_max = 0.8
+	aura.position = Vector3(0.0, 0.1, 0.0)
+	(model["root"] as Node3D).add_child(aura)
+	aura.emitting = true
 
 
 ## A dead player drifts to the healer, who raises them for free. Murderers are refused and
