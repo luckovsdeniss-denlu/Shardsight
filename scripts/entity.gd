@@ -119,6 +119,7 @@ var _gear_timer := 0.0
 var _trade_timer := 0.0
 var label: Label3D
 var hp_bar: MeshInstance3D      # over the head while hurt or fighting
+var _hit_sound := ""            # set by whoever strikes us, so the blow sounds like what hit what
 var cast_bar: MeshInstance3D    # the hero's casting progress, under the health bar
 var cast_total := 1.0           # seconds the current cast takes
 var _cast_fx: CPUParticles3D    # motes round a caster while the spell is spoken
@@ -692,6 +693,7 @@ func _fight() -> void:
 			dmg *= Rules.PLAYER_MELEE_BONUS
 		if bless_timer > 0.0:
 			dmg *= BLESS_DAMAGE
+		target._hit_sound = _hit_sound_for(wielded, target)
 		var dealt := target._absorb(dmg)
 		if is_hero:
 			game.count("hero_hits")
@@ -711,6 +713,22 @@ func _fight() -> void:
 
 
 ## Armor soaks a random half-to-all of its rating, but a hit always does at least 1.
+## The sound of our blow on `t`, by the weapon and what it lands on.
+func _hit_sound_for(wielded: String, t: Entity) -> String:
+	if wielded != "" and Gear.is_ranged(wielded):
+		return "hit_arrow"
+	if t.look == "skeleton":
+		return "hit_bone"
+	if Gear.is_metal(t.armor_id):
+		return "hit_armor"
+	var b := Gear.base(wielded)
+	if b in ["mace", "club", "war_hammer"] or (wielded == "" and look in ["ogre", "bear", "golem"]):
+		return "hit_blunt"
+	if wielded != "":
+		return "hit_blade"
+	return "hit_flesh"                    # fists, claws and bites
+
+
 func _absorb(amount: float) -> float:
 	if bless_timer > 0.0:
 		amount *= BLESS_ARMOR
@@ -720,6 +738,7 @@ func _absorb(amount: float) -> float:
 		if randf() < Rules.parry_chance(_skill(Hero.Skill.PARRYING)):
 			amount *= 1.0 - float(Gear.stats(shield_id)["block"])
 			_pop("parried", Color(0.8, 0.9, 1.0))
+			game.sound("parry", position)
 	var rating := _armor_rating()
 	if rating <= 0.0:
 		return amount
@@ -737,6 +756,8 @@ func _armor_rating() -> float:
 
 
 func take_damage(amount: float, from: Entity) -> void:
+	var snd := _hit_sound if _hit_sound != "" else "hit"   # what hit us (spells: the plain hit)
+	_hit_sound = ""
 	if dead or kind == Kind.NPC:
 		return
 	# Towns are safe: nobody inside one can be hurt, and nobody can attack out of one.
@@ -760,7 +781,10 @@ func take_damage(amount: float, from: Entity) -> void:
 	if peaced_timer > 0.0 or (enticed_timer > 0.0 and from == enticer):
 		peaced_timer = 0.0                   # a blow breaks the spell of the music
 		enticed_timer = 0.0
-	game.sound("hit", position)
+	# What hit what: blade, blunt, steel on armor, bone, an arrow, flesh; spells and the rest keep
+	# the plain hit. A blow worth a quarter of our health sounds heavier: lower and louder.
+	var heavy := amount >= float(stats.max_hp()) * 0.25
+	game.sound(snd, position, 0.85 if heavy else 1.0, 3.0 if heavy else 0.0)
 	# A blow may break a spell in progress: likely for a novice, rare for a grandmaster, never
 	# under Protection.
 	if casting_id != "" and not flags.has("protection") \

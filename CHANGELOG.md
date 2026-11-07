@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.42.1
+Blows that sound different.
+- Each blow sounds like what hit what: a blade slashes with a ring of steel, a mace, club or
+  hammer lands with a heavy thud, steel on plate or mail clangs, a skeleton clacks, an arrow or
+  bolt thunks, and fists, claws and bites slap. A shield parry rings out.
+- Every kind has three or four takes, picked at random and played at a slightly random pitch,
+  so no two blows in a row sound alike; misses whoosh in a few different ways.
+- A blow worth a quarter of the victim's health sounds heavier: lower and louder.
+
 ## 0.42.0
 An opening fly-by.
 - The start screen is see-through now, and behind the title the camera flies over the world:

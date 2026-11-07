@@ -3337,9 +3337,9 @@ func _campfire_tick(delta: float) -> void:
 const SOUND_ZONE := 0.75
 
 
-func sound(sound_name: String, at: Vector3) -> void:
+func sound(sound_name: String, at: Vector3, pitch := 1.0, volume_db := 0.0) -> void:
 	if property.sound_on and hero != null and _in_sound_zone(at + Vector3(0.0, 0.5, 0.0)):
-		sfx.play(sound_name)
+		sfx.play(sound_name, pitch, volume_db)
 
 
 func _in_sound_zone(p: Vector3) -> bool:
