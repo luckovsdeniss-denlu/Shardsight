@@ -6,7 +6,6 @@ extends Node3D
 const CAM_OFFSET := Vector3(0.0, 9.0, 7.0)
 const MANUAL_PAUSE := 4.0      # seconds auto mode waits after a tap
 const LOG_LINES := 6
-const JOYSTICK_LIFT := 240.0         # room under the thumb stick for the six log lines
 const DEFAULT_RUNE := Vector2i(25, 13)
 const GATE_SECONDS := 20.0
 const VENDOR_HIRE_COST := 100
@@ -19,7 +18,6 @@ var creatures: Array[Entity] = []
 var corpses: Array[Corpse] = []
 var hero: Entity
 var guilds := Guilds.new()
-var joystick := Joystick.new()
 var music := Music.new()
 var weather := "clear"           # clear, rain, storm or fog
 var _weather_timer := 240.0
@@ -28,7 +26,6 @@ var _thunder_in := -1.0
 var _music_timer := 0.0
 var rain: CPUParticles3D
 var rain_sound := AudioStreamPlayer.new()
-var _joy_timer := 0.0
 var retreat_button: Button
 var ride_button: Button
 var players_panel: Control
@@ -131,7 +128,7 @@ func _ready() -> void:
 	hud.add_theme_font_size_override("font_size", 26)
 	layer.add_child(hud)
 
-	# Event log: pinned to the lower-left corner (the thumb stick sits above it). The containers
+	# Event log: pinned to the lower-left corner. The containers
 	# are full-screen but ignore the mouse, so taps still reach the game. No background; a thick
 	# outline keeps it readable.
 	var margin := MarginContainer.new()
@@ -172,12 +169,6 @@ func _ready() -> void:
 	world_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	world_label.size_flags_horizontal = Control.SIZE_SHRINK_END
 	wcolumn.add_child(world_label)
-
-	# The thumb stick, on the left just above the log (which has the corner).
-	layer.add_child(joystick)
-	joystick.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 16)
-	joystick.offset_top -= JOYSTICK_LIFT
-	joystick.offset_bottom -= JOYSTICK_LIFT
 
 	var corner := VBoxContainer.new()
 	corner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -2528,26 +2519,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_tap((event as InputEventMouseMotion).position)
 
 
-## The thumb stick walks the hero (relative to the camera) and, like a tap, pauses Auto.
-func _joystick_step(delta: float) -> void:
-	_joy_timer -= delta
-	var v := joystick.vector
-	if v.length() < 0.25 or hero.dead or _joy_timer > 0.0:
-		return
-	_joy_timer = 0.12
-	hero.pause = MANUAL_PAUSE
-	hero.target = null                     # walking away breaks off a fight
-	hero.recovering = false
-	hero.loot_target = null
-	hero.gather_tile = Vector2i(-1, -1)
-	hero.crafting_trip = false
-	var dir := Vector3(v.x, 0.0, v.y).normalized().rotated(Vector3.UP, property.cam_yaw)
-	for step: float in [2.0, 1.2, 0.7]:
-		var dest: Vector3 = hero.position + dir * step
-		if not world.is_blocked(world.to_tile(dest)) and hero.go_to(dest):
-			return
-
-
 ## Intersects the camera ray through `screen` with the ground plane (y = 0).
 func _tap(screen: Vector2) -> void:
 	if hero.dead:
@@ -2682,7 +2653,6 @@ func _process(delta: float) -> void:
 		return
 	if autotest:
 		_autotest_tick(delta)
-	_joystick_step(delta)
 	_update_retreat_button()
 	if not _tips_left.is_empty():
 		_tip_timer -= delta

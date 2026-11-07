@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.34.2
+No thumb stick.
+- The on-screen thumb stick is gone; tap or hold on the ground to walk, as before.
+
 ## 0.34.1
 Harder hitting, faster learning.
 - Players hit more often and harder in melee. A new character with no weapon skill landed
