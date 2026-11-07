@@ -3241,9 +3241,9 @@ func _campfire_tick(delta: float) -> void:
 			campfires.remove_at(i)
 
 
-## Sound effects are heard only from the middle of the screen: a box SOUND_ZONE (35%) of the
+## Sound effects are heard only from the middle of the screen: a box SOUND_ZONE (75%) of the
 ## screen's width and height, centred, i.e. round the hero. Weather, music and thunder are global.
-const SOUND_ZONE := 0.35
+const SOUND_ZONE := 0.75
 
 
 func sound(sound_name: String, at: Vector3) -> void:
