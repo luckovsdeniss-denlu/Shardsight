@@ -1,6 +1,6 @@
 class_name Hero
 ## Three stats, skills 0..100 and hard caps. Skills rise with every use (+1 each time, 1% of the maximum), and
-## the level (1..1000) follows the skill total. Stats rise only by use too.
+## the level (1..700) is the skill total. Stats rise only by use too.
 
 signal skill_gained(skill_name: String, value: float)
 signal stat_gained(stat_name: String, value: int)
@@ -90,13 +90,12 @@ func skill_total() -> float:
 	return t
 
 
-## Player level 1..1000, from the total of all skills: a new hero is level 1, and a full
-## skill total (the cap) is level 1000. Derived, so nothing extra is saved.
-const LEVEL_MAX := 1000
+## Player level is the total of all skills, rounded down (at least 1): every skill point is a
+## level, and the 700-point skill cap is the top level, 700. Derived, so nothing is saved.
+const LEVEL_MAX := Rules.SKILL_CAP_TOTAL
 
 func level() -> int:
-	var frac := clampf(skill_total() / float(Rules.SKILL_CAP_TOTAL), 0.0, 1.0)
-	return clampi(1 + floori(frac * (LEVEL_MAX - 1)), 1, LEVEL_MAX)
+	return clampi(floori(skill_total() + 0.001), 1, LEVEL_MAX)
 
 
 func get_stat(stat: int) -> int:

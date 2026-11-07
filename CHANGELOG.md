@@ -12,6 +12,9 @@ Spread out.
   the two thieves start in different regions.
 - Thinner regions get extra monsters so each has as many as the busiest one (rats near the
   start, wolves, orcs, zombies and skeletons further out). Spawn spots are always reachable.
+- Player level is now simply the total of all skills, rounded down (at least 1): one skill point
+  is one level, so the 700-point skill cap is the top level, 700 (it was the total scaled up to
+  1..1000, about 1.4 levels a point).
 
 ## 0.35.2
 - The label over heads reads "Lvl" instead of "Lv" ("Lvl 12  HP 34/40").
