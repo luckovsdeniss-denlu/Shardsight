@@ -9,6 +9,8 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
   one sound); spells shimmer in four different sweeps, deeper for higher circles; deaths fall
   in three ways, lower for big creatures; loot chimes and skill-gain arpeggios have three tunes
   each; bows twang and crossbows snap and thunk; thunder rolls three different ways.
+- All the takes are built on a worker thread, so the game doesn't start any slower; for the
+  first moment the original sounds play.
 
 ## 0.42.1
 Blows that sound different.
