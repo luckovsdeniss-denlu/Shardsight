@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.37.0
+A clearer picture.
+- Health bars: a small bar over anyone hurt or fighting (and always over your hero), green to
+  yellow to red as health drops. Townsfolk don't get one. Names, when shown, sit just above it.
+- Rings on the ground: gold under your hero, and a pulsing red ring under whatever it's fighting.
+- A light haze in the distance on clear days, tinted like the sky at that time of day (rain,
+  storms and fog thicken it as before).
+- Filmic tone mapping, so bright fire and sunlit grass don't wash out; on Medium and High
+  graphics a soft glow round fire, coals and glowing eyes.
+
 ## 0.36.1
 - Menus really are solid now. 0.35.1 set the solid look on the window, but a theme there doesn't
   reach controls on a CanvasLayer, so buttons and panels stayed see-through. It now changes

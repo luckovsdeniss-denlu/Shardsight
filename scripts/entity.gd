@@ -117,6 +117,7 @@ var bandage_timer := 0.0
 var _gear_timer := 0.0
 var _trade_timer := 0.0
 var label: Label3D
+var hp_bar: MeshInstance3D      # over the head while hurt or fighting
 var _last_text := ""
 var base_label_color := Color.WHITE
 var murder_counts := 0
@@ -305,9 +306,13 @@ func _build_visual(color: Color, s: float) -> void:
 	label.no_depth_test = true
 	base_label_color = color.lightened(0.35)
 	label.modulate = base_label_color
-	label.position = Vector3(0.0, 1.5 * s + 0.25, 0.0)
+	label.position = Vector3(0.0, 1.5 * s + 0.32, 0.0)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM   # extra lines grow upward, clear of the bar
 	add_child(label)
 	label.visible = bool(game.property.names_on)
+	hp_bar = Art.hp_bar()
+	hp_bar.position = Vector3(0.0, 1.5 * s + 0.18, 0.0)
+	add_child(hp_bar)
 
 
 func tick(delta: float) -> void:
@@ -316,6 +321,7 @@ func tick(delta: float) -> void:
 		return
 	_tick_reputation(delta)              # flags and counts keep fading even while dead
 	if dead:
+		hp_bar.visible = false
 		if ghost:
 			_ghost_tick(delta)
 			if _near:
@@ -3960,9 +3966,22 @@ func toggle_ride() -> String:
 ## near the camera.
 func _maybe_label(delta: float) -> void:
 	_label_acc += delta
-	if _label_acc >= 0.2 and _near and label.visible:
-		_label_acc = 0.0
+	if _label_acc < 0.2:
+		return
+	_label_acc = 0.0
+	_update_hp_bar()
+	if _near and label.visible:
 		_refresh_label()
+
+
+## The health bar shows over anyone hurt or fighting (and always over the hero), not townsfolk.
+func _update_hp_bar() -> void:
+	var max_hp := float(stats.max_hp())
+	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 \
+		and (is_hero or hp < max_hp - 0.5 or target != null)
+	hp_bar.visible = show
+	if show:
+		(hp_bar.material_override as ShaderMaterial).set_shader_parameter("fill", clampf(hp / max_hp, 0.0, 1.0))
 
 
 ## Creatures outside the camera's view aren't drawn, animated or labelled (they still act as

@@ -20,6 +20,7 @@ var hero: Entity
 var guilds := Guilds.new()
 var music := Music.new()
 var weather := "clear"           # clear, rain, storm or fog
+const CLEAR_HAZE := 0.008        # fog density on a clear day: just a little depth
 var _weather_timer := 240.0
 var _flash := 0.0
 var _thunder_in := -1.0
@@ -123,6 +124,7 @@ func _ready() -> void:
 	_build_environment()
 	_build_marker()
 	_spawn_all()
+	_build_rings()
 
 	cam.fov = 50.0
 	add_child(cam)
@@ -2494,6 +2496,15 @@ func _build_environment() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.62, 0.66, 0.76)
 	env.ambient_light_energy = 0.8
+	# Filmic tone mapping keeps bright fire and sunlit grass from washing out; a light haze
+	# gives the distance some depth (weather thickens it); glow is set by the graphics level.
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 1.15
+	env.fog_enabled = true
+	env.fog_density = CLEAR_HAZE
+	env.glow_intensity = 0.6
+	env.glow_bloom = 0.04
+	env.glow_hdr_threshold = 0.9
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -2506,6 +2517,32 @@ func _build_environment() -> void:
 	sun.rotation_degrees = Vector3(-55.0, 30.0, 0.0)
 	sun.shadow_enabled = true
 	add_child(sun)
+
+
+var hero_ring: MeshInstance3D
+var target_ring: MeshInstance3D
+
+
+## Rings on the ground: gold under the hero, a pulsing red one under whatever it fights.
+func _build_rings() -> void:
+	hero_ring = Art.ground_ring(Color(1.0, 0.82, 0.3, 0.85), 0.55)
+	add_child(hero_ring)
+	target_ring = Art.ground_ring(Color(1.0, 0.25, 0.2, 0.9), 0.6)
+	target_ring.visible = false
+	add_child(target_ring)
+
+
+func _update_rings() -> void:
+	hero_ring.visible = not hero.dead
+	hero_ring.position = hero.position + Vector3(0.0, 0.04, 0.0)
+	var t := hero.target
+	var show := t != null and is_instance_valid(t) and not t.dead and t.visible
+	target_ring.visible = show
+	if show:
+		var pulse := 1.0 + 0.08 * sin(Time.get_ticks_msec() * 0.008)
+		var k := t.visual_scale * pulse
+		target_ring.position = t.position + Vector3(0.0, 0.04, 0.0)
+		target_ring.scale = Vector3(k, 0.15, k)
 
 
 func _build_marker() -> void:
@@ -2835,6 +2872,7 @@ func _process(delta: float) -> void:
 		marker.visible = true
 		marker.position = hero.path[hero.path.size() - 1] + Vector3(0.0, 0.03, 0.0)
 	_follow_camera()
+	_update_rings()
 	_cull_fx(delta)
 	_hud_timer -= delta
 	if _hud_timer <= 0.0:
@@ -3056,9 +3094,9 @@ func _set_weather(w: String) -> void:
 		rain_sound.play()
 	else:
 		rain_sound.stop()
-	env.fog_enabled = w == "fog" or w == "storm" or w == "rain"
+	env.fog_enabled = true
 	env.fog_light_color = Color(0.62, 0.66, 0.72)
-	env.fog_density = {"fog": 0.045, "storm": 0.025, "rain": 0.012}.get(w, 0.0)
+	env.fog_density = {"fog": 0.045, "storm": 0.025, "rain": 0.012}.get(w, CLEAR_HAZE)
 	match w:
 		"rain":
 			event_about("It starts to rain.", true)
@@ -3139,6 +3177,8 @@ func _apply_daylight() -> void:
 	sun.light_color = Color(0.6, 0.7, 1.0).lerp(Color(1.0, 0.97, 0.9), light)
 	sun.rotation_degrees = Vector3(-20.0 - 50.0 * maxf(sun_height, 0.0), day_time * 360.0, 0.0)
 	env.background_color = Color("0d1426").lerp(Color("87a8c9"), light)
+	if weather == "clear":
+		env.fog_light_color = env.background_color       # the haze takes the sky's colour
 	env.ambient_light_energy = lerpf(0.45, 0.8, light)
 	var night := clampf(1.0 - light * 1.6, 0.0, 1.0)
 	for l in brazier_lights:
@@ -3224,6 +3264,7 @@ func _apply_graphics() -> void:
 	var vp := get_viewport()
 	vp.scaling_3d_scale = {"low": 0.7, "medium": 0.85, "high": 1.0}[g]
 	vp.msaa_3d = Viewport.MSAA_2X if g == "high" else Viewport.MSAA_DISABLED
+	env.glow_enabled = g != "low"                     # a soft glow round fire and magic
 	if rain != null:
 		rain.amount = 250 if g == "low" else (800 if weather == "storm" else 500)
 

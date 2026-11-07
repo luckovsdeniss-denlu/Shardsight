@@ -647,3 +647,66 @@ static func item_icon(id: String) -> ArrayMesh:
 			"pelt":
 				return [[box(0.3, 0.03, 0.22), at(0, 0, 0, Vector3(0.6, 0, 0)), Color(0.55, 0.55, 0.58)]]
 		return [[ball(0.08, 6, 3), at(0, 0, 0), Color(0.85, 0.85, 0.8)], [box(0.05, 0.12, 0.05), at(0, 0.08, 0), Color(0.75, 0.75, 0.7)]])
+
+
+# --- health bars ----------------------------------------------------------------
+
+const HP_BAR_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, depth_test_disabled, depth_draw_never, shadows_disabled, fog_disabled;
+uniform float fill = 1.0;
+
+void vertex() {
+	// always face the camera
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+}
+
+void fragment() {
+	vec3 full = vec3(0.25, 0.85, 0.3);
+	vec3 half_hp = vec3(0.95, 0.8, 0.2);
+	vec3 low = vec3(0.9, 0.2, 0.15);
+	vec3 bar = fill > 0.5 ? mix(half_hp, full, (fill - 0.5) * 2.0) : mix(low, half_hp, fill * 2.0);
+	vec3 col = UV.x < fill ? bar : vec3(0.12, 0.12, 0.14);
+	float edge = step(UV.x, 0.025) + step(0.975, UV.x) + step(UV.y, 0.15) + step(0.85, UV.y);
+	ALBEDO = edge > 0.0 ? vec3(0.02) : col;
+	ALPHA = 0.95;
+}
+"""
+
+static var _hp_shader: Shader
+
+
+## A small health bar that always faces the camera; set its "fill" (0..1).
+static func hp_bar() -> MeshInstance3D:
+	if _hp_shader == null:
+		_hp_shader = Shader.new()
+		_hp_shader.code = HP_BAR_SHADER
+	var q := QuadMesh.new()
+	q.size = Vector2(0.9, 0.13)
+	var mi := MeshInstance3D.new()
+	mi.mesh = q
+	var m := ShaderMaterial.new()
+	m.shader = _hp_shader
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.visible = false
+	return mi
+
+
+## A flat glowing ring on the ground (under the hero and its target).
+static func ground_ring(c: Color, radius: float) -> MeshInstance3D:
+	var t := TorusMesh.new()
+	t.inner_radius = radius * 0.86
+	t.outer_radius = radius
+	t.rings = 24
+	t.ring_segments = 6
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = c
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var mi := MeshInstance3D.new()
+	mi.mesh = t
+	mi.material_override = m
+	mi.scale = Vector3(1.0, 0.15, 1.0)         # flattened onto the ground
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
