@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.42.0
+An opening fly-by.
+- The start screen is see-through now, and behind the title the camera flies over the world:
+  the south-west forest, the main town, the dungeon, the eastern wilds, the graveyard and
+  Southmoor, then eases down into the usual view of your hero (about 14 seconds). The world
+  carries on as it flies. Tap to skip: the camera glides straight down to the hero.
+
 ## 0.41.3
 - The zone sound effects are heard from grows to 75% of the screen's width and height (was 35%).
 

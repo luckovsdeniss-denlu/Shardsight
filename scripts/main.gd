@@ -2959,7 +2959,8 @@ func _process(delta: float) -> void:
 	else:
 		marker.visible = true
 		marker.position = hero.path[hero.path.size() - 1] + Vector3(0.0, 0.03, 0.0)
-	_follow_camera()
+	if not _flyby_step(delta):
+		_follow_camera()
 	_update_rings()
 	_cull_fx(delta)
 	_hud_timer -= delta
@@ -3071,7 +3072,7 @@ func near_campfire(p: Vector3) -> bool:
 ## subtitle and the version. It fades after a few seconds, or at once on a tap.
 func _show_title(layer: CanvasLayer) -> void:
 	var card := ColorRect.new()
-	card.color = Color(0.043, 0.055, 0.09, 1.0)
+	card.color = Color(0.043, 0.055, 0.09, 0.35)   # see-through: the fly-by shows behind the title
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(card)
 	card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -3098,13 +3099,103 @@ func _show_title(layer: CanvasLayer) -> void:
 		if not is_instance_valid(card) or card.get_meta("closing", false):
 			return
 		card.set_meta("closing", true)
+		_skip_flyby()                              # a tap glides the camera down to the hero
 		var tw := card.create_tween()
 		tw.tween_property(card, "modulate:a", 0.0, 0.6)
 		tw.tween_callback(card.queue_free)
 	card.gui_input.connect(func(ev: InputEvent) -> void:
 		if (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed) or (ev is InputEventScreenTouch and (ev as InputEventScreenTouch).pressed):
 			close.call())
-	get_tree().create_timer(3.5).timeout.connect(close)
+	_title_close = close
+	_flyby_t = 0.0                                 # start the fly-by over the world
+	get_tree().create_timer(FLYBY_SEG * FLYBY.size() + 3.0).timeout.connect(close)   # just in case
+
+
+# --- the opening fly-by ------------------------------------------------------------
+
+## Over the south-west forest, the main town, the dungeon, the eastern wilds, the graveyard and
+## Southmoor, then down to the hero: [tile to fly over, height, tile to look at].
+const FLYBY := [
+	[Vector2i(8, 44), 20.0, Vector2i(18, 32)],
+	[Vector2i(22, 20), 15.0, Vector2i(24, 9)],
+	[Vector2i(42, 26), 13.0, Vector2i(43, 16)],
+	[Vector2i(66, 20), 17.0, Vector2i(76, 10)],
+	[Vector2i(82, 44), 15.0, Vector2i(88, 33)],
+	[Vector2i(58, 46), 13.0, Vector2i(50, 34)],
+]
+const FLYBY_SEG := 2.2                 # seconds from one point to the next
+const FLYBY_SKIP := 1.2                # seconds to glide down to the hero after a tap
+var _flyby_t := -1.0                   # time into the fly-by; < 0 when not flying
+var _skip_t := -1.0                    # time into the glide down after a tap
+var _skip_from_pos := Vector3.ZERO
+var _skip_from_look := Vector3.ZERO
+var _cam_look := Vector3.ZERO          # where the camera looks during the fly-by
+var _title_close: Callable
+
+
+func _hero_cam_pos() -> Vector3:
+	return hero.position + CAM_OFFSET.rotated(Vector3.UP, property.cam_yaw) * property.cam_zoom
+
+
+func _hero_cam_look() -> Vector3:
+	return hero.position + Vector3(0.0, 0.5, 0.0)
+
+
+func _skip_flyby() -> void:
+	if _flyby_t < 0.0 or _skip_t >= 0.0:
+		return
+	_skip_t = 0.0
+	_skip_from_pos = cam.position
+	_skip_from_look = _cam_look
+
+
+## Moves the camera along the fly-by; returns false once it's over (then the camera follows
+## the hero as usual).
+func _flyby_step(delta: float) -> bool:
+	if _flyby_t < 0.0:
+		return false
+	var pos: Vector3
+	var look: Vector3
+	if _skip_t >= 0.0:
+		_skip_t += delta
+		var k := smoothstep(0.0, 1.0, minf(_skip_t / FLYBY_SKIP, 1.0))
+		pos = _skip_from_pos.lerp(_hero_cam_pos(), k)
+		look = _skip_from_look.lerp(_hero_cam_look(), k)
+		if _skip_t >= FLYBY_SKIP:
+			_end_flyby()
+			return false
+	else:
+		_flyby_t += delta
+		var ps: Array[Vector3] = []
+		var ls: Array[Vector3] = []
+		for f in FLYBY:
+			ps.append(world.tile_center(f[0]) + Vector3(0.0, float(f[1]), 0.0))
+			ls.append(world.tile_center(f[2]))
+		ps.append(_hero_cam_pos())             # the last stop: the usual view of the hero
+		ls.append(_hero_cam_look())
+		var u := _flyby_t / FLYBY_SEG
+		var i := mini(floori(u), ps.size() - 2)
+		var w := clampf(u - i, 0.0, 1.0)
+		w = w * w * (3.0 - 2.0 * w) if i == ps.size() - 2 else w   # ease into the hero
+		var a := maxi(i - 1, 0)
+		var d := mini(i + 2, ps.size() - 1)
+		pos = ps[i].cubic_interpolate(ps[i + 1], ps[a], ps[d], w)
+		look = ls[i].cubic_interpolate(ls[i + 1], ls[a], ls[d], w)
+		if u >= ps.size() - 1:
+			_end_flyby()
+			return false
+	_cam_look = look
+	cam.position = pos
+	cam.look_at(look, Vector3.UP)
+	view_planes = cam.get_frustum()
+	return true
+
+
+func _end_flyby() -> void:
+	_flyby_t = -1.0
+	_skip_t = -1.0
+	if _title_close.is_valid():
+		_title_close.call()
 
 
 # --- braziers: fire in the towns, glowing at night ----------------------------
