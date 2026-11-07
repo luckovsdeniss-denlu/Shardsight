@@ -440,8 +440,8 @@ func _refresh_skills() -> void:
 		c.queue_free()
 	var s := hero.stats
 	var title := Label.new()
-	title.text = "Level %d / %d\nStr %d   Dex %d   Int %d   (%d/%d)\nSkills %.1f / %d" % [
-		hero.stats.level(), Hero.LEVEL_MAX,
+	title.text = "Level %d / %d (from combat skills: %.1f / %d)\nStr %d   Dex %d   Int %d   (%d/%d)\nSkills %.1f / %d" % [
+		hero.stats.level(), Hero.LEVEL_MAX, s.combat_total(), Hero.COMBAT_SKILLS.size() * Rules.SKILL_MAX,
 		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
 		s.skill_total(), Rules.SKILL_CAP_TOTAL]
 	title.add_theme_font_size_override("font_size", 28)

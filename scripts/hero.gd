@@ -90,13 +90,26 @@ func skill_total() -> float:
 	return t
 
 
-## Player level 1..1000 from the total of all the hero's skills: no skills is level 1, and the
-## full skill total (all 37 skills at 100, 3700 points) is level 1000. Derived, so
-## nothing is saved.
+## Player level 1..1000 from the combat skills only (crafting, gathering, taming, music,
+## thieving and the like don't count): none is level 1, all 13 at 100 is level 1000 (about
+## 0.77 levels a point). Derived, so nothing is saved.
 const LEVEL_MAX := 1000
+const COMBAT_SKILLS := [
+	Skill.SWORDSMANSHIP, Skill.FENCING, Skill.MACE_FIGHTING, Skill.ARCHERY, Skill.WRESTLING,
+	Skill.TACTICS, Skill.ANATOMY, Skill.PARRYING, Skill.HEALING,
+	Skill.MAGERY, Skill.EVALUATING_INTELLECT, Skill.MEDITATION, Skill.RESISTING_SPELLS,
+]
+
+
+func combat_total() -> float:
+	var t := 0.0
+	for s in COMBAT_SKILLS:
+		t += float(skills.get(s, 0.0))
+	return t
+
 
 func level() -> int:
-	var frac := clampf(skill_total() / float(Rules.SKILL_CAP_TOTAL), 0.0, 1.0)
+	var frac := clampf(combat_total() / (COMBAT_SKILLS.size() * Rules.SKILL_MAX), 0.0, 1.0)
 	return clampi(1 + floori(frac * (LEVEL_MAX - 1) + 0.001), 1, LEVEL_MAX)
 
 

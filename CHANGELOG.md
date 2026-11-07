@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.42.5
+- Level counts combat skills only: Swordsmanship, Fencing, Mace Fighting, Archery, Wrestling,
+  Tactics, Anatomy, Parrying, Healing, Magery, Evaluating Intellect, Meditation and Resisting
+  Spells. Crafting, gathering, taming, music, thieving and the rest no longer raise it. All 13
+  at 100 is level 1000 (about 0.77 levels a point); Menu > Skills shows the combat total.
+
 ## 0.42.4
 - The skill cap is raised to the maximum: every one of the 37 skills can reach 100 (3700
   points; it was 700, "seven skills at 100"). Level 1000 now means every skill mastered, so
