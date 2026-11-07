@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.41.1
+- Sound effects play only for what's on screen: swings, hits, spells, bows and the rest are
+  heard when the camera can see where they happen (it was anything within 12 tiles of the hero,
+  on screen or not). Music, rain and thunder stay global.
+
 ## 0.41.0
 The priesthood.
 - Two more priests: Mother Isolde, the abbess of Southmoor, and Brother Anselm at the outpost,

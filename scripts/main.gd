@@ -3241,8 +3241,9 @@ func _campfire_tick(delta: float) -> void:
 			campfires.remove_at(i)
 
 
+## Sound effects play only for what the camera can see (weather, music and thunder are global).
 func sound(sound_name: String, at: Vector3) -> void:
-	if property.sound_on and hero != null and at.distance_to(hero.position) <= 12.0:
+	if property.sound_on and hero != null and in_view(at + Vector3(0.0, 0.5, 0.0), 0.5):
 		sfx.play(sound_name)
 
 
