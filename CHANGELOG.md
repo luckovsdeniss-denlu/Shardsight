@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.45.0
+Pick a player, attack in one tap.
+- Tapping a player no longer pauses the game and opens a panel: it picks them, with a blue ring
+  under them and buttons at the bottom of the screen: "Attack <name>" (it says why not when
+  you can't: in town, Trammel, an ally; "(crime!)" when they're an innocent), "Info" (the old
+  panel with their gear) and "X" to let go. The pick drops when you tap elsewhere, or when they
+  die, vanish or are over 30 m away.
+
 ## 0.44.2
 - Treasure chests no longer fall from the sky: a slain monster (10%) leaves one on the ground
   beside its body, appearing in a burst of gold sparkles, with the golden beam and light as before.

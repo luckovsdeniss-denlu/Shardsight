@@ -225,6 +225,7 @@ func _ready() -> void:
 	corner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
 	_update_button()
 	_update_corner_buttons()
+	_build_select_bar(layer)
 	_build_menu(layer)
 	_build_skills_panel(layer)
 	_build_craft_panel(layer)
@@ -1263,7 +1264,7 @@ func _open_help() -> void:
 	title.add_theme_font_size_override("font_size", 30)
 	settings_box.add_child(title)
 	for line in [
-		"Tap the ground to walk there. Tap a monster to attack it, a corpse to loot it, a rock to mine it, a tree to chop it.",
+		"Tap the ground to walk there. Tap a monster to attack it, a corpse to loot it, a rock to mine it, a tree to chop it. Tap a player to pick them: Attack and Info buttons appear at the bottom.",
 		"The Menu button (top right) opens every button: Auto, Main Menu, Bag, Spells, Retreat, Ride, Mute, and switches to show names, stats and the map, and First person / Top view (in first person you see through the hero's eyes; twist two fingers to look around). Auto lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
 		"Names (Menu > Show names): blue innocent, grey criminal, red murderer or monster. The tan towns are safe: nobody can be hurt inside a town, and nobody can attack out of one.",
 		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked. There's no real cap: every skill can reach 100.",
@@ -2169,6 +2170,85 @@ func _on_walk_to_player(p: Entity) -> void:
 	hero.go_to(p.position)
 
 
+# --- the picked player: Attack and Info buttons at the bottom of the screen -------------
+
+var selected_player: Entity
+var select_bar: HBoxContainer
+var select_attack: Button
+var select_ring: MeshInstance3D
+const SELECT_RANGE := 30.0               # the pick is dropped when they're further off than this
+
+
+func _build_select_bar(layer: CanvasLayer) -> void:
+	select_bar = HBoxContainer.new()
+	select_bar.add_theme_constant_override("separation", 8)
+	select_bar.visible = false
+	layer.add_child(select_bar)
+	select_attack = _menu_button("Attack", _on_select_attack)
+	select_attack.custom_minimum_size = Vector2(250, 66)
+	select_attack.add_theme_font_size_override("font_size", 24)
+	select_attack.clip_text = true
+	select_bar.add_child(select_attack)
+	var info := _menu_button("Info", _on_select_info)
+	info.custom_minimum_size = Vector2(90, 66)
+	info.add_theme_font_size_override("font_size", 24)
+	select_bar.add_child(info)
+	var close := _menu_button("X", _select_player.bind(null))
+	close.custom_minimum_size = Vector2(60, 66)
+	close.add_theme_font_size_override("font_size", 24)
+	select_bar.add_child(close)
+	select_bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 16)
+	select_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	select_ring = Art.ground_ring(Color(0.45, 0.75, 1.0, 0.9), 0.6)
+	select_ring.visible = false
+	add_child(select_ring)
+
+
+func _select_player(p: Entity) -> void:
+	selected_player = p
+	_update_select_bar()
+
+
+## Keeps the buttons in step: the Attack button says why not when you can't (in town, Trammel,
+## an ally...) and warns when the player is an innocent. The pick is dropped when they die,
+## vanish or are far off.
+func _update_select_bar() -> void:
+	if select_bar == null:
+		return
+	var p := selected_player
+	if p != null and (not is_instance_valid(p) or p.dead or p.flags.has("invisible") \
+			or p.position.distance_to(hero.position) > SELECT_RANGE):
+		selected_player = null
+		p = null
+	select_bar.visible = p != null and not hero.dead
+	select_ring.visible = select_bar.visible
+	if p == null:
+		return
+	select_ring.position = p.position + Vector3(0.0, 0.04, 0.0)
+	var problem := hero.pvp_problem(p)
+	var innocent := p.notoriety() == Entity.Notoriety.BLUE and not hero.at_war_with(p)
+	if hero.target == p:
+		select_attack.text = "Fighting %s" % p.display_name
+		select_attack.disabled = true
+	elif problem != "":
+		select_attack.text = "Can't: %s" % problem
+		select_attack.disabled = true
+	else:
+		select_attack.text = "Attack %s%s" % [p.display_name, " (crime!)" if innocent else ""]
+		select_attack.disabled = false
+
+
+func _on_select_attack() -> void:
+	if selected_player != null and is_instance_valid(selected_player) and hero.pvp_problem(selected_player) == "":
+		_on_attack_player(selected_player)
+	_update_select_bar()
+
+
+func _on_select_info() -> void:
+	if selected_player != null and is_instance_valid(selected_player):
+		_open_players(selected_player)
+
+
 func _on_attack_player(p: Entity) -> void:
 	_close_players()
 	hero.retreating = false
@@ -2647,6 +2727,8 @@ func _build_rings() -> void:
 
 func _update_rings() -> void:
 	hero_ring.visible = not hero.dead and not property.first_person
+	if select_ring != null and select_ring.visible and selected_player != null and is_instance_valid(selected_player):
+		select_ring.position = selected_player.position + Vector3(0.0, 0.04, 0.0)
 	hero_ring.position = hero.position + Vector3(0.0, 0.04, 0.0)
 	var t := hero.target
 	var show := t != null and is_instance_valid(t) and not t.dead and t.visible
@@ -2747,8 +2829,9 @@ func _tap(screen: Vector2) -> void:
 		hero.loot_target = null
 		return
 	if e != null and e.kind == Entity.Kind.PLAYER and not e.flags.has("invisible"):
-		_open_players(e)                 # tap a player to see what they wear and wield
+		_select_player(e)                # tap a player to pick them: Attack or Info buttons appear
 		return
+	_select_player(null)                 # tapping anything else clears the pick
 	if e != null and e.role == "priest":
 		_open_priest(e)                  # tap a priest for blessings, confession and the rest
 		return
@@ -2997,6 +3080,7 @@ func _process(delta: float) -> void:
 	if _hud_timer <= 0.0:
 		_hud_timer = 0.2                     # the HUD text five times a second
 		_update_hud()
+		_update_select_bar()
 
 
 var _hud_timer := 0.0
