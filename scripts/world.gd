@@ -84,6 +84,7 @@ var astar_outside := AStarGrid2D.new()   # same grid, but the towns are walled o
 var forge_tile := Vector2i(-1, -1)
 var house_nodes := {}            # house origin -> Node3D holding its meshes
 var decor: Array = []            # the grass tufts and flowers (hidden on Low graphics)
+var ground_material: ShaderMaterial    # the painted ground (its cloud shadows follow the weather)
 var revision := 0                # bumped when tiles change (houses), so the minimap redraws them
 var _harvest_left := {}          # tile -> tries left
 var _regrow_at := {}             # tile -> Time.get_ticks_msec() when an exhausted node recovers
@@ -552,13 +553,18 @@ uniform vec4 shallow : source_color = vec4(0.32, 0.58, 0.82, 1.0);
 varying vec3 wpos;
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	// gentle swell: the surface rises and falls in slow, crossing waves
+	VERTEX.y += (sin(wpos.x * 1.3 + TIME * 1.4) + sin(wpos.z * 1.1 - TIME * 1.1)) * 0.025;
 }
 void fragment() {
 	float w = sin(wpos.x * 2.1 + TIME * 1.3) * 0.5 + sin(wpos.z * 1.7 - TIME * 1.1) * 0.5;
-	float sparkle = pow(max(sin(wpos.x * 5.0 + wpos.z * 3.0 + TIME * 2.0), 0.0), 12.0);
-	ALBEDO = mix(deep.rgb, shallow.rgb, 0.5 + 0.25 * w) + vec3(sparkle * 0.25);
-	ROUGHNESS = 0.2;
-	SPECULAR = 0.7;
+	float w2 = sin((wpos.x + wpos.z) * 3.3 - TIME * 1.9) * 0.5 + 0.5;
+	float sparkle = pow(max(sin(wpos.x * 5.0 + wpos.z * 3.0 + TIME * 2.0), 0.0), 12.0)
+		* pow(max(sin(wpos.x * 2.3 - wpos.z * 4.1 - TIME * 1.6), 0.0), 6.0);
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);   // brighter towards the horizon
+	ALBEDO = mix(deep.rgb, shallow.rgb, 0.45 + 0.25 * w + 0.1 * w2) + vec3(sparkle * 0.6) + shallow.rgb * rim * 0.35;
+	ROUGHNESS = 0.15;
+	SPECULAR = 0.75;
 }
 """
 
@@ -608,10 +614,13 @@ shader_type spatial;
 uniform sampler2D paint : source_color, filter_linear;
 uniform sampler2D grain : filter_linear, repeat_enable;
 uniform vec2 grain_scale = vec2(24.0, 12.0);
+uniform sampler2D clouds : filter_linear, repeat_enable;
+uniform float cloud_amount = 1.0;              // the shadows of clouds drifting over the land
 void fragment() {
 	vec3 base = texture(paint, UV).rgb;
 	float g = texture(grain, UV * grain_scale).r;
-	ALBEDO = base * (0.86 + 0.28 * g);
+	float cl = texture(clouds, UV * vec2(3.0, 1.5) + TIME * vec2(0.006, 0.0035)).r;
+	ALBEDO = base * (0.86 + 0.28 * g) * (1.0 - cloud_amount * 0.24 * smoothstep(0.52, 0.74, cl));
 	ROUGHNESS = 1.0;
 }
 """
@@ -679,6 +688,16 @@ func _ground_mat() -> ShaderMaterial:
 	m.set_shader_parameter("paint", ImageTexture.create_from_image(img))
 	m.set_shader_parameter("grain", grain)
 	m.set_shader_parameter("grain_scale", Vector2(cols, rows) / 4.0)
+	var clouds := NoiseTexture2D.new()
+	clouds.width = 256
+	clouds.height = 256
+	clouds.seamless = true
+	var cn := FastNoiseLite.new()
+	cn.frequency = 0.012
+	cn.fractal_octaves = 3
+	clouds.noise = cn
+	m.set_shader_parameter("clouds", clouds)
+	ground_material = m
 	return m
 
 
@@ -788,6 +807,8 @@ func build(parent: Node3D) -> void:
 	coals_mat.emission = Color(1.0, 0.4, 0.05)
 	var water_mesh := PlaneMesh.new()
 	water_mesh.size = Vector2(TILE, TILE)
+	water_mesh.subdivide_width = 2                 # a few vertices to carry the swell
+	water_mesh.subdivide_depth = 2
 	var water_mat := ShaderMaterial.new()
 	var water_shader := Shader.new()
 	water_shader.code = WATER_SHADER
@@ -842,6 +863,10 @@ func build(parent: Node3D) -> void:
 					forge_fire.position = c + Vector3(0, 0.9, 0)
 					parent.add_child(forge_fire)
 					forge_fire.add_to_group("view_fx")      # only burns while on screen
+					var forge_smoke := Fx.smoke(10, 1.2)
+					forge_smoke.position = c + Vector3(0, 1.3, 0)
+					parent.add_child(forge_smoke)
+					forge_smoke.add_to_group("view_fx")
 				Tile.GRASS:
 					if is_town(t) or is_dungeon(t):
 						continue

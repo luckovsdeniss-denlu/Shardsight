@@ -3,6 +3,21 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.52.0
+A world in motion.
+- Cloud shadows drift slowly across the land on clear days (none under an overcast sky).
+- Water swells gently in slow crossing waves, glints where the light catches it and brightens
+  towards the horizon.
+- Smoke rises from the forge, the braziers and campfires, spreading and drifting with the wind
+  (only animated on screen).
+- Banners in each town's colours (red for the main town, blue for the outpost, green for
+  Southmoor) fly from poles at its four corners, flapping in the wind.
+- A flock of birds wheels over the land by day, wings beating.
+- Butterflies flutter over the meadows by day, and leaves drift down in the woods (clear weather,
+  Medium and High graphics).
+- The ankh shrines turn slowly and their light breathes.
+- Corpses sink into the ground as they rot away, and a treasure chest's beam pulses.
+
 ## 0.51.0
 Livelier movement.
 - Walkers take straight lines and cut corners where it's clear, instead of zig-zagging from tile

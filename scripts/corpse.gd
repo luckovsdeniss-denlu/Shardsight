@@ -154,6 +154,12 @@ func set_title(t: String) -> void:
 
 func tick(delta: float) -> void:
 	life -= delta
+	if life < 2.5:                                  # sinking into the ground as it rots away
+		position.y = -0.4 * (1.0 - maxf(life, 0.0) / 2.5)
+		label.visible = false
+	if _beam != null and _beam.visible:             # a treasure chest's beam breathes
+		var bm := _beam.material_override as StandardMaterial3D
+		bm.albedo_color.a = 0.28 + 0.12 * sin(Time.get_ticks_msec() * 0.003)
 
 
 func _refresh_label() -> void:

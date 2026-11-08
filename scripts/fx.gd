@@ -297,3 +297,42 @@ static func lightning(parent: Node, at: Vector3, c := Color(0.85, 0.9, 1.0)) -> 
 	var tw := root.create_tween()
 	tw.tween_property(light, "light_energy", 0.0, 0.25)
 	tw.tween_callback(root.queue_free)
+
+
+# --- smoke ----------------------------------------------------------------------
+
+static var _smoke_mat: StandardMaterial3D
+
+
+## Grey smoke drifting up from a fire, spreading and fading (`amount` puffs at a time).
+static func smoke(amount := 8, size := 1.0) -> CPUParticles3D:
+	if _smoke_mat == null:
+		_smoke_mat = StandardMaterial3D.new()
+		_smoke_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_smoke_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_smoke_mat.vertex_color_use_as_albedo = true
+		_smoke_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		_smoke_mat.billboard_keep_scale = true
+	var p := CPUParticles3D.new()
+	p.amount = amount
+	p.lifetime = 3.0
+	var q := QuadMesh.new()
+	q.size = Vector2(0.4, 0.4) * size
+	q.material = _smoke_mat
+	p.mesh = q
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 0.12 * size
+	p.direction = Vector3.UP
+	p.spread = 12.0
+	p.gravity = Vector3(0.25, 0.35, 0.1)          # rising, and drifting with the wind
+	p.initial_velocity_min = 0.3
+	p.initial_velocity_max = 0.6
+	var curve := Curve.new()
+	curve.add_point(Vector2(0.0, 0.4))
+	curve.add_point(Vector2(1.0, 1.6))
+	p.scale_amount_curve = curve
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.25, 1.0])
+	g.colors = PackedColorArray([Color(0.35, 0.33, 0.32, 0.0), Color(0.4, 0.38, 0.36, 0.35), Color(0.55, 0.55, 0.55, 0.0)])
+	p.color_ramp = g
+	return p

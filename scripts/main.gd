@@ -897,6 +897,202 @@ func _quest_text() -> String:
 
 
 ## Called by Entity._die for every death.
+# --- the world in motion: banners, birds, butterflies, leaves, the ankhs ---------------------
+
+const BANNER_SHADER := """
+shader_type spatial;
+render_mode cull_disabled;
+uniform vec4 cloth : source_color = vec4(0.7, 0.15, 0.12, 1.0);
+void vertex() {
+	vec3 o = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	float free_end = UV.x;                        // fixed at the pole, flapping at the far end
+	VERTEX.z += sin(TIME * 4.0 + UV.x * 6.0 + o.x) * 0.08 * free_end;
+	VERTEX.y += sin(TIME * 3.0 + UV.x * 4.0 + o.z) * 0.03 * free_end;
+}
+void fragment() {
+	ALBEDO = cloth.rgb * (0.85 + 0.15 * sin(UV.x * 20.0));   // a faint weave
+	ROUGHNESS = 0.9;
+}
+"""
+const TOWN_COLOURS := [Color(0.72, 0.16, 0.13), Color(0.18, 0.35, 0.72), Color(0.2, 0.55, 0.25)]
+var _birds: Array[Node3D] = []
+var _bird_wings: Array = []                 # [left pivot, right pivot] per bird
+var _flock_centre := Vector3.ZERO
+var _flock_dir := Vector3.RIGHT
+var _butterflies: CPUParticles3D
+var _leaves: CPUParticles3D
+var _trees_near := 0
+
+
+## Banners in each town's colours fly from poles at its four corners.
+func _build_banners() -> void:
+	var sh := Shader.new()
+	sh.code = BANNER_SHADER
+	var pole_mesh := Art.merge([[Art.box(0.08, 3.0, 0.08), Art.at(0, 1.5, 0), Color(0.42, 0.3, 0.18)],
+		[Art.ball(0.08, 6, 3), Art.at(0, 3.05, 0), Color(0.9, 0.75, 0.3)]])
+	for i in range(World.TOWNS.size()):
+		var r: Rect2i = World.TOWNS[i]
+		var mat := ShaderMaterial.new()
+		mat.shader = sh
+		mat.set_shader_parameter("cloth", TOWN_COLOURS[i % TOWN_COLOURS.size()])
+		for corner in [r.position, Vector2i(r.end.x - 1, r.position.y), Vector2i(r.position.x, r.end.y - 1), r.end - Vector2i.ONE]:
+			var t: Vector2i = corner
+			var at := world.tile_center(t) + Vector3(0.0, 0.0, 0.0)
+			if world.is_blocked(t):
+				at.y = 1.5                                  # on top of the wall
+			var pole := MeshInstance3D.new()
+			pole.mesh = pole_mesh
+			pole.material_override = Art.vc_mat()
+			pole.position = at
+			add_child(pole)
+			var cloth := MeshInstance3D.new()
+			var q := QuadMesh.new()
+			q.size = Vector2(1.0, 0.6)
+			q.subdivide_width = 6
+			q.center_offset = Vector3(0.5, 0.0, 0.0)          # hangs from the pole, out to one side
+			cloth.mesh = q
+			cloth.material_override = mat
+			cloth.position = Vector3(0.04, 2.6, 0.0)
+			cloth.rotation.y = randf() * TAU
+			pole.add_child(cloth)
+
+
+## A small flock of birds wheeling over the land by day (on screen near you).
+func _make_birds() -> void:
+	var body := Art.merge([[Art.box(0.08, 0.06, 0.22), Art.at(0, 0, 0), Color(0.18, 0.16, 0.15)],
+		[Art.box(0.05, 0.05, 0.06), Art.at(0, 0.02, -0.13), Color(0.25, 0.22, 0.2)]])
+	var wing := Art.merge([[Art.box(0.26, 0.015, 0.1), Art.at(0.13, 0, 0), Color(0.22, 0.2, 0.19)]])
+	for i in range(6):
+		var b := Node3D.new()
+		add_child(b)
+		var mb := MeshInstance3D.new()
+		mb.mesh = body
+		mb.material_override = Art.vc_mat()
+		mb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		b.add_child(mb)
+		var pivots: Array = []
+		for side: float in [1.0, -1.0]:
+			var p := Node3D.new()
+			b.add_child(p)
+			var mw := MeshInstance3D.new()
+			mw.mesh = wing
+			mw.material_override = Art.vc_mat()
+			mw.scale = Vector3(side, 1.0, 1.0)
+			p.add_child(mw)
+			pivots.append(p)
+		b.scale = Vector3.ONE * 1.6
+		_birds.append(b)
+		_bird_wings.append(pivots)
+	_flock_centre = hero.position + Vector3(-25.0, 6.0, 0.0)
+
+
+## Ambient particles round you: butterflies over the meadows by day, leaves drifting down in the
+## woods.
+func _make_ambient_particles() -> void:
+	_butterflies = CPUParticles3D.new()
+	_butterflies.amount = 10
+	_butterflies.lifetime = 5.0
+	_butterflies.local_coords = false
+	var q := QuadMesh.new()
+	q.size = Vector2(0.12, 0.12)
+	var bm := StandardMaterial3D.new()
+	bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bm.vertex_color_use_as_albedo = true
+	bm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	q.material = bm
+	_butterflies.mesh = q
+	_butterflies.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_butterflies.emission_box_extents = Vector3(8.0, 0.5, 8.0)
+	_butterflies.gravity = Vector3(0.0, 0.05, 0.0)
+	_butterflies.spread = 180.0
+	_butterflies.initial_velocity_min = 0.3
+	_butterflies.initial_velocity_max = 0.8
+	_butterflies.orbit_velocity_min = -0.3            # fluttering in loops
+	_butterflies.orbit_velocity_max = 0.3
+	var cg := Gradient.new()
+	cg.offsets = PackedFloat32Array([0.0, 0.33, 0.66, 1.0])
+	cg.colors = PackedColorArray([Color(1.0, 0.85, 0.2), Color(1.0, 1.0, 1.0), Color(0.55, 0.65, 1.0), Color(1.0, 0.5, 0.2)])
+	_butterflies.color_initial_ramp = cg
+	var flap := Curve.new()                            # wings beating: the size pulses
+	for i in range(11):
+		flap.add_point(Vector2(i / 10.0, 0.5 + 0.5 * absf(sin(i * 1.7))))
+	_butterflies.scale_amount_curve = flap
+	add_child(_butterflies)
+	_leaves = CPUParticles3D.new()
+	_leaves.amount = 14
+	_leaves.lifetime = 6.0
+	_leaves.local_coords = false
+	var lq := QuadMesh.new()
+	lq.size = Vector2(0.1, 0.07)
+	var lm := StandardMaterial3D.new()
+	lm.vertex_color_use_as_albedo = true
+	lm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	lq.material = lm
+	_leaves.mesh = lq
+	_leaves.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_leaves.emission_box_extents = Vector3(7.0, 0.5, 7.0)
+	_leaves.gravity = Vector3(0.25, -0.35, 0.1)        # drifting down on the breeze
+	_leaves.initial_velocity_min = 0.0
+	_leaves.initial_velocity_max = 0.2
+	_leaves.angular_velocity_min = -180.0
+	_leaves.angular_velocity_max = 180.0
+	_leaves.particle_flag_rotate_y = true
+	var lg := Gradient.new()
+	lg.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	lg.colors = PackedColorArray([Color(0.35, 0.55, 0.2), Color(0.75, 0.6, 0.2), Color(0.65, 0.35, 0.15)])
+	_leaves.color_initial_ramp = lg
+	add_child(_leaves)
+
+
+func _world_life(delta: float) -> void:
+	if hero == null:
+		return
+	if _birds.is_empty():
+		_make_birds()
+		_make_ambient_particles()
+	var t := Time.get_ticks_msec() / 1000.0
+	var here := world.to_tile(hero.position)
+	var day := not is_night()
+	var wild := not world.is_town(here) and not world.is_dungeon(here)
+	var nice := weather == "clear" and property.graphics != "low"
+	# the flock drifts across, wheeling, and comes round again near you
+	_flock_centre += _flock_dir * 3.0 * delta
+	if _flock_centre.distance_to(hero.position) > 40.0:
+		var a := randf() * TAU
+		_flock_centre = hero.position + Vector3(cos(a), 0.0, sin(a)) * 30.0
+		_flock_centre.y = 6.0
+		_flock_dir = (hero.position - _flock_centre).normalized()
+		_flock_dir.y = 0.0
+	var show_birds := day and weather != "storm" and not world.is_dungeon(here)
+	for i in range(_birds.size()):
+		var b := _birds[i]
+		b.visible = show_birds
+		if not show_birds:
+			continue
+		var ang := t * 0.5 + i * 1.05
+		var p := _flock_centre + Vector3(cos(ang) * (2.0 + i * 0.4), sin(t * 0.9 + i) * 0.5, sin(ang) * (2.0 + i * 0.4))
+		var heading := p - b.position
+		b.position = p
+		if heading.length() > 0.001:
+			b.rotation.y = atan2(-heading.x, -heading.z)
+		var flap := sin(t * 11.0 + i * 1.3) * 0.7
+		var wings: Array = _bird_wings[i]
+		(wings[0] as Node3D).rotation.z = flap
+		(wings[1] as Node3D).rotation.z = -flap
+	# butterflies by day in the meadows, leaves in the woods
+	_butterflies.emitting = day and wild and nice and _trees_near < 12
+	_butterflies.global_position = hero.position + Vector3(0.0, 0.8, 0.0)
+	_leaves.emitting = wild and nice and _trees_near >= 6
+	_leaves.global_position = hero.position + Vector3(0.0, 3.5, 0.0)
+	# the ankhs turn slowly and their light breathes
+	for a in _ankhs:
+		a.rotation.y += delta * 0.6
+		var l := a.get_parent().get_child(2) as OmniLight3D
+		if l != null:
+			l.light_energy = 0.9 + 0.3 * sin(t * 1.5 + a.get_parent().position.x)
+
+
 # --- the sounds of the world ---------------------------------------------------------------
 
 var _amb_players := {}                   # "crickets", "water", "fire" -> AudioStreamPlayer
@@ -972,6 +1168,7 @@ func _ambience_tick(delta: float) -> void:
 			elif tt == World.Tile.TREE:
 				trees += 1
 	_amb_set("water", lerpf(-14.0, -36.0, water_d / 7.0) if water_d <= 7.0 else -80.0)
+	_trees_near = trees
 	# fire: braziers, campfires, the forge
 	var fire_d := 99.0
 	for l in brazier_lights:
@@ -3300,6 +3497,7 @@ func _spawn_all() -> void:
 
 	_build_braziers()
 	_build_shrines()
+	_build_banners()
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Hal the Stablemaster", Bestiary.STABLEMASTER, cream, Vector2i(21, 11))
 	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(25, 13))
@@ -4012,6 +4210,7 @@ func _process(delta: float) -> void:
 	_update_rings()
 	_cull_fx(delta)
 	_events_tick(delta)
+	_world_life(delta)
 	_ambience_tick(delta)
 	_achieve_acc += delta
 	if _achieve_acc >= 2.0:
@@ -4112,6 +4311,10 @@ func light_campfire(at: Vector3) -> void:
 	flames.position.y = 0.15
 	fire.add_child(flames)
 	flames.add_to_group("view_fx")
+	var smoke := Fx.smoke(6, 0.9)
+	smoke.position.y = 0.8
+	fire.add_child(smoke)
+	smoke.add_to_group("view_fx")
 	campfires.append({"node": fire, "left": CAMPFIRE_SECONDS})
 
 
@@ -4368,6 +4571,7 @@ func _end_flyby() -> void:
 # --- resurrection shrines: glowing ankhs all over the map --------------------------
 
 var shrines: Array[Vector3] = []
+var _ankhs: Array[MeshInstance3D] = []
 
 
 ## One ankh shrine in each of the map's 8 regions, near its middle, where a ghost is raised.
@@ -4398,6 +4602,7 @@ func _build_shrines() -> void:
 		a.mesh = ankh_mesh
 		a.material_override = Art.glow_mat(Color(0.95, 0.9, 0.7))
 		node.add_child(a)
+		_ankhs.append(a)
 		var l := OmniLight3D.new()
 		l.light_color = Color(0.7, 0.85, 1.0)
 		l.light_energy = 1.0
@@ -4523,6 +4728,10 @@ func _build_braziers() -> void:
 		f.position.y = 0.88
 		b.add_child(f)
 		f.add_to_group("view_fx")
+		var smoke := Fx.smoke(5, 0.8)
+		smoke.position.y = 1.3
+		b.add_child(smoke)
+		smoke.add_to_group("view_fx")
 		var l := OmniLight3D.new()
 		l.light_color = Color(1.0, 0.62, 0.3)
 		l.omni_range = 5.0
@@ -4577,6 +4786,8 @@ func _set_weather(w: String) -> void:
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.62, 0.66, 0.72)
 	env.fog_density = {"fog": 0.045, "storm": 0.025, "rain": 0.012}.get(w, CLEAR_HAZE)
+	if world.ground_material != null:            # an overcast sky casts no cloud shadows
+		world.ground_material.set_shader_parameter("cloud_amount", 1.0 if w == "clear" else 0.0)
 	match w:
 		"rain":
 			event_about("It starts to rain.", true)
