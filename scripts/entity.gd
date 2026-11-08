@@ -1075,7 +1075,7 @@ func _refresh_label() -> void:
 	if paralyzed_timer > 0.0:
 		text += "\n(paralyzed)"
 	if is_hero and not bool(game.property.names_on):
-		text = "Lvl %d  HP %d/%d" % [stats.level(), ceili(hp), stats.max_hp()]   # just the numbers
+		text = "%s\nLvl %d  HP %d/%d" % [title_name(), stats.level(), ceili(hp), stats.max_hp()]   # your name and title, and the numbers
 	if is_hero and bool(game.property.magic_label_on) and not dead:
 		text += "\n" + _magic_line()
 	label.modulate = _name_color()

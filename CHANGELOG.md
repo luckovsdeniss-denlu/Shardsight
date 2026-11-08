@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.54.1
+- Your hero's name and title show over its head above the level and HP, even with names hidden
+  ("Hero the Slayer" with an achievement title, or the fame and karma title such as "Hero the
+  Notable").
+
 ## 0.54.0
 Players shoot.
 - Computer players use their bows and crossbows: they draw the bow while a foe is still coming
