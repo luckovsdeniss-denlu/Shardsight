@@ -659,6 +659,10 @@ func _fight() -> void:
 		return
 	if swing_cd > 0.0 or d > attack_range():
 		return
+	if target.town_protects(self):
+		_town_notice()
+		target = null                        # break off: no blows into, or out of, a town
+		return
 	var ws := weapon_speed
 	var lo := dmg_min
 	var hi := dmg_max
@@ -764,7 +768,7 @@ func take_damage(amount: float, from: Entity) -> void:
 	if dead or kind == Kind.NPC:
 		return
 	# Towns are safe: nobody inside one can be hurt, and nobody can attack out of one.
-	if _in_town() or (from != null and is_instance_valid(from) and from != self and from._in_town()):
+	if town_protects(from):
 		return
 	# Hitting an innocent player makes the attacker a criminal and, if the victim dies soon
 	# after, a murderer. The victim can fight back freely.
@@ -1014,6 +1018,9 @@ func start_cast(id: String, tgt: Entity) -> bool:
 		if is_hero:
 			game.log_event("You can't see that from here.")
 		return false                          # no casting through walls
+	if tgt != self and String(Spells.LIST[id]["kind"]) in HARMFUL_KINDS and tgt.town_protects(self):
+		_town_notice()
+		return false
 	var sp: Dictionary = Spells.LIST[id]
 	if flags.has("invisible") and String(sp["kind"]) in HARMFUL_KINDS:
 		_end_flag("invisible")
@@ -1083,6 +1090,9 @@ func _finish_cast() -> void:
 		return
 	var spell_kind := String(sp["kind"])
 	# Magic Reflection turns one harmful spell back on its caster.
+	if tgt != self and spell_kind in HARMFUL_KINDS and tgt.town_protects(self):
+		tgt._pop("protected", Color(0.9, 0.95, 1.0))   # they stepped into town while the spell was spoken
+		return
 	if tgt != self and spell_kind in HARMFUL_KINDS and tgt.flags.has("magic_reflection"):
 		tgt._end_flag("magic_reflection")
 		tgt._pop("reflected", Color(0.9, 0.9, 1.0))
@@ -1741,6 +1751,23 @@ func _settle_crimes(killer: Entity) -> void:
 
 func _in_town() -> bool:
 	return world.is_town(world.to_tile(position))
+
+
+## Towns are safe: nobody inside one can be harmed, and nobody can harm anyone from inside one,
+## by any means (blows, arrows, spells, poison, curses, paralysis, fields, reflected damage).
+var _town_notice_at := -100.0
+
+
+## Tells the hero (at most every 5 s) that a town keeps the peace.
+func _town_notice() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if is_hero and now - _town_notice_at >= 5.0:
+		_town_notice_at = now
+		game.log_event("Nobody can be hurt in town.")
+
+
+func town_protects(from: Entity) -> bool:
+	return _in_town() or (from != null and is_instance_valid(from) and from != self and from._in_town())
 
 
 ## Monsters keep out of the towns (and give up a chase at the edge). Players of any repute may
@@ -2432,7 +2459,7 @@ func _animate(delta: float) -> void:
 
 ## A stronger poison replaces a weaker one; it wears off on its own after a while.
 func apply_poison(level: int, from: Entity) -> void:
-	if dead or kind == Kind.NPC or level <= poison_level or poison_immune > 0.0:
+	if dead or kind == Kind.NPC or level <= poison_level or poison_immune > 0.0 or town_protects(from):
 		return
 	poison_level = clampi(level, 1, 3)
 	poison_time = 20.0 + 10.0 * poison_level
@@ -2448,6 +2475,8 @@ func _poison_step(delta: float) -> void:
 	poison_tick -= delta
 	if poison_tick <= 0.0:
 		poison_tick = 2.0
+		if _in_town():
+			return                           # poison doesn't hurt you in a town (it still wears off)
 		var dmg: float = Rules.POISON_DAMAGE[poison_level]
 		hp -= dmg
 		_pop("-%d" % maxi(1, roundi(dmg)), Color(0.4, 1.0, 0.3))
@@ -3361,7 +3390,8 @@ func _curse(tgt: Entity, id: String, sp: Dictionary) -> void:
 		var list: Array = game.creatures
 		for item in list:
 			var e := item as Entity
-			if e != self and not e.dead and _is_fair_target(e) and position.distance_to(e.position) <= Spells.AREA_RADIUS:
+			if e != self and not e.dead and _is_fair_target(e) and position.distance_to(e.position) <= Spells.AREA_RADIUS \
+					and not e.town_protects(self):
 				victims.append(e)
 	elif tgt != self:
 		victims.append(tgt)

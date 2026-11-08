@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.46.1
+Towns really are safe.
+- Several kinds of harm slipped past the towns' protection, which only stopped the damage of
+  blows and spells. Now nobody in a town can be harmed, and nobody can harm anyone from inside
+  one, by any means:
+  - a poisoned blow stopped at a town's edge no longer poisons you, and poison you brought in
+    doesn't hurt you inside a town (it still wears off);
+  - Poison, Paralyze, curses (Clumsy, Weaken, Feeblemind, Curse, Mass Curse) and Mana Drain
+    can't be cast at anyone in a town (a spell that lands as its target steps in fizzles out:
+    "protected");
+  - poison, paralyze and fire fields don't touch anyone in a town;
+  - no blow is swung across a town's edge at all, so Reactive Armor can't reflect one either.
+- Your log says "Nobody can be hurt in town." (at most every 5 seconds) when you try.
+
 ## 0.46.0
 Find your way back.
 - Eight ankh shrines stand around the map, one near the middle of each region: a stone plinth

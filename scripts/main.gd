@@ -1417,6 +1417,8 @@ func _fields_tick(delta: float) -> void:
 				continue
 			if Vector2(e.position.x - f["pos"].x, e.position.z - f["pos"].z).length() > float(f["radius"]):
 				continue
+			if e.town_protects(owner_e):
+				continue                       # fields can't touch anyone in a town
 			match String(f["kind"]):
 				"fire":
 					if float(f["acc"]) >= 1.0:
