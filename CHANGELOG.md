@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.47.1
+A prettier map.
+- The minimap is painted at three times the detail, like a drawn map: grass with soft meadows,
+  round tree crowns lit from the top-left, water deep in the middle and pale in the shallows with
+  glints, sandy shores, shaded rocks, cobbled towns, the dark dungeon, glowing forges and ridged
+  house roofs, with dark outlines where open ground meets anything solid.
+- Town names (Town, The Outpost, Southmoor) and "Dungeon" are written on it; ankh shrines are
+  little glowing ankhs; untouched treasure chests show as gold dots; everyone's dot has a dark
+  outline; your hero is a white arrow pointing where it faces (pale blue as a ghost).
+- A dark frame with a thin gold line, and a gold "N" for north.
+
 ## 0.47.0
 Magic in numbers, and your statistics.
 - The Spells panel starts with "Your magic": Magery, Evaluating Intellect, Meditation and
