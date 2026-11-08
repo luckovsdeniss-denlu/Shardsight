@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.54.0
+Players shoot.
+- Computer players use their bows and crossbows: they draw the bow while a foe is still coming
+  (more than a few steps off) and switch to the hand weapon and shield once it closes in, with a
+  moment to change weapons ("draws a bow" / "draws steel"). Archers and crossbowmen by trade
+  (Brina, Fenn) and about a quarter of the others prefer the bow and keep shooting even close in.
+- Archers pressed by something that only fights up close step back a few paces to shoot again.
+- They buy arrows from merchants as they need them, and every shot trains Archery.
+- Your hero on Auto does the same, unless you chose its gear by hand (Bow button or the Bag).
+
 ## 0.53.2
 - Fix: the Statistics panel declared a variable twice, which stopped the game's main script from
   loading (the 0.53.1 build failed its smoke test).

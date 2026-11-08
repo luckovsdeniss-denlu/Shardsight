@@ -130,7 +130,11 @@ var dig_map := ""              # the treasure map being dug up
 var dig_timer := 0.0
 var ring_id := ""              # jewelry worn (Jewelry ids)
 var amulet_id := ""
-var stowed_shield := ""        # the shield put away to draw a bow (back on when you switch back)
+var stowed_shield := ""
+var prefers_bow := false        # an archer at heart: keeps shooting even when the foe is close
+var swap_cd := 0.0              # tactical weapon swaps, not too often
+var kite_timer := 0.0           # backing off from a foe to shoot again
+var kite_cd := 0.0        # the shield put away to draw a bow (back on when you switch back)
 var hide_self := false
 var _face_yaw := 0.0            # where the body is turning to
 var _accel := 0.4               # eases from a standstill to full speed
@@ -297,6 +301,8 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	arrows = int(cfg.get("arrows", 0))
 	if kind == Kind.PLAYER:
 		arrows = maxi(arrows, Bestiary.PLAYER_ARROWS)   # every player starts with a bow and arrows
+		# archers and crossbowmen by trade keep the bow up; some others like it too
+		prefers_bow = Gear.is_ranged(String(cfg.get("weapon", ""))) or randf() < 0.25
 	fame = int(cfg.get("fame", 0)) if p_kind != Kind.PLAYER else 0
 	is_thief = bool(cfg.get("thief", false))
 	mount_speed = float(cfg.get("mount_speed", 1.0))
@@ -371,6 +377,9 @@ func tick(delta: float) -> void:
 	gate_cd = maxf(gate_cd - delta, 0.0)
 	swing_cd = maxf(swing_cd - delta, 0.0)
 	cast_cd = maxf(cast_cd - delta, 0.0)
+	swap_cd = maxf(swap_cd - delta, 0.0)
+	kite_timer = maxf(kite_timer - delta, 0.0)
+	kite_cd = maxf(kite_cd - delta, 0.0)
 	pause = maxf(pause - delta, 0.0)
 	if (ring_id != "" or amulet_id != "") and hp < float(stats.max_hp()):
 		hp = minf(hp + jewel("regen") * delta, float(stats.max_hp()))   # a Ring of Life
@@ -585,6 +594,10 @@ func _recover() -> bool:
 
 
 func _chase() -> void:
+	if kind == Kind.PLAYER and ai_enabled or (kind == Kind.PLAYER and not is_hero):
+		_tactical_weapon()
+		if _kite():
+			return
 	var reach := attack_range()
 	if (kind != Kind.PLAYER or ai_enabled) and _best_spell("attack") != "":
 		reach = maxf(reach, SPELL_RANGE)   # casters keep their distance
@@ -596,6 +609,50 @@ func _chase() -> void:
 	else:
 		path.clear()
 		_face(target.position - position)
+
+
+## Computer players (and the hero on Auto, unless you chose gear by hand) fight with the right
+## weapon for the moment: the bow or crossbow while the foe is still coming, the hand weapon
+## (and shield) once it's close. Archers at heart keep the bow up even close in.
+func _tactical_weapon() -> void:
+	if swap_cd > 0.0 or target == null or (is_hero and not auto_equip):
+		return
+	var ranged_now := weapon != "" and Gear.is_ranged(weapon)
+	var can_shoot := _has_ranged() and arrows >= 5
+	var d := position.distance_to(target.position)
+	var want_bow := can_shoot and (d > 3.5 or (prefers_bow and d > 1.4))
+	if want_bow == ranged_now:
+		return
+	var keep := auto_equip
+	switch_weapon()
+	auto_equip = keep                      # a tactical swap isn't a choice of gear
+	swap_cd = 3.0
+	swing_cd = maxf(swing_cd, 0.6)         # a moment to change weapons
+	if _near:
+		_pop("draws a bow" if want_bow else "draws steel", Color(0.85, 0.85, 0.75))
+
+
+## An archer pressed by something that only fights up close steps back to shoot again.
+## Returns true while backing off.
+func _kite() -> bool:
+	if kite_timer > 0.0:
+		return true                        # let the step back play out
+	if weapon == "" or not Gear.is_ranged(weapon) or arrows <= 0 or target == null:
+		return false
+	if target.attack_range() > MELEE_RANGE or target.target != self:
+		return false
+	if position.distance_to(target.position) > 2.2 or kite_cd > 0.0:
+		return false
+	var away := position - target.position
+	away.y = 0.0
+	if away.length() < 0.01:
+		return false
+	var dest := position + away.normalized() * 3.5
+	if world.is_blocked(world.to_tile(dest)) or not go_to(dest):
+		return false
+	kite_timer = 0.9
+	kite_cd = 3.0
+	return true
 
 
 func _wander() -> void:

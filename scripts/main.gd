@@ -3478,6 +3478,7 @@ func _spawn_all() -> void:
 
 	hero = _spawn(Entity.Kind.PLAYER, "Hero", Bestiary.HERO, gold, Vector2i(5, 5))
 	hero.is_hero = true
+	hero.prefers_bow = false                  # your hero draws a bow only at range (on Auto)
 	if not autotest:
 		hero.roam = world.zone_rect(0)            # on Auto, the hero travels the land too
 		hero.roam_timer = 300.0
