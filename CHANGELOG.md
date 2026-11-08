@@ -17,6 +17,10 @@ Find your way back.
   still lost after ten minutes.
 - Computer players' ghosts walk to the nearest shrine, healer or priest too; criminals and
   murderers, whom healers turn away, now head for a shrine instead of waiting.
+- Ghosts look like ghosts: instead of a see-through copy of the living body, a pale blue hooded
+  shroud with a dark hollow for a face and two glowing eyes, sleeves reaching out and no legs;
+  the robe narrows to a wisp that fades into nothing. The cloth ripples, the edges glow, it floats
+  and sways, leans into its glide, and sheds pale wisps. Invisibility still looks as before.
 
 ## 0.45.2
 - Menu > Hide corpse names / Show corpse names turns the labels over corpses and treasure

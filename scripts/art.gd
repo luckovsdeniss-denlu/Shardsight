@@ -924,3 +924,65 @@ static func ground_ring(c: Color, radius: float) -> MeshInstance3D:
 	mi.scale = Vector3(1.0, 0.15, 1.0)         # flattened onto the ground
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mi
+
+
+# --- ghosts ---------------------------------------------------------------------
+
+const GHOST_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_back, shadows_disabled;
+uniform vec4 tint : source_color = vec4(0.75, 0.88, 1.0, 1.0);
+varying float h;
+
+void vertex() {
+	h = VERTEX.y;
+	// the shroud ripples, more towards the wispy tail
+	float loose = clamp(1.4 - VERTEX.y, 0.0, 1.0);
+	VERTEX.x += sin(TIME * 2.5 + VERTEX.y * 5.0) * 0.045 * loose;
+	VERTEX.z += cos(TIME * 2.0 + VERTEX.y * 4.0) * 0.035 * loose;
+}
+
+void fragment() {
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	float fade = smoothstep(0.15, 0.8, h);        // the tail dissolves into nothing
+	ALBEDO = tint.rgb * COLOR.rgb;
+	ALPHA = clamp((0.22 + rim * 0.65) * fade, 0.0, 0.85);
+}
+"""
+static var _ghost_mat: ShaderMaterial
+
+
+static func ghost_mat() -> ShaderMaterial:
+	if _ghost_mat == null:
+		var sh := Shader.new()
+		sh.code = GHOST_SHADER
+		_ghost_mat = ShaderMaterial.new()
+		_ghost_mat.shader = sh
+	return _ghost_mat
+
+
+## A ghost: a hooded shroud with a dark hollow for a face and two glowing eyes, sleeves reaching
+## out, no legs (the robe narrows to a wisp that fades away), pale blue and see-through.
+static func ghost(scale: float) -> Dictionary:
+	var root := Node3D.new()
+	root.scale = Vector3.ONE * scale
+	var model := {"root": root, "legs": [], "arm": null, "spin": null, "meshes": [], "quad": false, "arm_rest": 0.0}
+	var meshes: Array = model["meshes"]
+	var shroud := _cached("ghost_shroud", func() -> Array:
+		var c := Color(0.9, 0.94, 1.0)
+		return [[cone(0.05, 1.05, 0.3, 10), at(0, 0.72, 0), c],            # the robe, narrowing to a wisp
+			[cone(0.3, 0.26, 0.36, 10), at(0, 1.2, 0), c],                  # shoulders
+			[ball(0.24, 9, 6), at(0, 1.43, 0.02), c],                         # the hood
+			[box(0.12, 0.5, 0.14), at(-0.3, 1.0, -0.06, Vector3(0.55, 0, 0.25)), c],   # sleeves reaching out
+			[box(0.12, 0.5, 0.14), at(0.3, 1.0, -0.06, Vector3(0.55, 0, -0.25)), c]])
+	var body := _instance(root, shroud, ghost_mat(), meshes)
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var face := _cached("ghost_face", func() -> Array:
+		return [[box(0.25, 0.22, 0.06), at(0, 1.4, -0.18), Color(0.03, 0.04, 0.08)]])
+	var f := _instance(root, face, vc_mat(), meshes)
+	f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var eyes := _cached("ghost_eyes", func() -> Array:
+		return [[box(0.05, 0.035, 0.02), at(-0.06, 1.43, -0.215), Color(0.55, 0.9, 1.0)],
+			[box(0.05, 0.035, 0.02), at(0.06, 1.43, -0.215), Color(0.55, 0.9, 1.0)]])
+	_instance(root, eyes, glow_mat(Color(0.5, 0.9, 1.0)), meshes)
+	return model

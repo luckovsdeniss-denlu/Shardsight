@@ -840,9 +840,9 @@ func _die(killer: Entity) -> void:
 		game.count("hero_killed_by_" + killer.display_name)
 	game.sound("death", position, 1.2 / maxf(visual_scale, 0.4))   # big creatures die lower
 	if kind == Kind.PLAYER:
-		ghost = true                   # players become ghosts and look for a healer
+		ghost = true                   # players become ghosts and look for a resurrection spot
 		dead_timer = RED_GHOST_TIMEOUT if died_red else GHOST_TIMEOUT
-		_set_ghost_look(true)
+		refresh_look()
 	elif kind == Kind.PET:
 		dead_timer = INF                 # a dead pet is gone for good
 		visible = false
@@ -855,7 +855,7 @@ func _die(killer: Entity) -> void:
 func _respawn() -> void:
 	dead = false
 	ghost = false
-	_set_ghost_look(false)
+	refresh_look()                 # the living body again
 	visible = true
 	position = home
 	path.clear()                  # an old route (e.g. a ghost's walk to the healer) starts somewhere else
@@ -1838,6 +1838,21 @@ func refresh_look() -> void:
 		(model["root"] as Node3D).queue_free()
 	if model.has("mount_root"):
 		(model["mount_root"] as Node3D).queue_free()
+	if ghost and kind == Kind.PLAYER:
+		model = Art.ghost(visual_scale)           # a shroud, not the living body
+		rig.add_child(model["root"])
+		var wisps := Fx.cast_glow(Color(0.7, 0.85, 1.0))
+		wisps.amount = 8
+		wisps.lifetime = 1.2
+		wisps.initial_velocity_min = 0.05
+		wisps.initial_velocity_max = 0.3
+		wisps.gravity = Vector3(0.0, -0.2, 0.0)       # trailing down and away from the tail
+		wisps.emission_ring_radius = 0.15
+		wisps.emission_ring_inner_radius = 0.0
+		wisps.position = Vector3(0.0, 0.35, 0.0)
+		(model["root"] as Node3D).add_child(wisps)
+		wisps.emitting = true
+		return
 	model = Art.creature(look, _look_style(), visual_scale)
 	rig.add_child(model["root"])
 	if look == "nightmare":
@@ -1864,7 +1879,7 @@ func refresh_look() -> void:
 		model["quad"] = true
 		(model["meshes"] as Array).append_array(m["meshes"])
 		model["mount_root"] = m["root"]
-	if ghost or flags.has("invisible"):
+	if flags.has("invisible"):
 		_set_ghost_look(true)
 
 
@@ -1937,7 +1952,7 @@ func _raise_at(spot: Dictionary) -> void:
 		return
 	dead = false
 	ghost = false
-	_set_ghost_look(false)
+	refresh_look()                 # the living body again
 	visible = true
 	hp = float(stats.max_hp()) * 0.5
 	mana = float(stats.max_mana())
@@ -1961,7 +1976,7 @@ func _raise_at(spot: Dictionary) -> void:
 func _resurrect_free(healer: Entity) -> void:
 	dead = false
 	ghost = false
-	_set_ghost_look(false)
+	refresh_look()                 # the living body again
 	hp = float(stats.max_hp()) * 0.5
 	mana = float(stats.max_mana())
 	pause = 1.0
@@ -2373,6 +2388,7 @@ func _animate(delta: float) -> void:
 	var tilt := 0.0
 	if ghost:
 		y = 0.25 + sin(anim_t * 2.0) * 0.08
+		tilt = 0.18 if moving else sin(anim_t * 1.3) * 0.04    # leans into its glide, sways at rest
 	elif casting_id != "":
 		y = 0.1 + sin(anim_t * 6.0) * 0.05
 	elif moving:
