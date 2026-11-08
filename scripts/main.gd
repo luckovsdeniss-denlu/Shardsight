@@ -2846,8 +2846,8 @@ func _refresh_stats() -> void:
 	stats_box.add_child(_action("No title (or your fame and karma title)", _set_title.bind(""), property.title_choice != ""))
 	for a: Dictionary in Achievements.LIST:
 		if property.achievements.has(String(a["id"])):
-			var t := String(a["title"])
-			stats_box.add_child(_action("Be known as \"%s %s\"" % [hero.display_name, t], _set_title.bind(t), property.title_choice != t))
+			var title_text := String(a["title"])
+			stats_box.add_child(_action("Be known as \"%s %s\"" % [hero.display_name, title_text], _set_title.bind(title_text), property.title_choice != title_text))
 	stats_box.add_child(_menu_button("Close", _close_stats))
 
 

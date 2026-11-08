@@ -176,11 +176,11 @@ func _draw() -> void:
 		return
 	if _terrain == null or _revision != world.revision:
 		_bake_terrain()
-	var size := custom_minimum_size
+	var vsize := custom_minimum_size
 	# the frame: a dark border with a thin gold line
-	draw_rect(Rect2(Vector2(-4, -4), size + Vector2(8, 8)), FRAME)
-	draw_texture_rect(_terrain, Rect2(Vector2.ZERO, size), false)
-	draw_rect(Rect2(Vector2(-1, -1), size + Vector2(2, 2)), GOLD, false, 1.5)
+	draw_rect(Rect2(Vector2(-4, -4), vsize + Vector2(8, 8)), FRAME)
+	draw_texture_rect(_terrain, Rect2(Vector2.ZERO, vsize), false)
+	draw_rect(Rect2(Vector2(-1, -1), vsize + Vector2(2, 2)), GOLD, false, 1.5)
 	var font := ThemeDB.fallback_font
 	# town names and the dungeon
 	for i in range(World.TOWNS.size()):

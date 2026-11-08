@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.53.2
+- Fix: the Statistics panel declared a variable twice, which stopped the game's main script from
+  loading (the 0.53.1 build failed its smoke test).
+
 ## 0.53.1
 - Treasure chests from slain monsters are rarer: 3% (was 10%). Champions still always leave one.
 

@@ -22,8 +22,8 @@ func _draw() -> void:
 	if game == null or game.hero == null:
 		return
 	var hero: Entity = game.hero
-	var size := get_viewport_rect().size
-	var c := size / 2.0
+	var vsize := get_viewport_rect().size
+	var c := vsize / 2.0
 	var font := ThemeDB.fallback_font
 	# the crosshair: a ring and a dot, outlined so it shows on any background
 	var aim: Entity = game.aimed
@@ -45,7 +45,7 @@ func _draw() -> void:
 	var s := hero.stats
 	var bw := 240.0
 	var x := c.x - bw / 2.0
-	var y := size.y - 150.0
+	var y := vsize.y - 150.0
 	_bar(Vector2(x, y), bw, hero.hp / maxf(float(s.max_hp()), 1.0), Color(0.75, 0.2, 0.18), "HP %d / %d" % [ceili(hero.hp), s.max_hp()])
 	_bar(Vector2(x, y + 19), bw, hero.mana / maxf(float(s.max_mana()), 1.0), Color(0.25, 0.4, 0.85), "Mana %d / %d" % [int(hero.mana), s.max_mana()])
 	_bar(Vector2(x, y + 38), bw, hero.stamina / maxf(float(s.max_stamina()), 1.0), Color(0.75, 0.65, 0.2), "Stamina %d / %d" % [int(hero.stamina), s.max_stamina()])
