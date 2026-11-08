@@ -244,6 +244,11 @@ func _ready() -> void:
 	_update_corner_buttons()
 	_build_select_bar(layer)
 	_build_ghost_view(layer)
+	fp_overlay = FpOverlay.new()
+	fp_overlay.game = self
+	fp_overlay.visible = false
+	layer.add_child(fp_overlay)
+	fp_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_menu(layer)
 	_build_skills_panel(layer)
 	_build_craft_panel(layer)
@@ -3664,26 +3669,52 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var button := event as InputEventMouseButton
 	if button != null and button.button_index == MOUSE_BUTTON_LEFT:
+		if property.first_person:
+			# first person: drag one finger to look round; a short tap walks or attacks
+			if button.pressed:
+				held = true
+				_press_pos = button.position
+				_dragging = false
+			else:
+				if held and not _dragging:
+					_tap(button.position)
+				held = false
+				_dragging = false
+			return
 		held = button.pressed
 		if held:
 			_tap(button.position)
 	elif event is InputEventMouseMotion and held:
-		_tap((event as InputEventMouseMotion).position)
+		var mm := event as InputEventMouseMotion
+		if property.first_person:
+			if not _dragging and mm.position.distance_to(_press_pos) > 14.0:
+				_dragging = true
+			if _dragging:
+				_fp_yaw -= mm.relative.x * 0.006
+				_fp_pitch = clampf(_fp_pitch - mm.relative.y * 0.005, -1.1, 0.5)
+				_fp_free_until = Time.get_ticks_msec() / 1000.0 + 4.0
+			return
+		_tap(mm.position)
 
 
 ## Intersects the camera ray through `screen` with the ground plane (y = 0).
 func _tap(screen: Vector2) -> void:
+	var picked := _creature_at_screen(screen, 70.0 if property.first_person else 40.0)
 	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(
 		cam.project_ray_origin(screen), cam.project_ray_normal(screen))
-	if hit == null:
+	if hit == null and picked == null:
 		return
-	var dest: Vector3 = hit
+	var dest: Vector3
+	if hit != null:
+		dest = hit
+	else:
+		dest = picked.position
 	if hero.dead:
 		if hero.ghost:
 			hero.go_to(dest)                # a ghost can only walk: find a resurrection spot
 		return
 	hero.pause = MANUAL_PAUSE  # player input wins; auto resumes after a pause
-	var e := _creature_near(dest)
+	var e := picked if picked != null else _creature_near(dest)
 	if e != null and e.kind == Entity.Kind.MONSTER:
 		hero.target = e
 		hero.loot_target = null
@@ -3782,6 +3813,26 @@ func _corpse_near(p: Vector3) -> Corpse:
 		var d := c.position.distance_to(p)
 		if d <= best_d:
 			best = c
+			best_d = d
+	return best
+
+
+## Whoever is drawn nearest to `screen` (their chest within `radius` pixels), up to 30 m away:
+## easier than hitting their feet on the ground, especially in first person.
+func _creature_at_screen(screen: Vector2, radius: float) -> Entity:
+	var best: Entity = null
+	var best_d := radius
+	for e in creatures:
+		if e == hero or e.dead or not e.visible or e.parked or e.flags.has("invisible"):
+			continue
+		if e.position.distance_to(hero.position) > 30.0:
+			continue
+		var p := e.position + Vector3(0.0, 1.0 * e.visual_scale, 0.0)
+		if cam.is_position_behind(p):
+			continue
+		var d := cam.unproject_position(p).distance_to(screen)
+		if d <= best_d:
+			best = e
 			best_d = d
 	return best
 
@@ -4147,22 +4198,88 @@ func _hero_cam_pos() -> Vector3:
 
 func _hero_cam_look() -> Vector3:
 	if property.first_person:
-		return _eye() + _fp_forward() * 4.0 + Vector3(0.0, -0.7, 0.0)   # a little downward
+		return _eye() + _fp_dir() * 4.0
 	return hero.position + Vector3(0.0, 0.5, 0.0)
 
 
 # --- first person ----------------------------------------------------------------
 
 var _fp_yaw := 0.0                     # where the first-person view faces (eases after the hero)
+var _fp_pitch := -0.17                 # up (+) or down (-), in radians
+var _fp_free_until := 0.0              # after you look round by hand, the view stays put a while
+var _press_pos := Vector2.ZERO
+var _dragging := false
+var _bob_t := 0.0
+var _bob := 0.0
+var aimed: Entity                      # whoever is under the crosshair (first person)
+var fp_overlay: FpOverlay
+var _viewmodel: Node3D
+var _vm_mesh: MeshInstance3D
+var _vm_weapon := "#"
 
 
 func _fp_forward() -> Vector3:
 	return Vector3(-sin(_fp_yaw), 0.0, -cos(_fp_yaw))
 
 
+func _fp_dir() -> Vector3:
+	var f := _fp_forward()
+	return Vector3(f.x * cos(_fp_pitch), sin(_fp_pitch), f.z * cos(_fp_pitch))
+
+
+## Everything first person needs each frame: the view eases round to where the hero walks
+## (unless you've looked round by hand lately), a gentle bob as you walk, what's under the
+## crosshair, the overlay and the weapon in your hand.
+func _fp_step(delta: float) -> void:
+	var fp := property.first_person and _flyby_t < 0.0
+	if fp_overlay != null:
+		fp_overlay.visible = fp and not hero.dead
+		if fp_overlay.visible:
+			fp_overlay.queue_redraw()
+	if not fp:
+		aimed = null
+		if _viewmodel != null:
+			_viewmodel.visible = false
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if not _dragging and now > _fp_free_until:
+		_fp_yaw = lerp_angle(_fp_yaw, hero.rotation.y, minf(1.0, 5.0 * delta))
+	var walking := not hero.path.is_empty() and not hero.dead
+	_bob_t += delta * (1.0 if walking else 0.0)
+	_bob = lerpf(_bob, sin(_bob_t * 9.0) * 0.035 if walking else 0.0, minf(1.0, 10.0 * delta))
+	aimed = _creature_at_screen(get_viewport().get_visible_rect().size / 2.0, 60.0)
+	_update_viewmodel(delta, walking)
+
+
+## Your weapon (and hand) at the lower right: swung when you strike, raised as you cast,
+## bobbing as you walk.
+func _update_viewmodel(_delta: float, walking: bool) -> void:
+	if _viewmodel == null:
+		_viewmodel = Node3D.new()
+		cam.add_child(_viewmodel)
+		_vm_mesh = MeshInstance3D.new()
+		_vm_mesh.material_override = Art.vc_mat()
+		_vm_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_viewmodel.add_child(_vm_mesh)
+		_viewmodel.scale = Vector3.ONE * 0.8
+	_viewmodel.visible = not hero.dead
+	if hero.weapon != _vm_weapon:
+		_vm_weapon = hero.weapon
+		var parts := [[Art.box(0.11, 0.34, 0.13), Art.at(0, -0.3, 0), Color(0.34, 0.28, 0.22)],
+			[Art.ball(0.065, 6, 3), Art.at(0, -0.51, 0), Art.pick(Art.SKINS, hero.display_name)]]
+		parts.append_array(Art._weapon_parts(_vm_weapon))
+		_vm_mesh.mesh = Art.merge(parts)
+	var k := 0.0
+	if hero.swing_anim > 0.0:
+		k = sin(hero.swing_anim / Entity.SWING_ANIM * PI)
+	var cast_lift := 0.25 + 0.05 * sin(Time.get_ticks_msec() * 0.008) if hero.casting_id != "" else 0.0
+	_viewmodel.position = Vector3(0.34, -0.2 + _bob * 0.5 + cast_lift * 0.3, -0.05 - 0.12 * k)
+	_viewmodel.rotation = Vector3(1.25 + 0.9 * k - cast_lift, 0.15, 0.1)
+
+
 ## The hero's eyes (higher in the saddle), a touch ahead of the head so it doesn't show.
 func _eye() -> Vector3:
-	var h := 1.55 * hero.visual_scale
+	var h := 1.55 * hero.visual_scale + _bob
 	if hero.mounted_on != null:
 		h += hero.mounted_on.saddle * hero.mounted_on.visual_scale
 	return hero.position + Vector3(0.0, h, 0.0) + _fp_forward() * 0.2
@@ -4177,7 +4294,10 @@ func _toggle_view() -> void:
 func _apply_view() -> void:
 	var fp := property.first_person
 	if fp:
-		_fp_yaw = hero.rotation.y + property.cam_yaw     # start facing where the hero faces
+		_fp_yaw = hero.rotation.y                        # start facing where the hero faces
+		_fp_pitch = -0.17
+	else:
+		_fp_step(0.0)                                     # hides the crosshair and the weapon
 	cam.fov = 75.0 if fp else 50.0
 	cam.far = 80.0 if fp else 4000.0
 	hero.hide_self = fp
@@ -4766,7 +4886,7 @@ func _close_settings() -> void:
 
 func _follow_camera() -> void:
 	if property.first_person:
-		_fp_yaw = lerp_angle(_fp_yaw, hero.rotation.y + property.cam_yaw, 0.12)   # turn smoothly
+		_fp_step(get_process_delta_time())
 		if hero.rig != null and hero.rig.visible:
 			hero.rig.visible = false        # the hero's own body stays out of view
 	cam.position = _hero_cam_pos()

@@ -3,6 +3,21 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.50.0
+A better first person.
+- Look round with one finger: drag left and right to turn, up and down to look higher or lower;
+  a short tap still walks or attacks. Leave it for four seconds and the view eases back round to
+  where the hero is heading (it used to be stuck to the hero's facing, with no way to look round).
+- A crosshair in the middle of the screen, red over a monster, with the name and health of
+  whoever is in your sights.
+- Taps pick whoever is drawn nearest your finger (their chest, not their feet), so you can
+  target monsters, players, merchants and priests by tapping them; this helps in the overhead
+  view too.
+- Your health, mana and stamina as bars at the bottom of the screen (your own bar and label over
+  your head are hidden in first person).
+- Your weapon in your hand at the lower right: it swings when you strike, lifts as you cast, and
+  bobs as you walk; the view bobs gently as you walk too.
+
 ## 0.49.0
 A living world: trade, treasure, fishing, jewelry, wear, events, sounds, sky and achievements.
 - Trade: tap a merchant for a shop window. Buy supplies (arrows, bandages, reagents, potions,
