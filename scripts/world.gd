@@ -418,6 +418,22 @@ func line_clear(a: Vector3, b: Vector3) -> bool:
 	return true
 
 
+## Whether a body can walk straight from `a` to `b`: no blocked tile on the line, nor just to
+## either side of it (so corners aren't clipped).
+func walk_clear(a: Vector3, b: Vector3) -> bool:
+	var d := Vector3(b.x - a.x, 0.0, b.z - a.z)
+	var length := d.length()
+	if length < 0.01:
+		return true
+	var side := Vector3(-d.z, 0.0, d.x) / length * 0.28 * TILE
+	var steps := int(length / (0.34 * TILE)) + 1
+	for i in range(1, steps + 1):
+		var p := a.lerp(b, float(i) / steps)
+		if is_blocked(to_tile(p)) or is_blocked(to_tile(p + side)) or is_blocked(to_tile(p - side)):
+			return false
+	return true
+
+
 func to_tile(p: Vector3) -> Vector2i:
 	return Vector2i(floori(p.x / TILE), floori(p.z / TILE))
 

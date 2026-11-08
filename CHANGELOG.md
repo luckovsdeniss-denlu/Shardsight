@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.51.0
+Livelier movement.
+- Walkers take straight lines and cut corners where it's clear, instead of zig-zagging from tile
+  centre to tile centre (for anyone near the camera), and ease into their pace from a standstill.
+- Bodies turn smoothly to face where they're going or what they fight, instead of snapping round.
+- The walk follows the actual pace: faster walkers and mounts step quicker; legs and arms ease
+  in and out of the stride; hips sway and the body leans into the walk. Standing idle, people
+  glance about.
+- Each weapon has its own attack: swords slash diagonally, daggers and kryss thrust with a long
+  lunge, maces, clubs and war hammers come down from high overhead, and bows and crossbows are
+  held out aiming (and kept raised between shots).
+- A flinch when struck: a quick jolt back from the blow.
+- Slain monsters topple backwards to the ground before they vanish, leaving their corpse.
+
 ## 0.50.0
 A better first person.
 - Look round with one finger: drag left and right to turn, up and down to look higher or lower;

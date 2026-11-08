@@ -128,7 +128,13 @@ var dig_timer := 0.0
 var ring_id := ""              # jewelry worn (Jewelry ids)
 var amulet_id := ""
 var stowed_shield := ""        # the shield put away to draw a bow (back on when you switch back)
-var hide_self := false         # the hero in first person: its own model, bar and label hidden
+var hide_self := false
+var _face_yaw := 0.0            # where the body is turning to
+var _accel := 0.4               # eases from a standstill to full speed
+var _stride_k := 0.0            # how far into a walk the legs and arms are (0 standing .. 1)
+var walk_phase := 0.0           # where in the stride the legs are
+var hit_anim := 0.0             # a flinch when struck
+var _dying := 0.0               # the fall when slain (seconds left)         # the hero in first person: its own model, bar and label hidden
 var _hit_sound := ""            # set by whoever strikes us, so the blow sounds like what hit what
 var cast_bar: MeshInstance3D    # the hero's casting progress, under the health bar
 var cast_total := 1.0           # seconds the current cast takes
@@ -341,6 +347,9 @@ func tick(delta: float) -> void:
 	_tick_reputation(delta)              # flags and counts keep fading even while dead
 	if dead:
 		hp_bar.visible = false
+		if _dying > 0.0:
+			_fall_step(delta)
+			return
 		if ghost:
 			_ghost_tick(delta)
 			if _near:
@@ -610,8 +619,27 @@ func go_to(dest: Vector3) -> bool:
 	var p: Array[Vector3] = world.find_path(position, dest, _avoids_town())
 	if p.is_empty():
 		return false
-	path = p
+	path = _smooth_path(p) if _near else p     # straight lines and cut corners where it's clear
 	return true
+
+
+## Pulls a tile-by-tile path tight: from each point, jump to the furthest of the next few that
+## can be walked to in a straight line, so walkers go diagonally and round corners smoothly
+## instead of zig-zagging from tile centre to tile centre.
+func _smooth_path(p: Array[Vector3]) -> Array[Vector3]:
+	if p.size() < 3:
+		return p
+	var out: Array[Vector3] = []
+	var anchor := position
+	var i := 0
+	while i < p.size():
+		var j := mini(i + 4, p.size() - 1)
+		while j > i and not world.walk_clear(anchor, p[j]):
+			j -= 1
+		out.append(p[j])
+		anchor = p[j]
+		i = j + 1
+	return out
 
 
 func _nearest(k: int, max_dist: float) -> Entity:
@@ -641,7 +669,8 @@ func _find_role(r: String) -> Entity:
 # --- movement --------------------------------------------------------------
 
 func _follow_path(delta: float) -> void:
-	var budget := speed * delta * (mounted_on.mount_speed if mounted_on != null else 1.0)
+	_accel = move_toward(_accel, 1.0, delta * 5.0) if not path.is_empty() else 0.4   # a step to get going
+	var budget := speed * delta * (mounted_on.mount_speed if mounted_on != null else 1.0) * _accel
 	if effects.has("hiding") and not path.is_empty():
 		stealth_left -= budget
 		if stealth_left < 0.0:
@@ -660,9 +689,12 @@ func _follow_path(delta: float) -> void:
 			budget = 0.0
 
 
+## Turns towards `v`: smoothly when on screen (the animation eases round), at once when not.
 func _face(v: Vector3) -> void:
 	if v.length() > 0.001:
-		rotation.y = atan2(-v.x, -v.z)
+		_face_yaw = atan2(-v.x, -v.z)
+		if not _near or model.is_empty():
+			rotation.y = _face_yaw
 
 
 # --- combat ----------------------------------------------------------------
@@ -802,6 +834,7 @@ func take_damage(amount: float, from: Entity) -> void:
 		attackers[aid] = MURDER_WINDOW
 	hp -= amount
 	hurt_timer = HURT_NO_REGEN
+	hit_anim = 0.18
 	if paralyzed_timer > 0.0:
 		paralyzed_timer = 0.0               # a blow breaks Paralyze
 	if peaced_timer > 0.0 or (enticed_timer > 0.0 and from == enticer):
@@ -872,10 +905,12 @@ func _die(killer: Entity) -> void:
 		game.on_pet_died(self)
 	else:
 		dead_timer = respawn_time
-		visible = false
+		_dying = 0.7 if _near else 0.0         # topples over before vanishing (its corpse stays)
+		visible = _dying > 0.0
 
 
 func _respawn() -> void:
+	_dying = 0.0
 	dead = false
 	ghost = false
 	refresh_look()                 # the living body again
@@ -2499,29 +2534,55 @@ func _animate(delta: float) -> void:
 	swing_anim = maxf(swing_anim - delta, 0.0)
 	var moving := position.distance_to(_last_pos) > 0.001
 	_last_pos = position
+	rotation.y = lerp_angle(rotation.y, _face_yaw, minf(1.0, 12.0 * delta))   # turn smoothly
+	_stride_k = move_toward(_stride_k, 1.0 if moving else 0.0, delta * 6.0)
+	hit_anim = maxf(hit_anim - delta, 0.0)
+	# the walking rhythm follows the actual pace (faster walkers, and mounts, step quicker)
+	var cadence := 2.75 * speed * (mounted_on.mount_speed if mounted_on != null else 1.0)
+	walk_phase += delta * cadence * _stride_k
 	var y := 0.0
 	var tilt := 0.0
+	var roll := 0.0
+	var glance := 0.0
 	if ghost:
 		y = 0.25 + sin(anim_t * 2.0) * 0.08
 		tilt = 0.18 if moving else sin(anim_t * 1.3) * 0.04    # leans into its glide, sways at rest
 	elif casting_id != "":
 		y = 0.1 + sin(anim_t * 6.0) * 0.05
-	elif moving:
-		y = absf(sin(anim_t * 11.0)) * 0.09
+	elif _stride_k > 0.01:
+		y = absf(sin(walk_phase)) * 0.08 * _stride_k
+		roll = sin(walk_phase) * 0.05 * _stride_k              # the hips sway side to side
+		tilt = 0.06 * _stride_k                                 # leaning into the walk
 	elif gather_tile.x >= 0:
 		tilt = maxf(sin(anim_t * 6.0), 0.0) * 0.35
 	else:
 		y = sin(anim_t * 2.0) * 0.015
+		glance = sin(anim_t * 0.6) * 0.08 if target == null else 0.0   # glancing about while idle
 	var z := 0.0
 	if swing_anim > 0.0:
 		var k := sin(swing_anim / SWING_ANIM * PI)
-		z = -0.25 * k
-		tilt += 0.25 * k
+		var wb := Gear.base(weapon)
+		if wb in ["dagger", "kryss"]:
+			z = -0.38 * k                    # a quick thrust: lunge further, lean less
+			tilt += 0.12 * k
+		elif wb in ["mace", "club", "war_hammer"]:
+			z = -0.2 * k                     # a smash: up on the toes, then down
+			y += 0.06 * k
+			tilt += 0.32 * k
+		elif Gear.is_ranged(weapon):
+			tilt -= 0.08 * k                 # loosing an arrow: a little lean back
+		else:
+			z = -0.25 * k
+			tilt += 0.25 * k
+	if hit_anim > 0.0:                       # flinching from a blow
+		var h := hit_anim / 0.18
+		tilt -= 0.22 * h
+		z += 0.07 * h
 	rig.position = Vector3(0.0, y, z)
-	rig.rotation.x = -tilt
+	rig.rotation = Vector3(-tilt, glance, roll)
 	if model.is_empty():
 		return
-	var stride := sin(anim_t * 11.0) * 0.6 if moving and not ghost else 0.0
+	var stride := sin(walk_phase) * 0.6 * _stride_k if not ghost else 0.0
 	var legs: Array = model["legs"]
 	for i in range(legs.size()):
 		# two legs: left/right alternate; four: front-left with back-right, front-right with back-left
@@ -2530,8 +2591,23 @@ func _animate(delta: float) -> void:
 	var arm: Node3D = model["arm"]
 	if arm != null:
 		var rest := float(model["arm_rest"])
+		var wb := Gear.base(weapon)
+		var ranged := weapon != "" and Gear.is_ranged(weapon)
+		arm.rotation.z = move_toward(arm.rotation.z, 0.0, delta * 6.0)
 		if swing_anim > 0.0:
-			arm.rotation.x = rest - 1.5 * sin(swing_anim / SWING_ANIM * PI)
+			var p := 1.0 - swing_anim / SWING_ANIM          # 0 .. 1 through the blow
+			var k := sin(p * PI)
+			if ranged:
+				arm.rotation.x = rest - 1.45                 # held out, aiming
+			elif wb in ["dagger", "kryss"]:
+				arm.rotation.x = rest - 1.35 * k             # a straight thrust
+			elif wb in ["mace", "club", "war_hammer"]:
+				arm.rotation.x = rest - lerpf(2.7, 0.3, p)   # raised high, brought down hard
+			else:
+				arm.rotation.x = rest - 1.6 * k              # a diagonal slash
+				arm.rotation.z = 0.55 * k
+		elif ranged and target != null and is_instance_valid(target) and not target.dead:
+			arm.rotation.x = rest - 1.4                      # keeps the bow up between shots
 		elif casting_id != "":
 			arm.rotation.x = rest - 1.2 - sin(anim_t * 8.0) * 0.2
 		elif gather_tile.x >= 0:
@@ -4182,6 +4258,22 @@ func jewel(key: String) -> float:
 	return t
 
 
+## Topples over when slain (monsters; it then vanishes, leaving its corpse).
+func _fall_step(delta: float) -> void:
+	_dying -= delta
+	var k := clampf(1.0 - _dying / 0.7, 0.0, 1.0)
+	var e := 1.0 - (1.0 - k) * (1.0 - k)          # quick at first, settling at the end
+	if rig != null:
+		rig.rotation = Vector3(e * 1.45, 0.0, 0.0)  # backwards onto the ground
+		rig.position = Vector3(0.0, -0.1 * e, 0.25 * e)
+	if _dying <= 0.0:
+		_dying = 0.0
+		visible = false
+		if rig != null:
+			rig.rotation = Vector3.ZERO
+			rig.position = Vector3.ZERO
+
+
 ## Brings a pooled event creature (guardian, invader, champion...) back to life at `p`.
 func revive_at(p: Vector3) -> void:
 	home = p
@@ -4192,6 +4284,7 @@ func revive_at(p: Vector3) -> void:
 
 ## Takes an event creature out of the world quietly (no corpse), to be reused later.
 func vanish() -> void:
+	_dying = 0.0
 	dead = true
 	ghost = false
 	visible = false
