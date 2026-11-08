@@ -545,13 +545,150 @@ void fragment() {
 """
 
 
+## Leaves and grass that sway in the wind: vertex colour (with each instance's tint), the top of
+## the plant swinging more than its base, each plant on its own beat.
+const FOLIAGE_SHADER := """
+shader_type spatial;
+render_mode cull_disabled;
+void vertex() {
+	vec3 o = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	float h = max(VERTEX.y, 0.0);
+	float sway = sin(TIME * 1.7 + o.x * 0.8 + o.z * 0.55) + 0.4 * sin(TIME * 3.1 + o.z * 1.3);
+	VERTEX.x += sway * 0.035 * h * h;
+	VERTEX.z += cos(TIME * 1.3 + o.x * 0.6) * 0.02 * h * h;
+}
+void fragment() {
+	ALBEDO = COLOR.rgb;
+	ROUGHNESS = 0.9;
+}
+"""
+static var _foliage: ShaderMaterial
+
+
+static func _foliage_mat() -> ShaderMaterial:
+	if _foliage == null:
+		var sh := Shader.new()
+		sh.code = FOLIAGE_SHADER
+		_foliage = ShaderMaterial.new()
+		_foliage.shader = sh
+	return _foliage
+
+
+func _next_to(t: Vector2i, kind: int) -> bool:
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var n := t + d
+		if in_bounds(n) and tiles[n.y * cols + n.x] == kind:
+			return true
+	return false
+
+
+## The ground, painted once: grass with meadows, sandy shores by the water, a dark forest floor
+## under the trees and dirt roads between the towns and out to the dungeon, the graveyard, the
+## orc fort and the western woods, all blending softly; a fine grain on top.
+const GROUND_SHADER := """
+shader_type spatial;
+uniform sampler2D paint : source_color, filter_linear;
+uniform sampler2D grain : filter_linear, repeat_enable;
+uniform vec2 grain_scale = vec2(24.0, 12.0);
+void fragment() {
+	vec3 base = texture(paint, UV).rgb;
+	float g = texture(grain, UV * grain_scale).r;
+	ALBEDO = base * (0.86 + 0.28 * g);
+	ROUGHNESS = 1.0;
+}
+"""
+const PAINT_PX := 4                     # painted pixels a tile (the grain adds the fine detail)
+const ROAD_STOPS := [Vector2i(24, 11), Vector2i(36, 5), Vector2i(48, 33), Vector2i(35, 16),
+	Vector2i(87, 34), Vector2i(87, 10), Vector2i(8, 30)]
+const ROADS := [[0, 1], [0, 2], [0, 3], [2, 4], [1, 5], [0, 6]]   # pairs of ROAD_STOPS
+
+
+func _ground_mat() -> ShaderMaterial:
+	# weights per tile, sampled smoothly between tiles
+	var road := PackedFloat32Array()
+	var sand := PackedFloat32Array()
+	var forest := PackedFloat32Array()
+	road.resize(cols * rows)
+	sand.resize(cols * rows)
+	forest.resize(cols * rows)
+	for pair in ROADS:
+		var a: Vector2i = ROAD_STOPS[int(pair[0])]
+		var b: Vector2i = ROAD_STOPS[int(pair[1])]
+		for p in find_path(tile_center(a), tile_center(b)):
+			var t := to_tile(p)
+			road[t.y * cols + t.x] = 1.0
+	for y in range(rows):
+		for x in range(cols):
+			var t := Vector2i(x, y)
+			if tiles[y * cols + x] == Tile.WATER or _next_to(t, Tile.WATER):
+				sand[y * cols + x] = 1.0
+			if tiles[y * cols + x] == Tile.TREE:
+				forest[y * cols + x] = 1.0
+			elif _next_to(t, Tile.TREE):
+				forest[y * cols + x] = 0.6
+	var w := cols * PAINT_PX
+	var h := rows * PAINT_PX
+	var img := Image.create(w, h, false, Image.FORMAT_RGB8)
+	var noise := FastNoiseLite.new()
+	noise.seed = 21
+	noise.frequency = 0.015
+	var grass_a := Color("2c552f")
+	var grass_b := Color("4a7a3c")
+	var dirt := Color("7a6345")
+	var sand_c := Color("b8a57a")
+	var floor_c := Color("2a3a22")
+	for py in range(h):
+		var fy := (py + 0.5) / PAINT_PX - 0.5
+		for px in range(w):
+			var fx := (px + 0.5) / PAINT_PX - 0.5
+			var n := noise.get_noise_2d(px, py) * 0.5 + 0.5
+			var col := grass_a.lerp(grass_b, smoothstep(0.3, 0.8, n))
+			col = col.lerp(floor_c, _sample(forest, fx, fy) * 0.75)
+			col = col.lerp(sand_c, smoothstep(0.2, 0.9, _sample(sand, fx, fy)))
+			col = col.lerp(dirt.lerp(dirt.darkened(0.15), n), smoothstep(0.25, 0.85, _sample(road, fx, fy)))
+			img.set_pixel(px, py, col)
+	var grain := NoiseTexture2D.new()
+	grain.width = 128
+	grain.height = 128
+	grain.seamless = true
+	var gn := FastNoiseLite.new()
+	gn.frequency = 0.08
+	grain.noise = gn
+	var sh := Shader.new()
+	sh.code = GROUND_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("paint", ImageTexture.create_from_image(img))
+	m.set_shader_parameter("grain", grain)
+	m.set_shader_parameter("grain_scale", Vector2(cols, rows) / 4.0)
+	return m
+
+
+## A per-tile weight read smoothly at a fractional tile position (bilinear).
+func _sample(grid: PackedFloat32Array, fx: float, fy: float) -> float:
+	var x0 := clampi(floori(fx), 0, cols - 1)
+	var y0 := clampi(floori(fy), 0, rows - 1)
+	var x1 := mini(x0 + 1, cols - 1)
+	var y1 := mini(y0 + 1, rows - 1)
+	var tx := clampf(fx - x0, 0.0, 1.0)
+	var ty := clampf(fy - y0, 0.0, 1.0)
+	var top := lerpf(grid[y0 * cols + x0], grid[y0 * cols + x1], tx)
+	var bottom := lerpf(grid[y1 * cols + x0], grid[y1 * cols + x1], tx)
+	return lerpf(top, bottom, ty)
+
+
 ## The low-poly scenery pieces (flat-shaded, vertex-coloured, shared by every instance).
 static func _wall_piece() -> ArrayMesh:
 	var stone := Color(0.46, 0.47, 0.5)
 	return Art.merge([[Art.box(TILE, 1.5, TILE), Art.at(0, 0.75, 0), stone],
 		[Art.box(TILE * 1.02, 0.12, TILE * 1.02), Art.at(0, 1.55, 0), stone.lightened(0.18)],
 		[Art.box(TILE * 1.01, 0.05, TILE * 1.01), Art.at(0, 0.5, 0), stone.darkened(0.15)],
-		[Art.box(TILE * 1.01, 0.05, TILE * 1.01), Art.at(0, 1.0, 0), stone.darkened(0.15)]])
+		[Art.box(TILE * 1.01, 0.05, TILE * 1.01), Art.at(0, 1.0, 0), stone.darkened(0.15)],
+		# battlements: a merlon on each corner, crenels between
+		[Art.box(TILE * 0.3, 0.26, TILE * 0.3), Art.at(-TILE * 0.35, 1.74, -TILE * 0.35), stone.lightened(0.1)],
+		[Art.box(TILE * 0.3, 0.26, TILE * 0.3), Art.at(TILE * 0.35, 1.74, -TILE * 0.35), stone.lightened(0.05)],
+		[Art.box(TILE * 0.3, 0.26, TILE * 0.3), Art.at(-TILE * 0.35, 1.74, TILE * 0.35), stone.lightened(0.05)],
+		[Art.box(TILE * 0.3, 0.26, TILE * 0.3), Art.at(TILE * 0.35, 1.74, TILE * 0.35), stone.lightened(0.1)]])
 
 
 static func _pine() -> ArrayMesh:
@@ -579,6 +716,22 @@ static func _rock_piece() -> ArrayMesh:
 		[Art.ball(0.18, 5, 3), Art.at(-0.22, 0.12, 0.25), grey.darkened(0.1)]])
 
 
+static func _bush() -> ArrayMesh:
+	var leaves := Color(0.2, 0.42, 0.2)
+	return Art.merge([[Art.ball(0.32, 6, 4), Art.at(0, 0.24, 0, Vector3.ZERO, Vector3(1.1, 0.8, 1.0)), leaves],
+		[Art.ball(0.22, 6, 3), Art.at(0.22, 0.2, 0.1), leaves.lightened(0.1)],
+		[Art.ball(0.2, 6, 3), Art.at(-0.2, 0.18, -0.08), leaves.darkened(0.1)],
+		[Art.ball(0.05, 4, 2), Art.at(0.1, 0.42, -0.12), Color(0.85, 0.2, 0.25)],      # a few berries
+		[Art.ball(0.05, 4, 2), Art.at(-0.12, 0.36, 0.14), Color(0.85, 0.2, 0.25)]])
+
+
+static func _pebbles() -> ArrayMesh:
+	var grey := Color(0.56, 0.54, 0.5)
+	return Art.merge([[Art.ball(0.1, 5, 3), Art.at(0, 0.04, 0, Vector3.ZERO, Vector3(1.2, 0.6, 1.0)), grey],
+		[Art.ball(0.07, 5, 3), Art.at(0.14, 0.03, 0.06, Vector3.ZERO, Vector3(1.0, 0.6, 1.2)), grey.darkened(0.1)],
+		[Art.ball(0.05, 4, 2), Art.at(-0.1, 0.02, 0.1), grey.lightened(0.1)]])
+
+
 static func _tuft() -> ArrayMesh:
 	var g := Color(0.3, 0.55, 0.26)
 	return Art.merge([[Art.cone(0.05, 0.28, 0.0, 4), Art.at(0, 0.14, 0, Vector3(0.2, 0, 0.1)), g],
@@ -601,9 +754,7 @@ func build(parent: Node3D) -> void:
 	rnd.seed = 4242                        # the same forest every time
 	var ground_mesh := PlaneMesh.new()
 	ground_mesh.size = Vector2(cols, rows) * TILE
-	_add(parent, ground_mesh,
-		_noise_mat([Color("284f2c"), Color("36663a"), Color("4b7a3e")], 0.03, false, Vector2(cols, rows) / 10.0),
-		Vector3(cols, 0.0, rows) * TILE / 2.0)
+	_add(parent, ground_mesh, _ground_mat(), Vector3(cols, 0.0, rows) * TILE / 2.0)
 	for r in TOWNS:
 		_add_floor(parent, r, Color("8a7f5a"),
 			_noise_mat([Color("a49678"), Color("8c7f63"), Color("5a5142")], 0.04, true, Vector2(r.size) / 3.0))
@@ -684,10 +835,31 @@ func build(parent: Node3D) -> void:
 					elif roll < 0.13:
 						flowers.append(Transform3D(turn, c + off))
 						flower_tints.append(petals[rnd.randi() % petals.size()])
+	# Bushes at the forest edges and pebbles across the fields.
+	var bushes: Array[Transform3D] = []
+	var bush_tints: Array[Color] = []
+	var pebbles: Array[Transform3D] = []
+	var pebble_tints: Array[Color] = []
+	for y in range(rows):
+		for x in range(cols):
+			var t := Vector2i(x, y)
+			if tiles[y * cols + x] != Tile.GRASS or is_town(t) or is_dungeon(t):
+				continue
+			var off := Vector3(rnd.randf_range(-0.3, 0.3), 0, rnd.randf_range(-0.3, 0.3))
+			if _next_to(t, Tile.TREE) and rnd.randf() < 0.3:
+				var k := rnd.randf_range(0.7, 1.2)
+				bushes.append(Transform3D(Basis(Vector3.UP, rnd.randf() * TAU).scaled(Vector3(k, k * rnd.randf_range(0.8, 1.1), k)), tile_center(t) + off))
+				bush_tints.append(Color(rnd.randf_range(0.85, 1.05), rnd.randf_range(0.9, 1.08), rnd.randf_range(0.85, 1.0)))
+			elif rnd.randf() < 0.04:
+				pebbles.append(Transform3D(Basis(Vector3.UP, rnd.randf() * TAU).scaled(Vector3.ONE * rnd.randf_range(0.6, 1.2)), tile_center(t) + off))
+				var g := rnd.randf_range(0.85, 1.1)
+				pebble_tints.append(Color(g, g, g * 0.97))
 	var vc := Art.vc_mat()
+	var leafy := _foliage_mat()                 # trees, bushes, grass and flowers sway in the wind
 	_add_batch(parent, _wall_piece(), vc, walls, wall_tints)
 	_add_batch(parent, water_mesh, water_mat, waters, water_tints)
-	_add_batch(parent, _pine(), vc, pines, pine_tints)
-	_add_batch(parent, _oak(), vc, oaks, oak_tints)
+	_add_batch(parent, _pine(), leafy, pines, pine_tints)
+	_add_batch(parent, _oak(), leafy, oaks, oak_tints)
 	_add_batch(parent, _rock_piece(), vc, rocks, rock_tints)
-	decor = _add_batch(parent, _tuft(), vc, tufts, tuft_tints) + _add_batch(parent, _flower(), vc, flowers, flower_tints)
+	decor = _add_batch(parent, _tuft(), leafy, tufts, tuft_tints) + _add_batch(parent, _flower(), leafy, flowers, flower_tints) \
+		+ _add_batch(parent, _bush(), leafy, bushes, bush_tints) + _add_batch(parent, _pebbles(), vc, pebbles, pebble_tints)

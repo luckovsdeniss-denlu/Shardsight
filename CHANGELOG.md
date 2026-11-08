@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.48.0
+A prettier world.
+- The ground is painted once at the start instead of one flat noise: grass with soft meadows,
+  sandy shores round the water, a dark forest floor under and beside the trees, and dirt roads
+  from the main town to the outpost, Southmoor, the dungeon's gate and the western woods, and on
+  to the graveyard and the orc fort, all blending softly, with a fine grain on top.
+- Trees, bushes, grass and flowers sway in the wind, each on its own beat; trunks barely move,
+  crowns and tips swing.
+- Bushes with red berries at the forest edges, and pebbles scattered across the fields (hidden on
+  Low graphics, like the grass and flowers).
+- Town and dungeon walls have battlements.
+- Light from the sky all round (bluish from above, a green bounce from the ground) instead of
+  one flat ambient colour, so everything looks rounder.
+
 ## 0.47.1
 A prettier map.
 - The minimap is painted at three times the detail, like a drawn map: grass with soft meadows,

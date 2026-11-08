@@ -2916,6 +2916,17 @@ func _build_environment() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.62, 0.66, 0.76)
 	env.ambient_light_energy = 0.8
+	# Light from the sky all round: bluish from above, a green bounce from the ground below, so
+	# shapes read rounder than under one flat ambient colour (the background stays plain).
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.42, 0.58, 0.85)
+	sky_mat.sky_horizon_color = Color(0.72, 0.78, 0.86)
+	sky_mat.ground_horizon_color = Color(0.45, 0.5, 0.4)
+	sky_mat.ground_bottom_color = Color(0.2, 0.3, 0.17)
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	# Filmic tone mapping keeps bright fire and sunlit grass from washing out; a light haze
 	# gives the distance some depth (weather thickens it); glow is set by the graphics level.
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
