@@ -382,7 +382,7 @@ func _build_skills_panel(layer: CanvasLayer) -> void:
 
 ## Long lists scroll (drag on a phone) so they fit the screen.
 func _scroll_wrap(box: VBoxContainer) -> ScrollContainer:
-	var scroll := ScrollContainer.new()
+	var scroll := TouchScroll.new()                 # drag anywhere to scroll, flick to glide
 	scroll.custom_minimum_size = Vector2(880, 560)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL

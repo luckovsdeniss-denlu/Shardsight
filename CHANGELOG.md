@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.54.2
+- Scrolling the menus with a finger works properly: drag anywhere in a list, even starting on a
+  button, and it scrolls without pressing the button (before, a drag that began on a button didn't
+  scroll and pressed the button on release); flick it and it glides on and slows to a stop; a
+  short tap still presses buttons; the scroll bar is wider so you can see where you are.
+
 ## 0.54.1
 - Your hero's name and title show over its head above the level and HP, even with names hidden
   ("Hero the Slayer" with an achievement title, or the fame and karma title such as "Hero the
