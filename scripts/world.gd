@@ -84,6 +84,7 @@ var astar_outside := AStarGrid2D.new()   # same grid, but the towns are walled o
 var forge_tile := Vector2i(-1, -1)
 var house_nodes := {}            # house origin -> Node3D holding its meshes
 var decor: Array = []            # the grass tufts and flowers (hidden on Low graphics)
+var ground_mesh: PlaneMesh            # the land (finer on Medium and High graphics)
 var ground_material: ShaderMaterial    # the painted ground (its cloud shadows follow the weather)
 var revision := 0                # bumped when tiles change (houses), so the minimap redraws them
 var _harvest_left := {}          # tile -> tries left
@@ -538,6 +539,15 @@ func height_at(p: Vector3) -> float:
 	return lerpf(top, bottom, tz)
 
 
+## Two quads a tile for smooth hills, or one on Low graphics (a quarter of the triangles).
+func set_ground_detail(fine: bool) -> void:
+	if ground_mesh == null:
+		return
+	var per := 2 if fine else 1
+	ground_mesh.subdivide_width = cols * per - 1
+	ground_mesh.subdivide_depth = rows * per - 1
+
+
 ## Levels the land under (and just round) a house, at the height of its middle.
 func _flatten(r: Rect2i, h: float) -> void:
 	for j in range(maxi(r.position.y - 1, 0), mini(r.end.y + 1, rows) + 1):
@@ -937,7 +947,7 @@ func build(parent: Node3D) -> void:
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = 4242                        # the same forest every time
 	_build_heights()
-	var ground_mesh := PlaneMesh.new()
+	ground_mesh = PlaneMesh.new()
 	ground_mesh.size = Vector2(cols, rows) * TILE
 	ground_mesh.subdivide_width = cols * 2 - 1        # two quads a tile, to carry the hills
 	ground_mesh.subdivide_depth = rows * 2 - 1

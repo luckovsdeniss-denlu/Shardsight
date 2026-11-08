@@ -897,6 +897,35 @@ func _quest_text() -> String:
 
 
 ## Called by Entity._die for every death.
+# --- keeping the frame rate up --------------------------------------------------------------
+
+var _render_base := 0.85              # the 3D resolution the graphics setting asks for
+var _render_scale := 0.85             # what it is right now
+var _fps_acc := 0.0
+var _fps_frames := 0
+
+
+## If the game runs slowly (under 28 frames a second), the 3D picture is drawn at a lower
+## resolution, a step at a time, down to 55%; once it runs smoothly again (over 50) it climbs
+## back to what the graphics setting asks for. The buttons and text stay sharp.
+func _adapt_resolution(delta: float) -> void:
+	_fps_acc += delta
+	_fps_frames += 1
+	if _fps_acc < 2.0:
+		return
+	var fps := _fps_frames / _fps_acc
+	_fps_acc = 0.0
+	_fps_frames = 0
+	var want := _render_scale
+	if fps < 28.0:
+		want = maxf(_render_scale - 0.05, 0.55)
+	elif fps > 50.0:
+		want = minf(_render_scale + 0.05, _render_base)
+	if not is_equal_approx(want, _render_scale):
+		_render_scale = want
+		get_viewport().scaling_3d_scale = _render_scale
+
+
 # --- the world in motion: banners, birds, butterflies, leaves, the ankhs ---------------------
 
 const BANNER_SHADER := """
@@ -4271,6 +4300,7 @@ func _process(delta: float) -> void:
 		_follow_camera()
 	_update_rings()
 	_cull_fx(delta)
+	_adapt_resolution(delta)
 	_events_tick(delta)
 	_world_life(delta)
 	_ambience_tick(delta)
@@ -4477,6 +4507,7 @@ var _dragging := false
 var _bob_t := 0.0
 var _bob := 0.0
 var aimed: Entity                      # whoever is under the crosshair (first person)
+var _aim_acc := 0.0
 var fp_overlay: FpOverlay
 var _viewmodel: Node3D
 var _vm_mesh: MeshInstance3D
@@ -4512,7 +4543,10 @@ func _fp_step(delta: float) -> void:
 	var walking := not hero.path.is_empty() and not hero.dead
 	_bob_t += delta * (1.0 if walking else 0.0)
 	_bob = lerpf(_bob, sin(_bob_t * 9.0) * 0.035 if walking else 0.0, minf(1.0, 10.0 * delta))
-	aimed = _creature_at_screen(get_viewport().get_visible_rect().size / 2.0, 60.0)
+	_aim_acc -= delta
+	if _aim_acc <= 0.0:                     # who's in the sights, ten times a second
+		_aim_acc = 0.1
+		aimed = _creature_at_screen(get_viewport().get_visible_rect().size / 2.0, 60.0)
 	_update_viewmodel(delta, walking)
 
 
@@ -4947,12 +4981,19 @@ func _apply_daylight() -> void:
 		env.fog_light_color = env.background_color       # the haze takes the sky's colour
 	env.ambient_light_energy = lerpf(0.45, 0.8, light)
 	_sky_acc += get_process_delta_time()
-	if _sky_acc >= 1.0 or _flash > 0.0:                # the sky changes slowly: once a second will do
+	# The sky changes slowly, and each change re-lights the world from it, so it's updated at most
+	# every 3 seconds and only when it has visibly changed (lightning at once).
+	var dusk := clampf(1.0 - absf(sun_height) * 3.0, 0.0, 1.0) * (1.0 if weather == "clear" else 0.4)
+	var cloudy := 0.0 if weather == "clear" else 0.7
+	if _flash > 0.0 or (_sky_acc >= 3.0 and (absf(light - _sky_light) > 0.02 or absf(dusk - _sky_dusk) > 0.03 or cloudy != _sky_cloudy)):
 		_sky_acc = 0.0
+		_sky_light = light
+		_sky_dusk = dusk
+		_sky_cloudy = cloudy
 		sky_mat.set_shader_parameter("light", light)
-		sky_mat.set_shader_parameter("dusk", clampf(1.0 - absf(sun_height) * 3.0, 0.0, 1.0) * (1.0 if weather == "clear" else 0.4))
+		sky_mat.set_shader_parameter("dusk", dusk)
 		sky_mat.set_shader_parameter("sun_dir", sun.global_transform.basis.z)
-		sky_mat.set_shader_parameter("cloudy", 0.0 if weather == "clear" else 0.7)
+		sky_mat.set_shader_parameter("cloudy", cloudy)
 	_fireflies_step(sun_height < -0.15 and weather == "clear")
 	var night := clampf(1.0 - light * 1.6, 0.0, 1.0)
 	for l in brazier_lights:
@@ -5000,6 +5041,9 @@ void sky() {
 """
 var sky_mat: ShaderMaterial
 var _sky_acc := 10.0
+var _sky_light := -1.0
+var _sky_dusk := -1.0
+var _sky_cloudy := -1.0
 var _fireflies: CPUParticles3D
 
 
@@ -5108,13 +5152,20 @@ func _cycle_graphics() -> void:
 func _apply_graphics() -> void:
 	var g := property.graphics
 	sun.shadow_enabled = g != "low"
+	# shadows only as far as the camera sees, in one cascade (two on High): far cheaper than the
+	# default four cascades out to 100 m
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if g == "high" else DirectionalLight3D.SHADOW_ORTHOGONAL
+	sun.directional_shadow_max_distance = 45.0 if g == "high" else 30.0
+	world.set_ground_detail(g != "low")
+	_render_base = {"low": 0.7, "medium": 0.85, "high": 1.0}[g]
+	_render_scale = _render_base
 	for n in world.decor:
 		if n != null:
 			(n as Node3D).visible = g != "low"
 	var vp := get_viewport()
 	vp.scaling_3d_scale = {"low": 0.7, "medium": 0.85, "high": 1.0}[g]
 	vp.msaa_3d = Viewport.MSAA_2X if g == "high" else Viewport.MSAA_DISABLED
-	env.glow_enabled = g != "low"                     # a soft glow round fire and magic
+	env.glow_enabled = g == "high"                    # a soft glow round fire and magic (costly on phones)
 	if rain != null:
 		rain.amount = 250 if g == "low" else (800 if weather == "storm" else 500)
 

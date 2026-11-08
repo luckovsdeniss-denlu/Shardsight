@@ -471,7 +471,7 @@ func tick(delta: float) -> void:
 		return
 	# Decisions a few times a second (they scan everyone around); moving and swinging every frame.
 	_think_acc += delta
-	if _think_acc >= _think_every:
+	if _think_acc >= _think_every * (1.0 if _near or is_hero else 3.0):   # far off screen: think less often
 		_think(_think_acc)
 		_think_acc = 0.0
 	_follow_path(delta)

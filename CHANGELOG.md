@@ -3,6 +3,23 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.55.1
+Faster.
+- Sun shadows only as far as the camera sees (30 m, 45 m on High) in one cascade (two on High),
+  instead of the default four cascades out to 100 m: the costliest single thing on a phone.
+- The soft glow round fire and magic is now High graphics only.
+- The sky re-lights the world at most every 3 seconds, and only when it has visibly changed
+  (lightning at once), instead of every second.
+- The 3D resolution adapts: if the game runs under 28 frames a second it is lowered a step at a
+  time (to 55% at most), and raised back to the graphics setting's once it runs smoothly again.
+  Buttons and text stay sharp.
+- Creatures far off screen make their decisions a third as often (they still move and fight
+  every frame).
+- On Low graphics the land is built with one quad a tile instead of two (a quarter of the
+  triangles).
+- First person looks for whoever's in the sights ten times a second, not every frame; the minimap
+  redraws twice a second.
+
 ## 0.55.0
 Hills and hollows.
 - The land rises and falls: gentle hills up to about three metres out in the wilds, higher in

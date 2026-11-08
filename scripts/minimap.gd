@@ -64,7 +64,7 @@ func _gui_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	_timer -= delta
 	if _timer <= 0.0:
-		_timer = 0.25
+		_timer = 0.5
 		queue_redraw()
 
 
