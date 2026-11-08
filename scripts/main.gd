@@ -3960,8 +3960,7 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Intersects the camera ray through `screen` with the ground plane (y = 0).
 func _tap(screen: Vector2) -> void:
 	var picked := _creature_at_screen(screen, 70.0 if property.first_person else 40.0)
-	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(
-		cam.project_ray_origin(screen), cam.project_ray_normal(screen))
+	var hit: Variant = world.ray_ground(cam.project_ray_origin(screen), cam.project_ray_normal(screen))   # hills too
 	if hit == null and picked == null:
 		return
 	var dest: Vector3

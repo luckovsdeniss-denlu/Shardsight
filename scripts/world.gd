@@ -277,6 +277,7 @@ func can_place_house(o: Vector2i, occupied: Dictionary, size := 3) -> bool:
 
 func place_house(parent: Node3D, o: Vector2i, size := 3) -> void:
 	revision += 1
+	_flatten(Rect2i(o, Vector2i(size, size)), height_at(tile_center(house_center(o, size))))   # level ground
 	for c in house_wall_tiles(o, size):
 		tiles[c.y * cols + c.x] = Tile.HOUSE
 		astar.set_point_solid(c, true)
@@ -370,8 +371,9 @@ func find_house_spot(near: Vector2i, occupied: Dictionary, size := 3, radius := 
 func _add_floor(parent: Node3D, r: Rect2i, color: Color, mat: Material = null) -> void:
 	var mesh := PlaneMesh.new()
 	mesh.size = Vector2(r.size) * TILE
-	_add(parent, mesh, mat if mat != null else _mat(color),
-		Vector3(r.position.x + r.size.x / 2.0, 0.01, r.position.y + r.size.y / 2.0) * TILE)
+	var at := Vector3(r.position.x + r.size.x / 2.0, 0.0, r.position.y + r.size.y / 2.0) * TILE
+	at.y = height_at(at) + 0.01 * TILE
+	_add(parent, mesh, mat if mat != null else _mat(color), at)
 
 
 ## The map split into equal regions (4 across, 2 down) so players and monsters can be spread
@@ -440,7 +442,131 @@ func to_tile(p: Vector3) -> Vector2i:
 
 
 func tile_center(c: Vector2i) -> Vector3:
-	return Vector3(c.x + 0.5, 0.0, c.y + 0.5) * TILE
+	var p := Vector3(c.x + 0.5, 0.0, c.y + 0.5) * TILE
+	p.y = height_at(p)
+	return p
+
+
+# --- hills and hollows ---------------------------------------------------------------
+
+## The land rises into hills out in the wilds (higher in the rocky country) and lies flat in the
+## towns, the dungeon, by the water and beside walls, sloping gently between. Heights are kept
+## at the tile corners and read smoothly in between.
+const HILL_HEIGHT := 3.0
+const HEIGHT_MAX := 4.0                 # the scale the height texture is stored at
+var heights := PackedFloat32Array()     # (cols + 1) x (rows + 1) corner heights
+var height_tex: ImageTexture
+var _height_img: Image
+
+
+func _build_heights() -> void:
+	# how far (in tiles, up to 4) each tile is from anything that must stay flat
+	var dist := PackedInt32Array()
+	dist.resize(cols * rows)
+	for y in range(rows):
+		for x in range(cols):
+			var c := Vector2i(x, y)
+			var t := tiles[y * cols + x]
+			var flat := is_town(c) or is_dungeon(c) or t == Tile.WATER or t == Tile.WALL or t == Tile.FORGE or t == Tile.HOUSE
+			dist[y * cols + x] = 0 if flat else 99
+	for _pass in range(4):
+		for y in range(rows):
+			for x in range(cols):
+				var i := y * cols + x
+				var best := dist[i]
+				if x > 0:
+					best = mini(best, dist[i - 1] + 1)
+				if x < cols - 1:
+					best = mini(best, dist[i + 1] + 1)
+				if y > 0:
+					best = mini(best, dist[i - cols] + 1)
+				if y < rows - 1:
+					best = mini(best, dist[i + cols] + 1)
+				dist[i] = best
+	var noise := FastNoiseLite.new()
+	noise.seed = 99
+	noise.frequency = 0.07
+	noise.fractal_octaves = 3
+	heights.resize((cols + 1) * (rows + 1))
+	for j in range(rows + 1):
+		for i in range(cols + 1):
+			var d := 99
+			var rocky := false
+			for dy in [-1, 0]:
+				for dx in [-1, 0]:
+					var tx: int = i + dx
+					var ty: int = j + dy
+					if tx >= 0 and ty >= 0 and tx < cols and ty < rows:
+						d = mini(d, dist[ty * cols + tx])
+						rocky = rocky or tiles[ty * cols + tx] == Tile.ROCK
+					else:
+						d = 0                          # the map's edge stays low
+			var mask := smoothstep(0.5, 4.0, float(d))
+			var n := noise.get_noise_2d(i, j) * 0.5 + 0.5
+			var h := maxf(n - 0.36, 0.0) / 0.64
+			if rocky:
+				h += 0.3                               # the rocky country stands higher
+			heights[j * (cols + 1) + i] = clampf(h, 0.0, 1.0) * HILL_HEIGHT * mask
+	_upload_heights()
+
+
+func _upload_heights() -> void:
+	if _height_img == null:
+		_height_img = Image.create(cols + 1, rows + 1, false, Image.FORMAT_R8)
+	for j in range(rows + 1):
+		for i in range(cols + 1):
+			_height_img.set_pixel(i, j, Color(clampf(heights[j * (cols + 1) + i] / HEIGHT_MAX, 0.0, 1.0), 0.0, 0.0))
+	if height_tex == null:
+		height_tex = ImageTexture.create_from_image(_height_img)
+	else:
+		height_tex.update(_height_img)
+
+
+## The height of the land at `p` (read smoothly between tile corners).
+func height_at(p: Vector3) -> float:
+	if heights.is_empty():
+		return 0.0
+	var fx := p.x / TILE
+	var fz := p.z / TILE
+	var i0 := clampi(floori(fx), 0, cols - 1)
+	var j0 := clampi(floori(fz), 0, rows - 1)
+	var tx := clampf(fx - i0, 0.0, 1.0)
+	var tz := clampf(fz - j0, 0.0, 1.0)
+	var w := cols + 1
+	var top := lerpf(heights[j0 * w + i0], heights[j0 * w + i0 + 1], tx)
+	var bottom := lerpf(heights[(j0 + 1) * w + i0], heights[(j0 + 1) * w + i0 + 1], tx)
+	return lerpf(top, bottom, tz)
+
+
+## Levels the land under (and just round) a house, at the height of its middle.
+func _flatten(r: Rect2i, h: float) -> void:
+	for j in range(maxi(r.position.y - 1, 0), mini(r.end.y + 1, rows) + 1):
+		for i in range(maxi(r.position.x - 1, 0), mini(r.end.x + 1, cols) + 1):
+			heights[j * (cols + 1) + i] = h
+	_upload_heights()
+
+
+## Where a ray from the camera meets the land (hills included), or null.
+func ray_ground(o: Vector3, d: Vector3) -> Variant:
+	var step := 0.3
+	var t := 0.0
+	for _i in range(500):
+		t += step
+		var p := o + d * t
+		if p.y <= height_at(p):
+			var a := t - step
+			var b := t
+			for _k in range(10):
+				var m := (a + b) / 2.0
+				var q := o + d * m
+				if q.y <= height_at(q):
+					b = m
+				else:
+					a = m
+			return o + d * b
+		if p.y < -2.0:
+			break
+	return Plane(Vector3.UP, 0.0).intersects_ray(o, d)
 
 
 ## Waypoints (tile centres) from the tile under `from_p` to the tile under `to_p`,
@@ -616,6 +742,23 @@ uniform sampler2D grain : filter_linear, repeat_enable;
 uniform vec2 grain_scale = vec2(24.0, 12.0);
 uniform sampler2D clouds : filter_linear, repeat_enable;
 uniform float cloud_amount = 1.0;              // the shadows of clouds drifting over the land
+uniform sampler2D heightmap : filter_linear;
+uniform float hmax = 4.0;
+uniform vec2 grid = vec2(96.0, 48.0);          // the map in tiles
+uniform float tile = 1.0;
+
+float land(vec2 uv) {
+	return texture(heightmap, (uv * grid + 0.5) / (grid + 1.0)).r * hmax;
+}
+
+void vertex() {
+	VERTEX.y += land(UV);                       // the hills
+	vec2 e = vec2(1.0) / grid;
+	float hx = land(UV + vec2(e.x, 0.0)) - land(UV - vec2(e.x, 0.0));
+	float hz = land(UV + vec2(0.0, e.y)) - land(UV - vec2(0.0, e.y));
+	NORMAL = normalize(vec3(-hx / (2.0 * tile), 1.0, -hz / (2.0 * tile)));   // lit as slopes
+}
+
 void fragment() {
 	vec3 base = texture(paint, UV).rgb;
 	float g = texture(grain, UV * grain_scale).r;
@@ -697,6 +840,10 @@ func _ground_mat() -> ShaderMaterial:
 	cn.fractal_octaves = 3
 	clouds.noise = cn
 	m.set_shader_parameter("clouds", clouds)
+	m.set_shader_parameter("heightmap", height_tex)
+	m.set_shader_parameter("hmax", HEIGHT_MAX)
+	m.set_shader_parameter("grid", Vector2(cols, rows))
+	m.set_shader_parameter("tile", TILE)
 	ground_material = m
 	return m
 
@@ -789,8 +936,11 @@ static func _flower() -> ArrayMesh:
 func build(parent: Node3D) -> void:
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = 4242                        # the same forest every time
+	_build_heights()
 	var ground_mesh := PlaneMesh.new()
 	ground_mesh.size = Vector2(cols, rows) * TILE
+	ground_mesh.subdivide_width = cols * 2 - 1        # two quads a tile, to carry the hills
+	ground_mesh.subdivide_depth = rows * 2 - 1
 	_add(parent, ground_mesh, _ground_mat(), Vector3(cols, 0.0, rows) * TILE / 2.0)
 	for r in TOWNS:
 		_add_floor(parent, r, Color("8a7f5a"),

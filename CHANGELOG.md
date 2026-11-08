@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.55.0
+Hills and hollows.
+- The land rises and falls: gentle hills up to about three metres out in the wilds, higher in
+  the rocky country, while the towns, the dungeon, the shores and the ground beside walls stay
+  flat and the slopes run down to them smoothly. The ground is finer-meshed to carry the hills and
+  lit as slopes, so hillsides catch the sun and fall into shade.
+- Everything stands on the land: trees, bushes, rocks, pebbles, grass, the ankh shrines,
+  players, monsters, corpses and chests; walkers go up and down the slopes.
+- Taps find the spot on the hillside you touched (not the flat ground under it).
+- A house levels the ground it's built on.
+
 ## 0.54.2
 - Scrolling the menus with a finger works properly: drag anywhere in a list, even starting on a
   button, and it scrolls without pressing the button (before, a drag that began on a button didn't

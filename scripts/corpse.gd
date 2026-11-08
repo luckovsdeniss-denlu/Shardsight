@@ -17,6 +17,7 @@ var label: Label3D
 var _last_text := ""
 var title := ""                  # overrides "<name>'s corpse" (e.g. house ruins)
 var sealed_by := 0               # Magic Lock: only this creature may loot it (0: not sealed)
+var _base_y := 0.0               # the ground it lies on (it sinks from there)
 var is_chest := false            # a treasure chest fallen from the sky (with an artifact inside)
 var _body: MeshInstance3D
 var _beam: MeshInstance3D
@@ -29,6 +30,7 @@ func setup(p_name: String, p_open: bool, p_is_player: bool, p_owner_id: int,
 	owner_open = p_open
 	owner_id = p_owner_id
 	position = pos
+	_base_y = pos.y
 	gold = int(loot["gold"])
 	reagents = int(loot["reagents"])
 	items = loot["items"]
@@ -155,7 +157,7 @@ func set_title(t: String) -> void:
 func tick(delta: float) -> void:
 	life -= delta
 	if life < 2.5:                                  # sinking into the ground as it rots away
-		position.y = -0.4 * (1.0 - maxf(life, 0.0) / 2.5)
+		position.y = _base_y - 0.4 * (1.0 - maxf(life, 0.0) / 2.5)
 		label.visible = false
 	if _beam != null and _beam.visible:             # a treasure chest's beam breathes
 		var bm := _beam.material_override as StandardMaterial3D

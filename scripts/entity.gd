@@ -353,6 +353,7 @@ func tick(delta: float) -> void:
 	if parked:
 		position = mounted_by_position()    # carried along under its rider
 		return
+	position.y = world.height_at(position)   # standing on the land, up hill and down
 	_tick_reputation(delta)              # flags and counts keep fading even while dead
 	if dead:
 		hp_bar.visible = false
