@@ -3,6 +3,21 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.46.0
+Find your way back.
+- Eight ankh shrines stand around the map, one near the middle of each region: a stone plinth
+  and a glowing gold ankh with a pale blue light and motes rising, marked on the minimap with
+  pale blue crosses.
+- Dying makes you a ghost in a grey world, and you must find a resurrection spot: an ankh shrine
+  (anyone, free; murderers lose 20% of stats and skills) or a healer or priest (innocents, free).
+  Tap the ground to walk your ghost there (you couldn't move it before), or leave Auto on and it
+  walks to the nearest. The top of the screen shows the nearest spot, how far and which way.
+  You're raised where you stand, at half health, with a sparkle.
+- No more being raised at home after a minute with -10% skills: that only happens to a ghost
+  still lost after ten minutes.
+- Computer players' ghosts walk to the nearest shrine, healer or priest too; criminals and
+  murderers, whom healers turn away, now head for a shrine instead of waiting.
+
 ## 0.45.2
 - Menu > Hide corpse names / Show corpse names turns the labels over corpses and treasure
   chests (whose they are and what's inside) off and on. On by default; the choice is saved.

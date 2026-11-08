@@ -65,8 +65,9 @@ const MURDER_WINDOW := 30.0        # an innocent dying this soon after your atta
 const MURDER_DECAY := 180.0        # seconds for one murder count to fade
 const MURDERER_COUNTS := 5         # this many counts turn you red
 const BOUNTY_PER_COUNT := 25       # gold on a murderer's head, per count
-const GHOST_TIMEOUT := 60.0        # a shrine raises ghosts after this long
-const RED_GHOST_TIMEOUT := 30.0
+const GHOST_TIMEOUT := 600.0       # a lost ghost is raised at home (with a penalty) after this long
+const RED_GHOST_TIMEOUT := 600.0
+const SHRINE_REACH := 1.6          # how close to an ankh a ghost must come to be raised
 
 var kind: int = Kind.PLAYER
 var display_name := "?"
@@ -1905,27 +1906,56 @@ func _artifact_aura() -> void:
 	aura.emitting = true
 
 
-## A dead player drifts to the healer, who raises them for free. Murderers are refused and
-## wait for the shrine; everyone else is raised at the shrine after a while, at a price.
+## A ghost must find a resurrection spot: an ankh shrine (they stand all over the map and raise
+## anyone) or a healer or priest (innocents only). Computer players, and your hero on Auto,
+## walk to the nearest; otherwise you walk your ghost there by tapping. A ghost lost for ten
+## minutes is raised at home with a penalty.
 func _ghost_tick(delta: float) -> void:
 	dead_timer -= delta
 	if dead_timer <= 0.0:
 		_respawn()
 		return
-	if died_red:
+	var spot: Dictionary = game.nearest_resurrection(self)
+	if spot.is_empty():
 		return
-	if notoriety() != Notoriety.BLUE:
-		return       # healers turn criminals and murderers away
-	var healer := _nearest_holy()          # a healer or a priest raises the dead
-	if healer == null:
+	var reach := SHRINE_REACH if spot["healer"] == null else HEAL_RANGE
+	if position.distance_to(spot["pos"]) <= reach:
+		_raise_at(spot)
 		return
-	if position.distance_to(healer.position) <= HEAL_RANGE:
-		_resurrect_free(healer)
-		return
-	if path.is_empty():
-		go_to(healer.position)
+	if (not is_hero or ai_enabled) and path.is_empty():
+		go_to(spot["pos"])
 	_follow_path(delta)
 	_refresh_label()
+
+
+## Raised at a resurrection spot: by a healer or priest for free, or at an ankh shrine (free for
+## the innocent; murderers lose 20% of their stats and skills).
+func _raise_at(spot: Dictionary) -> void:
+	var healer: Entity = spot["healer"]
+	if healer != null:
+		_resurrect_free(healer)
+		return
+	dead = false
+	ghost = false
+	_set_ghost_look(false)
+	visible = true
+	hp = float(stats.max_hp()) * 0.5
+	mana = float(stats.max_mana())
+	pause = 1.0
+	swing_cd = 1.0
+	path.clear()
+	if died_red:
+		for s in stats.skills:
+			stats.skills[s] = maxf(float(start_skills.get(s, 0.0)), float(stats.skills[s]) * 0.8)
+		for st in [Hero.Stat.STR, Hero.Stat.DEX, Hero.Stat.INT]:
+			stats.set_stat(st, maxi(Rules.STAT_MIN, roundi(stats.get_stat(st) * 0.8)))
+		hp = minf(hp, float(stats.max_hp()))
+		game.event_about("%s is raised at an ankh shrine (murderer: -20%% stats and skills)." % display_name, is_hero)
+	else:
+		game.event_about("%s is raised at an ankh shrine." % display_name, is_hero)
+	died_red = false
+	if _near_hero():
+		Fx.sparkle(get_parent(), position + Vector3(0.0, 0.7, 0.0), Color(0.75, 0.9, 1.0), 26)
 
 
 func _resurrect_free(healer: Entity) -> void:

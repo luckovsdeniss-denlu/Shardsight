@@ -63,6 +63,10 @@ func _draw() -> void:
 	if _terrain == null or _revision != world.revision:
 		_bake_terrain()
 	draw_texture_rect(_terrain, Rect2(Vector2.ZERO, custom_minimum_size), false)
+	for s in game.shrines:                       # ankh shrines: pale blue crosses
+		var sp := Vector2(s.x, s.z) / World.TILE * px
+		draw_line(sp + Vector2(-3, 0), sp + Vector2(3, 0), Color(0.7, 0.88, 1.0), 2.0)
+		draw_line(sp + Vector2(0, -3), sp + Vector2(0, 4), Color(0.7, 0.88, 1.0), 2.0)
 	var list: Array = game.creatures
 	for item in list:
 		var e := item as Entity

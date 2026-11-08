@@ -232,6 +232,7 @@ func _ready() -> void:
 	_update_button()
 	_update_corner_buttons()
 	_build_select_bar(layer)
+	_build_ghost_view(layer)
 	_build_menu(layer)
 	_build_skills_panel(layer)
 	_build_craft_panel(layer)
@@ -1279,7 +1280,7 @@ func _open_help() -> void:
 		"The Menu button (top right) opens every button: Auto, Main Menu, Bag, Spells, Retreat, Ride, Mute, and switches to show names, stats and the map, Bow / Melee (draw your bow, the shield goes in the bag; switch back for sword and shield), and First person / Top view (in first person you see through the hero's eyes; twist two fingers to look around). Auto lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
 		"Names (Menu > Show names): blue innocent, grey criminal, red murderer or monster. The tan towns are safe: nobody can be hurt inside a town, and nobody can attack out of one.",
 		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked. There's no real cap: every skill can reach 100.",
-		"Die and you become a ghost: walk to a healer to be raised for free. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
+		"Die and you become a ghost in a grey world: walk (tap the ground, or let Auto do it) to a resurrection spot to be raised for free: a glowing ankh shrine (one in every part of the map, pale blue crosses on the minimap) or a healer or priest (not for murderers). The top of the screen shows the nearest. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
 		"The world is bigger now: Southmoor, a third town, lies south. Wolf packs and an orc fort roam the far east, spiders the southern forest, and the restless dead an old graveyard in the south-east. The hills south-east are rich in ore.",
 		"Priests (Father Corwin by the healer, Brother Anselm at the outpost, Mother Isolde in Southmoor) cure poison, lift curses, restore mana and raise the dead for free, bless you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lift a murder count for 50 gold. Stand near one, or tap them.",
@@ -2549,6 +2550,7 @@ func _spawn_all() -> void:
 		p.roam = zone
 
 	_build_braziers()
+	_build_shrines()
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Hal the Stablemaster", Bestiary.STABLEMASTER, cream, Vector2i(21, 11))
 	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(25, 13))
@@ -2841,13 +2843,15 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Intersects the camera ray through `screen` with the ground plane (y = 0).
 func _tap(screen: Vector2) -> void:
-	if hero.dead:
-		return
 	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(
 		cam.project_ray_origin(screen), cam.project_ray_normal(screen))
 	if hit == null:
 		return
 	var dest: Vector3 = hit
+	if hero.dead:
+		if hero.ghost:
+			hero.go_to(dest)                # a ghost can only walk: find a resurrection spot
+		return
 	hero.pause = MANUAL_PAUSE  # player input wins; auto resumes after a pause
 	var e := _creature_near(dest)
 	if e != null and e.kind == Entity.Kind.MONSTER:
@@ -3116,6 +3120,7 @@ func _process(delta: float) -> void:
 		_hud_timer = 0.2                     # the HUD text five times a second
 		_update_hud()
 		_update_select_bar()
+		_update_ghost_view()
 
 
 var _hud_timer := 0.0
@@ -3386,6 +3391,140 @@ func _end_flyby() -> void:
 	_skip_t = -1.0
 	if _title_close.is_valid():
 		_title_close.call()
+
+
+# --- resurrection shrines: glowing ankhs all over the map --------------------------
+
+var shrines: Array[Vector3] = []
+
+
+## One ankh shrine in each of the map's 8 regions, near its middle, where a ghost is raised.
+func _build_shrines() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5150                          # the same spots every game
+	var stone := Color(0.55, 0.55, 0.58)
+	var gold := Color(0.95, 0.88, 0.62)
+	var base_mesh := Art.merge([[Art.box(0.9, 0.16, 0.9), Art.at(0, 0.08, 0), stone],
+		[Art.box(0.6, 0.12, 0.6), Art.at(0, 0.22, 0), stone.lightened(0.1)]])
+	var ankh_mesh := Art.merge([[Art.box(0.12, 0.85, 0.12), Art.at(0, 0.7, 0), gold],
+		[Art.box(0.56, 0.1, 0.1), Art.at(0, 0.92, 0), gold],
+		[Art.ring_mesh(0.11, 0.17), Art.at(0, 1.22, 0, Vector3(PI / 2, 0, 0)), gold]])
+	for i in range(world.zone_count()):
+		var r := world.zone_rect(i)
+		var mid := Rect2i(r.position + r.size / 4, r.size / 2)
+		var t := world.open_tile_in(mid, rng)
+		var at := world.tile_center(t)
+		shrines.append(at)
+		var node := Node3D.new()
+		add_child(node)
+		node.position = at
+		var b := MeshInstance3D.new()
+		b.mesh = base_mesh
+		b.material_override = Art.vc_mat()
+		node.add_child(b)
+		var a := MeshInstance3D.new()
+		a.mesh = ankh_mesh
+		a.material_override = Art.glow_mat(Color(0.95, 0.9, 0.7))
+		node.add_child(a)
+		var l := OmniLight3D.new()
+		l.light_color = Color(0.7, 0.85, 1.0)
+		l.light_energy = 1.0
+		l.omni_range = 4.0
+		l.position = Vector3(0.0, 1.3, 0.0)
+		node.add_child(l)
+		var motes := Fx.cast_glow(Color(0.7, 0.88, 1.0))
+		motes.amount = 10
+		motes.lifetime = 1.4
+		motes.position = Vector3(0.0, 0.25, 0.0)
+		node.add_child(motes)
+		motes.emitting = true
+		motes.add_to_group("view_fx")
+
+
+## The nearest place `e` can be raised: an ankh shrine, or (for innocents) a healer or priest.
+## {"pos": Vector3, "name": String, "healer": Entity or null}, or {} if none.
+func nearest_resurrection(e: Entity) -> Dictionary:
+	var best := {}
+	var best_d := INF
+	for p in shrines:
+		var d := e.position.distance_to(p)
+		if d < best_d:
+			best_d = d
+			best = {"pos": p, "name": "Ankh shrine", "healer": null}
+	if not e.died_red and e.notoriety() == Entity.Notoriety.BLUE:
+		for c in creatures:
+			if (c.role == "healer" or c.role == "priest") and not c.dead:
+				var d := e.position.distance_to(c.position)
+				if d < best_d:
+					best_d = d
+					best = {"pos": c.position, "name": c.display_name, "healer": c}
+	return best
+
+
+# --- the ghost's view: a grey world and where to go ------------------------------
+
+const GHOST_SHADER := """
+shader_type canvas_item;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
+void fragment() {
+	vec3 c = texture(screen_tex, SCREEN_UV).rgb;
+	float g = dot(c, vec3(0.3, 0.59, 0.11));
+	COLOR = vec4(mix(c, vec3(g) * vec3(0.85, 0.92, 1.08), 0.8), 1.0);
+}
+"""
+var ghost_overlay: ColorRect
+var ghost_hint: Label
+
+
+func _build_ghost_view(layer: CanvasLayer) -> void:
+	var gl := CanvasLayer.new()
+	gl.layer = 0                              # over the world, under the buttons and text
+	add_child(gl)
+	ghost_overlay = ColorRect.new()
+	ghost_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sh := Shader.new()
+	sh.code = GHOST_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	ghost_overlay.material = mat
+	ghost_overlay.visible = false
+	gl.add_child(ghost_overlay)
+	ghost_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ghost_hint = Label.new()
+	ghost_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ghost_hint.add_theme_font_size_override("font_size", 26)
+	ghost_hint.add_theme_color_override("font_color", Color(0.75, 0.88, 1.0))
+	ghost_hint.add_theme_color_override("font_outline_color", Color.BLACK)
+	ghost_hint.add_theme_constant_override("outline_size", 10)
+	ghost_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost_hint.visible = false
+	layer.add_child(ghost_hint)
+	ghost_hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 90)
+	ghost_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
+
+
+static func _compass(v: Vector3) -> String:
+	var names := ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"]
+	var a := atan2(v.x, -v.z)                    # north is -z on the map
+	return names[posmod(roundi(a / (PI / 4.0)), 8)]
+
+
+func _update_ghost_view() -> void:
+	if ghost_overlay == null:
+		return
+	var g := hero.dead and hero.ghost
+	ghost_overlay.visible = g
+	ghost_hint.visible = g
+	if not g:
+		return
+	var spot := nearest_resurrection(hero)
+	if spot.is_empty():
+		ghost_hint.text = "You are a ghost."
+		return
+	var v: Vector3 = spot["pos"] - hero.position
+	ghost_hint.text = "You are a ghost. Find a resurrection spot.\nNearest: %s, %d m %s%s" % [
+		spot["name"], roundi(v.length()), _compass(v),
+		"  (Auto is walking you there)" if auto else "  (tap the ground to walk)"]
 
 
 # --- braziers: fire in the towns, glowing at night ----------------------------
