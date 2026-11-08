@@ -41,6 +41,7 @@ var map_button: Button
 var bow_button: Button
 var view_button: Button
 var corpse_button: Button
+var magic_button: Button
 var bag_box: VBoxContainer
 var spells_panel: Control
 var stats_panel: Control
@@ -228,6 +229,8 @@ func _ready() -> void:
 	_corner_add(view_button)
 	corpse_button = _menu_button("", _toggle_corpse_names)
 	_corner_add(corpse_button)
+	magic_button = _menu_button("", _toggle_magic_label)
+	_corner_add(magic_button)
 	_corner_add(_menu_button("Statistics", _open_stats))
 	minimap.setup(self, world)
 	minimap.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -3222,6 +3225,7 @@ func _update_corner_buttons() -> void:
 	map_button.text = "Hide map" if property.minimap_on else "Show map"
 	view_button.text = "Top view" if property.first_person else "First person"
 	corpse_button.text = "Hide corpse names" if property.corpse_names_on else "Show corpse names"
+	magic_button.text = "Hide magic" if property.magic_label_on else "Show magic"
 	_apply_view()
 	hud.visible = property.stats_on
 	minimap.visible = property.minimap_on
@@ -3241,6 +3245,13 @@ func _toggle_names() -> void:
 	property.names_on = not property.names_on
 	for e in creatures:
 		e.show_name(property.names_on)
+	_update_corner_buttons()
+
+
+## Magery, mana, spell power and the spell being cast over the hero's head.
+func _toggle_magic_label() -> void:
+	property.magic_label_on = not property.magic_label_on
+	hero.show_name(property.names_on)                 # refreshes the label at once
 	_update_corner_buttons()
 
 

@@ -18,6 +18,9 @@ Magic in numbers, and your statistics.
   rate, damage dealt and taken, who killed you most), magic (spells cast, favourite spells,
   blessings, confessions), gathering and crafting, gold earned and spent, animals and music,
   thievery, quests and the world, and time played.
+- Your magic over your hero's head, under the level and HP: Magery, mana, spell power, reagents,
+  and the spell being cast with a countdown (or "[Protection]" when it's on). Menu > Hide magic /
+  Show magic turns it off and on; on by default, saved.
 - The buttons in the corner Menu are a little shorter, so all of them fit with the minimap.
 
 ## 0.46.1

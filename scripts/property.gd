@@ -46,6 +46,7 @@ var stats_on := true                   # the stats text in the upper left
 var minimap_on := true
 var stats_counts := {}                 # lifetime statistics: what you've done, counted as you play
 var play_time := 0.0                   # seconds played
+var magic_label_on := true             # Magery, mana and spell power over the hero's head
 var corpse_names_on := true           # labels over corpses and treasure chests
 var first_person := false              # the camera at the hero's eyes instead of above
 var graphics := "medium"               # low, medium or high
@@ -158,7 +159,7 @@ func to_dict() -> Dictionary:
 		"rune": [rune.x, rune.y], "runes": _runes_list(), "quest_index": quest_index, "quest_active": quest_active,
 		"quest_kills": quest_kills, "quest_escorted": quest_escorted,
 		"sound_on": sound_on, "cam_zoom": cam_zoom, "cam_yaw": cam_yaw, "ruleset": ruleset,
-		"music_on": music_on, "weather_on": weather_on, "names_on": names_on, "stats_on": stats_on, "minimap_on": minimap_on, "first_person": first_person, "corpse_names_on": corpse_names_on, "graphics": graphics,
+		"music_on": music_on, "weather_on": weather_on, "names_on": names_on, "stats_on": stats_on, "minimap_on": minimap_on, "first_person": first_person, "corpse_names_on": corpse_names_on, "magic_label_on": magic_label_on, "graphics": graphics,
 		"vendor_hired": vendor_hired, "vendor_stock": vendor_stock, "vendor_gold": vendor_gold,
 		"vendor_last": vendor_last, "stats_counts": stats_counts, "play_time": play_time,
 	}
@@ -210,6 +211,7 @@ func load_dict(d: Dictionary) -> void:
 	minimap_on = bool(d.get("minimap_on", true))
 	first_person = bool(d.get("first_person", false))
 	corpse_names_on = bool(d.get("corpse_names_on", true))
+	magic_label_on = bool(d.get("magic_label_on", true))
 	graphics = String(d.get("graphics", "medium"))
 	if not graphics in ["low", "medium", "high"]:
 		graphics = "medium"

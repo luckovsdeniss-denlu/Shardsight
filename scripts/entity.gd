@@ -954,10 +954,25 @@ func _refresh_label() -> void:
 		text += "\n(paralyzed)"
 	if is_hero and not bool(game.property.names_on):
 		text = "Lvl %d  HP %d/%d" % [stats.level(), ceili(hp), stats.max_hp()]   # just the numbers
+	if is_hero and bool(game.property.magic_label_on) and not dead:
+		text += "\n" + _magic_line()
 	label.modulate = _name_color()
 	if text != _last_text:
 		_last_text = text
 		label.text = text
+
+
+## The hero's magic at a glance, over its head: Magery, mana, spell power, reagents, and the
+## spell being cast (with a countdown).
+func _magic_line() -> String:
+	var magery := _skill(Hero.Skill.MAGERY)
+	var line := "Magery %.1f  Mana %d/%d  Power x%.2f  Reagents %d" % [magery, int(mana), stats.max_mana(),
+		Rules.spell_power(magery, _skill(Hero.Skill.EVALUATING_INTELLECT)), int(reagents)]
+	if casting_id != "":
+		line += "\nCasting %s (%.1f s)" % [Spells.LIST[casting_id]["name"], maxf(cast_timer, 0.0)]
+	elif flags.has("protection"):
+		line += "  [Protection]"
+	return line
 
 
 ## Floating combat text that drifts up and vanishes.
