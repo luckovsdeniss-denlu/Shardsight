@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.53.0
+On the move across the whole map.
+- Computer players no longer stay in one region for good: after four to eight minutes in one they
+  set off for another, preferring the emptiest, and walk there across the map (fighting off
+  anyone who attacks on the way, then carrying on). Everyone stays spread out, but on the move.
+- Your hero on Auto travels the land the same way.
+- Tap anywhere on the minimap and your hero walks there, right across the map if need be: a gold
+  flag marks the destination, your log says where and how far, and on Auto the hero fights off
+  attackers on the way and carries on. Tap the ground to stop.
+
 ## 0.52.0
 A world in motion.
 - Cloud shadows drift slowly across the land on clear days (none under an overcast sky).

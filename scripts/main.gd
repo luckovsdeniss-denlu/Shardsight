@@ -1807,6 +1807,7 @@ func _open_help() -> void:
 	title.add_theme_font_size_override("font_size", 30)
 	settings_box.add_child(title)
 	for line in [
+		"Tap anywhere on the minimap and your hero walks there, right across the map if need be (a gold flag marks it; tap the ground to stop).",
 		"Tap the ground to walk there. Tap a monster to attack it, a corpse to loot it, a rock to mine it, a tree to chop it. Tap a player to pick them: Attack and Info buttons appear at the bottom.",
 		"The Menu button (top right) opens every button: Auto, Main Menu, Bag, Spells, Retreat, Ride, Mute, and switches to show names, stats and the map, Bow / Melee (draw your bow, the shield goes in the bag; switch back for sword and shield), and First person / Top view (in first person you see through the hero's eyes; twist two fingers to look around). Auto lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
 		"Names (Menu > Show names): blue innocent, grey criminal, red murderer or monster. The tan towns are safe: nobody can be hurt inside a town, and nobody can attack out of one.",
@@ -3477,6 +3478,9 @@ func _spawn_all() -> void:
 
 	hero = _spawn(Entity.Kind.PLAYER, "Hero", Bestiary.HERO, gold, Vector2i(5, 5))
 	hero.is_hero = true
+	if not autotest:
+		hero.roam = world.zone_rect(0)            # on Auto, the hero travels the land too
+		hero.roam_timer = 300.0
 	hero._think_every = 0.05                  # the hero decides quickly, so taps feel immediate
 	# The other players, spread evenly over the map's 8 regions (4 across, 2 down): each gets a
 	# home region, starts there and keeps to it. Two player killers and two thieves, kept apart.
@@ -3494,6 +3498,7 @@ func _spawn_all() -> void:
 		var cfg: Dictionary = others[i][1]
 		var p := _spawn(Entity.Kind.PLAYER, String(others[i][0]), cfg, blue, world.open_tile_in(zone, rng))
 		p.roam = zone
+		p.roam_timer = rng.randf_range(120.0, 480.0)     # staggered: they don't all set off at once
 
 	_build_braziers()
 	_build_shrines()
@@ -3708,6 +3713,62 @@ func dig_up_treasure(digger: Entity, map_id: String) -> void:
 		Fx.sparkle(self, pos + Vector3(0.0, 0.4, 0.0), Color(1.0, 0.85, 0.45), 30)
 
 
+## A player (or the hero on Auto) has spent long enough in one region: off to another across the
+## map, preferring the emptiest ones so everyone stays spread out while on the move.
+func next_region(e: Entity) -> void:
+	e.roam_timer = randf_range(240.0, 480.0)
+	var counts: Array[int] = []
+	counts.resize(world.zone_count())
+	counts.fill(0)
+	for c in creatures:
+		if c.kind == Entity.Kind.PLAYER and c != e and not c.dead:
+			for i in range(world.zone_count()):
+				if world.zone_rect(i) == c.roam:
+					counts[i] += 1
+	var best: Array[int] = []
+	var least := 1 << 30
+	for i in range(world.zone_count()):
+		if world.zone_rect(i) == e.roam:
+			continue
+		if counts[i] < least:
+			least = counts[i]
+			best = [i]
+		elif counts[i] == least:
+			best.append(i)
+	if best.is_empty():
+		return
+	var zone := world.zone_rect(best[randi() % best.size()])
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	e.roam = zone
+	e.set_journey(world.tile_center(world.open_tile_in(zone, rng)))
+	if e.is_hero:
+		log_event("Your hero sets off for another part of the land.")
+
+
+## Tap the minimap: the hero walks there, right across the map if need be (a gold flag marks it).
+func hero_journey(tile: Vector2i) -> void:
+	if not world.in_bounds(tile):
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	if world.is_blocked(tile):
+		tile = world.open_tile_in(Rect2i(tile - Vector2i(2, 2), Vector2i(5, 5)), rng)
+	var dest := world.tile_center(tile)
+	if hero.dead:
+		if hero.ghost:
+			hero.go_to(dest)
+		return
+	hero.retreating = false
+	hero.recovering = false
+	hero.pause = MANUAL_PAUSE
+	hero.set_journey(dest)
+	var place := world.place_name(tile)
+	var v := dest - hero.position
+	log_event("You set off for %s: %d m %s. Tap the ground to stop." % [
+		place if place != "" else "the spot", roundi(v.length()), _compass(v)])
+
+
 func _drop_chest(victim: Entity) -> void:
 	var arts := Gear.artifact_ids()
 	var art := arts[randi() % arts.size()]
@@ -3912,6 +3973,7 @@ func _tap(screen: Vector2) -> void:
 			hero.go_to(dest)                # a ghost can only walk: find a resurrection spot
 		return
 	hero.pause = MANUAL_PAUSE  # player input wins; auto resumes after a pause
+	hero.has_journey = false   # a tap ends a walk across the map
 	var e := picked if picked != null else _creature_near(dest)
 	if e != null and e.kind == Entity.Kind.MONSTER:
 		hero.target = e

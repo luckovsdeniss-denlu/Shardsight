@@ -41,7 +41,24 @@ func setup(p_game, p_world: World) -> void:
 	px = minf(4.0, MAX_WIDTH / float(world.cols))
 	custom_minimum_size = Vector2(world.cols, world.rows) * px
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR    # smooth, like a painted map
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mouse_filter = Control.MOUSE_FILTER_STOP     # tap the map to travel there
+
+
+func _gui_input(event: InputEvent) -> void:
+	var pressed := false
+	var at := Vector2.ZERO
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		pressed = mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT
+		at = mb.position
+	elif event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		pressed = st.pressed
+		at = st.position
+	if not pressed or game == null:
+		return
+	accept_event()
+	game.hero_journey(Vector2i(floori(at.x / px), floori(at.y / px)))
 
 
 func _process(delta: float) -> void:
@@ -181,6 +198,13 @@ func _draw() -> void:
 		draw_line(sp + Vector2(0, -1), sp + Vector2(0, 4), glow, 1.5)
 		draw_line(sp + Vector2(-2.5, 0), sp + Vector2(2.5, 0), glow, 1.5)
 		draw_arc(sp + Vector2(0, -2.5), 1.5, 0.0, TAU, 8, glow, 1.2)
+	# where the hero is walking to: a gold flag
+	var h: Entity = game.hero
+	if h != null and h.has_journey:
+		var jp := _to_map(h.journey)
+		draw_line(jp, jp + Vector2(0, -9), Color.BLACK, 2.5)
+		draw_line(jp, jp + Vector2(0, -9), Color(0.9, 0.85, 0.7), 1.2)
+		draw_colored_polygon(PackedVector2Array([jp + Vector2(0, -9), jp + Vector2(6, -7), jp + Vector2(0, -5)]), GOLD)
 	# the treasure map's spot: a red X
 	if game.map_mark.x >= 0:
 		var mp: Vector2 = (Vector2(game.map_mark) + Vector2(0.5, 0.5)) * px

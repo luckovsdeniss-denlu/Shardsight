@@ -83,6 +83,9 @@ var armor := 0.0
 var role := ""
 var leash := 8
 var roam := Rect2i()           # a computer player's home region (empty: roam anywhere)
+var roam_timer := 0.0          # seconds until a player sets off for another region
+var journey := Vector3.ZERO    # where a long walk across the map is heading
+var has_journey := false
 var aggro_range := 5.0
 var respawn_time := 8.0
 var ai_enabled := true         # for players: false = only obeys taps
@@ -483,6 +486,14 @@ func _think(delta: float) -> void:
 		return
 	if kind == Kind.PLAYER and (_try_potion() or _try_bandage()):
 		return
+	# Players wander the whole map: after a while in one region they set off for another.
+	if kind == Kind.PLAYER and roam.size != Vector2i.ZERO and (not is_hero or ai_enabled):
+		roam_timer -= delta
+		if roam_timer <= 0.0:
+			game.next_region(self)
+	if kind == Kind.PLAYER and has_journey and target == null and not recovering:
+		if _journey_step():
+			return
 	var autonomous := kind != Kind.PLAYER or ai_enabled
 	if kind == Kind.MONSTER:
 		if enticed_timer > 0.0 and enticer != null and is_instance_valid(enticer) and not enticer.dead:
@@ -4272,6 +4283,38 @@ func _fall_step(delta: float) -> void:
 		if rig != null:
 			rig.rotation = Vector3.ZERO
 			rig.position = Vector3.ZERO
+
+
+## On a long walk across the map: keep going (round obstacles, path by path) until there. Anyone
+## who attacks on the way is fought off (computer players, and the hero on Auto), then the walk
+## goes on. Returns true while walking.
+func _journey_step() -> bool:
+	if position.distance_to(journey) <= 1.6:
+		has_journey = false
+		if is_hero:
+			game.log_event("You arrive.")
+		return false
+	if not is_hero or ai_enabled:
+		var list: Array = game.creatures
+		for item in list:
+			var e := item as Entity
+			if not e.dead and e.target == self and position.distance_to(e.position) <= aggro_range + 2.0:
+				target = e                         # set upon: fight, then carry on
+				return false
+	if path.is_empty() and not go_to(journey):
+		has_journey = false
+		return false
+	return true
+
+
+## Sets off for `dest` across the map.
+func set_journey(dest: Vector3) -> void:
+	journey = dest
+	has_journey = true
+	target = null
+	loot_target = null
+	gather_tile = Vector2i(-1, -1)
+	path.clear()
 
 
 ## Brings a pooled event creature (guardian, invader, champion...) back to life at `p`.
