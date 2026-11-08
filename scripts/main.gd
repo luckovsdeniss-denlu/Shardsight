@@ -3637,7 +3637,7 @@ func spawn_corpse(victim: Entity) -> void:
 		_drop_chest(victim)
 
 
-const CHEST_CHANCE := 0.10             # any slain monster may leave a treasure chest
+const CHEST_CHANCE := 0.03             # any slain monster may leave a treasure chest (rarely)
 
 
 ## A treasure chest with an artifact, gold and reagents drops beside a slain monster; anyone may

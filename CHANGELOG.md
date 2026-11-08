@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.53.1
+- Treasure chests from slain monsters are rarer: 3% (was 10%). Champions still always leave one.
+
 ## 0.53.0
 On the move across the whole map.
 - Computer players no longer stay in one region for good: after four to eight minutes in one they
