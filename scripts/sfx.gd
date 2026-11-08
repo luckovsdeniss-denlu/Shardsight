@@ -10,7 +10,7 @@ var _variants := {}                  # sound -> several takes; one is picked at 
 var _pending := {}                   # takes being built on a worker thread (installed when done)
 ## Until the takes are ready (a moment after start), these play the original single sounds.
 const FALLBACK := {
-	"mine": "gather", "chop": "gather", "crossbow": "bow", "parry": "hit", "hit_blade": "hit",
+	"mine": "gather", "chop": "gather", "splash": "gather", "crossbow": "bow", "parry": "hit", "hit_blade": "hit",
 	"hit_blunt": "hit", "hit_armor": "hit", "hit_bone": "hit", "hit_arrow": "hit", "hit_flesh": "hit",
 }
 
@@ -148,6 +148,14 @@ func _build_others() -> void:
 			rumble[0] = float(rumble[0]) * 0.985 + randf_range(-1.0, 1.0) * 0.015
 			return float(rumble[0]) * 9.0 * exp(-t * decay) * (1.0 + 0.5 * sin(TAU * wobble * t))))
 	_pending["thunder"] = thunder
+	var splash := []
+	for d: float in [0.25, 0.32]:
+		var lp := [0.0]
+		splash.append(_make(d, func(t: float) -> float:
+			lp[0] = float(lp[0]) * 0.75 + randf_range(-1.0, 1.0) * 0.25
+			return float(lp[0]) * 3.0 * exp(-t * 12.0) * (0.6 + 0.4 * sin(TAU * 9.0 * t))))
+	_pending["splash"] = splash
+	_build_ambience()
 
 
 ## Blows by kind, three or four takes each with their own tone:
@@ -208,6 +216,66 @@ func _build_hits() -> void:
 			lp[0] = float(lp[0]) * 0.55 + randf_range(-1.0, 1.0) * 0.45
 			return float(lp[0]) * sin(PI * t / d) * 0.6))
 	_pending["swing"] = whoosh
+
+
+## Sounds of the world: footsteps on grass and on stone, birdsong, and three loops (crickets at
+## night, running water, a crackling fire) that the game fades in and out by place and time.
+func _build_ambience() -> void:
+	var grass_steps := []
+	for f: float in [0.55, 0.65, 0.75]:
+		var lp := [0.0]
+		grass_steps.append(_make(0.09, func(t: float) -> float:
+			lp[0] = float(lp[0]) * f + randf_range(-1.0, 1.0) * (1.0 - f)
+			return float(lp[0]) * 2.5 * exp(-t * 45.0)))
+	_pending["step_grass"] = grass_steps
+	var stone_steps := []
+	for f: float in [900.0, 1200.0, 1500.0]:
+		stone_steps.append(_make(0.07, func(t: float) -> float:
+			return (randf_range(-1.0, 1.0) * 0.6 + sin(TAU * f * t) * 0.4) * exp(-t * 70.0)))
+	_pending["step_stone"] = stone_steps
+	var birds := []
+	for k: Array in [[2600.0, 900.0, 3], [3200.0, -700.0, 4], [2200.0, 1400.0, 2]]:
+		var base: float = k[0]
+		var sweep: float = k[1]
+		var notes: int = k[2]
+		var note_len := 0.09
+		birds.append(_make(note_len * notes + 0.08, func(t: float) -> float:
+			var i := mini(int(t / note_len), notes - 1)
+			var lt := t - i * note_len
+			if lt > note_len * 0.8:
+				return 0.0
+			var f := base + sweep * (lt / note_len) + 150.0 * i
+			return sin(TAU * f * lt) * sin(PI * lt / (note_len * 0.8)) * 0.35))
+	_pending["bird"] = birds
+	var crickets := _make(2.0, func(t: float) -> float:
+		var pulse := fmod(t, 0.5)
+		var on := 1.0 if pulse < 0.12 and fmod(pulse, 0.03) < 0.018 else 0.0
+		return sin(TAU * 4400.0 * t) * on * 0.25)
+	crickets.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	crickets.loop_end = int(2.0 * RATE)
+	_pending["crickets"] = [crickets]
+	var wlp := [0.0]
+	var water := _make(2.0, func(t: float) -> float:
+		wlp[0] = float(wlp[0]) * 0.92 + randf_range(-1.0, 1.0) * 0.08
+		return float(wlp[0]) * 4.0 * (0.75 + 0.25 * sin(TAU * 1.5 * t) * sin(TAU * 0.5 * t)))
+	water.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	water.loop_end = int(2.0 * RATE)
+	_pending["water"] = [water]
+	var flp := [0.0]
+	var fire := _make(2.0, func(t: float) -> float:
+		flp[0] = float(flp[0]) * 0.96 + randf_range(-1.0, 1.0) * 0.04
+		var pop := randf_range(-1.0, 1.0) * 0.8 if randf() < 0.0015 else 0.0     # a crackle now and then
+		return float(flp[0]) * 5.0 + pop)
+	fire.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	fire.loop_end = int(2.0 * RATE)
+	_pending["fire"] = [fire]
+
+
+## A looping ambience ("crickets", "water", "fire") once built, else null.
+func loop_stream(sound_name: String) -> AudioStreamWAV:
+	if _variants.has(sound_name):
+		return (_variants[sound_name] as Array)[0]
+	return null
 
 
 ## Rain: two seconds of soft hiss that loops.

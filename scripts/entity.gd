@@ -32,6 +32,8 @@ const BLESS_ARMOR := 0.9           # ...and -10% damage taken
 const CONFESS_PRICE := 50          # gold to have one murder count lifted
 const PRIEST_MANA_PER_SEC := 5.0   # prayer by a priest restores mana this fast
 const SCROLL_DROP_CHANCE := 0.12   # a monster that carries gold may carry a spell scroll
+const JEWEL_DROP_CHANCE := 0.03    # ... or a ring or amulet
+const MAP_DROP_CHANCE := 0.04      # ... or a treasure map
 const HARMFUL_KINDS := ["attack", "poison", "paralyze", "curse", "drain"]
 const MONSTER_KINDS := ["attack", "heal", "cure", "poison", "area", "paralyze", "curse", "drain"]
 const BUFF_ORDER := ["polymorph", "bless", "strength", "agility", "protection", "reactive_armor", "magic_reflection"]
@@ -120,6 +122,11 @@ var _gear_timer := 0.0
 var _trade_timer := 0.0
 var label: Label3D
 var hp_bar: MeshInstance3D      # over the head while hurt or fighting
+var wear := {}                 # gear id -> durability left (missing: as new)
+var dig_map := ""              # the treasure map being dug up
+var dig_timer := 0.0
+var ring_id := ""              # jewelry worn (Jewelry ids)
+var amulet_id := ""
 var stowed_shield := ""        # the shield put away to draw a bow (back on when you switch back)
 var hide_self := false         # the hero in first person: its own model, bar and label hidden
 var _hit_sound := ""            # set by whoever strikes us, so the blow sounds like what hit what
@@ -353,6 +360,8 @@ func tick(delta: float) -> void:
 	swing_cd = maxf(swing_cd - delta, 0.0)
 	cast_cd = maxf(cast_cd - delta, 0.0)
 	pause = maxf(pause - delta, 0.0)
+	if (ring_id != "" or amulet_id != "") and hp < float(stats.max_hp()):
+		hp = minf(hp + jewel("regen") * delta, float(stats.max_hp()))   # a Ring of Life
 	repath_timer -= delta
 	hurt_timer = maxf(hurt_timer - delta, 0.0)
 	if hurt_timer <= 0.0:
@@ -431,6 +440,13 @@ func tick(delta: float) -> void:
 			_manage_gear()
 			if kind == Kind.PLAYER and (ai_enabled or not is_hero):
 				_auto_mount()
+	if dig_timer > 0.0:                      # digging up a treasure map's chest
+		dig_timer -= delta
+		if dig_timer <= 0.0:
+			game.dig_up_treasure(self, dig_map)
+			dig_map = ""
+		_maybe_label(delta)
+		return
 	# Decisions a few times a second (they scan everyone around); moving and swinging every frame.
 	_think_acc += delta
 	if _think_acc >= _think_every:
@@ -708,6 +724,7 @@ func _fight() -> void:
 		elif target.is_hero:
 			game.count("hero_dmg_taken_melee", roundi(dealt))
 		target.take_damage(dealt, self)
+		_wear_out("weapon", 0.3)              # every blow wears the weapon a little
 		if target.flags.has("reactive_armor") and not dead:
 			_reflect_blow(dealt * 0.25, target)   # Reactive Armor sends part of a blow back
 		if poison_cfg.size() == 2 and not target.dead and randf() < float(poison_cfg[1]):
@@ -746,6 +763,8 @@ func _absorb(amount: float) -> float:
 			amount *= 1.0 - float(Gear.stats(shield_id)["block"])
 			_pop("parried", Color(0.8, 0.9, 1.0))
 			game.sound("parry", position)
+			_wear_out("shield", 0.4)
+	_wear_out("armor", 0.25)                  # blows taken wear the armour
 	var rating := _armor_rating()
 	if rating <= 0.0:
 		return amount
@@ -759,7 +778,7 @@ func _armor_rating() -> float:
 		worn = float(Gear.stats(armor_id)["rating"])
 	if mounted_on != null:
 		worn += mounted_on.mount_armor          # a swamp dragon's scales
-	return armor + worn
+	return armor + worn + jewel("armor")
 
 
 func take_damage(amount: float, from: Entity) -> void:
@@ -1043,7 +1062,7 @@ func start_cast(id: String, tgt: Entity) -> bool:
 	reagents -= float(sp["reagents"])
 	casting_id = id
 	cast_target = tgt
-	cast_timer = Rules.cast_seconds(int(sp["circle"]), _skill(Hero.Skill.MAGERY))   # skill casts faster
+	cast_timer = Rules.cast_seconds(int(sp["circle"]), _skill(Hero.Skill.MAGERY)) * (1.0 - jewel("cast"))   # skill (and a ring) casts faster
 	cast_total = cast_timer
 	_start_cast_fx(sp["color"])
 	path.clear()
@@ -1152,7 +1171,7 @@ func _finish_cast() -> void:
 			stats.try_gain(Hero.Skill.MAGERY)
 		return
 	if spell_kind == "poison":
-		if randf() < Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)):
+		if randf() < (Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)) + tgt.jewel("resist")):
 			tgt._pop("resisted", Color(0.7, 0.9, 1.0))
 		else:
 			tgt.apply_poison(Rules.spell_poison_level(_skill(Hero.Skill.MAGERY)), self)
@@ -1176,8 +1195,8 @@ func _finish_cast() -> void:
 			Fx.sparkle(get_parent(), tgt.position + Vector3(0.0, 0.6, 0.0), sp["color"])
 	else:
 		_spell_visual(id, tgt, sp["color"])
-		amount *= Rules.spell_power(_skill(Hero.Skill.MAGERY), _skill(Hero.Skill.EVALUATING_INTELLECT))
-		if randf() < Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)):
+		amount *= Rules.spell_power(_skill(Hero.Skill.MAGERY), _skill(Hero.Skill.EVALUATING_INTELLECT)) * (1.0 + jewel("power"))
+		if randf() < (Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)) + tgt.jewel("resist")):
 			amount *= 0.5
 			tgt._pop("resisted", Color(0.7, 0.9, 1.0))
 			if tgt.kind == Kind.PLAYER:
@@ -1315,6 +1334,8 @@ func trade(delta: float, s: Shop) -> void:
 			continue                       # wanted for a fetch quest
 		if Items.is_tool_item(id) or (id == "log" and int(inventory[id]) <= 2):
 			continue                       # tools, and a couple of logs for a campfire
+		if is_hero and (Gear.is_artifact(String(id)) or Jewelry.has(String(id)) or String(id).begins_with("tmap")):
+			continue                       # your treasures are yours to sell by hand (tap the merchant)
 		# The merchant pays less the more it already holds, and stops when overstocked or broke.
 		var n := int(inventory[id])
 		var sold := 0
@@ -1358,6 +1379,9 @@ func trade(delta: float, s: Shop) -> void:
 		if reagents < 20.0 and gold >= reagent_pair + SUPPLY_RESERVE:
 			_pay(s, reagent_pair)
 			reagents = minf(reagents + 2.0, MAX_REAGENTS)
+		var rc := repair_cost(s)
+		if rc > 0 and _worst_wear() < 0.5 and gold >= rc + SUPPLY_RESERVE:
+			repair_all(s)                      # worn gear mended before it breaks
 		var bow_price := s.price(int(Gear.stats("bow")["value"]))
 		if kind == Kind.PLAYER and not _has_ranged() and gold >= bow_price + SUPPLY_RESERVE:
 			_pay(s, bow_price)                 # everyone keeps a bow for things best shot from afar
@@ -1408,6 +1432,13 @@ func make_loot() -> Dictionary:
 		for d in loot_cfg.get("drops", []):
 			if randf() < float(d[1]):
 				items[d[0]] = int(items.get(d[0], 0)) + 1
+		# A treasure map, now and then.
+		if int(loot_cfg.get("gold_max", 0)) > 0 and randf() < MAP_DROP_CHANCE:
+			items[game.make_treasure_map()] = 1
+		# Jewelry, now and then, from anything that carries gold.
+		if int(loot_cfg.get("gold_max", 0)) > 0 and randf() < JEWEL_DROP_CHANCE:
+			var jid := Jewelry.random_id()
+			items[jid] = int(items.get(jid, 0)) + 1
 		# Spell scrolls: tougher monsters carry higher circles.
 		if int(loot_cfg.get("gold_max", 0)) > 0 and randf() < SCROLL_DROP_CHANCE:
 			var hi := clampi(1 + int(danger), 1, 8)
@@ -1551,6 +1582,10 @@ func _slot_value(id: String) -> float:
 func _manage_gear() -> void:
 	if not auto_equip:
 		return
+	for id in inventory.keys():
+		var jid := String(id)
+		if Jewelry.has(jid) and ((Jewelry.slot(jid) == "ring" and ring_id == "") or (Jewelry.slot(jid) == "amulet" and amulet_id == "")):
+			wear_jewel(jid)
 	for id in inventory.keys():
 		if _is_usable_upgrade(id):
 			_equip(id)
@@ -1931,6 +1966,7 @@ func _look_style() -> Dictionary:
 		"skin": Art.pick(Art.SKINS, display_name), "hair": Art.pick(Art.HAIRS, display_name + "h"),
 		"cloth": spawn_color, "armor": armor_id, "weapon": weapon, "shield": shield_id,
 		"robe": mage or role == "healer" or role == "priest",
+		"amulet": amulet_id,
 		"hat": "mage" if mage else "",
 	}
 	match role:
@@ -2038,6 +2074,40 @@ func start_gathering(t: Vector2i) -> void:
 	path.clear()
 
 
+## One cast of the line: Fishing decides whether anything bites; skill brings bigger fish, and
+## now and then a pearl, an old boot, or a treasure map in a bottle.
+func _fish_once() -> void:
+	if not _use_tool("fishing_pole"):
+		if is_hero:
+			game.log_event("You need a fishing pole for that (merchants sell them).")
+		gather_tile = Vector2i(-1, -1)
+		return
+	world.take_harvest(gather_tile)
+	game.sound("splash", world.tile_center(gather_tile))
+	if kind == Kind.PLAYER:
+		stats.try_gain(Hero.Skill.FISHING)
+	var fishing := _skill(Hero.Skill.FISHING)
+	if randf() >= Rules.gather_chance(fishing):
+		_pop("nothing bites", Color(0.75, 0.75, 0.75))
+		return
+	var r := randf()
+	var id := "fish"
+	if r < 0.03:
+		id = "pearl"
+	elif r < 0.06:
+		id = game.make_treasure_map()          # a map in a bottle
+	elif r < 0.12:
+		id = "old_boot"
+	elif randf() < 0.1 + fishing / 200.0:
+		id = "big_fish"
+	inventory[id] = int(inventory.get(id, 0)) + 1
+	_pop("+1 " + Items.item_name(id), Color(0.6, 0.85, 1.0))
+	if is_hero:
+		game.count("fish_caught" if id in ["fish", "big_fish"] else "fished_up")
+		if id in ["pearl", "old_boot"] or Items.is_map(id):
+			game.log_event("You fish up %s!" % ("a treasure map in a bottle" if Items.is_map(id) else "a " + Items.item_name(id)))
+
+
 ## Returns true while walking to or working a rock or tree.
 func _gather_step(delta: float) -> bool:
 	if gather_tile.x < 0:
@@ -2065,6 +2135,9 @@ func _gather_step(delta: float) -> bool:
 
 
 func _harvest_once() -> void:
+	if world.resource_kind(gather_tile) == "fish":
+		_fish_once()
+		return
 	var is_ore := world.resource_kind(gather_tile) == "ore"
 	var skill: int = Hero.Skill.MINING if is_ore else Hero.Skill.LUMBERJACKING
 	if not _use_tool("pickaxe" if is_ore else "hatchet"):
@@ -2347,8 +2420,8 @@ func _area_blast(sp: Dictionary) -> void:
 				_:
 					Fx.sparkle(get_parent(), e.position + Vector3(0.0, 0.4, 0.0), sp["color"], 12)
 		var amount := randf_range(float(sp["min_dmg"]), float(sp["max_dmg"])) \
-			* Rules.spell_power(_skill(Hero.Skill.MAGERY), _skill(Hero.Skill.EVALUATING_INTELLECT))
-		if randf() < Rules.resist_chance(e._skill(Hero.Skill.RESISTING_SPELLS)):
+			* Rules.spell_power(_skill(Hero.Skill.MAGERY), _skill(Hero.Skill.EVALUATING_INTELLECT)) * (1.0 + jewel("power"))
+		if randf() < (Rules.resist_chance(e._skill(Hero.Skill.RESISTING_SPELLS)) + e.jewel("resist")):
 			amount *= 0.5
 			e._pop("resisted", Color(0.7, 0.9, 1.0))
 		e.take_damage(amount, self)
@@ -2528,9 +2601,9 @@ func _try_potion() -> bool:
 				break
 	elif stamina < float(stats.max_stamina()) * 0.3 and Crafting.count(inventory, "potion_refresh") > 0:
 		drink = "potion_refresh"
-	elif hp < float(stats.max_hp()) * 0.6 and Crafting.count(inventory, "bread") > 0 \
-			and _nearest(Kind.MONSTER, 4.0) == null:
-		drink = "bread"
+	elif hp < float(stats.max_hp()) * 0.6 and _nearest(Kind.MONSTER, 4.0) == null \
+			and (Crafting.count(inventory, "bread") > 0 or Crafting.count(inventory, "fish") > 0 or Crafting.count(inventory, "big_fish") > 0):
+		drink = "bread" if Crafting.count(inventory, "bread") > 0 else ("big_fish" if Crafting.count(inventory, "big_fish") > 0 else "fish")
 	if drink == "":
 		return false
 	Crafting.take_mats(inventory, {drink: 1}, 1.0)
@@ -2548,12 +2621,14 @@ func _try_potion() -> bool:
 		"potion_refresh":
 			stamina = float(stats.max_stamina())
 			_pop("refreshed", Color(0.6, 0.8, 1.0))
-		"bread":
-			hp = minf(hp + 10.0, float(stats.max_hp()))
-			_pop("+10", Color(0.5, 1.0, 0.5))
+		"bread", "fish", "big_fish":
+			var food := 20.0 if drink == "big_fish" else 10.0
+			hp = minf(hp + food, float(stats.max_hp()))
+			_pop("+%d" % roundi(food), Color(0.5, 1.0, 0.5))
+	var eaten := Items.is_food(drink)
 	if is_hero:
-		game.count("food_eaten" if drink == "bread" else "potions_drunk")
-		game.log_event(("You eat a %s." if drink == "bread" else "You drink a %s.") % Items.item_name(drink))
+		game.count("food_eaten" if eaten else "potions_drunk")
+		game.log_event(("You eat a %s." if eaten else "You drink a %s.") % Items.item_name(drink))
 	return false                         # drinking is instant: carry on with the turn
 
 
@@ -3291,7 +3366,7 @@ func _buy_scroll(s: Shop) -> void:
 
 
 func _paralyze(tgt: Entity) -> void:
-	if randf() < Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)):
+	if randf() < (Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)) + tgt.jewel("resist")):
 		tgt._pop("resisted", Color(0.7, 0.9, 1.0))
 		return
 	tgt.paralyzed_timer = Spells.PARALYZE_BASE + _skill(Hero.Skill.MAGERY) / 25.0
@@ -3354,6 +3429,11 @@ func _effects_tick(delta: float) -> void:
 ## Sums the stat changes and flags of everything active, and keeps HP, mana and stamina in range.
 func _recompute_effects() -> void:
 	var m := {"str": 0, "dex": 0, "int": 0}
+	for jid in [ring_id, amulet_id]:            # jewelry's stat bonuses
+		if Jewelry.has(String(jid)):
+			var jm: Dictionary = Jewelry.LIST[String(jid)].get("mods", {})
+			for stat in jm:
+				m[stat] = int(m.get(stat, 0)) + int(jm[stat])
 	flags.clear()
 	for k in effects:
 		var e: Dictionary = effects[k]
@@ -3411,7 +3491,7 @@ func _curse(tgt: Entity, id: String, sp: Dictionary) -> void:
 	elif tgt != self:
 		victims.append(tgt)
 	for v in victims:
-		if randf() < Rules.resist_chance(v._skill(Hero.Skill.RESISTING_SPELLS)):
+		if randf() < (Rules.resist_chance(v._skill(Hero.Skill.RESISTING_SPELLS)) + v.jewel("resist")):
 			v._pop("resisted", Color(0.7, 0.9, 1.0))
 		else:
 			v.add_effect(id, sp)
@@ -3420,7 +3500,7 @@ func _curse(tgt: Entity, id: String, sp: Dictionary) -> void:
 ## Mana Drain takes a foe's mana; Mana Vampire keeps it.
 func _drain(tgt: Entity, sp: Dictionary) -> void:
 	var amount := randf_range(float(sp["min_dmg"]), float(sp["max_dmg"])) * (1.0 + _skill(Hero.Skill.MAGERY) / 200.0)
-	if randf() < Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)):
+	if randf() < (Rules.resist_chance(tgt._skill(Hero.Skill.RESISTING_SPELLS)) + tgt.jewel("resist")):
 		amount *= 0.5
 		tgt._pop("resisted", Color(0.7, 0.9, 1.0))
 	var took := minf(tgt.mana, amount)
@@ -3748,6 +3828,8 @@ func title() -> String:
 
 
 func title_name() -> String:
+	if is_hero and String(game.property.title_choice) != "":
+		return "%s %s" % [display_name, game.property.title_choice]   # an achievement's title
 	var t := title()
 	return display_name if t == "" else "%s the %s" % [display_name, t]
 
@@ -4088,6 +4170,197 @@ func switch_weapon() -> String:
 	if to_ranged and arrows <= 0:
 		return "You have no arrows: buy them from a merchant (10 at a time)."
 	return ""
+
+
+## The sum of a jewelry property ("power", "cast", "resist", "armor", "regen") over ring and amulet.
+func jewel(key: String) -> float:
+	var t := 0.0
+	if ring_id != "" and Jewelry.has(ring_id):
+		t += float(Jewelry.LIST[ring_id].get(key, 0.0))
+	if amulet_id != "" and Jewelry.has(amulet_id):
+		t += float(Jewelry.LIST[amulet_id].get(key, 0.0))
+	return t
+
+
+## Brings a pooled event creature (guardian, invader, champion...) back to life at `p`.
+func revive_at(p: Vector3) -> void:
+	home = p
+	dead_timer = 0.0
+	_respawn()
+	target = null
+
+
+## Takes an event creature out of the world quietly (no corpse), to be reused later.
+func vanish() -> void:
+	dead = true
+	ghost = false
+	visible = false
+	dead_timer = INF
+	target = null
+	path.clear()
+	casting_id = ""
+	if hp_bar != null:
+		hp_bar.visible = false
+
+
+## Starts digging where a treasure map points (needs a shovel; takes a few seconds).
+func start_dig(map_id: String) -> String:
+	if dead:
+		return "You can't dig now."
+	var t := Items.map_tile(map_id)
+	if t.x < 0:
+		return "The map is unreadable."
+	if position.distance_to(world.tile_center(t)) > 2.5:
+		return "This isn't the spot: the map shows a place %d m away." % roundi(position.distance_to(world.tile_center(t)))
+	if not _use_tool("shovel"):
+		return "You need a shovel to dig (merchants sell them)."
+	dig_map = map_id
+	dig_timer = 3.0
+	path.clear()
+	target = null
+	_pop("digging...", Color(0.85, 0.75, 0.55))
+	game.sound("chop", position)
+	stats.try_gain(Hero.Skill.MINING)
+	return ""
+
+
+## The most worn piece's durability as a share of new (1.0: all as new).
+func _worst_wear() -> float:
+	var worst := 1.0
+	for sl: String in ["weapon", "armor", "shield"]:
+		var id := _equipped_id(sl)
+		if id != "" and Gear.has(id):
+			worst = minf(worst, float(durability(id)) / Gear.max_durability(id))
+	return worst
+
+
+## Durability left on a piece (as new if it has never been worn).
+func durability(id: String) -> int:
+	return int(wear.get(id, Gear.max_durability(id)))
+
+
+## With `chance`, one point of wear on what's worn in `slot` (players only). At 0 it breaks.
+func _wear_out(slot: String, chance: float) -> void:
+	if kind != Kind.PLAYER or randf() >= chance:
+		return
+	var id := _equipped_id(slot)
+	if id == "" or not Gear.has(id):
+		return
+	var d := durability(id) - 1
+	if d <= 0:
+		wear.erase(id)
+		match slot:
+			"weapon":
+				weapon = ""
+			"shield":
+				shield_id = ""
+			_:
+				armor_id = ""
+		refresh_look()
+		_pop("broken!", Color(1.0, 0.5, 0.3))
+		if is_hero:
+			game.log_event("Your %s breaks!" % Items.item_name(id))
+			game.count("gear_broken")
+		return
+	wear[id] = d
+	if is_hero and d == 10:
+		game.log_event("Your %s is badly worn (%d/%d): repair it at a merchant or at the forge." % [
+			Items.item_name(id), d, Gear.max_durability(id)])
+
+
+## Gold a merchant asks to make everything worn as new: half the item's worth for a full repair.
+func repair_cost(s: Shop) -> int:
+	var total := 0
+	for sl: String in ["weapon", "armor", "shield"]:
+		var id := _equipped_id(sl)
+		if id == "" or not Gear.has(id):
+			continue
+		var mx := Gear.max_durability(id)
+		var missing := mx - durability(id)
+		if missing > 0:
+			total += maxi(1, roundi(float(Gear.stats(id)["value"]) * 0.5 * missing / mx))
+	return s.price(total) if total > 0 else 0
+
+
+## The merchant repairs everything worn. Returns a message.
+func repair_all(s: Shop) -> String:
+	var cost := repair_cost(s)
+	if cost <= 0:
+		return "Nothing needs repairing."
+	if gold < cost:
+		return "Repairs cost %d gold." % cost
+	_pay(s, cost)
+	for sl: String in ["weapon", "armor", "shield"]:
+		wear.erase(_equipped_id(sl))
+	if is_hero:
+		game.count("repaired")
+		return "Your gear is repaired as new (%d gold)." % cost
+	return ""
+
+
+## Repairing your own gear at the forge with a tool kit: Blacksmithy decides each piece
+## (40% at no skill, sure at 90), and every try trains it.
+func repair_at_forge() -> String:
+	if not world.near_forge(position):
+		return "Stand by a forge to repair your gear."
+	var done: Array[String] = []
+	var failed: Array[String] = []
+	for sl: String in ["weapon", "armor", "shield"]:
+		var id := _equipped_id(sl)
+		if id == "" or not Gear.has(id) or durability(id) >= Gear.max_durability(id):
+			continue
+		if not _use_tool("tool_kit"):
+			return "You need a tool kit to repair at the forge (merchants sell them)."
+		stats.try_gain(Hero.Skill.BLACKSMITHY)
+		if randf() < clampf(0.4 + _skill(Hero.Skill.BLACKSMITHY) / 150.0, 0.0, 1.0):
+			wear.erase(id)
+			done.append(Items.item_name(id))
+		else:
+			failed.append(Items.item_name(id))
+	if done.is_empty() and failed.is_empty():
+		return "Nothing needs repairing."
+	var msg := ""
+	if not done.is_empty():
+		msg = "You repair your %s." % ", ".join(done)
+	if not failed.is_empty():
+		msg += (" " if msg != "" else "") + "You fail to mend your %s; try again." % ", ".join(failed)
+	return msg
+
+
+## Puts on a ring or amulet from the bag (the one worn goes back in the bag).
+func wear_jewel(id: String) -> void:
+	if dead or not inventory.has(id) or not Jewelry.has(id):
+		return
+	var sl := Jewelry.slot(id)
+	var old := ring_id if sl == "ring" else amulet_id
+	inventory[id] = int(inventory[id]) - 1
+	if int(inventory[id]) <= 0:
+		inventory.erase(id)
+	if sl == "ring":
+		ring_id = id
+	else:
+		amulet_id = id
+	if old != "":
+		inventory[old] = int(inventory.get(old, 0)) + 1
+	_recompute_effects()
+	refresh_look()
+	if is_hero:
+		game.log_event("You put on the %s (%s)." % [Items.item_name(id), Jewelry.describe(id)])
+
+
+func remove_jewel(sl: String) -> void:
+	var id := ring_id if sl == "ring" else amulet_id
+	if id == "":
+		return
+	if sl == "ring":
+		ring_id = ""
+	else:
+		amulet_id = ""
+	inventory[id] = int(inventory.get(id, 0)) + 1
+	_recompute_effects()
+	refresh_look()
+	if is_hero:
+		game.log_event("You take off the %s." % Items.item_name(id))
 
 
 func equip_by_hand(id: String) -> bool:

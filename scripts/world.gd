@@ -170,6 +170,8 @@ func resource_kind(c: Vector2i) -> String:
 			return "ore"
 		Tile.TREE:
 			return "wood"
+		Tile.WATER:
+			return "fish"
 	return ""
 
 

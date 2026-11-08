@@ -181,6 +181,13 @@ func _draw() -> void:
 		draw_line(sp + Vector2(0, -1), sp + Vector2(0, 4), glow, 1.5)
 		draw_line(sp + Vector2(-2.5, 0), sp + Vector2(2.5, 0), glow, 1.5)
 		draw_arc(sp + Vector2(0, -2.5), 1.5, 0.0, TAU, 8, glow, 1.2)
+	# the treasure map's spot: a red X
+	if game.map_mark.x >= 0:
+		var mp: Vector2 = (Vector2(game.map_mark) + Vector2(0.5, 0.5)) * px
+		draw_line(mp + Vector2(-4, -4), mp + Vector2(4, 4), Color(0, 0, 0, 0.7), 3.0)
+		draw_line(mp + Vector2(-4, 4), mp + Vector2(4, -4), Color(0, 0, 0, 0.7), 3.0)
+		draw_line(mp + Vector2(-3.5, -3.5), mp + Vector2(3.5, 3.5), Color(0.95, 0.2, 0.15), 2.0)
+		draw_line(mp + Vector2(-3.5, 3.5), mp + Vector2(3.5, -3.5), Color(0.95, 0.2, 0.15), 2.0)
 	# treasure chests
 	for c in game.corpses:
 		if c.is_chest and not c.is_empty():
@@ -194,6 +201,10 @@ func _draw() -> void:
 		if e.is_hero or (e.dead and not e.ghost) or e.parked:
 			continue
 		var p := _to_map(e.position)
+		if e.is_boss:                              # champions, warlords, the Bone King
+			draw_circle(p, 4.2, Color(0.0, 0.0, 0.0, 0.6))
+			draw_circle(p, 3.2, Color(1.0, 0.55, 0.15))
+			continue
 		draw_circle(p, 2.6, Color(0.0, 0.0, 0.0, 0.55))
 		draw_circle(p, 1.8, _dot_color(e))
 	var hero: Entity = game.hero

@@ -207,6 +207,7 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 	var shield := String(style.get("shield", ""))
 	var build := float(style.get("build", 1.0))
 	var holy := bool(style.get("holy", false))     # a priest: white robes, gold, a halo
+	var amulet := String(style.get("amulet", ""))
 	var bony := look == "skeleton"
 	var pants := Color(0.25, 0.2, 0.17)
 	match look:
@@ -347,6 +348,14 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			p.append([box(0.4 * w, 0.12, 0.24 * w), at(0, 0.7, 0), pants])
 		return p)
 	_instance(root, body, vc_mat(), meshes)
+	if amulet != "":                                   # a gold chain and a glowing gem on the chest
+		var gem: Color = Jewelry.GEM.get(amulet, Color(0.9, 0.8, 0.4))
+		var chain := _cached("amulet|" + amulet, func() -> Array:
+			return [[box(0.2, 0.02, 0.02), at(0, 1.27, -0.15, Vector3(0, 0, 0)), TRIM],
+				[box(0.02, 0.12, 0.02), at(-0.08, 1.21, -0.155, Vector3(0, 0, 0.5)), TRIM],
+				[box(0.02, 0.12, 0.02), at(0.08, 1.21, -0.155, Vector3(0, 0, -0.5)), TRIM],
+				[ball(0.045, 6, 3), at(0, 1.13, -0.165), gem]])
+		_instance(root, chain, glow_mat(gem), meshes)
 	if holy:                                           # a glowing halo over the hood
 		var halo := _cached("halo", func() -> Array:
 			return [[ring_mesh(0.17, 0.2), at(0, 1.78, 0.02), Color(1.0, 0.86, 0.4)]])

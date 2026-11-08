@@ -20,6 +20,13 @@ const LIST := {
 	"pickaxe": {"name": "Pickaxe", "value": 12, "tool": true},
 	"hatchet": {"name": "Hatchet", "value": 12, "tool": true},
 	"tool_kit": {"name": "Tool Kit", "value": 15, "tool": true},
+	"shovel": {"name": "Shovel", "value": 15, "tool": true},           # digging up treasure
+	"fishing_pole": {"name": "Fishing Pole", "value": 12, "tool": true},
+	# Fishing: fish sell, and can be eaten (food); now and then something else bites.
+	"fish": {"name": "Fish", "value": 4, "food": true},
+	"big_fish": {"name": "Big Fish", "value": 18, "food": true},
+	"old_boot": {"name": "Old Boot", "value": 1},
+	"pearl": {"name": "Pearl", "value": 60},
 }
 
 
@@ -56,7 +63,19 @@ static func is_scroll(id: String) -> bool:
 
 
 static func is_known(id: String) -> bool:
-	return Gear.has(id) or LIST.has(id) or is_material(id) or is_scroll(id)
+	return Gear.has(id) or LIST.has(id) or is_material(id) or is_scroll(id) or Jewelry.has(id) or is_map(id)
+
+
+## Treasure maps: "tmap@<x>_<y>", the tile where the chest is buried.
+static func is_map(id: String) -> bool:
+	return id.begins_with("tmap@")
+
+
+static func map_tile(id: String) -> Vector2i:
+	var p := id.trim_prefix("tmap@").split("_")
+	if p.size() != 2:
+		return Vector2i(-1, -1)
+	return Vector2i(int(p[0]), int(p[1]))
 
 
 static func item_name(id: String) -> String:
@@ -71,6 +90,10 @@ static func item_name(id: String) -> String:
 		return String(g["name"]) + (" (your maker's mark)" if bool(g["exceptional"]) else "")
 	if is_scroll(id):
 		return "Scroll of " + String(Spells.LIST[Spells.spell_of_scroll(id)]["name"])
+	if Jewelry.has(id):
+		return String(Jewelry.LIST[id]["name"])
+	if is_map(id):
+		return "Treasure Map"
 	return String(LIST[id]["name"])
 
 
@@ -86,6 +109,10 @@ static func value(id: String) -> int:
 		return maxi(1, int(Gear.stats(id)["value"]) / 2)
 	if is_scroll(id):
 		return scroll_price(id) / 2
+	if Jewelry.has(id):
+		return int(Jewelry.LIST[id]["value"]) / 2
+	if is_map(id):
+		return 40
 	return int(LIST[id]["value"])
 
 

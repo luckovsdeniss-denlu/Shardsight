@@ -3,6 +3,42 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.49.0
+A living world: trade, treasure, fishing, jewelry, wear, events, sounds, sky and achievements.
+- Trade: tap a merchant for a shop window. Buy supplies (arrows, bandages, reagents, potions,
+  pickaxe, hatchet, tool kit, shovel, fishing pole, lute), weapons, armour, shields, jewelry and
+  spell scrolls you don't know (circles 1-6); sell anything in your bag at the merchant's offer
+  (it pays less for what it already holds, and only what its purse allows); have worn gear
+  repaired. Your artifacts, jewelry and maps are no longer sold automatically when you stand by
+  a merchant.
+- Treasure maps drop from monsters (and come up when fishing). Bag > Read marks the spot with a
+  red X on the minimap; walk there and Dig with a shovel: a rich chest (gold, reagents, high-
+  circle scrolls, often an artifact and jewelry), and two or three of its dead guardians rise.
+- Fishing, a new skill: carry a fishing pole and tap the water. Fish and big fish can be eaten
+  (+10 and +20 health) or sold; now and then a pearl, an old boot, or a treasure map in a bottle.
+- Jewelry: a ring and an amulet slot (Bag > Wear). Rings of Strength, Agility, Wits, Power (spell
+  damage), Swift Casting and Life (health back each second); amulets of Guarding (armour),
+  Warding (resist spells), the Mind and the Titan. Merchants sell the plainer ones; the rest come
+  from chests and, rarely, monsters. An amulet shows as a gold chain with a glowing gem.
+- Durability: weapons wear with your blows, armour with the blows you take, shields when they
+  parry; a piece breaks at 0 (you're warned at 10). The Bag shows it; a merchant repairs it for
+  gold, or do it yourself at the forge with a tool kit (Blacksmithy). Computer players repair too.
+  Exceptional work lasts longer, artifacts twice as long.
+- World events: the restless dead rise in the wilds at night and crumble at dawn; every ten
+  minutes or so an orc warband with a Warlord marches on a town and camps at its gates (help
+  destroy it for gold and fame); champions (Gorgath the Ravager, Ulmara the Bone Witch, Kruul
+  Ironhide) rise in the wilds, show as big orange dots on the minimap, have a health bar, and
+  always leave a treasure chest.
+- Sounds of the world: footsteps on grass and on stone, birdsong among the trees by day,
+  crickets at night, running water near rivers and lakes, and the crackle of fires near braziers,
+  campfires and the forge, each fading with distance.
+- The sky: blue by day with the sun, glowing orange towards the sun at dawn and dusk, dark with
+  stars and a moon at night, greyer in bad weather; fireflies drift round you on clear nights in
+  the wilds.
+- Achievements (Statistics): 19 deeds, from First Blood and Monster Slayer to Archmage and Hero of
+  the Realm, each paying gold and earning a title you can wear after your name.
+- A new skill (Fishing) raises the skill cap to 3800.
+
 ## 0.48.0
 A prettier world.
 - The ground is painted once at the start instead of one flat noise: grass with soft meadows,

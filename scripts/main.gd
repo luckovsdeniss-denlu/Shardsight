@@ -44,6 +44,10 @@ var corpse_button: Button
 var magic_button: Button
 var bag_box: VBoxContainer
 var spells_panel: Control
+var shop_panel: Control
+var shop_box: VBoxContainer
+var shop_open: Entity                    # the merchant whose shop is showing
+var shop_tab := "buy"                    # "buy" or "sell"
 var stats_panel: Control
 var stats_box: VBoxContainer
 var spell_details := true              # the Spells panel shows each spell's numbers
@@ -261,6 +265,8 @@ func _ready() -> void:
 	priest_box = priest_panel.get_meta("box")
 	stats_panel = _make_overlay(layer)
 	stats_box = stats_panel.get_meta("box")
+	shop_panel = _make_overlay(layer)
+	shop_box = shop_panel.get_meta("box")
 	thief_panel = _make_overlay(layer)
 	thief_box = thief_panel.get_meta("box")
 	guild_panel = _make_overlay(layer)
@@ -886,7 +892,319 @@ func _quest_text() -> String:
 
 
 ## Called by Entity._die for every death.
+# --- the sounds of the world ---------------------------------------------------------------
+
+var _amb_players := {}                   # "crickets", "water", "fire" -> AudioStreamPlayer
+var _amb_acc := 0.0
+var _step_acc := 0.0
+var _bird_in := 5.0
+var _last_hero_pos := Vector3.ZERO
+
+
+func _amb_player(sound_name: String) -> AudioStreamPlayer:
+	if not _amb_players.has(sound_name):
+		var p := AudioStreamPlayer.new()
+		p.volume_db = -80.0
+		add_child(p)
+		_amb_players[sound_name] = p
+	return _amb_players[sound_name]
+
+
+## Fades a loop towards `db` (-80 is silent), starting it once its sound is ready.
+func _amb_set(sound_name: String, db: float) -> void:
+	var p := _amb_player(sound_name)
+	if p.stream == null:
+		var st := sfx.loop_stream(sound_name)
+		if st == null:
+			return
+		p.stream = st
+	if db <= -60.0:
+		if p.playing:
+			p.volume_db = move_toward(p.volume_db, -80.0, 12.0)
+			if p.volume_db <= -79.0:
+				p.stop()
+		return
+	if not p.playing:
+		p.volume_db = -60.0
+		p.play()
+	p.volume_db = move_toward(p.volume_db, db, 6.0)
+
+
+func _ambience_tick(delta: float) -> void:
+	if hero == null or autotest:
+		return
+	var on := property.sound_on and not hero.dead
+	# footsteps
+	var moved := hero.position.distance_to(_last_hero_pos) > 0.01
+	_last_hero_pos = hero.position
+	_step_acc -= delta
+	if on and moved and hero.mounted_on == null and _step_acc <= 0.0:
+		_step_acc = 0.36
+		var t := world.to_tile(hero.position)
+		sfx.play("step_stone" if world.is_town(t) or world.is_dungeon(t) else "step_grass", 1.0, -16.0)
+	_amb_acc += delta
+	if _amb_acc < 0.5:
+		return
+	_amb_acc = 0.0
+	if not on:
+		for k in ["crickets", "water", "fire"]:
+			_amb_set(k, -80.0)
+		return
+	var here := world.to_tile(hero.position)
+	# crickets at night, out of the dungeon
+	_amb_set("crickets", -20.0 if is_night() and not world.is_dungeon(here) else -80.0)
+	# running water nearby; trees nearby (for the birds)
+	var water_d := 99.0
+	var trees := 0
+	for dy in range(-7, 8):
+		for dx in range(-7, 8):
+			var c := here + Vector2i(dx, dy)
+			if not world.in_bounds(c):
+				continue
+			var tt: int = world.tiles[c.y * world.cols + c.x]
+			if tt == World.Tile.WATER:
+				water_d = minf(water_d, Vector2(dx, dy).length())
+			elif tt == World.Tile.TREE:
+				trees += 1
+	_amb_set("water", lerpf(-14.0, -36.0, water_d / 7.0) if water_d <= 7.0 else -80.0)
+	# fire: braziers, campfires, the forge
+	var fire_d := 99.0
+	for l in brazier_lights:
+		fire_d = minf(fire_d, l.global_position.distance_to(hero.position))
+	for cf in campfires:
+		var node: Node3D = cf["node"]
+		if is_instance_valid(node):
+			fire_d = minf(fire_d, node.global_position.distance_to(hero.position))
+	if world.forge_tile.x >= 0:
+		fire_d = minf(fire_d, world.tile_center(world.forge_tile).distance_to(hero.position))
+	_amb_set("fire", lerpf(-12.0, -34.0, fire_d / 6.0) if fire_d <= 6.0 else -80.0)
+	# birdsong by day among the trees
+	_bird_in -= 0.5
+	if _bird_in <= 0.0:
+		_bird_in = randf_range(3.0, 9.0)
+		if not is_night() and trees >= 4 and weather == "clear":
+			sfx.play("bird", randf_range(0.9, 1.2), -12.0)
+
+
+# --- achievements and titles ---------------------------------------------------------------
+
+var _achieve_acc := 0.0
+
+
+func _check_achievements() -> void:
+	if autotest or hero == null:
+		return
+	for a: Dictionary in Achievements.LIST:
+		var id := String(a["id"])
+		if property.achievements.has(id):
+			continue
+		var p := Achievements.progress(a, property.stats_counts, hero.stats)
+		if int(p[0]) < int(p[1]):
+			continue
+		property.achievements[id] = true
+		var reward := int(a["gold"])
+		hero.gold += reward
+		log_event("Achievement: %s! %s. +%d gold, and the title \"%s\" (Statistics > Titles)." % [
+			a["name"], a["desc"], reward, a["title"]])
+		sound("gain", hero.position)
+		if hero.position.distance_to(cam.position) < 40.0:
+			Fx.sparkle(self, hero.position + Vector3(0.0, 1.0, 0.0), Color(1.0, 0.85, 0.4), 30)
+
+
+func _set_title(t: String) -> void:
+	property.title_choice = t
+	hero.show_name(property.names_on)
+	_refresh_stats()
+
+
+# --- world events: the restless dead at night, orc warbands, champions -------------------------
+
+const INVASION_EVERY := 600.0            # seconds between orc warbands (give or take)
+const INVASION_LASTS := 360.0
+const CHAMPION_EVERY := 900.0
+const CHAMPION_LASTS := 600.0
+const CHAMPIONS := [
+	["Gorgath the Ravager", "ogre"], ["Ulmara the Bone Witch", "lich"], ["Kruul Ironhide", "ogre"],
+]
+var _event_acc := 0.0
+var _night_up := false
+var _night_dead: Array[Entity] = []
+var _invasion_in := 300.0
+var _invasion_left := 0.0
+var invaders: Array[Entity] = []
+var _invasion_town := ""
+var _invasion_hero_kills := 0
+var _champion_in := 480.0
+var _champion_left := 0.0
+var champion: Entity
+
+
+func _events_tick(delta: float) -> void:
+	if autotest:
+		return                                # the play-test keeps to the ordinary world
+	_event_acc += delta
+	if _event_acc < 1.0:
+		return
+	var dt := _event_acc
+	_event_acc = 0.0
+	# the restless dead walk the wilds at night and crumble at dawn
+	var night := is_night()
+	if night and not _night_up:
+		_night_up = true
+		_raise_night_dead()
+	elif not night and _night_up:
+		_night_up = false
+		_lay_night_dead()
+	# orc warbands
+	if invaders.is_empty():
+		_invasion_in -= dt
+		if _invasion_in <= 0.0:
+			_start_invasion()
+	else:
+		_invasion_left -= dt
+		var alive := 0
+		for e in invaders:
+			if not e.dead:
+				alive += 1
+		if alive == 0:
+			_end_invasion(true)
+		elif _invasion_left <= 0.0:
+			_end_invasion(false)
+	# champions
+	if champion == null:
+		_champion_in -= dt
+		if _champion_in <= 0.0:
+			_start_champion()
+	else:
+		_champion_left -= dt
+		if champion.dead:
+			champion = null
+			_champion_in = CHAMPION_EVERY * randf_range(0.8, 1.2)
+		elif _champion_left <= 0.0:
+			event_about("%s fades back into the wilds." % champion.display_name, true)
+			champion.vanish()
+			champion = null
+			_champion_in = CHAMPION_EVERY * randf_range(0.8, 1.2)
+
+
+func _wild_spot() -> Vector3:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	return world.tile_center(world.open_tile_in(world.zone_rect(rng.randi() % world.zone_count()), rng))
+
+
+func _raise_night_dead() -> void:
+	var kinds := [["Skeleton", Bestiary.SKELETON, Color("d8d2c0")], ["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")],
+		["Skeleton Archer", Bestiary.SKELETON_ARCHER, Color("d8d2c0")]]
+	_night_dead.clear()
+	for i in range(6):
+		var k: Array = kinds[i % kinds.size()]
+		_night_dead.append(pool_spawn(String(k[0]), k[1], k[2], _wild_spot()))
+	event_about("Night falls, and the restless dead rise in the wilds.", true)
+
+
+func _lay_night_dead() -> void:
+	for e in _night_dead:
+		if not e.dead:
+			if e.position.distance_to(hero.position) < 20.0:
+				e._pop("crumbles to dust", Color(0.8, 0.8, 0.75))
+				Fx.sparkle(self, e.position + Vector3(0.0, 0.6, 0.0), Color(0.75, 0.72, 0.65), 14)
+			e.vanish()
+	_night_dead.clear()
+	event_about("Dawn breaks, and the restless dead crumble to dust.", true)
+
+
+## Orcs march on a town: a warband with a Warlord camps outside its gates.
+func _start_invasion() -> void:
+	var i := randi() % World.TOWNS.size()
+	var r: Rect2i = World.TOWNS[i]
+	_invasion_town = String(World.TOWN_NAMES[i])
+	var centre := Vector2(r.position) + Vector2(r.size) / 2.0
+	var dir := Vector2.RIGHT.rotated(randf() * TAU)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	# a camp just outside the town, and where the warband gathers first, further out
+	var camp_t := Vector2i(centre + dir * (maxf(r.size.x, r.size.y) / 2.0 + 4.0)).clamp(Vector2i(2, 2), Vector2i(world.cols - 3, world.rows - 3))
+	var camp := world.tile_center(world.open_tile_in(Rect2i(camp_t - Vector2i(2, 2), Vector2i(5, 5)), rng))
+	var start_t := Vector2i(centre + dir * (maxf(r.size.x, r.size.y) / 2.0 + 14.0))
+	start_t = start_t.clamp(Vector2i(1, 1), Vector2i(world.cols - 2, world.rows - 2))
+	var start := world.tile_center(world.open_tile_in(Rect2i(start_t - Vector2i(3, 3), Vector2i(7, 7)), rng))
+	invaders.clear()
+	var warlord := Bestiary.ORC.duplicate()
+	warlord["str"] = 80
+	warlord["dmg_min"] = 7
+	warlord["dmg_max"] = 15
+	warlord["scale"] = 1.4
+	warlord["danger"] = 5
+	warlord["armor"] = 4.0
+	warlord["boss"] = true
+	warlord["loot"] = {"gold_min": 150, "gold_max": 300, "drops": [["chainmail", 0.4], ["broadsword", 0.4], ["orc_ear", 1.0]]}
+	invaders.append(pool_spawn("Orc Warlord", warlord, Color("8a2a20"), start))
+	for k in range(5):
+		var cfg: Dictionary = Bestiary.ORC_ARCHER if k % 3 == 2 else Bestiary.ORC
+		invaders.append(pool_spawn("Orc Raider" if k % 3 != 2 else "Orc Archer", cfg, Color("c0392b"), start + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))))
+	for e in invaders:
+		e.home = camp                          # they march on the town and camp at its gates
+		e.go_to(camp)
+	_invasion_left = INVASION_LASTS
+	_invasion_hero_kills = 0
+	var v := camp - hero.position
+	event_about("An orc warband marches on %s! It will camp outside the gates (%d m %s of you)." % [
+		_invasion_town, roundi(v.length()), _compass(v)], true)
+
+
+func _end_invasion(beaten: bool) -> void:
+	if beaten:
+		event_about("The orc warband at %s is destroyed!" % _invasion_town, true)
+		if _invasion_hero_kills > 0:
+			var reward := 60 * _invasion_hero_kills
+			hero.gold += reward
+			hero.add_fame(25 * _invasion_hero_kills)
+			count("gold_earned", reward)
+			count("invasions_repelled")
+			log_event("The grateful townsfolk reward you with %d gold for the %d raider%s you slew." % [
+				reward, _invasion_hero_kills, "" if _invasion_hero_kills == 1 else "s"])
+	else:
+		event_about("The orc warband at %s withdraws into the wilds." % _invasion_town, true)
+		for e in invaders:
+			if not e.dead:
+				e.vanish()
+	invaders.clear()
+	_invasion_in = INVASION_EVERY * randf_range(0.8, 1.2)
+
+
+## A champion rises somewhere in the wilds: much tougher than its kind, a health bar when you
+## fight it, and a treasure chest when it falls.
+func _start_champion() -> void:
+	var pick: Array = CHAMPIONS[randi() % CHAMPIONS.size()]
+	var base: Dictionary = Bestiary.LICH if String(pick[1]) == "lich" else Bestiary.OGRE
+	var cfg := base.duplicate()
+	cfg["str"] = int(base["str"]) * 2
+	cfg["dmg_min"] = int(base["dmg_min"]) * 2
+	cfg["dmg_max"] = int(base["dmg_max"]) * 2
+	cfg["scale"] = float(base.get("scale", 1.0)) * 1.4
+	cfg["danger"] = 9
+	cfg["armor"] = float(base.get("armor", 0.0)) + 4.0
+	cfg["boss"] = true
+	cfg["leash"] = 6
+	cfg["loot"] = {"gold_min": 500, "gold_max": 1000, "reagents": 20, "drops": [["platemail", 0.3], ["heater_shield", 0.3]]}
+	var at := _wild_spot()
+	champion = pool_spawn(String(pick[0]), cfg, Color("5a1a10") if String(pick[1]) == "ogre" else Color("4a2a6a"), at)
+	_champion_left = CHAMPION_LASTS
+	var v := at - hero.position
+	event_about("A champion, %s, has risen %d m %s of you! Its lair is marked on the map." % [
+		champion.display_name, roundi(v.length()), _compass(v)], true)
+
+
 func on_kill(killer: Entity, victim: Entity) -> void:
+	if killer != null and killer.is_hero and invaders.has(victim):
+		_invasion_hero_kills += 1
+	if victim == champion:
+		_drop_chest(victim)                      # a champion always leaves treasure
+		event_about("%s has been slain%s!" % [victim.display_name,
+			(" by " + killer.display_name) if killer != null else ""], true)
+		if killer != null and killer.is_hero:
+			count("champions_slain")
 	if killer != null and killer.kind == Entity.Kind.PET and killer.pet_owner != null:
 		if killer.pet_owner.is_hero:
 			count("pet_kills")
@@ -1291,6 +1609,10 @@ func _open_help() -> void:
 		"The Menu button (top right) opens every button: Auto, Main Menu, Bag, Spells, Retreat, Ride, Mute, and switches to show names, stats and the map, Bow / Melee (draw your bow, the shield goes in the bag; switch back for sword and shield), and First person / Top view (in first person you see through the hero's eyes; twist two fingers to look around). Auto lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
 		"Names (Menu > Show names): blue innocent, grey criminal, red murderer or monster. The tan towns are safe: nobody can be hurt inside a town, and nobody can attack out of one.",
 		"Skills and stats rise by use. Menu > Skills shows them and lets you set Up, Down or Locked. There's no real cap: every skill can reach 100.",
+		"Tap a merchant to trade: buy supplies, weapons, armour, jewelry and scrolls, sell what you carry, and have worn gear repaired. Gear wears out with use and breaks at 0 (Bag shows durability); you can also repair it yourself at the forge with a tool kit (Blacksmithy).",
+		"Treasure maps drop from monsters (or come up in a fishing net). In the Bag: Read marks the spot with a red X on the minimap; walk there and Dig with a shovel. The chest is rich, but its guardians rise.",
+		"Fishing: carry a fishing pole and tap the water. Fish feed you; skill brings big fish, and sometimes a pearl or a map in a bottle. Rings and amulets (Bag > Wear) add strength, spell power, faster casting, resistance, armour or healing.",
+		"World events: the restless dead walk the wilds at night; orc warbands march on the towns (help drive them off for a reward); champions rise in the wilds (orange dots on the map) and always leave treasure. Statistics shows your achievements, and the titles they earn.",
 		"Die and you become a ghost in a grey world: walk (tap the ground, or let Auto do it) to a resurrection spot to be raised for free: a glowing ankh shrine (one in every part of the map, pale blue crosses on the minimap) or a healer or priest (not for murderers). The top of the screen shows the nearest. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
 		"The world is bigger now: Southmoor, a third town, lies south. Wolf packs and an orc fort roam the far east, spiders the southern forest, and the restless dead an old graveyard in the south-east. The hills south-east are rich in ore.",
@@ -1862,6 +2184,7 @@ func _refresh_bag() -> void:
 			label += _gear_line(id)
 			if slot == "weapon" and Gear.is_ranged(id):
 				label += ", %d arrows" % hero.arrows
+			label += "   [durability %d/%d]" % [hero.durability(id), Gear.max_durability(id)]
 		var row := HBoxContainer.new()
 		var info := _info(label)
 		info.custom_minimum_size = Vector2(560, 0)
@@ -1870,8 +2193,22 @@ func _refresh_bag() -> void:
 		if id != "":
 			row.add_child(_action("Take off", _on_unequip.bind(slot), not hero.dead))
 		bag_box.add_child(row)
+	for sl: String in ["ring", "amulet"]:
+		var jid: String = hero.ring_id if sl == "ring" else hero.amulet_id
+		var jrow := HBoxContainer.new()
+		var jinfo := _info("%s: %s" % [sl.capitalize(), "nothing" if jid == "" else "%s (%s)" % [Items.item_name(jid), Jewelry.describe(jid)]])
+		jinfo.custom_minimum_size = Vector2(560, 0)
+		jinfo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		jrow.add_child(jinfo)
+		if jid != "":
+			jrow.add_child(_action("Take off", _on_remove_jewel.bind(sl), not hero.dead))
+		bag_box.add_child(jrow)
 	bag_box.add_child(_info("Riding: %s" % (hero.mounted_on.display_name if hero.mounted_on != null else "on foot")))
 	bag_box.add_child(_action("Auto-equip better gear: %s" % ("On" if hero.auto_equip else "Off (you choose)"), _on_toggle_auto_equip, true))
+	if world.near_forge(hero.position):
+		bag_box.add_child(_action("Repair worn gear at the forge (Blacksmithy, uses the tool kit)", _on_forge_repair, not hero.dead))
+	else:
+		bag_box.add_child(_small("Worn gear breaks at 0. Repair it at a merchant (tap them) or yourself at the forge."))
 	# supplies
 	bag_box.add_child(_heading("Supplies"))
 	bag_box.add_child(_info("Gold %d (bank %d)   Reagents %d   Bandages %d   Arrows %d" % [
@@ -1890,6 +2227,8 @@ func _refresh_bag() -> void:
 		var line := "%s x%d" % [Items.item_name(id), n]
 		if Gear.has(id):
 			line = "%s x%d: %s" % [Items.item_name(id), n, _gear_line(id)]
+		elif Jewelry.has(id):
+			line = "%s x%d: %s" % [Items.item_name(id), n, Jewelry.describe(id)]
 		elif Items.is_tool_item(id):
 			line += " (%d uses left)" % int(hero.tool_uses.get(id, Entity.TOOL_USES))
 		if Items.is_known(id) and not Items.is_tool_item(id):
@@ -1902,6 +2241,11 @@ func _refresh_bag() -> void:
 		if Gear.has(id):
 			var problem := hero.equip_problem(id)
 			row.add_child(_action("Equip" if problem == "" else "Can't: " + problem, _on_equip.bind(id), problem == "" and not hero.dead))
+		elif Jewelry.has(id):
+			row.add_child(_action("Wear", _on_wear_jewel.bind(String(id)), not hero.dead))
+		elif Items.is_map(id):
+			row.add_child(_action("Read", _on_read_map.bind(String(id)), true))
+			row.add_child(_action("Dig", _on_dig_map.bind(String(id)), not hero.dead))
 		bag_box.add_child(row)
 	bag_box.add_child(_menu_button("Back", _close_bag))
 
@@ -1927,6 +2271,39 @@ func _gear_line(id: String) -> String:
 
 func _on_equip(id: String) -> void:
 	hero.equip_by_hand(id)
+	_refresh_bag()
+
+
+func _on_read_map(id: String) -> void:
+	var t := Items.map_tile(id)
+	map_mark = t
+	var v := world.tile_center(t) - hero.position
+	log_event("The map shows a spot %d m %s of you, marked with a red X on your minimap. Dig there with a shovel." % [
+		roundi(v.length()), _compass(v)])
+	_refresh_bag()
+
+
+func _on_dig_map(id: String) -> void:
+	var msg := hero.start_dig(id)
+	if msg != "":
+		log_event(msg)
+		_refresh_bag()
+	else:
+		_close_bag()
+
+
+func _on_forge_repair() -> void:
+	log_event(hero.repair_at_forge())
+	_refresh_bag()
+
+
+func _on_wear_jewel(id: String) -> void:
+	hero.wear_jewel(id)
+	_refresh_bag()
+
+
+func _on_remove_jewel(sl: String) -> void:
+	hero.remove_jewel(sl)
 	_refresh_bag()
 
 
@@ -2023,6 +2400,160 @@ func _on_priest_confess() -> void:
 	_refresh_priest()
 
 
+# --- the merchant's shop: buy, sell, repair ------------------------------------------------
+
+## What every merchant keeps on the shelves (gear the merchant sells at its own value; the best
+## pieces are only made or found). [id, how many you get, base price per lot].
+const SHOP_GEAR := ["dagger", "kryss", "short_sword", "longsword", "broadsword", "mace", "war_hammer",
+	"bow", "crossbow", "leather_armor", "studded_armor", "chainmail", "wooden_shield", "bronze_shield"]
+
+
+func _shop_supplies() -> Array:
+	return [["arrows", 10, Entity.ARROW_PRICE * 10], ["bandages", 5, Entity.BANDAGE_PRICE * 5],
+		["reagents", 10, Entity.REAGENT_PRICE * 10], ["potion_heal", 1, Entity.POTION_PRICE],
+		["potion_cure", 1, Entity.POTION_PRICE], ["potion_refresh", 1, 10],
+		["pickaxe", 1, Entity.TOOL_PRICE], ["hatchet", 1, Entity.TOOL_PRICE], ["tool_kit", 1, 15],
+		["shovel", 1, 15], ["fishing_pole", 1, Entity.TOOL_PRICE], ["lute", 1, Entity.LUTE_PRICE]]
+
+
+func _open_shop(m: Entity) -> void:
+	shop_open = m
+	paused = true
+	menu.visible = false
+	shop_panel.visible = true
+	_refresh_shop()
+
+
+func _close_shop() -> void:
+	shop_panel.visible = false
+	_resume()
+
+
+func _shop_tab(t: String) -> void:
+	shop_tab = t
+	_refresh_shop()
+
+
+func _refresh_shop() -> void:
+	for c in shop_box.get_children():
+		shop_box.remove_child(c)
+		c.queue_free()
+	var m := shop_open
+	var s: Shop = m.shop
+	var title_label := _info("%s's shop (%s)" % [m.display_name, s.town])
+	title_label.add_theme_font_size_override("font_size", 30)
+	title_label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5))
+	shop_box.add_child(title_label)
+	shop_box.add_child(_info("Your gold: %d   The merchant's purse: %d gold" % [hero.gold, s.cash]))
+	var near := hero.position.distance_to(m.position) <= Entity.MARKET_RANGE and not hero.dead
+	if hero.notoriety() != Entity.Notoriety.BLUE:
+		shop_box.add_child(_info("\"I don't trade with criminals.\" Clear your name first."))
+		near = false
+	elif not near:
+		shop_box.add_child(_action("Walk to %s" % m.display_name, _walk_to_shop, not hero.dead))
+	var tabs := HBoxContainer.new()
+	var b_buy := _menu_button("Buy" + (" <" if shop_tab == "buy" else ""), _shop_tab.bind("buy"))
+	var b_sell := _menu_button("Sell" + (" <" if shop_tab == "sell" else ""), _shop_tab.bind("sell"))
+	tabs.add_child(b_buy)
+	tabs.add_child(b_sell)
+	shop_box.add_child(tabs)
+	# repairs
+	var rc := hero.repair_cost(s)
+	if rc > 0:
+		shop_box.add_child(_action("Repair your worn gear as new (%d gold)" % rc, _on_shop_repair, near and hero.gold >= rc))
+	if shop_tab == "buy":
+		shop_box.add_child(_heading("Supplies"))
+		for sup in _shop_supplies():
+			var price := s.price(int(sup[2]))
+			var what := String(sup[0])
+			var label := "%s x%d" % [what.capitalize(), int(sup[1])] if what in ["arrows", "bandages", "reagents"] else Items.item_name(what)
+			shop_box.add_child(_action("%s  -  %d gold" % [label, price], _on_shop_buy.bind(what, int(sup[1]), price), near and hero.gold >= price))
+		shop_box.add_child(_heading("Weapons, armour and shields"))
+		for id: String in SHOP_GEAR:
+			var price := s.price(int(Gear.stats(id)["value"]))
+			shop_box.add_child(_action("%s  -  %d gold" % [_gear_line(id), price], _on_shop_buy.bind(id, 1, price), near and hero.gold >= price))
+		shop_box.add_child(_heading("Jewelry"))
+		for id in Jewelry.shop_ids():
+			var price := s.price(int(Jewelry.LIST[id]["value"]))
+			shop_box.add_child(_action("%s (%s)  -  %d gold" % [Items.item_name(id), Jewelry.describe(id), price], _on_shop_buy.bind(id, 1, price), near and hero.gold >= price))
+		shop_box.add_child(_heading("Spell scrolls (circles 1-%d you don't know yet)" % Entity.SHOP_SCROLL_CIRCLES))
+		var any_scroll := false
+		for sp_id: String in Spells.ORDER:
+			if hero.spellbook.has(sp_id) or int(Spells.LIST[sp_id]["circle"]) > Entity.SHOP_SCROLL_CIRCLES:
+				continue
+			var sid := Spells.scroll_id(sp_id)
+			var price := s.price(Items.scroll_price(sid))
+			any_scroll = true
+			shop_box.add_child(_action("%s  -  %d gold" % [Items.item_name(sid), price], _on_shop_buy.bind(sid, 1, price), near and hero.gold >= price))
+		if not any_scroll:
+			shop_box.add_child(_info("You know every spell this merchant has."))
+	else:
+		shop_box.add_child(_heading("Your bag"))
+		var ids := hero.inventory.keys()
+		ids.sort_custom(func(a, b) -> bool: return Items.item_name(a) < Items.item_name(b))
+		var any := false
+		for id in ids:
+			var sid := String(id)
+			if not Items.is_known(sid):
+				continue
+			any = true
+			var offer := s.offer(sid)
+			var n := int(hero.inventory[sid])
+			shop_box.add_child(_action("Sell %s (you have %d)  -  %s" % [Items.item_name(sid), n,
+				("%d gold" % offer) if offer > 0 else "won't buy now"], _on_shop_sell.bind(sid), near and offer > 0))
+		if not any:
+			shop_box.add_child(_info("Nothing to sell."))
+		shop_box.add_child(_small("The merchant pays less the more of something it already holds, and only what its purse allows; it refills every couple of minutes."))
+	shop_box.add_child(_menu_button("Close", _close_shop))
+
+
+func _walk_to_shop() -> void:
+	hero.target = null
+	hero.go_to(shop_open.position)
+	_close_shop()
+
+
+func _on_shop_buy(id: String, n: int, price: int) -> void:
+	if hero.gold < price:
+		return
+	hero._pay(shop_open.shop, price)
+	match id:
+		"arrows":
+			hero.arrows += n
+		"bandages":
+			hero.bandages += n
+		"reagents":
+			hero.reagents = minf(hero.reagents + n, Entity.MAX_REAGENTS)
+		_:
+			hero.inventory[id] = int(hero.inventory.get(id, 0)) + n
+	log_event("You buy %s for %d gold." % [("%d %s" % [n, id]) if id in ["arrows", "bandages", "reagents"] else Items.item_name(id), price])
+	if Items.is_scroll(id):
+		hero.learn_scrolls()
+	count("shop_bought")
+	_refresh_shop()
+
+
+func _on_shop_sell(id: String) -> void:
+	if not hero.inventory.has(id):
+		return
+	var price := shop_open.shop.buy_from_player(id)
+	if price <= 0:
+		return
+	hero.inventory[id] = int(hero.inventory[id]) - 1
+	if int(hero.inventory[id]) <= 0:
+		hero.inventory.erase(id)
+	hero.gold += price
+	count("gold_earned", price)
+	count("shop_sold")
+	log_event("You sell a %s for %d gold." % [Items.item_name(id), price])
+	_refresh_shop()
+
+
+func _on_shop_repair() -> void:
+	log_event(hero.repair_all(shop_open.shop))
+	_refresh_shop()
+
+
 # --- statistics panel: what you've done ------------------------------------------------
 
 func _open_stats() -> void:
@@ -2100,6 +2631,20 @@ func _refresh_stats() -> void:
 	stats_box.add_child(_info("Quests done %d   Campfires %d   Tracked prey %d   Meals %d   Spirit Speak %d" % [
 		_stat("quests_completed"), _stat("camped"), _stat("tracked"), _stat("food_eaten"), _stat("spirit_speak")]))
 	stats_box.add_child(_small("Counted from version 0.47 on."))
+	# achievements, and the titles they earn
+	stats_box.add_child(_heading("Achievements (%d of %d)" % [property.achievements.size(), Achievements.LIST.size()]))
+	for a: Dictionary in Achievements.LIST:
+		var got := property.achievements.has(String(a["id"]))
+		var p := Achievements.progress(a, property.stats_counts, hero.stats)
+		stats_box.add_child(_info("%s %s: %s%s   (%d gold)" % ["[x]" if got else "[  ]", a["name"], a["desc"],
+			"" if got else "  -  %d / %d" % [int(p[0]), int(p[1])], int(a["gold"])]))
+	stats_box.add_child(_heading("Titles"))
+	stats_box.add_child(_info("Wearing: %s" % (hero.title_name())))
+	stats_box.add_child(_action("No title (or your fame and karma title)", _set_title.bind(""), property.title_choice != ""))
+	for a: Dictionary in Achievements.LIST:
+		if property.achievements.has(String(a["id"])):
+			var t := String(a["title"])
+			stats_box.add_child(_action("Be known as \"%s %s\"" % [hero.display_name, t], _set_title.bind(t), property.title_choice != t))
 	stats_box.add_child(_menu_button("Close", _close_stats))
 
 
@@ -2889,11 +3434,84 @@ const CHEST_CHANCE := 0.10             # any slain monster may leave a treasure 
 
 ## A treasure chest with an artifact, gold and reagents drops beside a slain monster; anyone may
 ## take it, so be quick.
+# --- treasure maps, and the pool of event creatures ------------------------------------
+
+var map_mark := Vector2i(-1, -1)          # the spot of the treasure map last read (a red X on the minimap)
+var _pool: Array[Entity] = []             # guardians, invaders, champions: reused, never respawn on their own
+
+
+## A new treasure map: a chest buried somewhere out in the wilds (not in a town or the dungeon).
+func make_treasure_map() -> String:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var t := world.open_tile_in(world.zone_rect(rng.randi() % world.zone_count()), rng)
+	return "tmap@%d_%d" % [t.x, t.y]
+
+
+## A creature for an event, at `at`: an idle one from the pool if there is one of that name,
+## else a new one. They don't respawn by themselves.
+func pool_spawn(creature_name: String, cfg: Dictionary, color: Color, at: Vector3) -> Entity:
+	for e in _pool:
+		if e.display_name == creature_name and e.dead and not e.ghost:
+			e.revive_at(at)
+			return e
+	var c := cfg.duplicate()
+	c["respawn"] = 1.0e9
+	var e := _spawn(Entity.Kind.MONSTER, creature_name, c, color, world.to_tile(at))
+	_pool.append(e)
+	return e
+
+
+## The map's chest is dug up: gold, reagents, scrolls of high circles, often an artifact and a
+## ring or amulet, and the dead who guarded it rise around it.
+func dig_up_treasure(digger: Entity, map_id: String) -> void:
+	var t := Items.map_tile(map_id)
+	if t.x < 0 or not digger.inventory.has(map_id):
+		return
+	Crafting.take_mats(digger.inventory, {map_id: 1}, 1.0)
+	if map_mark == t:
+		map_mark = Vector2i(-1, -1)
+	var items := {}
+	if randf() < 0.5:
+		var arts := Gear.artifact_ids()
+		items[arts[randi() % arts.size()]] = 1
+	if randf() < 0.6:
+		items[Jewelry.random_id()] = 1
+	for _i in range(randi_range(1, 2)):
+		var sp := Spells.random_of_circles(5, 8)
+		if sp != "":
+			items[Spells.scroll_id(sp)] = 1
+	var loot := {"gold": randi_range(300, 900), "reagents": randi_range(10, 30), "items": items}
+	var pos := world.tile_center(t)
+	var c := Corpse.new()
+	add_child(c)
+	c.setup("Treasure", true, false, 0, pos, loot)
+	c.make_chest()
+	c.set_title("Buried Treasure")
+	c.label.visible = property.corpse_names_on
+	corpses.append(c)
+	var guards := [["Skeleton", Bestiary.SKELETON, Color("d8d2c0")], ["Skeleton Archer", Bestiary.SKELETON_ARCHER, Color("d8d2c0")],
+		["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")]]
+	for i in range(randi_range(2, 3)):
+		var g: Array = guards[randi() % guards.size()]
+		var at := pos + Vector3(randf_range(-2.5, 2.5), 0.0, randf_range(-2.5, 2.5))
+		if world.is_blocked(world.to_tile(at)):
+			at = pos
+		var guard := pool_spawn(String(g[0]), g[1], g[2], at)
+		guard.target = digger
+	if digger.is_hero:
+		count("treasures_dug")
+		log_event("You dig up a buried chest... and its guardians rise from the earth!")
+		Fx.sparkle(self, pos + Vector3(0.0, 0.4, 0.0), Color(1.0, 0.85, 0.45), 30)
+
+
 func _drop_chest(victim: Entity) -> void:
 	var arts := Gear.artifact_ids()
 	var art := arts[randi() % arts.size()]
 	var loot := {"gold": randi_range(40, 120) * maxi(1, int(victim.danger)), "reagents": randi_range(0, 10),
 		"items": {art: 1}}
+	if randf() < 0.4:
+		(loot["items"] as Dictionary)[Jewelry.random_id()] = 1     # often a ring or amulet too
 	var pos := victim.position + Vector3(randf_range(-0.9, 0.9), 0.0, randf_range(-0.9, 0.9))
 	if world.is_blocked(world.to_tile(pos)):
 		pos = victim.position
@@ -2916,16 +3534,18 @@ func _build_environment() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.62, 0.66, 0.76)
 	env.ambient_light_energy = 0.8
-	# Light from the sky all round: bluish from above, a green bounce from the ground below, so
-	# shapes read rounder than under one flat ambient colour (the background stays plain).
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.42, 0.58, 0.85)
-	sky_mat.sky_horizon_color = Color(0.72, 0.78, 0.86)
-	sky_mat.ground_horizon_color = Color(0.45, 0.5, 0.4)
-	sky_mat.ground_bottom_color = Color(0.2, 0.3, 0.17)
+	# The sky: blue by day, glowing orange towards the sun at dawn and dusk, dark with stars and
+	# a moon at night. It is also where the ambient light comes from (bluish from above, a green
+	# bounce from the ground), kept bright enough at night that the world never goes black.
+	var sky_sh := Shader.new()
+	sky_sh.code = SKY_SHADER
+	sky_mat = ShaderMaterial.new()
+	sky_mat.shader = sky_sh
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
+	sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL      # ambient light updates spread over frames
 	env.sky = sky
+	env.background_mode = Environment.BG_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	# Filmic tone mapping keeps bright fire and sunlit grass from washing out; a light haze
 	# gives the distance some depth (weather thickens it); glow is set by the graphics level.
@@ -3075,6 +3695,9 @@ func _tap(screen: Vector2) -> void:
 	if e != null and e.role == "priest":
 		_open_priest(e)                  # tap a priest for blessings, confession and the rest
 		return
+	if e != null and e.shop != null:
+		_open_shop(e)                    # tap a merchant to buy, sell and have gear repaired
+		return
 	hero.target = null
 	hero.recovering = false
 	hero.loot_target = null
@@ -3097,6 +3720,10 @@ func _tap(screen: Vector2) -> void:
 ## Loot rising out of a corpse: an icon and a coloured "+..." label for each thing taken, one
 ## after another, drifting over to whoever took it. Only shown near the hero.
 func show_loot(from_pos: Vector3, looter: Entity, got: Dictionary, what: String) -> void:
+	if looter != null and looter.is_hero:
+		for id in got["items"]:
+			if Gear.is_artifact(String(id)):
+				count("artifacts_found")
 	if hero == null or from_pos.distance_to(hero.position) > 18.0:
 		return
 	var entries: Array = []
@@ -3333,6 +3960,12 @@ func _process(delta: float) -> void:
 		_follow_camera()
 	_update_rings()
 	_cull_fx(delta)
+	_events_tick(delta)
+	_ambience_tick(delta)
+	_achieve_acc += delta
+	if _achieve_acc >= 2.0:
+		_achieve_acc = 0.0
+		_check_achievements()
 	property.play_time += delta
 	_hud_timer -= delta
 	if _hud_timer <= 0.0:
@@ -3920,9 +4553,93 @@ func _apply_daylight() -> void:
 	if weather == "clear":
 		env.fog_light_color = env.background_color       # the haze takes the sky's colour
 	env.ambient_light_energy = lerpf(0.45, 0.8, light)
+	_sky_acc += get_process_delta_time()
+	if _sky_acc >= 1.0 or _flash > 0.0:                # the sky changes slowly: once a second will do
+		_sky_acc = 0.0
+		sky_mat.set_shader_parameter("light", light)
+		sky_mat.set_shader_parameter("dusk", clampf(1.0 - absf(sun_height) * 3.0, 0.0, 1.0) * (1.0 if weather == "clear" else 0.4))
+		sky_mat.set_shader_parameter("sun_dir", sun.global_transform.basis.z)
+		sky_mat.set_shader_parameter("cloudy", 0.0 if weather == "clear" else 0.7)
+	_fireflies_step(sun_height < -0.15 and weather == "clear")
 	var night := clampf(1.0 - light * 1.6, 0.0, 1.0)
 	for l in brazier_lights:
 		l.light_energy = 1.6 * night * (0.9 + 0.1 * sin(Time.get_ticks_msec() * 0.01))   # a flicker
+
+
+const SKY_SHADER := """
+shader_type sky;
+uniform float light = 1.0;          // 0 night .. 1 day
+uniform float dusk = 0.0;           // sunrise / sunset glow
+uniform float cloudy = 0.0;         // greyer under rain and fog
+uniform vec3 sun_dir = vec3(0.0, 1.0, 0.0);
+
+float hash(vec3 p) {
+	p = fract(p * 0.3183099 + 0.1);
+	p *= 17.0;
+	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+void sky() {
+	vec3 d = EYEDIR;
+	float h = d.y;
+	float L = AT_CUBEMAP_PASS ? max(light, 0.45) : light;    // ambient light never drops to black
+	vec3 top = mix(vec3(0.01, 0.02, 0.06), vec3(0.32, 0.52, 0.86), L);
+	vec3 hor = mix(vec3(0.05, 0.07, 0.15), vec3(0.74, 0.81, 0.88), L);
+	vec3 col = mix(hor, top, smoothstep(0.0, 0.55, h));
+	vec3 sd = normalize(sun_dir);
+	// the dawn and dusk glow, strongest low on the horizon towards the sun
+	vec2 flat_d = normalize(d.xz + vec2(0.0001));
+	vec2 flat_s = normalize(sd.xz + vec2(0.0001));
+	float toward = max(dot(flat_d, flat_s), 0.0);
+	col = mix(col, vec3(1.0, 0.5, 0.24), dusk * pow(toward, 3.0) * (1.0 - smoothstep(0.0, 0.4, abs(h))) * 0.85);
+	col = mix(col, vec3(dot(col, vec3(0.33))) * 0.9, cloudy);
+	if (!AT_CUBEMAP_PASS) {
+		col += vec3(1.0, 0.92, 0.75) * smoothstep(0.9992, 0.9997, dot(d, sd)) * light * (1.0 - cloudy);   // the sun
+		col += vec3(0.86, 0.89, 0.96) * smoothstep(0.9988, 0.9993, dot(d, -sd)) * (1.0 - light) * (1.0 - cloudy);  // the moon
+		float star = step(0.9975, hash(floor(d * 190.0))) * (1.0 - light) * smoothstep(0.02, 0.25, h) * (1.0 - cloudy);
+		col += vec3(star) * (0.6 + 0.4 * hash(floor(d * 190.0) + 7.0));
+	}
+	if (h < 0.0) {
+		col = mix(col, vec3(0.12, 0.16, 0.1) * (0.3 + 0.7 * L), smoothstep(0.0, 0.15, -h));   // the ground below
+	}
+	COLOR = col;
+}
+"""
+var sky_mat: ShaderMaterial
+var _sky_acc := 10.0
+var _fireflies: CPUParticles3D
+
+
+## Fireflies drift round you on clear nights out in the wilds (not in town or the dungeon).
+func _fireflies_step(on: bool) -> void:
+	if hero == null:
+		return
+	if _fireflies == null:
+		_fireflies = CPUParticles3D.new()
+		_fireflies.amount = 22
+		_fireflies.lifetime = 4.0
+		_fireflies.local_coords = false
+		var q := QuadMesh.new()
+		q.size = Vector2(0.07, 0.07)
+		q.material = Fx.glow(Color.WHITE)
+		_fireflies.mesh = q
+		_fireflies.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+		_fireflies.emission_box_extents = Vector3(7.0, 0.8, 7.0)
+		_fireflies.gravity = Vector3.ZERO
+		_fireflies.direction = Vector3.UP
+		_fireflies.spread = 180.0
+		_fireflies.initial_velocity_min = 0.05
+		_fireflies.initial_velocity_max = 0.25
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.2, 0.5, 0.8, 1.0])
+		g.colors = PackedColorArray([Color(0.8, 1.0, 0.4, 0.0), Color(0.85, 1.0, 0.45, 1.0), Color(0.6, 0.9, 0.3, 0.2),
+			Color(0.85, 1.0, 0.45, 1.0), Color(0.8, 1.0, 0.4, 0.0)])
+		_fireflies.color_ramp = g
+		add_child(_fireflies)
+	var t := world.to_tile(hero.position)
+	var want := on and not world.is_town(t) and not world.is_dungeon(t) and property.graphics != "low"
+	_fireflies.emitting = want
+	_fireflies.global_position = hero.position + Vector3(0.0, 1.0, 0.0)
 
 
 func _bless_text() -> String:

@@ -44,6 +44,8 @@ var music_on := true
 var names_on := false                  # names over heads (off: a clean screen)
 var stats_on := true                   # the stats text in the upper left
 var minimap_on := true
+var achievements := {}                 # achievement id -> true, once earned
+var title_choice := ""                 # the achievement title worn after your name ("" for none)
 var stats_counts := {}                 # lifetime statistics: what you've done, counted as you play
 var play_time := 0.0                   # seconds played
 var magic_label_on := true             # Magery, mana and spell power over the hero's head
@@ -162,6 +164,7 @@ func to_dict() -> Dictionary:
 		"music_on": music_on, "weather_on": weather_on, "names_on": names_on, "stats_on": stats_on, "minimap_on": minimap_on, "first_person": first_person, "corpse_names_on": corpse_names_on, "magic_label_on": magic_label_on, "graphics": graphics,
 		"vendor_hired": vendor_hired, "vendor_stock": vendor_stock, "vendor_gold": vendor_gold,
 		"vendor_last": vendor_last, "stats_counts": stats_counts, "play_time": play_time,
+		"achievements": achievements, "title_choice": title_choice,
 	}
 	if has_house():
 		d["house"] = {
@@ -204,6 +207,9 @@ func load_dict(d: Dictionary) -> void:
 	var sc: Variant = d.get("stats_counts", {})
 	stats_counts = (sc as Dictionary).duplicate() if sc is Dictionary else {}
 	play_time = maxf(0.0, float(d.get("play_time", 0.0)))
+	var ach: Variant = d.get("achievements", {})
+	achievements = (ach as Dictionary).duplicate() if ach is Dictionary else {}
+	title_choice = String(d.get("title_choice", ""))
 	sound_on = bool(d.get("sound_on", true))
 	music_on = bool(d.get("music_on", true))
 	names_on = bool(d.get("names_on", false))

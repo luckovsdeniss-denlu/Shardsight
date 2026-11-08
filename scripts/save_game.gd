@@ -57,6 +57,9 @@ static func save(hero: Entity, property: Property) -> bool:
 		"inventory": hero.inventory,
 		"weapon": hero.weapon,
 		"armor": hero.armor_id,
+		"ring": hero.ring_id,
+		"wear": hero.wear,
+		"amulet": hero.amulet_id,
 		"tile": [tile.x, tile.y],
 	}
 	var f := FileAccess.open(PATH, FileAccess.WRITE)
@@ -142,6 +145,16 @@ static func load_into(hero: Entity, property: Property) -> bool:
 	hero.armor_id = a if Gear.has(a) and String(Gear.stats(a)["slot"]) == "armor" else ""
 	var sh := String(d.get("shield", hero.shield_id))
 	hero.shield_id = sh if Gear.has(sh) and String(Gear.stats(sh)["slot"]) == "shield" else ""
+	var wr: Variant = d.get("wear", {})
+	if wr is Dictionary:
+		for k in wr:
+			if Gear.has(String(k)):
+				hero.wear[String(k)] = clampi(int(wr[k]), 1, Gear.max_durability(String(k)))
+	var rg := String(d.get("ring", ""))
+	hero.ring_id = rg if Jewelry.slot(rg) == "ring" else ""
+	var am := String(d.get("amulet", ""))
+	hero.amulet_id = am if Jewelry.slot(am) == "amulet" else ""
+	hero._recompute_effects()
 
 	var t: Array = d.get("tile", [])
 	if t.size() == 2:

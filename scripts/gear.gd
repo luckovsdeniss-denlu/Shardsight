@@ -73,6 +73,24 @@ static func is_artifact(id: String) -> bool:
 	return id.contains("@art_")
 
 
+## How much wear a piece takes before it breaks: weapons 50, armour 70, shields 60; exceptional
+## work lasts half as long again, artifacts twice as long, coloured metals a little longer.
+static func max_durability(id: String) -> int:
+	if not has(id):
+		return 1
+	var g := stats(id)
+	var d := {"weapon": 50.0, "armor": 70.0, "shield": 60.0}.get(String(g["slot"]), 50.0) as float
+	if bool(g["exceptional"]):
+		d *= 1.5
+	if bool(g["artifact"]):
+		d *= 2.0
+	for p in id.split("@"):
+		var t := Crafting.tier_index(p)
+		if t > 0:
+			d += 5.0 * t
+	return roundi(d)
+
+
 static func base(id: String) -> String:
 	return id.split("@")[0]
 
