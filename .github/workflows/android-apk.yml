@@ -1,9 +1,8 @@
 name: Build Android APK
 
+# Builds only when started by hand (Actions > Build Android APK > Run workflow), never on a
+# push or pull request: an APK is built only when the owner asks for one.
 on:
-  push:
-    branches: [main, "claude/**"]
-  pull_request:
   workflow_dispatch:
     inputs:
       playtest_minutes:
