@@ -44,6 +44,8 @@ var music_on := true
 var names_on := false                  # names over heads (off: a clean screen)
 var stats_on := true                   # the stats text in the upper left
 var minimap_on := true
+var stats_counts := {}                 # lifetime statistics: what you've done, counted as you play
+var play_time := 0.0                   # seconds played
 var corpse_names_on := true           # labels over corpses and treasure chests
 var first_person := false              # the camera at the hero's eyes instead of above
 var graphics := "medium"               # low, medium or high
@@ -158,7 +160,7 @@ func to_dict() -> Dictionary:
 		"sound_on": sound_on, "cam_zoom": cam_zoom, "cam_yaw": cam_yaw, "ruleset": ruleset,
 		"music_on": music_on, "weather_on": weather_on, "names_on": names_on, "stats_on": stats_on, "minimap_on": minimap_on, "first_person": first_person, "corpse_names_on": corpse_names_on, "graphics": graphics,
 		"vendor_hired": vendor_hired, "vendor_stock": vendor_stock, "vendor_gold": vendor_gold,
-		"vendor_last": vendor_last,
+		"vendor_last": vendor_last, "stats_counts": stats_counts, "play_time": play_time,
 	}
 	if has_house():
 		d["house"] = {
@@ -198,6 +200,9 @@ func load_dict(d: Dictionary) -> void:
 	vendor_stock = _clean_items(d.get("vendor_stock", {}))
 	vendor_gold = maxi(0, int(d.get("vendor_gold", 0)))
 	vendor_last = float(d.get("vendor_last", Time.get_unix_time_from_system()))
+	var sc: Variant = d.get("stats_counts", {})
+	stats_counts = (sc as Dictionary).duplicate() if sc is Dictionary else {}
+	play_time = maxf(0.0, float(d.get("play_time", 0.0)))
 	sound_on = bool(d.get("sound_on", true))
 	music_on = bool(d.get("music_on", true))
 	names_on = bool(d.get("names_on", false))

@@ -43,6 +43,9 @@ var view_button: Button
 var corpse_button: Button
 var bag_box: VBoxContainer
 var spells_panel: Control
+var stats_panel: Control
+var stats_box: VBoxContainer
+var spell_details := true              # the Spells panel shows each spell's numbers
 var priest_panel: Control
 var priest_box: VBoxContainer
 var priest_open: Entity                  # the priest whose panel is showing
@@ -225,6 +228,7 @@ func _ready() -> void:
 	_corner_add(view_button)
 	corpse_button = _menu_button("", _toggle_corpse_names)
 	_corner_add(corpse_button)
+	_corner_add(_menu_button("Statistics", _open_stats))
 	minimap.setup(self, world)
 	minimap.size_flags_horizontal = Control.SIZE_SHRINK_END
 	corner.add_child(minimap)
@@ -252,6 +256,8 @@ func _ready() -> void:
 	spells_box = spells_panel.get_meta("box")
 	priest_panel = _make_overlay(layer)
 	priest_box = priest_panel.get_meta("box")
+	stats_panel = _make_overlay(layer)
+	stats_box = stats_panel.get_meta("box")
 	thief_panel = _make_overlay(layer)
 	thief_box = thief_panel.get_meta("box")
 	guild_panel = _make_overlay(layer)
@@ -1156,6 +1162,8 @@ func _close_travel() -> void:
 func count(key: String, n := 1) -> void:
 	if autotest:
 		counters[key] = int(counters.get(key, 0)) + n
+	else:
+		property.stats_counts[key] = int(property.stats_counts.get(key, 0)) + n   # Statistics
 
 
 static func _autotest_seconds_arg() -> float:
@@ -2012,6 +2020,86 @@ func _on_priest_confess() -> void:
 	_refresh_priest()
 
 
+# --- statistics panel: what you've done ------------------------------------------------
+
+func _open_stats() -> void:
+	paused = true
+	menu.visible = false
+	stats_panel.visible = true
+	_refresh_stats()
+
+
+func _close_stats() -> void:
+	stats_panel.visible = false
+	_resume()
+
+
+func _stat(key: String) -> int:
+	return int(property.stats_counts.get(key, 0))
+
+
+## The keys starting with `prefix`, biggest first: [[name, count], ...] (top `n`).
+func _top(prefix: String, n: int) -> Array:
+	var out: Array = []
+	for k in property.stats_counts:
+		var key := String(k)
+		if key.begins_with(prefix):
+			out.append([key.trim_prefix(prefix), int(property.stats_counts[k])])
+	out.sort_custom(func(a, b) -> bool: return int(a[1]) > int(b[1]))
+	return out.slice(0, n)
+
+
+func _refresh_stats() -> void:
+	for c in stats_box.get_children():
+		stats_box.remove_child(c)
+		c.queue_free()
+	var title_label := _info("Statistics")
+	title_label.add_theme_font_size_override("font_size", 30)
+	stats_box.add_child(title_label)
+	var t := int(property.play_time)
+	var s := hero.stats
+	stats_box.add_child(_info("%s, level %d. Played %d h %02d min. Skills %.1f in all (combat %.1f). Fame %d, karma %d." % [
+		hero.title_name(), s.level(), t / 3600, (t / 60) % 60, s.skill_total(), s.combat_total(), hero.fame, hero.karma]))
+	var hits := _stat("hero_hits")
+	var swings := hits + _stat("hero_misses")
+	stats_box.add_child(_heading("Combat"))
+	stats_box.add_child(_info("Kills %d   Deaths %d   Pets' kills %d   Bounties %d\nBlows landed %d of %d (%d%%)   Damage dealt %d   Melee damage taken %d\nParalyzed %d   Poisoned %d   Cured %d   Bandaged %d   Levels gained %d" % [
+		_stat("kills"), _stat("hero_deaths"), _stat("pet_kills"), _stat("bounties"),
+		hits, swings, roundi(100.0 * hits / maxf(swings, 1.0)), _stat("hero_dmg_dealt"), _stat("hero_dmg_taken_melee"),
+		_stat("paralyzed"), _stat("poisoned"), _stat("cured"), _stat("bandaged"), _stat("levels_gained")]))
+	var killers := _top("hero_killed_by_", 3)
+	if not killers.is_empty():
+		var names: Array[String] = []
+		for k in killers:
+			names.append("%s (%d)" % [k[0], int(k[1])])
+		stats_box.add_child(_info("Killed most often by: " + ", ".join(names)))
+	stats_box.add_child(_heading("Magic"))
+	var fav: Array[String] = []
+	for k in _top("spell_", 5):
+		var sid := String(k[0])
+		fav.append("%s (%d)" % [Spells.LIST[sid]["name"] if Spells.LIST.has(sid) else sid, int(k[1])])
+	stats_box.add_child(_info("Spells cast %d   Scrolls learned %d   Summons %d   Ghosts raised %d\nFavourite spells: %s\nBlessings bought %d   Cured by priests %d   Confessions %d" % [
+		_stat("spells_cast"), _stat("scrolls_learned"), _stat("summoned"), _stat("resurrected_others"),
+		", ".join(fav) if not fav.is_empty() else "none yet", _stat("blessed"), _stat("priest_cured"), _stat("confessed")]))
+	stats_box.add_child(_heading("Gathering and crafting"))
+	stats_box.add_child(_info("Gathered %d   Crafted %d (exceptional %d, coloured metal %d)   Tools worn out %d" % [
+		_stat("gathered"), _stat("crafted"), _stat("crafted_exceptional"), _stat("crafted_colored"), _stat("tools_broken")]))
+	stats_box.add_child(_heading("Gold"))
+	stats_box.add_child(_info("Earned %d   Spent %d   Corpses looted %d   Banked %d times   From appraisal %d   Begged %d (%d gold)" % [
+		_stat("gold_earned"), _stat("gold_spent"), _stat("loot"), _stat("banked"), _stat("appraisal_gold"), _stat("begged"), _stat("begged_gold")]))
+	stats_box.add_child(_heading("Animals and music"))
+	stats_box.add_child(_info("Tamed %d of %d tries   Rides %d   Peacemaking %d   Provocation %d   Enticement %d   Failed songs %d" % [
+		_stat("tamed"), _stat("tame_attempts"), _stat("mounted"), _stat("bard_peace"), _stat("bard_provoke"), _stat("bard_entice"), _stat("bard_fail")]))
+	stats_box.add_child(_heading("Thievery"))
+	stats_box.add_child(_info("Stole %d   Caught %d   Hid %d   Robbed by thieves %d" % [
+		_stat("stole"), _stat("caught"), _stat("hid"), _stat("stolen_from_hero")]))
+	stats_box.add_child(_heading("The world"))
+	stats_box.add_child(_info("Quests done %d   Campfires %d   Tracked prey %d   Meals %d   Spirit Speak %d" % [
+		_stat("quests_completed"), _stat("camped"), _stat("tracked"), _stat("food_eaten"), _stat("spirit_speak")]))
+	stats_box.add_child(_small("Counted from version 0.47 on."))
+	stats_box.add_child(_menu_button("Close", _close_stats))
+
+
 # --- spells panel: cast from your spellbook ----------------------------------------
 
 ## Where a spell goes, in a word or two, by its kind.
@@ -2060,6 +2148,8 @@ func _refresh_spells() -> void:
 	spells_box.add_child(_info("Mana %d / %d   Reagents %d   Magery %.1f   Target: %s (or the nearest foe)" % [
 		int(hero.mana), hero.stats.max_mana(), int(hero.reagents),
 		float(hero.stats.skills.get(Hero.Skill.MAGERY, 0.0)), foe]))
+	_add_magic_overview()
+	spells_box.add_child(_action("Details: %s" % ("On" if spell_details else "Off"), _toggle_spell_details, true))
 	if hero.dead:
 		spells_box.add_child(_info("Ghosts can't cast. Find a healer or a shrine first."))
 	elif hero.casting_id != "":
@@ -2084,9 +2174,113 @@ func _refresh_spells() -> void:
 			b.custom_minimum_size = Vector2(840, 72)
 			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			spells_box.add_child(b)
+			if spell_details:
+				spells_box.add_child(_small(_spell_detail(id)))
 	spells_box.add_child(_info("Magery makes spells hit and heal harder and cast faster; Evaluating Intellect adds damage. A blow while you cast may break the spell (less likely the better your Magery); the Protection spell stops that."))
 	spells_box.add_child(_info("Greyed-out spells need more mana, reagents or Magery. Find or buy scrolls to fill your book; Recall, Mark and Gate Travel are under Menu > Travel."))
 	spells_box.add_child(_menu_button("Close", _close_spells))
+
+
+func _toggle_spell_details() -> void:
+	spell_details = not spell_details
+	_refresh_spells()
+
+
+func _small(text: String) -> Label:
+	var l := _info(text)
+	l.add_theme_font_size_override("font_size", 20)
+	l.add_theme_color_override("font_color", Color(0.78, 0.82, 0.9))
+	return l
+
+
+## Everything about your magic in numbers: skills, mana and regeneration, power, casting speed,
+## disruption, resistance, and each circle's required Magery and your success chance.
+func _add_magic_overview() -> void:
+	var s := hero.stats
+	var magery := float(s.skills.get(Hero.Skill.MAGERY, 0.0))
+	var eval_int := float(s.skills.get(Hero.Skill.EVALUATING_INTELLECT, 0.0))
+	var med := float(s.skills.get(Hero.Skill.MEDITATION, 0.0))
+	var resist := float(s.skills.get(Hero.Skill.RESISTING_SPELLS, 0.0))
+	var metal := Gear.is_metal(hero.armor_id) or Gear.is_metal(hero.shield_id)
+	var eff_med := 0.0 if metal else med
+	spells_box.add_child(_heading("Your magic"))
+	spells_box.add_child(_info("Magery %.1f   Evaluating Intellect %.1f   Meditation %.1f   Resisting Spells %.1f" % [magery, eval_int, med, resist]))
+	spells_box.add_child(_info("Mana %d / %d (Intelligence %d). Regains %.2f a second at rest, %.2f on the move%s." % [
+		int(hero.mana), s.max_mana(), s.intelligence, Rules.mana_regen(eff_med, true), Rules.mana_regen(eff_med, false),
+		"; metal armor or shield stops Meditation" if metal else ""]))
+	spells_box.add_child(_info("Spell damage x%.2f (Magery and Evaluating Intellect), healing x%.2f (Magery), casting %d%% faster (Magery)." % [
+		Rules.spell_power(magery, eval_int), Rules.heal_power(magery), roundi(clampf(magery, 0.0, 100.0) / 4.0)]))
+	var protected := hero.flags.has("protection")
+	spells_box.add_child(_info("A blow while casting breaks the spell %d%% of the time%s. You shrug off %d%% of hostile spells (half damage) with Resisting Spells. Reagents: %d (each spell uses some, as in the list)." % [
+		roundi(Rules.disrupt_chance(magery) * 100.0), " (but Protection is on: 0% now)" if protected else "; the Protection spell stops it",
+		roundi(Rules.resist_chance(resist) * 100.0), int(hero.reagents)]))
+	var rows: Array[String] = []
+	for circle in range(1, 9):
+		var min_skill := 0.0
+		for id: String in Spells.ORDER:
+			if int(Spells.LIST[id]["circle"]) == circle:
+				min_skill = float(Spells.LIST[id]["min"])
+				break
+		rows.append("Circle %d: needs %s, %d%% success" % [circle, "%.1f" % min_skill if min_skill > 0.0 else "nothing",
+			roundi(Rules.cast_chance(magery, min_skill) * 100.0)])
+	spells_box.add_child(_small("   ".join(rows.slice(0, 4)) + "\n" + "   ".join(rows.slice(4, 8))))
+	spells_box.add_child(_small("Success rises from 0% at a circle's minimum Magery to 100% forty points above it. Each success trains Magery (and damage spells Evaluating Intellect)."))
+
+
+## One spell in numbers: circle, mana, reagents, required Magery, your success chance, cast time,
+## and what it does with your current power.
+func _spell_detail(id: String) -> String:
+	var sp: Dictionary = Spells.LIST[id]
+	var magery := float(hero.stats.skills.get(Hero.Skill.MAGERY, 0.0))
+	var eval_int := float(hero.stats.skills.get(Hero.Skill.EVALUATING_INTELLECT, 0.0))
+	var lo := float(sp["min_dmg"])
+	var hi := float(sp["max_dmg"])
+	var effect := ""
+	match String(sp["kind"]):
+		"attack":
+			var p := Rules.spell_power(magery, eval_int)
+			effect = "%d-%d damage (your power)" % [roundi(lo * p), roundi(hi * p)]
+		"area":
+			var p := Rules.spell_power(magery, eval_int)
+			effect = "%d-%d damage to every foe within %d m" % [roundi(lo * p), roundi(hi * p), int(Spells.AREA_RADIUS)]
+		"heal":
+			var h := Rules.heal_power(magery)
+			effect = "heals you %d-%d" % [roundi(lo * h), roundi(hi * h)]
+		"cure":
+			effect = "cures poison (harder the stronger the poison)"
+		"poison":
+			effect = "%s poison" % Rules.POISON_NAMES[Rules.spell_poison_level(magery)]
+		"paralyze":
+			effect = "the target can't move or act for %.1f s, or until hit" % (Spells.PARALYZE_BASE + magery / 25.0)
+		"summon":
+			effect = "an ally fights for you for %d s" % int(Spells.SUMMON_SECONDS)
+		"buff", "curse":
+			var mods: Dictionary = sp.get("mods", {})
+			var parts: Array[String] = []
+			for k in mods:
+				parts.append("%s %+d" % [String(k).capitalize(), int(mods[k])])
+			if String(sp.get("flag", "")) != "":
+				parts.append(String(sp["flag"]).replace("_", " "))
+			effect = "%s for %d s%s" % [", ".join(parts) if not parts.is_empty() else "an effect",
+				int(float(sp.get("secs", 60.0))), " on every foe around" if bool(sp.get("area", false)) else ""]
+		"drain":
+			var d := 1.0 + magery / 200.0
+			effect = "drains %d-%d mana%s" % [roundi(lo * d), roundi(hi * d), " into yours" if bool(sp.get("steal", false)) else ""]
+		"field":
+			effect = "a %s field at the target" % String(sp.get("field", "magic")).replace("_", " ")
+		"dispel":
+			effect = "dispels %s" % String(sp.get("field", "magic")).replace("_", " ")
+		"resurrect":
+			effect = "raises a ghost"
+		"travel":
+			effect = "travel (Menu > Travel)"
+		_:
+			effect = "a special effect"
+	return "   Circle %d, %d mana, %d reagents, needs Magery %s, %d%% success, %.1f s to cast: %s." % [
+		int(sp["circle"]), int(sp["mana"]), int(sp["reagents"]),
+		"%.1f" % float(sp["min"]) if float(sp["min"]) > 0.0 else "nothing",
+		roundi(Rules.cast_chance(magery, float(sp["min"])) * 100.0),
+		Rules.cast_seconds(int(sp["circle"]), magery), effect]
 
 
 func _on_cast_spell(id: String) -> void:
@@ -3010,8 +3204,8 @@ func _make_ui_solid(t: Theme) -> void:
 
 
 func _corner_add(b: Button) -> void:
-	b.custom_minimum_size = Vector2(200, 68)
-	b.add_theme_font_size_override("font_size", 24)
+	b.custom_minimum_size = Vector2(200, 58)
+	b.add_theme_font_size_override("font_size", 22)
 	corner_grid.add_child(b)
 
 
@@ -3117,6 +3311,7 @@ func _process(delta: float) -> void:
 		_follow_camera()
 	_update_rings()
 	_cull_fx(delta)
+	property.play_time += delta
 	_hud_timer -= delta
 	if _hud_timer <= 0.0:
 		_hud_timer = 0.2                     # the HUD text five times a second

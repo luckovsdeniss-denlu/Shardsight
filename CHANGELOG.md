@@ -3,6 +3,23 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.47.0
+Magic in numbers, and your statistics.
+- The Spells panel starts with "Your magic": Magery, Evaluating Intellect, Meditation and
+  Resisting Spells; mana and how fast it comes back at rest and on the move (and whether metal
+  is stopping Meditation); spell damage and healing multipliers; how much faster you cast; the
+  chance a blow breaks your spell (and whether Protection is on); how often you shrug off hostile
+  spells; your reagents; and each circle's required Magery with your success chance.
+- Under every spell, its numbers: circle, mana, reagents, required Magery, your success chance,
+  cast time, and exactly what it does with your current power (damage or healing range, poison
+  strength, paralysis seconds, stat changes and duration, mana drained...). "Details: On/Off"
+  shortens the list.
+- Menu > Statistics: what you've done, counted as you play and saved: combat (kills, deaths, hit
+  rate, damage dealt and taken, who killed you most), magic (spells cast, favourite spells,
+  blessings, confessions), gathering and crafting, gold earned and spent, animals and music,
+  thievery, quests and the world, and time played.
+- The buttons in the corner Menu are a little shorter, so all of them fit with the minimap.
+
 ## 0.46.1
 Towns really are safe.
 - Several kinds of harm slipped past the towns' protection, which only stopped the damage of
