@@ -27,6 +27,11 @@ const LIST := {
 	"big_fish": {"name": "Big Fish", "value": 18, "food": true},
 	"old_boot": {"name": "Old Boot", "value": 1},
 	"pearl": {"name": "Pearl", "value": 60},
+	# The story's fragments of the Shard of Sight (kept, never sold).
+	"shard_fragment_1": {"name": "Shard Fragment (the Warlord's)", "value": 0},
+	"shard_fragment_2": {"name": "Shard Fragment (the Graveyard's)", "value": 0},
+	"shard_fragment_3": {"name": "Shard Fragment (the Bone King's)", "value": 0},
+	"shard_of_sight": {"name": "The Shard of Sight", "value": 0},
 }
 
 

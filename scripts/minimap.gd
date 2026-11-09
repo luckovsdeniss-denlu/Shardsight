@@ -198,6 +198,13 @@ func _draw() -> void:
 		draw_line(sp + Vector2(0, -1), sp + Vector2(0, 4), glow, 1.5)
 		draw_line(sp + Vector2(-2.5, 0), sp + Vector2(2.5, 0), glow, 1.5)
 		draw_arc(sp + Vector2(0, -2.5), 1.5, 0.0, TAU, 8, glow, 1.2)
+	# where the story leads: a violet diamond
+	if game.has_story_target and not game.property.story_done:
+		var sp2 := _to_map(game.story_target)
+		var dia := PackedVector2Array([sp2 + Vector2(0, -5), sp2 + Vector2(4, 0), sp2 + Vector2(0, 5), sp2 + Vector2(-4, 0)])
+		draw_colored_polygon(dia, Color(0.75, 0.5, 1.0))
+		dia.append(sp2 + Vector2(0, -5))
+		draw_polyline(dia, Color.BLACK, 1.0)
 	# where the hero is walking to: a gold flag
 	var h: Entity = game.hero
 	if h != null and h.has_journey:

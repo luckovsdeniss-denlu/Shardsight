@@ -256,6 +256,7 @@ func _ready() -> void:
 	_update_corner_buttons()
 	_build_select_bar(layer)
 	_build_ghost_view(layer)
+	_build_story_ui(layer)
 	fp_overlay = FpOverlay.new()
 	fp_overlay.game = self
 	fp_overlay.visible = false
@@ -369,6 +370,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	grid.add_theme_constant_override("v_separation", 10)
 	scroll.add_child(grid)
 	grid.add_child(_menu_button("Resume", _resume))
+	grid.add_child(_menu_button("Story", _open_story))
 	grid.add_child(_menu_button("Skills", _open_skills))
 	grid.add_child(_menu_button("Craft", _open_craft))
 	grid.add_child(_menu_button("Bank & House", _open_property))
@@ -1455,7 +1457,236 @@ func _start_champion() -> void:
 		champion.display_name, roundi(v.length()), _compass(v)], true)
 
 
+# --- the main story: The Shattered Sight -------------------------------------------------------
+
+var story_panel: Control
+var story_box: VBoxContainer
+var story_hint: Label
+var story_boss: Entity
+var story_target := Vector3.ZERO          # where the current chapter leads (a violet mark on the map)
+var has_story_target := false
+var _story_acc := 0.0
+var _circle_light: OmniLight3D
+
+
+func _build_story_ui(layer: CanvasLayer) -> void:
+	story_panel = _make_overlay(layer)
+	story_box = story_panel.get_meta("box")
+	story_hint = Label.new()
+	story_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	story_hint.add_theme_font_size_override("font_size", 20)
+	story_hint.add_theme_color_override("font_color", Color(0.85, 0.7, 1.0))
+	story_hint.add_theme_color_override("font_outline_color", Color.BLACK)
+	story_hint.add_theme_constant_override("outline_size", 8)
+	story_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	story_hint.visible = false
+	layer.add_child(story_hint)
+	story_hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 14)
+	story_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
+
+
+## The Broken Circle: eight standing stones round an altar in the heart of the land, where the
+## story ends. A violet light wakes in it while the Shardbreaker waits there.
+func _build_broken_circle() -> void:
+	var c := world.tile_center(Story.SITE)
+	var stone := Color(0.42, 0.4, 0.44)
+	var menhir := Art.merge([[Art.box(0.45, 1.8, 0.35), Art.at(0, 0.9, 0), stone],
+		[Art.box(0.5, 0.2, 0.4), Art.at(0, 1.85, 0), stone.lightened(0.1)]])
+	var altar := Art.merge([[Art.box(1.0, 0.5, 0.7), Art.at(0, 0.25, 0), stone.darkened(0.15)],
+		[Art.box(1.1, 0.08, 0.8), Art.at(0, 0.52, 0), stone.lightened(0.05)]])
+	var node := Node3D.new()
+	add_child(node)
+	node.position = c
+	var a := MeshInstance3D.new()
+	a.mesh = altar
+	a.material_override = Art.vc_mat()
+	node.add_child(a)
+	for i in range(8):
+		var ang := TAU * i / 8.0
+		var p := Vector3(cos(ang), 0.0, sin(ang)) * 3.2 * World.TILE
+		var m := MeshInstance3D.new()
+		m.mesh = menhir
+		m.material_override = Art.vc_mat()
+		node.add_child(m)
+		m.position = Vector3(p.x, world.height_at(c + p) - c.y, p.z)
+		m.rotation.y = -ang + PI / 2.0
+	_circle_light = OmniLight3D.new()
+	_circle_light.light_color = Color(0.7, 0.45, 1.0)
+	_circle_light.light_energy = 0.0
+	_circle_light.omni_range = 8.0
+	_circle_light.position = Vector3(0.0, 1.5, 0.0)
+	node.add_child(_circle_light)
+
+
+func _show_chapter() -> void:
+	if autotest:
+		return
+	_open_story()
+
+
+## The story panel: the current chapter (or the epilogue), your task, and the chapters behind you.
+func _open_story() -> void:
+	paused = true
+	menu.visible = false
+	story_panel.visible = true
+	for ch in story_box.get_children():
+		story_box.remove_child(ch)
+		ch.queue_free()
+	var t := _info("The Shattered Sight")
+	t.add_theme_font_size_override("font_size", 32)
+	t.add_theme_color_override("font_color", Color(0.85, 0.7, 1.0))
+	story_box.add_child(t)
+	if property.story_done:
+		story_box.add_child(_heading("Epilogue"))
+		story_box.add_child(_info(Story.EPILOGUE))
+	else:
+		var step: Dictionary = Story.STEPS[property.story_step]
+		story_box.add_child(_heading(String(step["title"])))
+		story_box.add_child(_info(String(step["text"])))
+		var goal := _info("Your task: " + String(step["goal"]))
+		goal.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5))
+		story_box.add_child(goal)
+	if property.story_step > 0 or property.story_done:
+		story_box.add_child(_heading("The story so far"))
+		var last := Story.STEPS.size() if property.story_done else property.story_step
+		for i in range(last):
+			story_box.add_child(_small(String(Story.STEPS[i]["title"]) + "  (done)"))
+	story_box.add_child(_menu_button("Continue", _close_story))
+
+
+func _close_story() -> void:
+	story_panel.visible = false
+	_resume()
+
+
+## Where the current chapter leads, for the hint and the minimap (false if nowhere in particular).
+func _story_goal_pos() -> bool:
+	if property.story_done:
+		return false
+	var step: Dictionary = Story.STEPS[property.story_step]
+	match String(step["kind"]):
+		"talk":
+			for c in creatures:
+				if c.display_name == String(step["who"]):
+					story_target = c.position
+					return true
+		"shrine":
+			var best := INF
+			for p in shrines:
+				if p.distance_to(hero.position) < best:
+					best = p.distance_to(hero.position)
+					story_target = p
+			return best < INF
+		"kill":
+			if step.has("area"):
+				var r: Rect2i = step["area"]
+				story_target = world.tile_center(r.get_center())
+				return true
+			for c in creatures:
+				if c.display_name == String(step["target"]) and not c.dead:
+					story_target = c.position
+					return true
+		"boss":
+			story_target = world.tile_center(Story.SITE)
+			return true
+	return false
+
+
+func _story_tick(delta: float) -> void:
+	if autotest or hero == null or property.story_done:
+		if story_hint != null:
+			story_hint.visible = false
+		return
+	_story_acc += delta
+	if _story_acc < 0.5:
+		return
+	_story_acc = 0.0
+	if not property.story_started:
+		if _flyby_t >= 0.0:
+			return                                # wait for the title and fly-by to finish
+		property.story_started = true
+		_show_chapter()
+		return
+	var step: Dictionary = Story.STEPS[property.story_step]
+	has_story_target = _story_goal_pos()
+	if has_story_target:
+		var v := story_target - hero.position
+		story_hint.text = "%s   %d m %s" % [step["goal"], roundi(v.length()), _compass(v)]
+	else:
+		story_hint.text = String(step["goal"])
+	story_hint.visible = true
+	if hero.dead:
+		return
+	match String(step["kind"]):
+		"talk":
+			if has_story_target and hero.position.distance_to(story_target) <= 3.5:
+				_story_advance()
+		"shrine":
+			if has_story_target and hero.position.distance_to(story_target) <= 2.5:
+				_story_advance()
+		"boss":
+			# the Shardbreaker waits at the Broken Circle (and returns there if it fades away)
+			if story_boss == null or (story_boss.dead and not story_boss.visible):
+				story_boss = pool_spawn(Story.BOSS_NAME, Story.BOSS, Color("3a1a4a"), world.tile_center(Story.SITE) + Vector3(0.0, 0.0, 1.5))
+			if _circle_light != null:
+				_circle_light.light_energy = 2.0 + 0.6 * sin(Time.get_ticks_msec() * 0.004)
+
+
+func _story_on_kill(killer: Entity, victim: Entity) -> void:
+	if autotest or property.story_done:
+		return
+	var step: Dictionary = Story.STEPS[property.story_step]
+	var k := killer
+	if k != null and k.kind == Entity.Kind.PET and k.pet_owner != null:
+		k = k.pet_owner
+	match String(step["kind"]):
+		"kill":
+			if k != hero or victim.display_name != String(step["target"]):
+				return
+			if step.has("area") and not (step["area"] as Rect2i).has_point(world.to_tile(victim.position)):
+				return
+			_story_advance()
+		"boss":
+			if victim == story_boss:
+				_story_advance()
+
+
+## The chapter is done: its reward, then the next chapter is told.
+func _story_advance() -> void:
+	var step: Dictionary = Story.STEPS[property.story_step]
+	var gold := int(step.get("gold", 0))
+	hero.gold += gold
+	hero.add_fame(int(step.get("fame", 0)))
+	count("gold_earned", gold)
+	var reward := "%d gold" % gold
+	if step.has("item"):
+		var item := String(step["item"])
+		hero.inventory[item] = 1
+		reward += " and the " + Items.item_name(item)
+	if step.has("title_reward"):
+		property.title_choice = String(step["title_reward"])
+		hero.show_name(property.names_on)
+		reward += "; you are known as %s %s" % [hero.display_name, step["title_reward"]]
+	log_event("%s - done! (%s)" % [step["title"], reward])
+	sound("gain", hero.position)
+	Fx.sparkle(self, hero.position + Vector3(0.0, 1.0, 0.0), Color(0.85, 0.7, 1.0), 30)
+	count("story_chapters")
+	if String(step["kind"]) == "boss":
+		for f in ["shard_fragment_1", "shard_fragment_2", "shard_fragment_3"]:
+			hero.inventory.erase(f)                # the fragments become one
+		hero.inventory["shard_of_sight"] = 1
+		if _circle_light != null:
+			_circle_light.light_energy = 0.0
+	if property.story_step >= Story.STEPS.size() - 1:
+		property.story_done = true
+		count("story_finished")
+	else:
+		property.story_step += 1
+	_show_chapter()
+
+
 func on_kill(killer: Entity, victim: Entity) -> void:
+	_story_on_kill(killer, victim)
 	if killer != null and killer.is_hero and invaders.has(victim):
 		_invasion_hero_kills += 1
 	if victim == champion:
@@ -3633,6 +3864,7 @@ func _spawn_all() -> void:
 
 	_build_braziers()
 	_build_shrines()
+	_build_broken_circle()
 	_build_banners()
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Hal the Stablemaster", Bestiary.STABLEMASTER, cream, Vector2i(21, 11))
@@ -4404,6 +4636,7 @@ func _process(delta: float) -> void:
 	_update_rings()
 	_cull_fx(delta)
 	_adapt_resolution(delta)
+	_story_tick(delta)
 	_events_tick(delta)
 	_world_life(delta)
 	_ambience_tick(delta)

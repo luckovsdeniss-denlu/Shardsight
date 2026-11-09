@@ -44,6 +44,9 @@ var music_on := true
 var names_on := false                  # names over heads (off: a clean screen)
 var stats_on := true                   # the stats text in the upper left
 var minimap_on := true
+var story_step := 0                    # the chapter of the main story you're on (Story.STEPS)
+var story_done := false
+var story_started := false             # its first chapter has been told
 var achievements := {}                 # achievement id -> true, once earned
 var title_choice := ""                 # the achievement title worn after your name ("" for none)
 var stats_counts := {}                 # lifetime statistics: what you've done, counted as you play
@@ -165,6 +168,7 @@ func to_dict() -> Dictionary:
 		"vendor_hired": vendor_hired, "vendor_stock": vendor_stock, "vendor_gold": vendor_gold,
 		"vendor_last": vendor_last, "stats_counts": stats_counts, "play_time": play_time,
 		"achievements": achievements, "title_choice": title_choice,
+		"story_step": story_step, "story_done": story_done, "story_started": story_started,
 	}
 	if has_house():
 		d["house"] = {
@@ -210,6 +214,9 @@ func load_dict(d: Dictionary) -> void:
 	var ach: Variant = d.get("achievements", {})
 	achievements = (ach as Dictionary).duplicate() if ach is Dictionary else {}
 	title_choice = String(d.get("title_choice", ""))
+	story_step = clampi(int(d.get("story_step", 0)), 0, Story.STEPS.size() - 1)
+	story_done = bool(d.get("story_done", false))
+	story_started = bool(d.get("story_started", false))
 	sound_on = bool(d.get("sound_on", true))
 	music_on = bool(d.get("music_on", true))
 	names_on = bool(d.get("names_on", false))

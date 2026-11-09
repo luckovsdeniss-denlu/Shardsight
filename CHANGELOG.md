@@ -3,6 +3,24 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.58.0
+The main story: The Shattered Sight.
+- Long ago the Shard of Sight watched over the land; Malgrath the Shardbreaker broke it, gave its
+  fragments to his servants, and the world went half blind. Eight chapters take your hero from
+  waking on the road with no memory, through Father Corwin and an ankh's vision, to the three
+  fragments (held by the Ogre of the orc fort, the Lich of the graveyard and the Bone King),
+  Mother Isolde's old writings, and the last stand against Malgrath at the Broken Circle, a ring
+  of standing stones in the heart of the land; then the Shard is whole and you're the Shardbearer.
+- Each chapter is told in a story panel when it begins (after the opening fly-by for the first),
+  with your task; the task and its distance and direction show at the top of the screen, and a
+  violet diamond marks the place on the minimap. Main Menu > Story shows the current chapter and
+  the ones behind you, or the epilogue.
+- Rewards: gold and fame for every chapter, the three Shard Fragments (kept, never sold), the
+  Shard of Sight, and the title "the Shardbearer" at the end.
+- Malgrath the Shardbreaker, a lich lord far stronger than any other foe, waits at the Broken
+  Circle (lit with a violet glow while he's there) once the fragments are gathered.
+- The Broken Circle stands in the heart of the land from the start.
+
 ## 0.57.0
 Experimental mode.
 - The start screen offers a choice: Play (the ordinary game) or Experimental mode, a separate

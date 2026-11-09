@@ -1614,7 +1614,8 @@ func trade(delta: float, s: Shop) -> void:
 			continue                       # wanted for a fetch quest
 		if Items.is_tool_item(id) or (id == "log" and int(inventory[id]) <= 2):
 			continue                       # tools, and a couple of logs for a campfire
-		if is_hero and (Gear.is_artifact(String(id)) or Jewelry.has(String(id)) or String(id).begins_with("tmap")):
+		if is_hero and (Gear.is_artifact(String(id)) or Jewelry.has(String(id)) or String(id).begins_with("tmap") \
+				or String(id).begins_with("shard_")):
 			continue                       # your treasures are yours to sell by hand (tap the merchant)
 		# The merchant pays less the more it already holds, and stops when overstocked or broke.
 		var n := int(inventory[id])
