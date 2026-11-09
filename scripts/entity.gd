@@ -33,10 +33,13 @@ const CONFESS_PRICE := 50          # gold to have one murder count lifted
 const PRIEST_MANA_PER_SEC := 5.0   # prayer by a priest restores mana this fast
 const SCROLL_DROP_CHANCE := 0.12   # a monster that carries gold may carry a spell scroll
 const JEWEL_DROP_CHANCE := 0.03    # ... or a ring or amulet
+const SPECIAL_STAMINA := 10.0      # a weapon's special move costs this much stamina
+const SPECIAL_POPS := {"bleed": "Bleeding Wound!", "armor_ignore": "Armor Ignore!", "crush": "Crushing Blow!",
+	"double": "Double Strike!", "concuss": "Concussion!"}
 const MAP_DROP_CHANCE := 0.04      # ... or a treasure map
 const HARMFUL_KINDS := ["attack", "poison", "paralyze", "curse", "drain"]
 const MONSTER_KINDS := ["attack", "heal", "cure", "poison", "area", "paralyze", "curse", "drain"]
-const BUFF_ORDER := ["polymorph", "bless", "strength", "agility", "protection", "reactive_armor", "magic_reflection"]
+const BUFF_ORDER := ["bless", "strength", "agility", "protection", "reactive_armor", "magic_reflection"]
 const CURSE_ORDER := ["curse", "weaken", "clumsy", "feeblemind"]
 const SHOP_SCROLL_CIRCLES := 6     # merchants stock scrolls up to this circle
 const GATHER_TIME := 2.0           # seconds per swing of the pickaxe or hatchet
@@ -140,7 +143,13 @@ var _face_yaw := 0.0            # where the body is turning to
 var _accel := 0.4               # eases from a standstill to full speed
 var _stride_k := 0.0            # how far into a walk the legs and arms are (0 standing .. 1)
 var walk_phase := 0.0           # where in the stride the legs are
+var form := ""                  # a transformation (Spells.FORMS id), "" as yourself
+var form_timer := 0.0
 var hit_anim := 0.0             # a flinch when struck
+var bleed_timer := 0.0          # a bleeding wound (seconds left), its damage a second, who dealt it
+var bleed_dmg := 0.0
+var bleed_from: Entity
+var _bleed_acc := 0.0
 var _dying := 0.0               # the fall when slain (seconds left)         # the hero in first person: its own model, bar and label hidden
 var _hit_sound := ""            # set by whoever strikes us, so the blow sounds like what hit what
 var cast_bar: MeshInstance3D    # the hero's casting progress, under the health bar
@@ -379,11 +388,18 @@ func tick(delta: float) -> void:
 	swing_cd = maxf(swing_cd - delta, 0.0)
 	cast_cd = maxf(cast_cd - delta, 0.0)
 	swap_cd = maxf(swap_cd - delta, 0.0)
+	if bleed_timer > 0.0:
+		_bleed_step(delta)
 	kite_timer = maxf(kite_timer - delta, 0.0)
 	kite_cd = maxf(kite_cd - delta, 0.0)
 	pause = maxf(pause - delta, 0.0)
 	if (ring_id != "" or amulet_id != "") and hp < float(stats.max_hp()):
 		hp = minf(hp + jewel("regen") * delta, float(stats.max_hp()))   # a Ring of Life
+	if form != "":
+		hp = minf(hp + form_value("regen", 0.0) * delta, float(stats.max_hp()))
+		form_timer -= delta
+		if form_timer <= 0.0:
+			end_form()
 	repath_timer -= delta
 	hurt_timer = maxf(hurt_timer - delta, 0.0)
 	if hurt_timer <= 0.0:
@@ -458,6 +474,8 @@ func tick(delta: float) -> void:
 	_gear_timer -= delta
 	if _gear_timer <= 0.0:
 		_gear_timer = 1.0
+		if kind == Kind.PLAYER:
+			_learn_by_magery()
 		if target == null:
 			_manage_gear()
 			if kind == Kind.PLAYER and (ai_enabled or not is_hero):
@@ -739,7 +757,7 @@ func _find_role(r: String) -> Entity:
 
 func _follow_path(delta: float) -> void:
 	_accel = move_toward(_accel, 1.0, delta * 5.0) if not path.is_empty() else 0.4   # a step to get going
-	var budget := speed * delta * (mounted_on.mount_speed if mounted_on != null else 1.0) * _accel
+	var budget := speed * delta * (mounted_on.mount_speed if mounted_on != null else 1.0) * _accel * form_value("speed", 1.0)
 	if effects.has("hiding") and not path.is_empty():
 		stealth_left -= budget
 		if stealth_left < 0.0:
@@ -817,8 +835,38 @@ func _fight() -> void:
 			dmg *= Rules.PLAYER_MELEE_BONUS
 		if bless_timer > 0.0:
 			dmg *= BLESS_DAMAGE
+		if wielded == "" or not Gear.is_ranged(wielded):
+			dmg *= form_value("melee", 1.0)       # a beast's claws and weight
+		# How it wounds: bash breaks metal armour and bone, slash bites deep into the unarmoured,
+		# pierce slips through armour.
+		var dt := Gear.dtype(wielded)
+		var through := 0.0                         # the share of armour a blow goes through
+		if dt == "bash" and (Gear.is_metal(target.armor_id) or target.look == "skeleton"):
+			dmg *= 1.25
+		elif dt == "slash" and target.armor_id == "" and target.armor < 2.0:
+			dmg *= 1.15
+		elif dt == "pierce":
+			through = 0.5
+		# A critical hit: more likely with Anatomy (5% .. 15%).
+		if randf() < 0.05 + anatomy / 1000.0:
+			dmg *= 1.5
+			target._pop("critical!", Color(1.0, 0.6, 0.2))
+		# Skilled fighters land their weapon's special move now and then (it costs stamina).
+		var special := ""
+		if kind == Kind.PLAYER and wielded != "" and atk >= 25.0 and stamina >= SPECIAL_STAMINA:
+			var sp := Gear.special(wielded)
+			if sp != "" and randf() < 0.12 + atk / 1000.0:
+				special = sp
+				stamina -= SPECIAL_STAMINA
+				_pop(String(SPECIAL_POPS.get(sp, sp)), Color(1.0, 0.85, 0.35))
+				if is_hero:
+					game.count("specials")
+		if special == "crush":
+			dmg *= 1.5
+		elif special == "armor_ignore":
+			through = 1.0
 		target._hit_sound = _hit_sound_for(wielded, target)
-		var dealt := target._absorb(dmg)
+		var dealt := target._absorb(dmg, through)
 		if is_hero:
 			game.count("hero_hits")
 			game.count("hero_dmg_dealt", roundi(dealt))
@@ -826,6 +874,20 @@ func _fight() -> void:
 			game.count("hero_dmg_taken_melee", roundi(dealt))
 		target.take_damage(dealt, self)
 		_wear_out("weapon", 0.3)              # every blow wears the weapon a little
+		if not target.dead:
+			match special:
+				"bleed":
+					target.start_bleed(self, 2.0 + atk / 50.0)
+				"crush":
+					target.paralyzed_timer = maxf(target.paralyzed_timer, 0.8)   # reeling for a moment
+					target.path.clear()
+					target._pop("stunned", Color(0.9, 0.9, 0.6))
+				"concuss":
+					target.mana = maxf(target.mana - 15.0, 0.0)
+					if target.casting_id != "":
+						target._fizzle("disrupted")
+		if special == "double":
+			swing_cd *= 0.25                   # the second strike follows at once
 		if target.flags.has("reactive_armor") and not dead:
 			_reflect_blow(dealt * 0.25, target)   # Reactive Armor sends part of a blow back
 		if poison_cfg.size() == 2 and not target.dead and randf() < float(poison_cfg[1]):
@@ -838,6 +900,108 @@ func _fight() -> void:
 
 
 ## Armor soaks a random half-to-all of its rating, but a hit always does at least 1.
+## A transformation's value for `key` (1.0 / 0.0 when not transformed or not set).
+func form_value(key: String, fallback: float) -> float:
+	if form == "":
+		return fallback
+	return float(Spells.FORMS[form].get(key, fallback))
+
+
+## Which body a transformation spell gives: Polymorph's beast by Magery (a wolf, a bear from
+## 75, an ogre from 90); the others their own form.
+func _form_for(sp: Dictionary) -> String:
+	var f := String(sp.get("form", ""))
+	if f == "beast":
+		var magery := _skill(Hero.Skill.MAGERY)
+		return "ogre" if magery >= 90.0 else ("bear" if magery >= 75.0 else "wolf")
+	return f
+
+
+## Takes another body for `secs` seconds.
+func transform(f: String, secs: float) -> void:
+	if not Spells.FORMS.has(f):
+		return
+	if mounted_on != null:
+		dismount()                             # no riding in another body
+	form = f
+	form_timer = secs
+	_recompute_effects()
+	refresh_look()
+	_pop(String(Spells.FORMS[f]["name"]) + "!", Color(0.9, 0.7, 1.0))
+	if _near_hero():
+		Fx.sparkle(get_parent(), position + Vector3(0.0, 0.8, 0.0), Color(0.85, 0.6, 1.0), 28)
+	if is_hero:
+		game.log_event("You take on %s for %d s%s." % [Spells.FORMS[f]["name"], int(secs),
+			"" if bool(Spells.FORMS[f].get("cast", true)) else " (no spells until you change back)"])
+		game.count("transformed")
+
+
+## Back to your own body.
+func end_form() -> void:
+	if form == "":
+		return
+	form = ""
+	form_timer = 0.0
+	_recompute_effects()
+	refresh_look()
+	_pop("changes back", Color(0.85, 0.8, 0.95))
+	if _near_hero():
+		Fx.sparkle(get_parent(), position + Vector3(0.0, 0.8, 0.0), Color(0.85, 0.8, 0.95), 18)
+
+
+## AI: against a tough foe, take a fighting form: fighters (weapon skill above Magery) become a
+## beast, mages a wraith or a lich.
+func _try_transform() -> bool:
+	if form != "" or target == null or target.danger < 3.0 or kind != Kind.PLAYER:
+		return false
+	var magery := _skill(Hero.Skill.MAGERY)
+	var fighter := _skill(_weapon_skill()) > magery
+	var picks: Array = ["polymorph", "horrific_beast"] if fighter else ["lich_form", "wraith_form"]
+	for id: String in picks:
+		if can_cast(id) and Rules.cast_chance(magery, float(Spells.LIST[id]["min"])) >= 0.4:
+			return start_cast(id, self)
+	return false
+
+
+## As Magery grows, every spell whose minimum Magery is reached comes to mind by itself: attack
+## and defence, curses, fields, summons and transformations alike (scrolls still teach a spell
+## early, before the skill gets there).
+func _learn_by_magery() -> void:
+	var magery := _skill(Hero.Skill.MAGERY)
+	var learned: Array[String] = []
+	for id: String in Spells.ORDER:
+		if not spellbook.has(id) and float(Spells.LIST[id]["min"]) <= magery:
+			spellbook[id] = true
+			learned.append(String(Spells.LIST[id]["name"]))
+	if is_hero and not learned.is_empty():
+		game.log_event("Your Magery has grown: you can now cast %s." % ", ".join(learned))
+		game.sound("gain", position)
+		game.count("spells_unlocked", learned.size())
+
+
+## A bleeding wound: hurts every second for four seconds (no more than one at a time; a fresh
+## one replaces it).
+func start_bleed(from: Entity, per_sec: float) -> void:
+	bleed_timer = 4.0
+	bleed_dmg = per_sec
+	bleed_from = from
+	_bleed_acc = 0.0
+	_pop("bleeding", Color(0.9, 0.15, 0.15))
+
+
+func _bleed_step(delta: float) -> void:
+	bleed_timer -= delta
+	_bleed_acc += delta
+	if _bleed_acc < 1.0:
+		return
+	_bleed_acc = 0.0
+	if bleed_from == null or not is_instance_valid(bleed_from):
+		bleed_timer = 0.0                       # whoever dealt it is gone
+		return
+	_hit_sound = "hit_flesh"
+	take_damage(bleed_dmg, bleed_from)
+
+
 ## The sound of our blow on `t`, by the weapon and what it lands on.
 func _hit_sound_for(wielded: String, t: Entity) -> String:
 	if wielded != "" and Gear.is_ranged(wielded):
@@ -847,14 +1011,14 @@ func _hit_sound_for(wielded: String, t: Entity) -> String:
 	if Gear.is_metal(t.armor_id):
 		return "hit_armor"
 	var b := Gear.base(wielded)
-	if b in ["mace", "club", "war_hammer"] or (wielded == "" and look in ["ogre", "bear", "golem"]):
+	if (wielded != "" and Gear.dtype(wielded) == "bash") or b == "club" or (wielded == "" and look in ["ogre", "bear", "golem"]):
 		return "hit_blunt"
 	if wielded != "":
 		return "hit_blade"
 	return "hit_flesh"                    # fists, claws and bites
 
 
-func _absorb(amount: float) -> float:
+func _absorb(amount: float, through := 0.0) -> float:
 	if bless_timer > 0.0:
 		amount *= BLESS_ARMOR
 	if shield_id != "":
@@ -866,7 +1030,7 @@ func _absorb(amount: float) -> float:
 			game.sound("parry", position)
 			_wear_out("shield", 0.4)
 	_wear_out("armor", 0.25)                  # blows taken wear the armour
-	var rating := _armor_rating()
+	var rating := _armor_rating() * (1.0 - through)   # piercing blows go partly through
 	if rating <= 0.0:
 		return amount
 	return maxf(1.0, amount - randf_range(0.5, 1.0) * rating)
@@ -879,10 +1043,11 @@ func _armor_rating() -> float:
 		worn = float(Gear.stats(armor_id)["rating"])
 	if mounted_on != null:
 		worn += mounted_on.mount_armor          # a swamp dragon's scales
-	return armor + worn + jewel("armor")
+	return armor + worn + jewel("armor") + form_value("armor", 0.0)
 
 
 func take_damage(amount: float, from: Entity) -> void:
+	amount *= form_value("taken", 1.0)          # a wraith shrugs blows off; a lich is brittle
 	var snd := _hit_sound if _hit_sound != "" else "hit"   # what hit us (spells: the plain hit)
 	_hit_sound = ""
 	if dead or kind == Kind.NPC:
@@ -941,6 +1106,8 @@ func _die(killer: Entity) -> void:
 	if mounted_on != null:
 		dismount()                           # thrown from the saddle
 	dead = true
+	form = ""
+	form_timer = 0.0
 	effects.clear()
 	_recompute_effects()
 	hp = 0.0
@@ -1124,6 +1291,8 @@ func _skill(s: int) -> float:
 func can_cast(id: String) -> bool:
 	if dead or casting_id != "":
 		return false
+	if form != "" and not bool(Spells.FORMS[form].get("cast", true)):
+		return false                         # a beast has no words or hands for spells
 	var sp: Dictionary = Spells.LIST[id]
 	return spellbook.has(id) and mana >= float(sp["mana"]) and reagents >= float(sp["reagents"]) \
 		and _skill(Hero.Skill.MAGERY) >= float(sp["min"])
@@ -1235,6 +1404,11 @@ func _finish_cast() -> void:
 		tgt._end_flag("magic_reflection")
 		tgt._pop("reflected", Color(0.9, 0.9, 1.0))
 		tgt = self
+	if spell_kind == "transform":
+		transform(_form_for(sp), float(sp.get("secs", 120.0)))
+		if kind == Kind.PLAYER:
+			stats.try_gain(Hero.Skill.MAGERY)
+		return
 	if spell_kind in ["paralyze", "resurrect", "summon", "buff", "curse", "drain", "field", "dispel", "util"]:
 		match spell_kind:
 			"paralyze":
@@ -1341,8 +1515,8 @@ func _try_auto_cast(d: float) -> bool:
 		if heal_id != "":
 			return start_cast(heal_id, self)
 	# A tough foe: call up an Earth Elemental to fight beside you.
-	if target != null and target.danger >= 4.0 and (summon == null or summon.dead) \
-			and kind == Kind.PLAYER:
+	if target != null and (target.danger >= 4.0 or _count_fair_targets(6.0) >= 2) \
+			and (summon == null or summon.dead) and kind == Kind.PLAYER:   # a tough foe, or outnumbered
 		var summon_id := _best_spell("summon")
 		if summon_id != "":
 			return start_cast(summon_id, self)
@@ -1384,7 +1558,7 @@ func _regen_mana(delta: float) -> void:
 	var resting := path.is_empty() and target == null and casting_id == "" and not metal
 	var max_mana := float(stats.max_mana())
 	var med := 0.0 if metal else _skill(Hero.Skill.MEDITATION)
-	mana = minf(mana + Rules.mana_regen(med, resting) * delta, max_mana)
+	mana = minf(mana + Rules.mana_regen(med, resting) * delta * form_value("mana_regen", 1.0), max_mana)
 	if resting and mana < max_mana and kind == Kind.PLAYER:
 		_med_timer += delta
 		if _med_timer >= 1.0:
@@ -2019,6 +2193,17 @@ func refresh_look() -> void:
 		(model["root"] as Node3D).queue_free()
 	if model.has("mount_root"):
 		(model["mount_root"] as Node3D).queue_free()
+	if form != "" and not ghost:                  # transformed: the form's body instead of your own
+		var f: Dictionary = Spells.FORMS[form]
+		var fs := visual_scale * float(f.get("scale", 1.0))
+		model = Art.ghost(fs) if String(f["look"]) == "ghost" else Art.creature(String(f["look"]), {}, fs)
+		rig.add_child(model["root"])
+		var aura := Fx.cast_glow(Color(0.8, 0.6, 1.0) if form in ["wraith", "lich"] else Color(0.9, 0.4, 0.25))
+		aura.amount = 8
+		aura.lifetime = 1.2
+		(model["root"] as Node3D).add_child(aura)
+		aura.emitting = true
+		return
 	if ghost and kind == Kind.PLAYER:
 		model = Art.ghost(visual_scale)           # a shroud, not the living body
 		rig.add_child(model["root"])
@@ -2630,16 +2815,15 @@ func _animate(delta: float) -> void:
 	var z := 0.0
 	if swing_anim > 0.0:
 		var k := sin(swing_anim / SWING_ANIM * PI)
-		var wb := Gear.base(weapon)
-		if wb in ["dagger", "kryss"]:
+		if weapon != "" and Gear.is_ranged(weapon):
+			tilt -= 0.08 * k                 # loosing an arrow: a little lean back
+		elif weapon != "" and Gear.dtype(weapon) == "pierce":
 			z = -0.38 * k                    # a quick thrust: lunge further, lean less
 			tilt += 0.12 * k
-		elif wb in ["mace", "club", "war_hammer"]:
+		elif weapon != "" and Gear.dtype(weapon) == "bash":
 			z = -0.2 * k                     # a smash: up on the toes, then down
 			y += 0.06 * k
 			tilt += 0.32 * k
-		elif Gear.is_ranged(weapon):
-			tilt -= 0.08 * k                 # loosing an arrow: a little lean back
 		else:
 			z = -0.25 * k
 			tilt += 0.25 * k
@@ -2660,7 +2844,6 @@ func _animate(delta: float) -> void:
 	var arm: Node3D = model["arm"]
 	if arm != null:
 		var rest := float(model["arm_rest"])
-		var wb := Gear.base(weapon)
 		var ranged := weapon != "" and Gear.is_ranged(weapon)
 		arm.rotation.z = move_toward(arm.rotation.z, 0.0, delta * 6.0)
 		if swing_anim > 0.0:
@@ -2668,9 +2851,9 @@ func _animate(delta: float) -> void:
 			var k := sin(p * PI)
 			if ranged:
 				arm.rotation.x = rest - 1.45                 # held out, aiming
-			elif wb in ["dagger", "kryss"]:
+			elif (weapon != "" and Gear.dtype(weapon) == "pierce"):
 				arm.rotation.x = rest - 1.35 * k             # a straight thrust
-			elif wb in ["mace", "club", "war_hammer"]:
+			elif (weapon != "" and Gear.dtype(weapon) == "bash"):
 				arm.rotation.x = rest - lerpf(2.7, 0.3, p)   # raised high, brought down hard
 			else:
 				arm.rotation.x = rest - 1.6 * k              # a diagonal slash
@@ -3574,6 +3757,10 @@ func _effects_tick(delta: float) -> void:
 ## Sums the stat changes and flags of everything active, and keeps HP, mana and stamina in range.
 func _recompute_effects() -> void:
 	var m := {"str": 0, "dex": 0, "int": 0}
+	if form != "":                               # a transformation's stat changes
+		var fm: Dictionary = Spells.FORMS[form].get("mods", {})
+		for stat in fm:
+			m[stat] = int(m.get(stat, 0)) + int(fm[stat])
 	for jid in [ring_id, amulet_id]:            # jewelry's stat bonuses
 		if Jewelry.has(String(jid)):
 			var jm: Dictionary = Jewelry.LIST[String(jid)].get("mods", {})
@@ -3594,7 +3781,7 @@ func _recompute_effects() -> void:
 	mana = minf(mana, float(stats.max_mana()))
 	stamina = minf(stamina, float(stats.max_stamina()))
 	if rig != null:
-		rig.scale = Vector3.ONE * (1.25 if flags.has("polymorph") else 1.0)
+		rig.scale = Vector3.ONE
 	if not model.is_empty() and not ghost:
 		_set_ghost_look(flags.has("invisible"))
 
@@ -3616,8 +3803,8 @@ func _reflect_blow(amount: float, from: Entity) -> void:
 
 ## Stat buffs don't stack: one of Polymorph, Bless, Strength or Agility at a time.
 func _buff_active(id: String) -> bool:
-	if id in ["polymorph", "bless", "strength", "agility"]:
-		for k in ["polymorph", "bless", "strength", "agility"]:
+	if id in ["bless", "strength", "agility"]:
+		for k in ["bless", "strength", "agility"]:
 			if effects.has(k):
 				return true
 		return false
@@ -3737,6 +3924,8 @@ func _try_support_magic(d: float) -> bool:
 	if target == null or d > SPELL_RANGE:
 		return false
 	var magery := _skill(Hero.Skill.MAGERY)
+	if _try_transform():
+		return true
 	if target.summoned:
 		for id in ["dispel", "mass_dispel"]:
 			if can_cast(id):

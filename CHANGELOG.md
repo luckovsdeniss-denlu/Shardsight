@@ -3,6 +3,36 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.56.0
+A deeper fight.
+- Twelve new hand weapons, each with its own model: Scimitar, Katana and Viking Sword; Axe,
+  Battle Axe and Double Axe (Swordsmanship); Short Spear, Spear and War Fork (Fencing);
+  Quarterstaff, War Axe and Maul (Mace Fighting). Merchants sell most of them, smiths make them
+  (Blacksmithy; the quarterstaff with Carpentry), and orcs, skeletons and ogres drop some.
+- Damage types: slashing (swords, axes) bites 15% deeper into the unarmoured, piercing (daggers,
+  kryss, spears, bows) goes halfway through armour, bashing (maces, hammers, staves, mauls) hits
+  metal armour and bone 25% harder.
+- Critical hits: 5% of blows (up to 15% with Anatomy) do half as much again.
+- Weapon specials: with 25+ in your weapon skill, 12-22% of your hits (costing 10 stamina) land
+  your weapon's special: Bleeding Wound (swords and axes: hurts every second for 4 s), Armor
+  Ignore (spears and fencing: straight through armour), Crushing Blow (maces and hammers: +50%
+  and stuns for a moment), Double Strike (daggers, kryss, scimitar, katana, double axe: a second
+  blow at once) or Concussion (quarterstaff, war fork: knocks 15 mana out and breaks a spell).
+  The Bag and the merchant show each weapon's damage type and special.
+- Swings match the weapon type: spears and fencing weapons thrust, staves, war axes and mauls
+  smash down from overhead.
+- Spells come to you as your Magery grows: every spell whose minimum Magery you reach is added to
+  your spellbook by itself (attack and defence, curses, fields, summons, transformations), and your
+  log says which. Scrolls still teach a spell early.
+- Transformations: Polymorph now really changes your body: a wolf (Dex +15, faster, quicker
+  bites), a bear from Magery 75 (Str +20, armour) or an ogre from 90 (Str +30, heavy blows).
+  New: Horrific Beast (circle 5: a daemon's body, Str +10, harder blows, health back each second),
+  Wraith Form (circle 6: a shroud that takes a quarter less damage, mana back faster) and Lich
+  Form (circle 8: Int +20, mana back three times as fast, a little more fragile). Beasts can't
+  cast until they change back. Computer players (and your hero on Auto) take a fighting form
+  against tough foes: fighters a beast, mages a wraith or a lich.
+- Summons: casters call up an ally not only against a tough foe but whenever they're outnumbered.
+
 ## 0.55.1
 Faster.
 - Sun shadows only as far as the camera sees (30 m, 45 m on High) in one cascade (two on High),

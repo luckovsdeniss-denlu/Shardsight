@@ -262,7 +262,7 @@ const ORC := {
 	"danger": 3,
 	"str": 45, "dex": 40, "int": 10, "wspeed": 30, "dmg_min": 3, "dmg_max": 8,
 	"move": 2.2, "leash": 5, "aggro": 5.0, "respawn": 15.0, "scale": 1.15, "armor": 2.0,
-	"loot": {"gold_min": 15, "gold_max": 35, "drops": [["orc_ear", 0.8], ["longsword", 0.15], ["studded_armor", 0.15], ["chainmail", 0.08], ["wooden_shield", 0.12], ["bronze_shield", 0.06], ["bow", 0.08]]},
+	"loot": {"gold_min": 15, "gold_max": 35, "drops": [["orc_ear", 0.8], ["longsword", 0.15], ["studded_armor", 0.15], ["chainmail", 0.08], ["wooden_shield", 0.12], ["bronze_shield", 0.06], ["bow", 0.08], ["axe", 0.08], ["war_axe", 0.05]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 60.0, Hero.Skill.TACTICS: 40.0, Hero.Skill.ANATOMY: 30.0},
 }
 const EVIL_MAGE := {
@@ -303,7 +303,7 @@ const SKELETON := {
 	"danger": 4,
 	"str": 40, "dex": 35, "int": 10, "wspeed": 35, "dmg_min": 4, "dmg_max": 10,
 	"move": 2.6, "leash": 4, "aggro": 5.0, "respawn": 20.0, "armor": 2.0, "scale": 1.0,
-	"loot": {"gold_min": 25, "gold_max": 55, "drops": [["broadsword", 0.12], ["heater_shield", 0.08], ["chainmail", 0.08], ["bow", 0.06]]},
+	"loot": {"gold_min": 25, "gold_max": 55, "drops": [["broadsword", 0.12], ["heater_shield", 0.08], ["chainmail", 0.08], ["bow", 0.06], ["scimitar", 0.08], ["spear", 0.05]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 65.0, Hero.Skill.TACTICS: 60.0, Hero.Skill.ANATOMY: 30.0},
 }
 const ZOMBIE := {
@@ -320,7 +320,7 @@ const OGRE := {
 	"danger": 6,
 	"str": 90, "dex": 40, "int": 15, "wspeed": 25, "dmg_min": 9, "dmg_max": 18,
 	"move": 2.3, "leash": 4, "aggro": 5.0, "respawn": 30.0, "armor": 3.0, "scale": 1.5,
-	"loot": {"gold_min": 40, "gold_max": 90, "drops": [["halberd", 0.15], ["platemail", 0.08], ["heavy_crossbow", 0.06]]},
+	"loot": {"gold_min": 40, "gold_max": 90, "drops": [["halberd", 0.15], ["platemail", 0.08], ["heavy_crossbow", 0.06], ["maul", 0.1], ["double_axe", 0.05]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 75.0, Hero.Skill.TACTICS: 70.0, Hero.Skill.ANATOMY: 50.0},
 }
 const LICH := {

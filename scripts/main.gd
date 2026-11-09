@@ -2494,11 +2494,18 @@ func _gear_line(id: String) -> String:
 	var g := Gear.stats(id)
 	match String(g["slot"]):
 		"weapon":
-			return "%s, %d-%d damage, speed %d (%s)%s" % [Items.item_name(id), int(g["min"]), int(g["max"]),
-				int(g["speed"]), String(g["skill"]).capitalize(), ", two-handed" if bool(g.get("two_handed", false)) else ""]
+			var sp := Gear.special(id)
+			return "%s, %d-%d %s damage, speed %d (%s)%s%s" % [Items.item_name(id), int(g["min"]), int(g["max"]),
+				Gear.dtype(id), int(g["speed"]), String(g["skill"]).capitalize(),
+				", two-handed" if bool(g.get("two_handed", false)) else "",
+				(", special: " + SPECIAL_NAMES.get(sp, sp)) if sp != "" else ""]
 		"shield":
 			return "%s, blocks %d%%" % [Items.item_name(id), roundi(float(g["block"]) * 100.0)]
 	return "%s, armour %d" % [Items.item_name(id), int(g["rating"])]
+
+
+const SPECIAL_NAMES := {"bleed": "Bleeding Wound", "armor_ignore": "Armor Ignore", "crush": "Crushing Blow",
+	"double": "Double Strike", "concuss": "Concussion"}
 
 
 func _on_equip(id: String) -> void:
@@ -2637,6 +2644,7 @@ func _on_priest_confess() -> void:
 ## What every merchant keeps on the shelves (gear the merchant sells at its own value; the best
 ## pieces are only made or found). [id, how many you get, base price per lot].
 const SHOP_GEAR := ["dagger", "kryss", "short_sword", "longsword", "broadsword", "mace", "war_hammer",
+	"scimitar", "axe", "short_spear", "quarterstaff", "war_axe", "maul", "katana", "spear", "war_fork",
 	"bow", "crossbow", "leather_armor", "studded_armor", "chainmail", "wooden_shield", "bronze_shield"]
 
 
@@ -2893,6 +2901,8 @@ static func _spell_aim(sp: Dictionary) -> String:
 		return "all foes around you"
 	if k == "summon":
 		return "summons an ally"
+	if k == "transform":
+		return "transforms you"
 	if k == "resurrect":
 		return "raises a ghost"
 	if k == "dispel":
@@ -3052,6 +3062,26 @@ func _spell_detail(id: String) -> String:
 			effect = "dispels %s" % String(sp.get("field", "magic")).replace("_", " ")
 		"resurrect":
 			effect = "raises a ghost"
+		"transform":
+			var fid := String(sp.get("form", ""))
+			if fid == "beast":
+				effect = "you become a wolf (Dex +15, faster), a bear from Magery 75 (Str +20, armour) or an ogre from 90 (Str +30, heavy blows) for %d s; no spells meanwhile" % int(sp["secs"])
+			else:
+				var f: Dictionary = Spells.FORMS.get(fid, {})
+				var bits: Array[String] = []
+				var fm: Dictionary = f.get("mods", {})
+				for k2 in fm:
+					bits.append("%s %+d" % [String(k2).capitalize(), int(fm[k2])])
+				if f.has("melee"):
+					bits.append("blows x%.2f" % float(f["melee"]))
+				if f.has("taken"):
+					bits.append("damage taken x%.2f" % float(f["taken"]))
+				if f.has("mana_regen"):
+					bits.append("mana back x%.1f" % float(f["mana_regen"]))
+				if f.has("regen"):
+					bits.append("+%.1f health a second" % float(f["regen"]))
+				effect = "you become %s for %d s: %s%s" % [f.get("name", fid), int(sp["secs"]), ", ".join(bits),
+					"" if bool(f.get("cast", true)) else "; no spells meanwhile"]
 		"travel":
 			effect = "travel (Menu > Travel)"
 		_:

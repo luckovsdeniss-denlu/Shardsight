@@ -12,7 +12,9 @@ class_name Gear
 
 const ORDER := [
 	"dagger", "kryss", "short_sword", "longsword", "broadsword", "halberd",
-	"mace", "war_hammer", "bow", "composite_bow", "crossbow", "heavy_crossbow",
+	"mace", "war_hammer", "scimitar", "katana", "viking_sword", "axe", "battle_axe", "double_axe",
+	"short_spear", "spear", "war_fork", "quarterstaff", "war_axe", "maul",
+	"bow", "composite_bow", "crossbow", "heavy_crossbow",
 	"leather_armor", "studded_armor", "chainmail", "platemail",
 	"wooden_shield", "bronze_shield", "heater_shield",
 ]
@@ -25,6 +27,18 @@ const LIST := {
 	"bonecleaver": {"name": "Bonecleaver", "slot": "weapon", "skill": "swords", "speed": 38, "min": 12.0, "max": 24.0, "str": 30, "value": 1200},
 	"broadsword": {"name": "Broadsword", "slot": "weapon", "skill": "swords", "speed": 30, "min": 7.0, "max": 15.0, "str": 35, "value": 90},
 	"halberd": {"name": "Halberd", "slot": "weapon", "skill": "swords", "speed": 25, "min": 8.0, "max": 18.0, "str": 50, "value": 160, "two_handed": true},
+	"scimitar": {"name": "Scimitar", "slot": "weapon", "skill": "swords", "speed": 45, "min": 4.0, "max": 10.0, "str": 20, "value": 45},
+	"katana": {"name": "Katana", "slot": "weapon", "skill": "swords", "speed": 46, "min": 5.0, "max": 11.0, "str": 25, "value": 75},
+	"viking_sword": {"name": "Viking Sword", "slot": "weapon", "skill": "swords", "speed": 32, "min": 6.0, "max": 14.0, "str": 35, "value": 85},
+	"axe": {"name": "Axe", "slot": "weapon", "skill": "swords", "speed": 34, "min": 6.0, "max": 13.0, "str": 30, "value": 55},
+	"battle_axe": {"name": "Battle Axe", "slot": "weapon", "skill": "swords", "speed": 28, "min": 8.0, "max": 17.0, "str": 40, "value": 100, "two_handed": true},
+	"double_axe": {"name": "Double Axe", "slot": "weapon", "skill": "swords", "speed": 25, "min": 10.0, "max": 19.0, "str": 50, "value": 140, "two_handed": true},
+	"short_spear": {"name": "Short Spear", "slot": "weapon", "skill": "fencing", "speed": 45, "min": 4.0, "max": 10.0, "str": 25, "value": 40},
+	"spear": {"name": "Spear", "slot": "weapon", "skill": "fencing", "speed": 30, "min": 7.0, "max": 15.0, "str": 35, "value": 75, "two_handed": true},
+	"war_fork": {"name": "War Fork", "slot": "weapon", "skill": "fencing", "speed": 38, "min": 5.0, "max": 12.0, "str": 35, "value": 60},
+	"quarterstaff": {"name": "Quarterstaff", "slot": "weapon", "skill": "mace", "speed": 36, "min": 5.0, "max": 12.0, "str": 30, "value": 30, "two_handed": true},
+	"war_axe": {"name": "War Axe", "slot": "weapon", "skill": "mace", "speed": 33, "min": 6.0, "max": 13.0, "str": 35, "value": 70},
+	"maul": {"name": "Maul", "slot": "weapon", "skill": "mace", "speed": 30, "min": 7.0, "max": 15.0, "str": 45, "value": 90},
 	"mace": {"name": "Mace", "slot": "weapon", "skill": "mace", "speed": 40, "min": 4.0, "max": 10.0, "str": 20, "value": 35},
 	"war_hammer": {"name": "War Hammer", "slot": "weapon", "skill": "mace", "speed": 28, "min": 8.0, "max": 16.0, "str": 45, "value": 110, "two_handed": true},
 	"bow": {"name": "Bow", "slot": "weapon", "skill": "archery", "speed": 30, "min": 5.0, "max": 12.0, "str": 20, "value": 50, "two_handed": true, "range": 7.0},
@@ -89,6 +103,43 @@ static func max_durability(id: String) -> int:
 		if t > 0:
 			d += 5.0 * t
 	return roundi(d)
+
+
+## How a weapon wounds: "slash" (swords, axes), "pierce" (daggers, kryss, spears, bows) or
+## "bash" (maces, hammers, staves). Bash is strong against metal armour and bone, pierce slips
+## through armour, slash bites deep into the unarmoured.
+static func dtype(id: String) -> String:
+	if not has(id):
+		return "bash"                      # fists, claws and clubs
+	match String(LIST[base(id)].get("skill", "")):
+		"fencing", "archery":
+			return "pierce"
+		"mace":
+			return "bash"
+	return "slash"
+
+
+## Each weapon's special move (fired now and then by skilled fighters): "bleed" (a wound that
+## keeps hurting), "armor_ignore" (straight through the armour), "crush" (a heavy blow that stuns
+## for a moment), "double" (a quick second strike) or "concuss" (knocks the mana out of a caster).
+const SPECIALS := {
+	"dagger": "double", "kryss": "double", "scimitar": "double", "katana": "double", "double_axe": "double",
+	"quarterstaff": "concuss", "war_fork": "concuss", "halberd": "crush", "war_axe": "crush",
+}
+
+
+static func special(id: String) -> String:
+	if not has(id) or is_ranged(id):
+		return ""
+	var b := base(id)
+	if SPECIALS.has(b):
+		return String(SPECIALS[b])
+	match dtype(id):
+		"pierce":
+			return "armor_ignore"
+		"bash":
+			return "crush"
+	return "bleed"
 
 
 static func base(id: String) -> String:

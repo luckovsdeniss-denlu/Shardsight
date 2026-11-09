@@ -24,6 +24,7 @@ const ORDER := [
 	"explosion", "dispel", "invisibility", "mass_curse", "paralyze_field", "reveal",
 	"flamestrike", "chain_lightning", "energy_field", "mana_vampire", "mass_dispel",
 	"meteor_swarm", "polymorph", "earthquake", "resurrection", "summon_elemental",
+	"horrific_beast", "wraith_form", "lich_form",
 	"energy_vortex", "summon_air", "summon_daemon", "summon_fire", "summon_water", "recall",
 	"mark", "gate_travel",
 ]
@@ -38,6 +39,21 @@ const STARTER := [
 const PARALYZE_BASE := 4.0         # seconds, + Magery / 25
 const SUMMON_SECONDS := 90.0
 const AREA_RADIUS := 5.0
+
+## Transformations ("transform" spells): your body becomes something else for a while. "look" is
+## the model ("ghost" for the wraith's shroud); "mods" are stat changes; "speed", "melee" (damage
+## of your blows), "taken" (damage you take), "mana_regen" and "regen" (health a second) and
+## "armor" change how you fight; beasts ("cast": false) can't cast spells until they change back.
+## Polymorph picks its beast by Magery: a wolf, a bear, then an ogre.
+const FORMS := {
+	"wolf": {"name": "Wolf Form", "look": "wolf", "scale": 1.15, "mods": {"dex": 15}, "speed": 1.35, "melee": 1.15, "cast": false},
+	"bear": {"name": "Bear Form", "look": "bear", "scale": 1.1, "mods": {"str": 20}, "armor": 3.0, "melee": 1.3, "cast": false},
+	"ogre": {"name": "Ogre Form", "look": "ogre", "scale": 0.8, "mods": {"str": 30}, "armor": 2.0, "melee": 1.45, "speed": 0.9, "cast": false},
+	"horrific_beast": {"name": "Horrific Beast", "look": "daemon", "scale": 0.85, "mods": {"str": 10}, "melee": 1.25, "regen": 1.0, "cast": false},
+	"wraith": {"name": "Wraith Form", "look": "ghost", "mods": {}, "taken": 0.75, "mana_regen": 1.5, "cast": true},
+	"lich": {"name": "Lich Form", "look": "lich", "scale": 1.0, "mods": {"int": 20}, "mana_regen": 3.0, "taken": 1.1, "cast": true},
+}
+
 
 const LIST := {
 	"magic_arrow": {
@@ -332,8 +348,23 @@ const LIST := {
 	},
 	"polymorph": {
 		"name": "Polymorph", "words": "Vas Ylem Rel", "circle": 7, "mana": 40, "min": 67.0,
-		"reagents": 3, "kind": "buff", "min_dmg": 0.0, "max_dmg": 0.0,
-		"color": Color(0.9, 0.6, 0.4), "mods": {"str": 20, "dex": 5}, "secs": 120.0, "flag": "polymorph",
+		"reagents": 3, "kind": "transform", "min_dmg": 0.0, "max_dmg": 0.0,
+		"color": Color(0.9, 0.6, 0.4), "form": "beast", "secs": 150.0,
+	},
+	"horrific_beast": {
+		"name": "Horrific Beast", "words": "Rel Xen Vas Bal", "circle": 5, "mana": 14, "min": 38.1,
+		"reagents": 2, "kind": "transform", "min_dmg": 0.0, "max_dmg": 0.0,
+		"color": Color(0.85, 0.3, 0.2), "form": "horrific_beast", "secs": 120.0,
+	},
+	"wraith_form": {
+		"name": "Wraith Form", "words": "Rel Xen Um", "circle": 6, "mana": 20, "min": 52.1,
+		"reagents": 2, "kind": "transform", "min_dmg": 0.0, "max_dmg": 0.0,
+		"color": Color(0.6, 0.7, 0.95), "form": "wraith", "secs": 120.0,
+	},
+	"lich_form": {
+		"name": "Lich Form", "words": "Rel Xen Corp Ort", "circle": 8, "mana": 50, "min": 81.0,
+		"reagents": 4, "kind": "transform", "min_dmg": 0.0, "max_dmg": 0.0,
+		"color": Color(0.6, 0.35, 0.8), "form": "lich", "secs": 180.0,
 	},
 	"energy_vortex": {
 		"name": "Energy Vortex", "words": "Vas Corp Por", "circle": 8, "mana": 50, "min": 81.0,

@@ -540,6 +540,44 @@ static func _weapon_parts(weapon: String) -> Array:
 			p.append([box(0.03, 0.4, 0.03), at(0, hy + 0.2, -0.12, Vector3(-0.35, 0, 0)), WOOD])
 			p.append([box(0.03, 0.4, 0.03), at(0, hy - 0.2, -0.12, Vector3(0.35, 0, 0)), WOOD])
 			p.append([box(0.01, 0.75, 0.01), at(0, hy, -0.01), Color(0.9, 0.9, 0.85)])
+		"scimitar":                                    # a curved blade
+			p.append([box(0.05, 0.03, 0.34), at(0, hy, -0.22), steel])
+			p.append([box(0.05, 0.03, 0.3), at(0.03, hy, -0.5, Vector3(0, 0.35, 0)), steel])
+			p.append([box(0.16, 0.04, 0.04), at(0, hy, -0.05), Color(0.6, 0.5, 0.2)])
+			p.append([box(0.04, 0.04, 0.12), at(0, hy, 0.03), DARK])
+		"katana":                                      # long, slim, slightly curved, a round guard
+			p.append([box(0.035, 0.025, 0.8), at(0, hy + 0.03, -0.45, Vector3(0.06, 0, 0)), steel])
+			p.append([cone(0.07, 0.02, 0.07, 8), at(0, hy, -0.05, Vector3(PI / 2, 0, 0)), DARK])
+			p.append([box(0.04, 0.04, 0.22), at(0, hy, 0.08), Color(0.2, 0.15, 0.25)])
+		"viking_sword":                                # broad and straight, a heavy pommel
+			p.append([box(0.08, 0.03, 0.72), at(0, hy, -0.42), steel])
+			p.append([box(0.22, 0.05, 0.05), at(0, hy, -0.05), DARK])
+			p.append([ball(0.05, 6, 3), at(0, hy, 0.12), Color(0.6, 0.5, 0.2)])
+		"axe", "battle_axe", "double_axe", "war_axe":  # a haft and a head (two for the double axe)
+			var haft := 0.75 if Gear.base(weapon) in ["battle_axe", "double_axe"] else 0.55
+			p.append([box(0.04, 0.04, haft), at(0, hy, -haft / 2.0 + 0.05), WOOD])
+			var head := 0.26 if Gear.base(weapon) == "battle_axe" else 0.2
+			p.append([box(0.03, head, 0.14), at(0, hy + head / 2.0, -haft + 0.08), steel])
+			if Gear.base(weapon) == "double_axe":
+				p.append([box(0.03, head, 0.14), at(0, hy - head / 2.0, -haft + 0.08), steel])
+			if Gear.base(weapon) == "war_axe":
+				p.append([cone(0.03, 0.12, 0.0, 5), at(0, hy - 0.08, -haft + 0.08, Vector3(PI, 0, 0)), steel])
+		"spear", "short_spear":
+			var shaft := 1.2 if Gear.base(weapon) == "spear" else 0.8
+			p.append([box(0.04, 0.04, shaft), at(0, hy, -shaft / 2.0 + 0.15), WOOD])
+			p.append([cone(0.05, 0.22, 0.0, 6), at(0, hy, -shaft + 0.04, Vector3(-PI / 2, 0, 0)), steel])
+		"war_fork":
+			p.append([box(0.04, 0.04, 0.95), at(0, hy, -0.4), WOOD])
+			for side: float in [-1.0, 0.0, 1.0]:
+				p.append([box(0.02, 0.02, 0.22), at(side * 0.05, hy, -0.95), steel])
+			p.append([box(0.14, 0.03, 0.03), at(0, hy, -0.84), steel])
+		"quarterstaff":
+			p.append([box(0.045, 1.6, 0.045), at(0, hy + 0.2, -0.06), WOOD.lightened(0.1)])
+			p.append([box(0.055, 0.08, 0.055), at(0, hy + 0.95, -0.06), DARK])
+			p.append([box(0.055, 0.08, 0.055), at(0, hy - 0.55, -0.06), DARK])
+		"maul":
+			p.append([box(0.04, 0.04, 0.6), at(0, hy, -0.25), WOOD])
+			p.append([box(0.2, 0.16, 0.16), at(0, hy, -0.58), steel.darkened(0.15)])
 		"priest_staff":                                # a pale staff topped with a gold sunburst
 			p.append([box(0.05, 1.6, 0.05), at(0, hy + 0.3, -0.06), Color(0.85, 0.8, 0.68)])
 			p.append([ball(0.1, 7, 4), at(0, hy + 1.12, -0.06), Color(1.0, 0.9, 0.55)])
