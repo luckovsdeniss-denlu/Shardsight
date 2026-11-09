@@ -5309,7 +5309,7 @@ func _build_rain() -> void:
 	rain.emitting = false
 	rain.local_coords = false
 	rain.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	rain.emission_box_extents = Vector3(13.0, 0.5, 11.0)
+	rain.emission_box_extents = Vector3(14.0, 0.5, 12.0)
 	rain.direction = Vector3(0.15, -1.0, 0.0)
 	rain.spread = 3.0
 	rain.gravity = Vector3(0.0, -20.0, 0.0)
@@ -5318,7 +5318,7 @@ func _build_rain() -> void:
 	var drop := BoxMesh.new()
 	drop.size = Vector3(0.02, 0.45, 0.02)
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.7, 0.8, 1.0, 0.45)
+	mat.albedo_color = Color(0.62, 0.7, 0.85, 0.3)     # fine grey-blue streaks, not white
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	drop.material = mat
@@ -5342,8 +5342,8 @@ func _set_weather(w: String) -> void:
 	else:
 		rain_sound.stop()
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.62, 0.66, 0.72)
-	env.fog_density = {"fog": 0.045, "storm": 0.025, "rain": 0.012}.get(w, CLEAR_HAZE)
+	env.fog_light_color = Color(0.5, 0.54, 0.6)        # a grey mist, not a white-out
+	env.fog_density = {"fog": 0.028, "storm": 0.02, "rain": 0.01}.get(w, CLEAR_HAZE)
 	if world.ground_material != null:            # an overcast sky casts no cloud shadows
 		world.ground_material.set_shader_parameter("cloud_amount", 1.0 if w == "clear" else 0.0)
 	match w:
@@ -5362,7 +5362,10 @@ func _set_weather(w: String) -> void:
 func _weather_tick(delta: float) -> void:
 	_flash = maxf(_flash - delta, 0.0)
 	if rain != null:
-		rain.global_position = hero.position + Vector3(0.0, 9.0, 0.0)
+		# The rain starts a little below the camera, never at it: drops born right by the lens
+		# streaked across the screen as big white smears (worse zoomed in).
+		var above := clampf(cam.position.y - hero.position.y - 2.0, 2.5, 6.0)
+		rain.global_position = hero.position + Vector3(0.0, above, 0.0)
 		rain.visible = not world.is_dungeon(world.to_tile(hero.position))   # no rain underground
 	if not property.weather_on:
 		return

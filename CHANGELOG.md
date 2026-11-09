@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.58.2
+- Fix: white streaks across the screen in the rain. The rain started at the overhead camera's
+  height, so drops were born right by the lens and smeared across the view (worse zoomed in); it
+  now starts a little below the camera. The drops are finer and grey-blue rather than white.
+- The fog is thinner and grey rather than milky white, so a foggy day no longer whites out the
+  screen. (Settings > Weather: Off still keeps the sky always clear.)
+
 ## 0.58.1
 Story scenes.
 - At the story's key moments the camera glides down from the overhead view to your hero's eyes
