@@ -1557,6 +1557,7 @@ func _open_story() -> void:
 func _close_story() -> void:
 	story_panel.visible = false
 	_resume()
+	_cine_release()                               # the camera rises back to the usual view
 
 
 ## Where the current chapter leads, for the hint and the minimap (false if nowhere in particular).
@@ -1620,16 +1621,114 @@ func _story_tick(delta: float) -> void:
 	match String(step["kind"]):
 		"talk":
 			if has_story_target and hero.position.distance_to(story_target) <= 3.5:
-				_story_advance()
+				_story_advance(story_target)
 		"shrine":
 			if has_story_target and hero.position.distance_to(story_target) <= 2.5:
-				_story_advance()
+				_story_advance(story_target)
 		"boss":
 			# the Shardbreaker waits at the Broken Circle (and returns there if it fades away)
 			if story_boss == null or (story_boss.dead and not story_boss.visible):
 				story_boss = pool_spawn(Story.BOSS_NAME, Story.BOSS, Color("3a1a4a"), world.tile_center(Story.SITE) + Vector3(0.0, 0.0, 1.5))
 			if _circle_light != null:
 				_circle_light.light_energy = 2.0 + 0.6 * sin(Time.get_ticks_msec() * 0.004)
+			# the first sight of him: the camera comes down to look the Shardbreaker in the eye
+			if not _boss_revealed and story_boss != null and not story_boss.dead \
+					and hero.position.distance_to(story_boss.position) <= 16.0 and _cine_phase == 0:
+				_boss_revealed = true
+				log_event("Malgrath the Shardbreaker rises at the Broken Circle: \"Give me the Shard, little thief.\"")
+				_cine_start(story_boss.position + Vector3(0.0, 0.6, 0.0), Callable(), 3.0)
+
+
+# --- story scenes: the camera comes down to the hero's eyes and looks at what matters ----------
+
+const CINE_IN := 1.4                      # seconds to come down from the overhead view
+const CINE_OUT := 1.1                     # seconds to rise back to it
+var _cine_phase := 0                      # 0 none, 1 coming down, 2 holding, 3 going back up
+var _cine_t := 0.0
+var _cine_hold := 0.0                     # seconds to hold when there's no story panel
+var _cine_from_pos := Vector3.ZERO
+var _cine_from_look := Vector3.ZERO
+var _cine_focus := Vector3.ZERO
+var _cine_then: Callable                  # what happens once the camera is down (the story panel)
+var _boss_revealed := false
+
+
+## Starts a story scene: the camera glides from wherever it is down to the hero's eyes, looking
+## at `focus`; then `then` runs (the story panel), or it holds for `hold` seconds; then it rises
+## back to the usual view.
+func _cine_start(focus: Vector3, then: Callable, hold := 0.0) -> void:
+	if autotest:
+		if then.is_valid():
+			then.call()
+		return
+	_cine_phase = 1
+	_cine_t = 0.0
+	_cine_hold = hold
+	_cine_then = then
+	_cine_focus = focus + Vector3(0.0, 1.3, 0.0)
+	_cine_from_pos = cam.position
+	_cine_from_look = _hero_cam_look() if not property.first_person else cam.position + _fp_dir() * 4.0
+	hero.path.clear()
+	hero.target = null
+
+
+## The hero's eyes, turned towards the scene.
+func _cine_eye() -> Vector3:
+	var eye := hero.position + Vector3(0.0, 1.55 * hero.visual_scale, 0.0)
+	var to := _cine_focus - eye
+	to.y = 0.0
+	if to.length() > 0.01:
+		eye -= to.normalized() * 0.6              # a step back, so the scene fits the view
+		hero._face(to)
+	return eye
+
+
+func _cine_step(delta: float) -> bool:
+	if _cine_phase == 0:
+		return false
+	_cine_t += delta
+	var pos: Vector3
+	var look: Vector3
+	match _cine_phase:
+		1:
+			var k := smoothstep(0.0, 1.0, minf(_cine_t / CINE_IN, 1.0))
+			pos = _cine_from_pos.lerp(_cine_eye(), k)
+			look = _cine_from_look.lerp(_cine_focus, k)
+			if hero.rig != null:
+				hero.rig.visible = k < 0.6               # out of the way as we reach the eyes
+			if _cine_t >= CINE_IN:
+				_cine_phase = 2
+				_cine_t = 0.0
+				if _cine_then.is_valid():
+					_cine_then.call()                     # the story panel (it pauses the game)
+		2:
+			pos = _cine_eye()
+			look = _cine_focus
+			if not _cine_then.is_valid() and _cine_t >= _cine_hold:
+				_cine_release()
+		3:
+			var k := smoothstep(0.0, 1.0, minf(_cine_t / CINE_OUT, 1.0))
+			pos = _cine_from_pos.lerp(_hero_cam_pos(), k)
+			look = _cine_from_look.lerp(_hero_cam_look(), k)
+			if hero.rig != null:
+				hero.rig.visible = k > 0.4 and not property.first_person
+			if _cine_t >= CINE_OUT:
+				_cine_phase = 0
+				return false
+	cam.position = pos
+	cam.look_at(look, Vector3.UP)
+	view_planes = cam.get_frustum()
+	return true
+
+
+## The scene is over: rise back to the usual view.
+func _cine_release() -> void:
+	if _cine_phase != 2:
+		return
+	_cine_phase = 3
+	_cine_t = 0.0
+	_cine_from_pos = cam.position
+	_cine_from_look = _cine_focus
 
 
 func _story_on_kill(killer: Entity, victim: Entity) -> void:
@@ -1645,14 +1744,15 @@ func _story_on_kill(killer: Entity, victim: Entity) -> void:
 				return
 			if step.has("area") and not (step["area"] as Rect2i).has_point(world.to_tile(victim.position)):
 				return
-			_story_advance()
+			_story_advance(victim.position)
 		"boss":
 			if victim == story_boss:
-				_story_advance()
+				_story_advance(victim.position)
 
 
-## The chapter is done: its reward, then the next chapter is told.
-func _story_advance() -> void:
+## The chapter is done: its reward, then (with the camera down at the hero's eyes, looking at
+## where it happened) the next chapter is told.
+func _story_advance(subject: Vector3) -> void:
 	var step: Dictionary = Story.STEPS[property.story_step]
 	var gold := int(step.get("gold", 0))
 	hero.gold += gold
@@ -1682,7 +1782,7 @@ func _story_advance() -> void:
 		count("story_finished")
 	else:
 		property.story_step += 1
-	_show_chapter()
+	_cine_start(subject, _show_chapter)
 
 
 func on_kill(killer: Entity, victim: Entity) -> void:
@@ -4323,6 +4423,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## Intersects the camera ray through `screen` with the ground plane (y = 0).
 func _tap(screen: Vector2) -> void:
+	if _cine_phase != 0:
+		return                                    # a story scene is playing
 	var picked := _creature_at_screen(screen, 70.0 if property.first_person else 40.0)
 	var hit: Variant = world.ray_ground(cam.project_ray_origin(screen), cam.project_ray_normal(screen))   # hills too
 	if hit == null and picked == null:
@@ -4631,7 +4733,9 @@ func _process(delta: float) -> void:
 	else:
 		marker.visible = true
 		marker.position = hero.path[hero.path.size() - 1] + Vector3(0.0, 0.03, 0.0)
-	if not _flyby_step(delta):
+	if _cine_step(delta):
+		pass                                      # a story scene has the camera
+	elif not _flyby_step(delta):
 		_follow_camera()
 	_update_rings()
 	_cull_fx(delta)

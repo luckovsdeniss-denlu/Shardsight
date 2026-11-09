@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.58.1
+Story scenes.
+- At the story's key moments the camera glides down from the overhead view to your hero's eyes
+  and looks at what matters: the priest or abbess you speak with, the ankh you pray at, the fallen
+  ogre, lich or Bone King whose fragment you take, and Malgrath himself. The chapter's story
+  panel opens once the camera is down, and when you continue it rises smoothly back to the usual
+  view (or your first-person view).
+- The first time you come near the Broken Circle in the last chapter, the camera comes down to
+  look the Shardbreaker in the eye for a few seconds as he speaks.
+- Taps are ignored while a scene plays.
+
 ## 0.58.0
 The main story: The Shattered Sight.
 - Long ago the Shard of Sight watched over the land; Malgrath the Shardbreaker broke it, gave its
