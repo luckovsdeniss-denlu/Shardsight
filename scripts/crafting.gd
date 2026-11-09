@@ -53,6 +53,11 @@ const RECIPES := {
 	"potion_cure": {"skill": Hero.Skill.ALCHEMY, "min": 0.0, "mats": {"reagent": 2}},
 	"potion_heal": {"skill": Hero.Skill.ALCHEMY, "min": 15.0, "mats": {"reagent": 2}},
 	"potion_greater_heal": {"skill": Hero.Skill.ALCHEMY, "min": 55.0, "mats": {"reagent": 4}},
+	"potion_strength": {"skill": Hero.Skill.ALCHEMY, "min": 30.0, "mats": {"reagent": 3, "raw_meat": 1}},
+	"potion_agility": {"skill": Hero.Skill.ALCHEMY, "min": 30.0, "mats": {"reagent": 3, "swamp_herb": 1}},
+	"poison_lesser": {"skill": Hero.Skill.ALCHEMY, "min": 20.0, "mats": {"reagent": 2, "swamp_herb": 1}},
+	"poison_deadly": {"skill": Hero.Skill.ALCHEMY, "min": 65.0, "mats": {"reagent": 3, "scorpion_venom": 1}},
+	"potion_invisibility": {"skill": Hero.Skill.ALCHEMY, "min": 60.0, "mats": {"reagent": 4, "swamp_herb": 2, "cave_crystal": 1}},
 }
 const POTIONS := ["potion_greater_heal", "potion_heal", "potion_cure", "potion_refresh"]
 const ORDER := [
@@ -62,6 +67,7 @@ const ORDER := [
 	"quarterstaff", "scimitar", "axe", "short_spear", "war_axe", "katana", "maul", "spear", "war_fork",
 	"viking_sword", "battle_axe", "double_axe",
 	"potion_refresh", "potion_cure", "potion_heal", "potion_greater_heal",
+	"potion_strength", "potion_agility", "poison_lesser", "poison_deadly", "potion_invisibility",
 ]
 
 

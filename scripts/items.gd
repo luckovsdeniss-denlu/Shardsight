@@ -32,6 +32,26 @@ const LIST := {
 	"shard_fragment_2": {"name": "Shard Fragment (the Graveyard's)", "value": 0},
 	"shard_fragment_3": {"name": "Shard Fragment (the Bone King's)", "value": 0},
 	"shard_of_sight": {"name": "The Shard of Sight", "value": 0},
+	# The biomes and caves: hides, venom, herbs and treasures of the wild places.
+	"raw_meat": {"name": "Raw Meat", "value": 3},
+	"frost_pelt": {"name": "Frost Pelt", "value": 25},
+	"scorpion_venom": {"name": "Scorpion Venom", "value": 20},
+	"swamp_herb": {"name": "Swamp Herb", "value": 8},
+	"mummy_wrap": {"name": "Ancient Wrappings", "value": 30},
+	"cave_crystal": {"name": "Cave Crystal", "value": 45},
+	# Cooking (at a campfire, a hearth or the tavern): food that heals and lends strength for a while.
+	"cooked_fish": {"name": "Cooked Fish", "value": 8, "food": true},
+	"grilled_steak": {"name": "Grilled Steak", "value": 10, "food": true},
+	"fish_pie": {"name": "Fish Pie", "value": 22, "food": true},
+	"hearty_stew": {"name": "Hearty Stew", "value": 30, "food": true},
+	"frost_chowder": {"name": "Frostmarch Chowder", "value": 40, "food": true},
+	"ale": {"name": "Mug of Ale", "value": 4, "food": true},
+	# Alchemy: stronger brews and poisons for your blade.
+	"potion_strength": {"name": "Strength Potion", "value": 25, "potion": true},
+	"potion_agility": {"name": "Agility Potion", "value": 25, "potion": true},
+	"potion_invisibility": {"name": "Invisibility Potion", "value": 50, "potion": true},
+	"poison_lesser": {"name": "Lesser Blade Poison", "value": 20, "potion": true},
+	"poison_deadly": {"name": "Deadly Blade Poison", "value": 60, "potion": true},
 }
 
 

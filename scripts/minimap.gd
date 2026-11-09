@@ -35,6 +35,8 @@ var _terrain: ImageTexture       # the map itself, painted once (and again when 
 var _revision := -1
 
 
+const BIOME_MAP := {"snow": Color("e2e8ef"), "desert": Color("c9a96c"), "swamp": Color("3a4a2c")}
+
 func setup(p_game, p_world: World) -> void:
 	game = p_game
 	world = p_world
@@ -102,10 +104,13 @@ func _bake_terrain() -> void:
 						col = PAVING.lerp(PAVING.darkened(0.18), f)
 						if (pxl + py * 2) % 5 == 0:
 							col = col.darkened(0.12)                 # cobble joints
-					elif world.is_dungeon(c):
+					elif world.is_dungeon(c) or world.is_cave(c):
 						col = DUNGEON_FLOOR.lerp(DUNGEON_FLOOR.lightened(0.15), f)
 					else:
 						col = GRASS.lerp(MEADOW, smoothstep(0.45, 0.8, n)).lerp(GRASS.darkened(0.15), f * 0.35)
+						var bio := world.biome_at(c)
+						if bio != "":
+							col = col.lerp(Color(BIOME_MAP[bio]).lerp(Color(BIOME_MAP[bio]).darkened(0.12), f), 0.8)
 						if _near(tx, ty, World.Tile.WATER, fx, fy):
 							col = SAND.lerp(col, 0.25)               # a sandy shore
 				World.Tile.TREE:
@@ -205,6 +210,9 @@ func _draw() -> void:
 		draw_colored_polygon(dia, Color(0.75, 0.5, 1.0))
 		dia.append(sp2 + Vector2(0, -5))
 		draw_polyline(dia, Color.BLACK, 1.0)
+	# the wider world: towers, the arena, the tavern, the landings, a hunted elite
+	if game.frontier != null:
+		game.frontier.draw_marks(self)
 	# where the hero is walking to: a gold flag
 	var h: Entity = game.hero
 	if h != null and h.has_journey:

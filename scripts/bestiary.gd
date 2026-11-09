@@ -254,7 +254,7 @@ const WOLF := {
 	"danger": 2,
 	"str": 28, "dex": 50, "int": 5, "wspeed": 50, "dmg_min": 2, "dmg_max": 6,
 	"move": 3.8, "leash": 6, "aggro": 5.0, "respawn": 12.0, "scale": 0.8, "armor": 1.0,
-	"loot": {"gold_min": 6, "gold_max": 14, "drops": [["wolf_pelt", 0.7], ["leather_armor", 0.12]]},
+	"loot": {"gold_min": 6, "gold_max": 14, "drops": [["wolf_pelt", 0.7], ["leather_armor", 0.12], ["raw_meat", 0.4]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 45.0, Hero.Skill.TACTICS: 30.0},
 }
 const ORC := {
@@ -351,7 +351,7 @@ const HIND := {
 	"species": "hind", "tame": 10.0, "passive": true, "danger": 0.5, "color": "b08a5a",
 	"str": 18, "dex": 45, "int": 5, "wspeed": 45, "dmg_min": 1, "dmg_max": 3,
 	"move": 3.2, "leash": 6, "aggro": 0.0, "respawn": 20.0, "scale": 0.8,
-	"loot": {"gold_min": 0, "gold_max": 0, "drops": []},
+	"loot": {"gold_min": 0, "gold_max": 0, "drops": [["raw_meat", 0.9]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 20.0, Hero.Skill.TACTICS: 20.0},
 }
 const BROWN_BEAR := {
@@ -359,9 +359,81 @@ const BROWN_BEAR := {
 	"species": "brown_bear", "tame": 55.0, "danger": 3, "color": "6b4a2a",
 	"str": 60, "dex": 30, "int": 10, "wspeed": 30, "dmg_min": 4, "dmg_max": 10,
 	"move": 2.6, "leash": 5, "aggro": 4.0, "respawn": 30.0, "scale": 1.3, "armor": 1.0,
-	"loot": {"gold_min": 5, "gold_max": 15, "drops": [["wolf_pelt", 0.5]]},
+	"loot": {"gold_min": 5, "gold_max": 15, "drops": [["wolf_pelt", 0.5], ["raw_meat", 0.9]]},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 55.0, Hero.Skill.TACTICS: 50.0, Hero.Skill.ANATOMY: 30.0},
 }
+
+
+# --- the biomes ---------------------------------------------------------------------------
+# The Frostmarch (snow, the north).
+const FROST_WOLF := {
+	"look": "wolf", "danger": 3,
+	"str": 40, "dex": 55, "int": 5, "wspeed": 50, "dmg_min": 3, "dmg_max": 8,
+	"move": 3.9, "leash": 6, "aggro": 6.0, "respawn": 15.0, "scale": 0.95, "armor": 1.5,
+	"loot": {"gold_min": 10, "gold_max": 22, "drops": [["frost_pelt", 0.5], ["raw_meat", 0.5]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 55.0, Hero.Skill.TACTICS: 45.0},
+}
+const YETI := {
+	"look": "bear", "danger": 5,
+	"str": 85, "dex": 35, "int": 10, "wspeed": 30, "dmg_min": 7, "dmg_max": 15,
+	"move": 2.6, "leash": 5, "aggro": 5.0, "respawn": 30.0, "scale": 1.7, "armor": 2.5,
+	"loot": {"gold_min": 30, "gold_max": 70, "drops": [["frost_pelt", 0.9], ["raw_meat", 0.9], ["cave_crystal", 0.1]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 70.0, Hero.Skill.TACTICS: 65.0, Hero.Skill.ANATOMY: 40.0},
+}
+# The Sunscar Wastes (desert, the south-east).
+const SAND_SCORPION := {
+	"look": "spider", "danger": 3, "poison": [2, 0.2],
+	"str": 35, "dex": 45, "int": 5, "wspeed": 45, "dmg_min": 3, "dmg_max": 7,
+	"move": 3.0, "leash": 5, "aggro": 5.0, "respawn": 15.0, "scale": 0.95, "armor": 2.0,
+	"loot": {"gold_min": 10, "gold_max": 25, "drops": [["scorpion_venom", 0.6]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 55.0, Hero.Skill.TACTICS: 45.0},
+}
+const MUMMY := {
+	"look": "zombie", "danger": 5,
+	"str": 70, "dex": 25, "int": 10, "wspeed": 25, "dmg_min": 6, "dmg_max": 14,
+	"move": 1.9, "leash": 4, "aggro": 5.0, "respawn": 25.0, "scale": 1.1, "armor": 2.5,
+	"loot": {"gold_min": 40, "gold_max": 80, "drops": [["mummy_wrap", 0.7], ["scimitar", 0.1], ["cave_crystal", 0.08]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 65.0, Hero.Skill.TACTICS: 60.0},
+}
+# The Blackwater Fen (swamp, round the southern lake).
+const BOG_LEECH := {
+	"look": "rat", "danger": 2, "poison": [1, 0.3],
+	"str": 22, "dex": 30, "int": 5, "wspeed": 40, "dmg_min": 2, "dmg_max": 5,
+	"move": 2.4, "leash": 5, "aggro": 4.0, "respawn": 12.0, "scale": 0.7,
+	"loot": {"gold_min": 4, "gold_max": 10, "drops": [["swamp_herb", 0.6]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 40.0, Hero.Skill.TACTICS: 30.0},
+}
+const BOG_TROLL := {
+	"look": "ogre", "danger": 5,
+	"str": 80, "dex": 30, "int": 10, "wspeed": 25, "dmg_min": 7, "dmg_max": 14,
+	"move": 2.2, "leash": 4, "aggro": 5.0, "respawn": 30.0, "scale": 1.3, "armor": 2.0,
+	"loot": {"gold_min": 35, "gold_max": 75, "drops": [["swamp_herb", 0.8], ["maul", 0.08], ["raw_meat", 0.4]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 65.0, Hero.Skill.TACTICS: 60.0},
+}
+# The caves: goblins, cave spiders and a chief in each.
+const GOBLIN := {
+	"look": "orc", "danger": 2,
+	"str": 30, "dex": 40, "int": 10, "wspeed": 45, "dmg_min": 2, "dmg_max": 6,
+	"move": 3.0, "leash": 3, "aggro": 5.0, "respawn": 20.0, "scale": 0.8, "armor": 1.0,
+	"loot": {"gold_min": 10, "gold_max": 30, "drops": [["cave_crystal", 0.15], ["dagger", 0.1], ["ore_iron", 0.3]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 45.0, Hero.Skill.TACTICS: 35.0},
+}
+const CAVE_SPIDER := {
+	"look": "spider", "danger": 3, "poison": [2, 0.2],
+	"str": 30, "dex": 45, "int": 5, "wspeed": 45, "dmg_min": 3, "dmg_max": 6,
+	"move": 3.0, "leash": 3, "aggro": 5.0, "respawn": 20.0, "scale": 0.85,
+	"loot": {"gold_min": 8, "gold_max": 20, "reagents": 3, "drops": [["cave_crystal", 0.15]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 50.0, Hero.Skill.TACTICS: 40.0},
+}
+const CAVE_CHIEF := {
+	"look": "ogre", "danger": 7,
+	"str": 110, "dex": 45, "int": 15, "wspeed": 30, "dmg_min": 9, "dmg_max": 18,
+	"move": 2.4, "leash": 3, "aggro": 6.0, "respawn": 120.0, "scale": 1.6, "armor": 3.5,
+	"loot": {"gold_min": 120, "gold_max": 250, "reagents": 10, "drops": [["cave_crystal", 1.0], ["cave_crystal", 0.6], ["platemail", 0.12], ["double_axe", 0.1]]},
+	"skills": {Hero.Skill.SWORDSMANSHIP: 80.0, Hero.Skill.TACTICS: 75.0, Hero.Skill.ANATOMY: 50.0},
+}
+## Townsfolk who keep a daily round (work, the tavern, home) and give side quests.
+const VILLAGER := {"str": 25, "dex": 20, "int": 25, "move": 1.7, "leash": 1, "role": "villager"}
 
 
 ## Stat block for a tameable species (used to bring saved pets back).

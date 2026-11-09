@@ -150,6 +150,8 @@ var bleed_timer := 0.0          # a bleeding wound (seconds left), its damage a 
 var bleed_dmg := 0.0
 var bleed_from: Entity
 var _bleed_acc := 0.0
+var blade_poison := 0           # a weapon coated with poison (Alchemy): its level, and blows left
+var blade_poison_hits := 0
 var _dying := 0.0               # the fall when slain (seconds left)         # the hero in first person: its own model, bar and label hidden
 var _hit_sound := ""            # set by whoever strikes us, so the blow sounds like what hit what
 var cast_bar: MeshInstance3D    # the hero's casting progress, under the health bar
@@ -892,6 +894,12 @@ func _fight() -> void:
 			_reflect_blow(dealt * 0.25, target)   # Reactive Armor sends part of a blow back
 		if poison_cfg.size() == 2 and not target.dead and randf() < float(poison_cfg[1]):
 			target.apply_poison(int(poison_cfg[0]), self)
+		if blade_poison_hits > 0 and not target.dead and (wielded == "" or not Gear.is_ranged(wielded)):
+			blade_poison_hits -= 1                # a poisoned blade: each blow may poison
+			if randf() < 0.6:
+				target.apply_poison(blade_poison, self)
+			if blade_poison_hits <= 0 and is_hero:
+				game.log_event("The poison on your blade has worn off.")
 	else:
 		if is_hero:
 			game.count("hero_misses")
@@ -2441,7 +2449,10 @@ func _harvest_once() -> void:
 	if randf() >= Rules.gather_chance(_skill(skill)):
 		_pop("nothing", Color(0.75, 0.75, 0.75))
 		return
-	var id := Crafting.roll_ore(_skill(skill)) if is_ore else "log"
+	var in_cave := world.is_cave(gather_tile)
+	var id := Crafting.roll_ore(_skill(skill) + (20.0 if in_cave else 0.0)) if is_ore else "log"
+	if in_cave and is_ore and randf() < 0.08:
+		id = "cave_crystal"                   # the caves' veins hold crystals as well as ore
 	inventory[id] = int(inventory.get(id, 0)) + 1
 	_pop("+1 " + Items.item_name(id), Color(0.9, 0.85, 0.6))
 	game.sound("mine" if is_ore else "chop", position)

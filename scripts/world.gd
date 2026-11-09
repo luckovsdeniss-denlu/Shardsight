@@ -12,6 +12,18 @@ enum Tile { GRASS, WALL, WATER, TREE, ROCK, FORGE, HOUSE }
 const TOWNS := [Rect2i(19, 2, 11, 12), Rect2i(33, 2, 9, 6), Rect2i(44, 30, 12, 9)]   # the main town, the outpost, Southmoor
 ## The dungeon: dark halls in the east with the toughest monsters. You can't Mark a rune here.
 const DUNGEON := Rect2i(37, 11, 13, 11)
+## Biomes: the frozen north, the desert of the south-east and the swamp round the southern lake.
+## Each tints the land and has its own creatures (see Frontier).
+const BIOMES := {"snow": Rect2i(52, 1, 30, 9), "desert": Rect2i(56, 37, 39, 10), "swamp": Rect2i(24, 33, 19, 14)}
+const BIOME_NAMES := {"snow": "the Frostmarch", "desert": "the Sunscar Wastes", "swamp": "the Blackwater Fen"}
+## Caves: walled hollows with one way in, dark floors, rich ore and their own dwellers.
+const CAVES := [
+	{"name": "Frostfang Cavern", "rect": Rect2i(52, 3, 9, 7), "door": Vector2i(56, 9), "out": Vector2i(56, 10)},
+	{"name": "Scorpion Hollow", "rect": Rect2i(60, 38, 9, 7), "door": Vector2i(64, 38), "out": Vector2i(64, 37)},
+	{"name": "Goblin Warren", "rect": Rect2i(3, 39, 9, 7), "door": Vector2i(11, 42), "out": Vector2i(12, 42)},
+]
+## The guild towers out in the wilds (each stands on one solid tile).
+const TOWER_TILES := [Vector2i(60, 22), Vector2i(35, 28), Vector2i(10, 26)]
 
 const LAYOUT := [
 	"################################################################################################",
@@ -86,6 +98,7 @@ var house_nodes := {}            # house origin -> Node3D holding its meshes
 var decor: Array = []            # the grass tufts and flowers (hidden on Low graphics)
 var ground_mesh: PlaneMesh            # the land (finer on Medium and High graphics)
 var ground_material: ShaderMaterial    # the painted ground (its cloud shadows follow the weather)
+var dungeon_floor_mat: StandardMaterial3D   # tinted by the depth you have gone down to
 var revision := 0                # bumped when tiles change (houses), so the minimap redraws them
 var _harvest_left := {}          # tile -> tries left
 var _regrow_at := {}             # tile -> Time.get_ticks_msec() when an exhausted node recovers
@@ -100,6 +113,7 @@ func _init() -> void:
 			tiles[y * cols + x] = _parse(String(LAYOUT[y])[x])
 			if tiles[y * cols + x] == Tile.FORGE:
 				forge_tile = Vector2i(x, y)
+	_stamp_caves()
 	astar.region = Rect2i(0, 0, cols, rows)
 	astar.cell_size = Vector2(TILE, TILE)
 	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
@@ -116,6 +130,58 @@ func _init() -> void:
 				astar_outside.set_point_solid(c, true)
 			elif is_town(c):
 				astar_outside.set_point_solid(c, true)
+
+
+## Carves the caves into the map: a ring of rock wall with one opening, an open floor inside
+## with ore at its corners. The guild towers' tiles are made solid too.
+func _stamp_caves() -> void:
+	for cave in CAVES:
+		var r: Rect2i = cave["rect"]
+		for y in range(r.position.y, r.end.y):
+			for x in range(r.position.x, r.end.x):
+				var edge := x == r.position.x or y == r.position.y or x == r.end.x - 1 or y == r.end.y - 1
+				tiles[y * cols + x] = Tile.WALL if edge else Tile.GRASS
+		for corner in [Vector2i(1, 1), Vector2i(r.size.x - 2, 1), Vector2i(1, r.size.y - 2), Vector2i(r.size.x - 2, r.size.y - 2)]:
+			var c: Vector2i = r.position + corner
+			tiles[c.y * cols + c.x] = Tile.ROCK
+		var door: Vector2i = cave["door"]
+		var out: Vector2i = cave["out"]
+		tiles[door.y * cols + door.x] = Tile.GRASS
+		tiles[out.y * cols + out.x] = Tile.GRASS
+	for t in TOWER_TILES:
+		tiles[t.y * cols + t.x] = Tile.WALL
+
+
+func is_cave(c: Vector2i) -> bool:
+	return cave_at(c) >= 0
+
+
+## Which cave (index into CAVES) a tile is in, or -1.
+func cave_at(c: Vector2i) -> int:
+	for i in range(CAVES.size()):
+		if (CAVES[i]["rect"] as Rect2i).has_point(c):
+			return i
+	return -1
+
+
+## The biome a tile lies in ("snow", "desert", "swamp"), or "" for the green lands.
+func biome_at(c: Vector2i) -> String:
+	if is_town(c) or is_dungeon(c):
+		return ""
+	for k in BIOMES:
+		if (BIOMES[k] as Rect2i).has_point(c):
+			return String(k)
+	return ""
+
+
+## How much of a biome a tile has: 1 inside, fading to 0 three tiles out (for soft edges).
+func biome_weight(c: Vector2i, k: String) -> float:
+	if is_town(c):
+		return 0.0
+	var r: Rect2i = BIOMES[k]
+	var dx := maxi(maxi(r.position.x - c.x, c.x - (r.end.x - 1)), 0)
+	var dy := maxi(maxi(r.position.y - c.y, c.y - (r.end.y - 1)), 0)
+	return clampf(1.0 - Vector2(dx, dy).length() / 3.0, 0.0, 1.0)
 
 
 static func _parse(ch: String) -> int:
@@ -468,7 +534,7 @@ func _build_heights() -> void:
 		for x in range(cols):
 			var c := Vector2i(x, y)
 			var t := tiles[y * cols + x]
-			var flat := is_town(c) or is_dungeon(c) or t == Tile.WATER or t == Tile.WALL or t == Tile.FORGE or t == Tile.HOUSE
+			var flat := is_town(c) or is_dungeon(c) or is_cave(c) or t == Tile.WATER or t == Tile.WALL or t == Tile.FORGE or t == Tile.HOUSE
 			dist[y * cols + x] = 0 if flat else 99
 	for _pass in range(4):
 		for y in range(rows):
@@ -797,9 +863,18 @@ func _ground_mat() -> ShaderMaterial:
 		for p in find_path(tile_center(a), tile_center(b)):
 			var t := to_tile(p)
 			road[t.y * cols + t.x] = 1.0
+	var snow := PackedFloat32Array()
+	var desert := PackedFloat32Array()
+	var swamp := PackedFloat32Array()
+	snow.resize(cols * rows)
+	desert.resize(cols * rows)
+	swamp.resize(cols * rows)
 	for y in range(rows):
 		for x in range(cols):
 			var t := Vector2i(x, y)
+			snow[y * cols + x] = biome_weight(t, "snow")
+			desert[y * cols + x] = biome_weight(t, "desert")
+			swamp[y * cols + x] = biome_weight(t, "swamp")
 			if tiles[y * cols + x] == Tile.WATER or _next_to(t, Tile.WATER):
 				sand[y * cols + x] = 1.0
 			if tiles[y * cols + x] == Tile.TREE:
@@ -817,6 +892,9 @@ func _ground_mat() -> ShaderMaterial:
 	var dirt := Color("7a6345")
 	var sand_c := Color("b8a57a")
 	var floor_c := Color("2a3a22")
+	var snow_c := Color("dfe6ee")
+	var desert_c := Color("c9aa70")
+	var swamp_c := Color("33422a")
 	for py in range(h):
 		var fy := (py + 0.5) / PAINT_PX - 0.5
 		for px in range(w):
@@ -824,6 +902,9 @@ func _ground_mat() -> ShaderMaterial:
 			var n := noise.get_noise_2d(px, py) * 0.5 + 0.5
 			var col := grass_a.lerp(grass_b, smoothstep(0.3, 0.8, n))
 			col = col.lerp(floor_c, _sample(forest, fx, fy) * 0.75)
+			col = col.lerp(swamp_c.lerp(swamp_c.darkened(0.3), n), _sample(swamp, fx, fy) * 0.85)
+			col = col.lerp(desert_c.lerp(desert_c.darkened(0.12), n), _sample(desert, fx, fy))
+			col = col.lerp(snow_c.lerp(snow_c.darkened(0.1), n), _sample(snow, fx, fy))
 			col = col.lerp(sand_c, smoothstep(0.2, 0.9, _sample(sand, fx, fy)))
 			col = col.lerp(dirt.lerp(dirt.darkened(0.15), n), smoothstep(0.25, 0.85, _sample(road, fx, fy)))
 			img.set_pixel(px, py, col)
@@ -856,6 +937,18 @@ func _ground_mat() -> ShaderMaterial:
 	m.set_shader_parameter("tile", TILE)
 	ground_material = m
 	return m
+
+
+## Trees take on their biome's colour: frosted in the snow, dry in the desert, dark in the swamp.
+static func _biome_tint(b: String) -> Color:
+	match b:
+		"snow":
+			return Color(0.85, 0.95, 1.1)
+		"desert":
+			return Color(1.05, 0.9, 0.6)
+		"swamp":
+			return Color(0.7, 0.8, 0.6)
+	return Color.WHITE
 
 
 ## A per-tile weight read smoothly at a fractional tile position (bilinear).
@@ -955,8 +1048,8 @@ func build(parent: Node3D) -> void:
 	for r in TOWNS:
 		_add_floor(parent, r, Color("8a7f5a"),
 			_noise_mat([Color("a49678"), Color("8c7f63"), Color("5a5142")], 0.04, true, Vector2(r.size) / 3.0))
-	_add_floor(parent, DUNGEON, Color("2b2622"),
-		_noise_mat([Color("3a342d"), Color("2a2521"), Color("141210")], 0.04, true, Vector2(DUNGEON.size) / 3.0))
+	dungeon_floor_mat = _noise_mat([Color("3a342d"), Color("2a2521"), Color("141210")], 0.04, true, Vector2(DUNGEON.size) / 3.0)
+	_add_floor(parent, DUNGEON, Color("2b2622"), dungeon_floor_mat)
 
 	var forge_mesh := BoxMesh.new()
 	forge_mesh.size = Vector3(0.9, 0.8, 0.9)
@@ -1006,6 +1099,7 @@ func build(parent: Node3D) -> void:
 				Tile.TREE:
 					var size := rnd.randf_range(0.85, 1.25)
 					var tint := Color(v * rnd.randf_range(0.92, 1.05), v, v * rnd.randf_range(0.9, 1.0))
+					tint *= _biome_tint(biome_at(t))
 					if (x * 7 + y * 13) % 5 < 2:
 						pines.append(Transform3D(turn.scaled(Vector3(size, size * rnd.randf_range(0.9, 1.15), size)), c))
 						pine_tints.append(tint)
@@ -1028,8 +1122,11 @@ func build(parent: Node3D) -> void:
 					parent.add_child(forge_smoke)
 					forge_smoke.add_to_group("view_fx")
 				Tile.GRASS:
-					if is_town(t) or is_dungeon(t):
+					if is_town(t) or is_dungeon(t) or is_cave(t):
 						continue
+					var bio := biome_at(t)
+					if bio == "snow" or (bio == "desert" and rnd.randf() < 0.7):
+						continue                       # no grass in the snow; little in the sand
 					var roll := rnd.randf()
 					var off := Vector3(rnd.randf_range(-0.35, 0.35), 0, rnd.randf_range(-0.35, 0.35))
 					if roll < 0.1:
@@ -1057,6 +1154,18 @@ func build(parent: Node3D) -> void:
 				pebbles.append(Transform3D(Basis(Vector3.UP, rnd.randf() * TAU).scaled(Vector3.ONE * rnd.randf_range(0.6, 1.2)), tile_center(t) + off))
 				var g := rnd.randf_range(0.85, 1.1)
 				pebble_tints.append(Color(g, g, g * 0.97))
+	# the caves: dark rock floors and a dim glow of crystals
+	for cave in CAVES:
+		var cr: Rect2i = cave["rect"]
+		var inner := Rect2i(cr.position + Vector2i(1, 1), cr.size - Vector2i(2, 2))
+		_add_floor(parent, inner, Color("2b2724"),
+			_noise_mat([Color("3a3530"), Color("26221e"), Color("121010")], 0.05, true, Vector2(inner.size) / 3.0))
+		var glow := OmniLight3D.new()
+		glow.light_color = Color(0.55, 0.75, 1.0)
+		glow.omni_range = 5.0
+		glow.light_energy = 0.8
+		glow.position = tile_center(Vector2i(cr.get_center())) + Vector3(0, 1.6, 0)
+		parent.add_child(glow)
 	var vc := Art.vc_mat()
 	var leafy := _foliage_mat()                 # trees, bushes, grass and flowers sway in the wind
 	_add_batch(parent, _wall_piece(), vc, walls, wall_tints)

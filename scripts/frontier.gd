@@ -1,0 +1,2194 @@
+class_name Frontier
+extends Node3D
+## The wider world beyond the main story: the dungeon's deeper levels, the biomes and their
+## creatures, the caves, boats on the lakes, the tavern and townsfolk who keep a daily round,
+## side quests told in dialogue with choices, bounty boards, cooking, the new brews and blade
+## poisons, house decoration, the arena and the guild towers.
+## One panel reaches all of it: Main Menu > Adventures, or the action button that appears at the
+## bottom of the screen when you stand by something you can use. Progress is kept in
+## Property.frontier (saved with the game).
+
+# --- places --------------------------------------------------------------------------------
+const TAVERN := Vector2i(53, 36)            # the Drunken Shard, in Southmoor (its bar)
+const TAVERN_NAME := "the Drunken Shard"
+const HEARTH := Vector2i(55, 35)            # the tavern's hearth: you can cook at it
+const ARENA := Vector2i(19, 19)             # the arena ring, south of the main town
+const ARENA_RADIUS := 3.5
+const STAIRS := Vector2i(47, 21)            # the stairs down, in the dungeon's deepest hall
+const DUNGEON_DOOR := Vector2i(38, 16)      # where you arrive on a new level
+const DEPTH_BOSS_AT := Vector2i(39, 13)
+const BOARDS := [Vector2i(28, 11), Vector2i(40, 6), Vector2i(45, 34)]   # a bounty board in each town
+const DOCKS := [
+	{"name": "Westmere Landing", "tile": Vector2i(5, 15), "to": 1},
+	{"name": "Eastmere Landing", "tile": Vector2i(13, 15), "to": 0},
+	{"name": "Northlake Pier", "tile": Vector2i(66, 11), "to": 3},
+	{"name": "Frostshore Pier", "tile": Vector2i(78, 11), "to": 2},
+	{"name": "Fen Jetty", "tile": Vector2i(31, 39), "to": 5},
+	{"name": "Reedbank Jetty", "tile": Vector2i(41, 39), "to": 4},
+]
+const BOAT_PRICE := 150
+const FERRY_PRICE := 8
+const BOAT_SPEED := 2.2
+const DAY := 480.0                         # one game day (Main.DAY_SECONDS)
+
+# --- the dungeon's depths --------------------------------------------------------------------
+const DEPTHS := [
+	{"name": "The Upper Halls", "boss": "The Bone King", "tint": Color(1, 1, 1)},
+	{"name": "The Bone Galleries", "boss": "Gravelord Ossian", "look": "skeleton", "tint": Color(0.75, 0.78, 0.95)},
+	{"name": "The Weeping Crypts", "boss": "The Hollow Matron", "look": "lich", "tint": Color(0.6, 0.85, 0.65)},
+	{"name": "The Ember Deep", "boss": "Ashen Colossus", "look": "ogre", "tint": Color(1.0, 0.6, 0.45)},
+	{"name": "The Abyss", "boss": "Vorghast the Abyssal", "look": "daemon", "tint": Color(0.65, 0.45, 0.8)},
+]
+
+# --- townsfolk with a daily round ------------------------------------------------------------
+## work: where they spend the day; tavern: the evening; home: the night ("" for those who never
+## leave their post or camp).
+const VILLAGERS := [
+	{"name": "Farmer Tobin", "work": Vector2i(14, 9), "tavern": Vector2i(52, 37), "home": Vector2i(20, 10), "color": Color("b89a6a")},
+	{"name": "Nell the Fisher", "work": Vector2i(5, 14), "tavern": Vector2i(54, 37), "home": Vector2i(27, 10), "color": Color("6a8ab8")},
+	{"name": "Old Tam the Minstrel", "work": Vector2i(24, 9), "tavern": Vector2i(52, 35), "home": Vector2i(28, 12), "color": Color("a86ab8")},
+	{"name": "Rosa the Barkeep", "work": Vector2i(53, 35), "color": Color("c86a5a")},
+	{"name": "Kael the Arena Master", "work": Vector2i(23, 18), "color": Color("c8a040")},
+	{"name": "Hunter Bram", "work": Vector2i(58, 12), "color": Color("8a7a6a")},
+	{"name": "Wren the Herbwife", "work": Vector2i(28, 34), "color": Color("6aa86a")},
+	{"name": "Zahir the Nomad", "work": Vector2i(72, 38), "color": Color("d8b878")},
+	{"name": "Old Garret the Miner", "work": Vector2i(13, 42), "color": Color("8a8a7a")},
+]
+
+# --- side quests: dialogue with choices -----------------------------------------------------
+## Each: giver, title, intro (the offer), choices (go: accept, decline or stay; say: the reply;
+## advance: gold now; mult: share of the reward later; karma/fame), goal (kill a creature, or
+## fetch items), the reward (gold, fame, karma, items), remind (while under way), done_text and
+## turn_in choices (take: items handed over; mult; bonus gold; karma; fame; items; go "stay" to
+## keep the quest open).
+const SIDE_QUESTS := {
+	"tobin_wolves": {
+		"giver": "Farmer Tobin", "title": "Wolves at the Fold",
+		"intro": "\"Stranger! Wolves have been at my sheep three nights running. I've a wife and four little ones, and the fold is half empty. Will you thin the pack?\"",
+		"choices": [
+			{"text": "\"I'll hunt them down.\"", "go": "accept", "say": "\"Bless you! Kill four of the beasts and the rest will keep away.\""},
+			{"text": "\"Half the reward up front.\"", "go": "accept", "advance": 40, "mult": 0.5, "karma": -30, "say": "Tobin counts out forty coins with shaking hands. \"There. Now please, go.\""},
+			{"text": "\"Not my problem.\"", "go": "decline", "say": "Tobin's face falls. \"Aye. Nobody's ever is.\""},
+		],
+		"goal": {"kind": "kill", "target": "Wolf", "count": 4},
+		"gold": 120, "fame": 40, "karma": 80,
+		"remind": "\"Four wolves, friend. The fold won't last another week.\"",
+		"done_text": "\"You did it! Not a howl last night. Here, it's all I can spare.\"",
+		"turn_in": [
+			{"text": "Take the reward.", "say": "Tobin presses the coins into your hand."},
+			{"text": "\"Keep it. Feed your children.\"", "mult": 0.0, "karma": 150, "fame": 60, "say": "Tobin weeps openly. Word of your kindness will travel."},
+		],
+	},
+	"nell_pearl": {
+		"giver": "Nell the Fisher", "title": "The Drowned Pearl",
+		"intro": "\"My mother's pearl went into the lake when my boat turned over. The fish swallowed it long ago, I'd wager. If you ever pull a pearl from the water - any pearl - I'd pay what I can. It's all I have left of her.\"",
+		"choices": [
+			{"text": "\"I'll keep an eye out.\"", "go": "accept", "say": "\"Fish from a boat, out in the deep water. That's where the old ones lie.\""},
+			{"text": "\"Pearls fetch a fine price at market.\"", "go": "stay", "say": "\"I know. I'd still pay. Please.\""},
+			{"text": "\"I've no time for fishing.\"", "go": "decline", "say": "Nell nods and turns back to her nets."},
+		],
+		"goal": {"kind": "fetch", "item": "pearl", "count": 1},
+		"gold": 90, "fame": 30, "karma": 60, "items": {"big_fish": 2},
+		"remind": "\"Any pearl will do. The lakes give them up to a patient hand.\"",
+		"done_text": "Nell's eyes fill as she sees the pearl. \"Is it... may I?\"",
+		"turn_in": [
+			{"text": "Give her the pearl.", "take": {"pearl": 1}, "say": "\"Thank you. Take these, they're the best of today's catch.\""},
+			{"text": "\"Twice the price, or no pearl.\"", "take": {"pearl": 1}, "mult": 2.0, "karma": -80, "say": "Nell pays, but she will not look at you again."},
+			{"text": "\"Not yet.\"", "go": "stay", "say": "\"I'll be here.\""},
+		],
+	},
+	"bram_yeti": {
+		"giver": "Hunter Bram", "title": "The White Death",
+		"intro": "\"A yeti came down from the Frostmarch and took my brother on the ice. I've not the arm for it any more. Kill the beast, and I'll give you everything I've saved.\"",
+		"choices": [
+			{"text": "\"It will die. You have my word.\"", "go": "accept", "say": "\"It hunts the snowfields north of the lake. Go warm, and go armed.\""},
+			{"text": "\"Why not hire the guilds?\"", "go": "stay", "say": "\"The guilds want ten times what I've got. You don't look like guild.\""},
+			{"text": "\"Yetis are beyond me.\"", "go": "decline", "say": "\"Then don't go north. Not alone.\""},
+		],
+		"goal": {"kind": "kill", "target": "Yeti", "count": 1},
+		"gold": 250, "fame": 120, "karma": 60,
+		"remind": "\"The yeti still walks. I hear it some nights.\"",
+		"done_text": "\"It's dead? Truly? Then my brother can rest.\"",
+		"turn_in": [
+			{"text": "Give him a frost pelt as proof.", "take": {"frost_pelt": 1}, "bonus": 100, "fame": 40, "say": "Bram runs his hand over the pelt. \"Aye. That's the one.\" He adds his last hundred coins."},
+			{"text": "Take the reward.", "say": "\"Spend it well.\""},
+		],
+	},
+	"wren_herbs": {
+		"giver": "Wren the Herbwife", "title": "Herbs of the Fen",
+		"intro": "\"The fever's in Southmoor again and my stores are bare. Swamp herbs grow where the leeches feed - nasty work. Bring me five and I'll pay in coin and brews.\"",
+		"choices": [
+			{"text": "\"Five herbs. Easy.\"", "go": "accept", "say": "\"Ha! Mind the leeches. They bite back.\""},
+			{"text": "\"What brews?\"", "go": "stay", "say": "\"Agility, and a blade poison or two. Things a fighter finds useful.\""},
+			{"text": "\"Not today.\"", "go": "decline", "say": "\"The fever won't wait, you know.\""},
+		],
+		"goal": {"kind": "fetch", "item": "swamp_herb", "count": 5},
+		"gold": 60, "fame": 30, "karma": 70, "items": {"potion_agility": 1, "poison_lesser": 2},
+		"remind": "\"Five swamp herbs, dear. The leeches of the Fen carry them.\"",
+		"done_text": "\"Lovely, lovely. These will save lives.\"",
+		"turn_in": [
+			{"text": "Hand over the herbs.", "take": {"swamp_herb": 5}, "say": "Wren wraps the brews in cloth for you."},
+			{"text": "\"Not yet.\"", "go": "stay", "say": "\"Don't dawdle.\""},
+		],
+	},
+	"zahir_venom": {
+		"giver": "Zahir the Nomad", "title": "Venom for the Antidote",
+		"intro": "\"Peace, traveller. A scorpion stung my youngest. I can make the antidote, but it needs the venom of the beast itself - three stings' worth. Will you help a stranger?\"",
+		"choices": [
+			{"text": "\"I'll bring the venom.\"", "go": "accept", "say": "\"The sands will remember this. They nest among the rocks of the Wastes.\""},
+			{"text": "\"For a price.\"", "go": "accept", "mult": 1.5, "karma": -40, "say": "Zahir's jaw tightens. \"Then for a price.\""},
+			{"text": "\"I'm sorry.\"", "go": "decline", "say": "\"So am I.\""},
+		],
+		"goal": {"kind": "fetch", "item": "scorpion_venom", "count": 3},
+		"gold": 160, "fame": 50, "karma": 120,
+		"remind": "\"Three stings' worth. Please hurry.\"",
+		"done_text": "Zahir takes the vials and is already grinding them as he speaks. \"The child will live.\"",
+		"turn_in": [
+			{"text": "Give him the venom.", "take": {"scorpion_venom": 3}, "say": "\"Take this, and my thanks.\""},
+			{"text": "\"Not yet.\"", "go": "stay", "say": "Zahir looks at the sun and says nothing."},
+		],
+	},
+	"garret_chief": {
+		"giver": "Old Garret the Miner", "title": "The Goblin Warren",
+		"intro": "\"Goblins took my mine, the little wretches - dug right into it and made a warren. Their chief sits on my best seam. Clear him out and the ore is yours to dig.\"",
+		"choices": [
+			{"text": "\"I'll deal with the chief.\"", "go": "accept", "say": "\"The way in is on its east side. Bring a pickaxe when you're done.\""},
+			{"text": "\"What's in it for me?\"", "go": "stay", "say": "\"Gold, crystals, and every scrap of ore in there. The deeper veins run rich.\""},
+			{"text": "\"Goblins are your trouble.\"", "go": "decline", "say": "Garret spits. \"Fine.\""},
+		],
+		"goal": {"kind": "kill", "target": "Goblin Chief", "count": 1},
+		"gold": 300, "fame": 100, "karma": 40, "items": {"cave_crystal": 2},
+		"remind": "\"Their chief still squats on my seam.\"",
+		"done_text": "\"Ha! The warren's ours again. You've earned this.\"",
+		"turn_in": [
+			{"text": "Take the reward.", "say": "Garret hands over a heavy purse and two glittering crystals."},
+			{"text": "\"I'd rather have your old map.\"", "mult": 0.5, "map": true, "say": "Garret grins and digs out a stained treasure map. \"Never had the legs for it.\""},
+		],
+	},
+	"tam_song": {
+		"giver": "Old Tam the Minstrel", "title": "A Song for the Road",
+		"intro": "\"A song, friend? I'll write one about you - but a minstrel's throat runs dry. Bring old Tam a mug of ale from the tavern and you'll have a verse to make the crowds cheer.\"",
+		"choices": [
+			{"text": "\"One ale, coming up.\"", "go": "accept", "say": "\"Rosa at the Drunken Shard pours the best in Southmoor.\""},
+			{"text": "\"I'm no hero for songs.\"", "go": "decline", "say": "\"They all say that.\""},
+		],
+		"goal": {"kind": "fetch", "item": "ale", "count": 1},
+		"gold": 0, "fame": 80, "karma": 20, "song": true,
+		"remind": "\"Ale first, then the song.\"",
+		"done_text": "Tam drains the mug, tunes his lute, and sings of your deeds. People stop in the street to listen.",
+		"turn_in": [
+			{"text": "Hand him the ale.", "take": {"ale": 1}, "say": "The song stays with you: you feel quicker for it."},
+		],
+	},
+	"rosa_rats": {
+		"giver": "Rosa the Barkeep", "title": "Rats in the Cellar",
+		"intro": "\"The rats are in the grain again, and in the ale - don't ask. Kill six of the vermin anywhere you find them and drinks are on the house.\"",
+		"choices": [
+			{"text": "\"Six rats. Done.\"", "go": "accept", "say": "\"My hero. Of the cellar, at least.\""},
+			{"text": "\"Rats? Beneath me.\"", "go": "decline", "say": "\"Then you'll be paying for your ale.\""},
+		],
+		"goal": {"kind": "kill", "target": "Rat", "count": 6},
+		"gold": 60, "fame": 15, "karma": 30, "items": {"ale": 3, "hearty_stew": 1},
+		"remind": "\"Six rats. They're everywhere, you can't miss them.\"",
+		"done_text": "\"Six! The cellar's quiet. Here - on the house.\"",
+		"turn_in": [
+			{"text": "Take the reward.", "say": "Rosa slides three mugs and a bowl of stew across the bar."},
+		],
+	},
+}
+
+# --- bounties --------------------------------------------------------------------------------
+const EPITHETS := ["Grimfang", "Old Scar", "Bloodmaw", "Ironhide", "Ashtooth", "Nightclaw", "Bonegnaw", "Redeye"]
+## Creatures an elite bounty can be put on: [name, where it is spawned].
+const ELITE_KINDS := [
+	["Wolf", Rect2i(52, 10, 20, 10)], ["Orc", Rect2i(10, 16, 22, 6)], ["Brown Bear", Rect2i(60, 14, 15, 8)],
+	["Frost Wolf", Rect2i(61, 1, 20, 7)], ["Sand Scorpion", Rect2i(70, 40, 12, 6)], ["Bog Troll", Rect2i(24, 41, 8, 5)],
+	["Skeleton", Rect2i(80, 28, 10, 10)], ["Giant Spider", Rect2i(2, 20, 15, 5)],
+]
+const HUNTS := [["Orc", 5, 140], ["Skeleton", 4, 180], ["Frost Wolf", 4, 170], ["Sand Scorpion", 4, 170],
+	["Bog Leech", 6, 110], ["Goblin", 5, 150], ["Mummy", 3, 220], ["Zombie", 4, 160], ["Giant Spider", 4, 120]]
+
+# --- cooking -------------------------------------------------------------------------------
+const RECIPES := {
+	"cooked_fish": {"min": 0.0, "mats": {"fish": 1}},
+	"grilled_steak": {"min": 10.0, "mats": {"raw_meat": 1}},
+	"fish_pie": {"min": 30.0, "mats": {"big_fish": 1, "bread": 1}},
+	"hearty_stew": {"min": 45.0, "mats": {"raw_meat": 2, "swamp_herb": 1}},
+	"frost_chowder": {"min": 70.0, "mats": {"fish": 2, "raw_meat": 1, "swamp_herb": 1}},
+}
+const RECIPE_ORDER := ["cooked_fish", "grilled_steak", "fish_pie", "hearty_stew", "frost_chowder"]
+## What eating does: health back, and a "well fed" spell of stats for a while.
+const MEALS := {
+	"cooked_fish": {"heal": 15, "secs": 600.0, "mods": {"int": 4}},
+	"grilled_steak": {"heal": 20, "secs": 600.0, "mods": {"str": 5}},
+	"fish_pie": {"heal": 35, "secs": 900.0, "mods": {"int": 6, "dex": 3}},
+	"hearty_stew": {"heal": 45, "secs": 900.0, "mods": {"str": 6, "dex": 4}},
+	"frost_chowder": {"heal": 60, "secs": 1200.0, "mods": {"str": 5, "dex": 5, "int": 5}},
+	"ale": {"heal": 0, "secs": 300.0, "mods": {"str": 3, "dex": -2}},
+	"bread": {"heal": 10, "secs": 0.0, "mods": {}},
+	"fish": {"heal": 10, "secs": 0.0, "mods": {}},
+	"big_fish": {"heal": 20, "secs": 0.0, "mods": {}},
+}
+const BREWS := ["potion_strength", "potion_agility", "potion_invisibility", "poison_lesser", "poison_deadly"]
+
+# --- house decoration ------------------------------------------------------------------------
+const DECOR := {
+	"rug": {"name": "Woven Rug", "price": 120, "comfort": 1},
+	"table": {"name": "Oak Table", "price": 150, "comfort": 1},
+	"chair": {"name": "Carved Chair", "price": 80, "comfort": 1},
+	"plant": {"name": "Potted Fern", "price": 60, "comfort": 1},
+	"lantern": {"name": "Brass Lantern", "price": 90, "comfort": 1},
+	"weapon_rack": {"name": "Weapon Rack", "price": 200, "comfort": 1},
+	"bed": {"name": "Feather Bed (rest)", "price": 400, "comfort": 3},
+	"bookshelf": {"name": "Bookshelf (study)", "price": 350, "comfort": 2},
+	"hearth": {"name": "Stone Hearth (cook at home)", "price": 500, "comfort": 3},
+	"garden": {"name": "Herb Garden (herbs every day)", "price": 300, "comfort": 1},
+	"trophy_bone_king": {"name": "Trophy: the Bone King's Crown", "price": 0, "comfort": 3, "trophy": "The Bone King"},
+	"trophy_malgrath": {"name": "Trophy: Malgrath's Broken Staff", "price": 0, "comfort": 4, "trophy": "Malgrath the Shardbreaker"},
+	"trophy_yeti": {"name": "Trophy: Yeti Hide", "price": 0, "comfort": 2, "trophy": "Yeti"},
+	"trophy_chief": {"name": "Trophy: Goblin Chief's Skull", "price": 0, "comfort": 2, "trophy": "Goblin Chief"},
+	"trophy_abyss": {"name": "Trophy: Horn of the Abyss", "price": 0, "comfort": 5, "trophy": "Vorghast the Abyssal"},
+}
+const DECOR_ORDER := ["rug", "table", "chair", "plant", "lantern", "weapon_rack", "bed", "bookshelf", "hearth", "garden",
+	"trophy_bone_king", "trophy_malgrath", "trophy_yeti", "trophy_chief", "trophy_abyss"]
+
+# --- the arena -------------------------------------------------------------------------------
+const ARENA_TIERS := [
+	{"name": "Novice", "foe": "Pit Fighter Dunn", "fee": 20, "purse": 70, "str": 35, "dex": 30, "lo": 3, "hi": 7, "skill": 45.0,
+		"weapon": "short_sword", "wear": "leather_armor", "shield": "", "armor": 1.0, "danger": 2},
+	{"name": "Adept", "foe": "Sela the Swift", "fee": 60, "purse": 220, "str": 55, "dex": 55, "lo": 5, "hi": 10, "skill": 65.0,
+		"weapon": "katana", "wear": "studded_armor", "shield": "", "armor": 2.0, "danger": 4},
+	{"name": "Veteran", "foe": "Brannoc Ironjaw", "fee": 150, "purse": 550, "str": 90, "dex": 50, "lo": 8, "hi": 15, "skill": 85.0,
+		"weapon": "war_hammer", "wear": "chainmail", "shield": "heater_shield", "armor": 3.0, "danger": 6},
+	{"name": "Champion", "foe": "Valka the Undefeated", "fee": 400, "purse": 1500, "str": 140, "dex": 70, "lo": 11, "hi": 20, "skill": 100.0,
+		"weapon": "viking_sword", "wear": "platemail", "shield": "heater_shield", "armor": 4.5, "danger": 8},
+]
+const BETS := [0, 50, 200, 500]
+const GLADIATORS := ["Grosk the Bull", "Ilsa Redhand", "Twin-Blade Oro", "Mother Vey", "Kettle the Ox", "Ser Aldous", "Quick Jory", "The Masked Brute"]
+
+# --- guild towers ----------------------------------------------------------------------------
+const TOWERS := [
+	{"name": "Eastwatch Tower", "start": "oss"},
+	{"name": "Southfold Tower", "start": "wos"},
+	{"name": "Westmere Tower", "start": "shd"},
+]
+const CAPTURE_SECS := 20.0
+const TOWER_RANGE := 3.5
+const TOWER_INCOME := 75                    # gold a tower brings its guild each day (to your bank)
+const GUILD_COLORS := {"oss": Color(0.82, 0.84, 0.92), "wos": Color(0.3, 0.7, 0.35), "shd": Color(0.45, 0.2, 0.55), "player": Color(0.95, 0.78, 0.25)}
+
+const RUMOURS := [
+	"\"They say there's a stair in the Bone King's hall that goes down and down. Nobody who went to the bottom came back the same.\"",
+	"\"Old Garret's lost his mine to goblins. Poor fool won't stop talking about it.\"",
+	"\"Fish from a boat, out in the deep water - that's where the pearls are.\"",
+	"\"The guilds are fighting over the old towers again. Whoever holds them collects the tolls.\"",
+	"\"A yeti in the Frostmarch, can you believe it? Hunter Bram's been asking for help.\"",
+	"\"Kael pays good gold to anyone who lasts in his ring. Better gold if you bet on yourself.\"",
+	"\"Wren the herbwife can't keep up with the fever. She needs swamp herbs.\"",
+	"\"Zahir out in the Wastes - his child was stung. Scorpion venom's what he needs.\"",
+	"\"Steak by the fire, a stew from the fen... a full belly makes a strong arm.\"",
+	"\"A cave in the north, all ice and crystals. The frost giant there doesn't like visitors.\"",
+	"\"There's a bounty board in every town. Elite beasts, outlaws - the guild of hunters pays well.\"",
+]
+const BANTER := [
+	"%s laughs at something only they found funny.",
+	"%s orders another round.",
+	"%s tells the story of the wolf that got away.",
+	"%s hums along with the fiddle.",
+	"%s argues about the price of fish.",
+]
+
+var game
+var world: World
+var hero: Entity
+var data: Dictionary
+var depth := 1
+var _depth_boss: Entity
+var _out_of_dungeon := 0.0
+var villagers: Array = []                  # [{"e": Entity, "def": Dictionary, "phase": String}]
+var _route_acc := 0.0
+var sail := {}                             # the boat trip under way (empty when ashore)
+var _sail_node: Node3D
+var bounty_target: Entity
+var duel := {}
+var bout := {}
+var towers: Array = []                     # [{"node", "flag": StandardMaterial3D, "guild", "p"}]
+var _tower_acc := 0.0
+var _raid_in := 200.0
+var raids: Array = []                      # [{"members": [Entity], "tower": int, "left": float}]
+var _snow: CPUParticles3D
+var _biome := ""
+var _cave := -1
+var _env_acc := 0.0
+var _banter_acc := 0.0
+var _decor_node: Node3D
+var _decor_key := ""
+var _act_acc := 0.0
+var _act := {}
+var _hearth_fire: Node3D
+
+# UI
+var panel: Control
+var box: VBoxContainer
+var act_button: Button
+var page := "hub"
+var talk_with := ""                        # the villager being talked to
+var talk_text := ""                        # what was last said in the dialogue
+var dock_i := 0
+var tower_i := 0
+var _arena_bet := 0
+
+
+func setup(p_game, layer: CanvasLayer) -> void:
+	game = p_game
+	world = game.world
+	hero = game.hero
+	data = game.property.frontier
+	for k in ["sq", "towers"]:
+		if not data.has(k) or not (data[k] is Dictionary):
+			data[k] = {}
+	for k in ["decor", "board"]:
+		if not data.has(k) or not (data[k] is Array):
+			data[k] = []
+	if not data.has("bounty") or not (data["bounty"] is Dictionary):
+		data["bounty"] = {}
+	game.add_child(self)
+	_spawn_wildlife()
+	_spawn_villagers()
+	_build_docks()
+	_build_tavern()
+	_build_arena()
+	_build_boards()
+	_build_stairs()
+	_build_towers()
+	_build_snow()
+	_build_ui(layer)
+	if not data["bounty"].is_empty() and String(data["bounty"].get("kind", "")) == "elite":
+		_spawn_elite(data["bounty"])          # the elite you were hunting is still out there
+
+
+# --- helpers ---------------------------------------------------------------------------------
+
+func _i(key: String, fallback := 0) -> int:
+	return int(data.get(key, fallback))
+
+
+## An open, walkable tile at or near `t` (outside the towns).
+func _spot(t: Vector2i) -> Vector2i:
+	if not world.is_blocked(t):
+		return t
+	var rng := RandomNumberGenerator.new()
+	rng.seed = t.x * 97 + t.y
+	return world.open_tile_in(Rect2i(t - Vector2i(2, 2), Vector2i(5, 5)), rng)
+
+
+func _near(t: Vector2i, r: float) -> bool:
+	var c := world.tile_center(t)
+	return Vector2(c.x - hero.position.x, c.z - hero.position.z).length() <= r
+
+
+func _has(item: String, n := 1) -> bool:
+	return int(hero.inventory.get(item, 0)) >= n
+
+
+func _give(item: String, n := 1) -> void:
+	hero.inventory[item] = int(hero.inventory.get(item, 0)) + n
+
+
+func _take(item: String, n := 1) -> void:
+	Crafting.take_mats(hero.inventory, {item: n}, 1.0)
+
+
+func _pay(n: int) -> bool:
+	if hero.gold < n:
+		game.log_event("You need %d gold for that." % n)
+		return false
+	hero.gold -= n
+	return true
+
+
+func _mesh(parts: Array, at: Vector3, parent: Node3D = null) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = Art.merge(parts)
+	mi.material_override = Art.vc_mat()
+	(parent if parent != null else self).add_child(mi)
+	mi.position = at
+	return mi
+
+
+func _killed(creature_name: String) -> bool:
+	return int(game.property.stats_counts.get("hero_killed_" + creature_name, 0)) > 0
+
+
+# --- the wild: biome creatures and cave dwellers ---------------------------------------------
+
+func _spawn_wildlife() -> void:
+	var r := func(cfg: Dictionary, look: String, sc: float, extra: Dictionary) -> Dictionary:
+		var c := cfg.duplicate(true)
+		c["look"] = look
+		c["scale"] = sc
+		c.merge(extra, true)
+		return c
+	var list := [
+		["Frost Wolf", Bestiary.FROST_WOLF, Color("c8d8e8"), [Vector2i(64, 4), Vector2i(70, 5), Vector2i(75, 3), Vector2i(80, 7)]],
+		["Yeti", Bestiary.YETI, Color("e8eef4"), [Vector2i(78, 5)]],
+		["Sand Scorpion", Bestiary.SAND_SCORPION, Color("b08a40"), [Vector2i(58, 45), Vector2i(72, 42), Vector2i(80, 44), Vector2i(90, 45)]],
+		["Mummy", Bestiary.MUMMY, Color("c8b890"), [Vector2i(76, 40), Vector2i(88, 44)]],
+		["Bog Leech", Bestiary.BOG_LEECH, Color("4a3a2a"), [Vector2i(28, 37), Vector2i(36, 44), Vector2i(26, 42), Vector2i(41, 35)]],
+		["Bog Troll", Bestiary.BOG_TROLL, Color("4a6a3a"), [Vector2i(30, 44)]],
+		# the caves
+		["Cave Spider", Bestiary.CAVE_SPIDER, Color("3a3a4a"), [Vector2i(54, 5), Vector2i(58, 7)]],
+		["Frost Giant", r.call(Bestiary.CAVE_CHIEF, "ogre", 1.8, {}), Color("a8c8e8"), [Vector2i(56, 6)]],
+		["Sand Scorpion", Bestiary.SAND_SCORPION, Color("b08a40"), [Vector2i(62, 40), Vector2i(66, 42)]],
+		["Scorpion Queen", r.call(Bestiary.CAVE_CHIEF, "spider", 1.5, {"poison": [3, 0.25]}), Color("d0a030"), [Vector2i(64, 41)]],
+		["Goblin", Bestiary.GOBLIN, Color("6a8a3a"), [Vector2i(5, 41), Vector2i(8, 43), Vector2i(9, 41)]],
+		["Goblin Chief", r.call(Bestiary.CAVE_CHIEF, "orc", 1.35, {}), Color("8aa83a"), [Vector2i(6, 42)]],
+	]
+	for row in list:
+		for t in row[3]:
+			game._spawn(Entity.Kind.MONSTER, String(row[0]), row[1], row[2], _spot(t))
+
+
+# --- townsfolk and their daily round ---------------------------------------------------------
+
+func _spawn_villagers() -> void:
+	for d in VILLAGERS:
+		var e: Entity = game._spawn(Entity.Kind.NPC, String(d["name"]), Bestiary.VILLAGER, d["color"], d["work"])
+		villagers.append({"e": e, "def": d, "phase": "work"})
+
+
+## Where a villager should be now: at work by day, at the tavern in the evening, home at night.
+func _phase_now() -> String:
+	var t: float = game.day_time
+	if t >= 0.25 and t < 0.72:
+		return "work"
+	if t >= 0.72 and t < 0.92:
+		return "tavern"
+	return "home"
+
+
+func _routines(delta: float) -> void:
+	_route_acc += delta
+	if _route_acc < 2.0:
+		return
+	_route_acc = 0.0
+	var phase := _phase_now()
+	for v in villagers:
+		var e: Entity = v["e"]
+		var d: Dictionary = v["def"]
+		var want := "work"
+		if d.has(phase):
+			want = phase
+		var spot: Vector2i = d[want]
+		var dest := world.tile_center(spot)
+		if String(v["phase"]) != want:
+			v["phase"] = want
+			e.home = dest
+			e.go_to(dest)
+		elif e.path.is_empty() and Vector2(e.position.x - dest.x, e.position.z - dest.z).length() > 3.0:
+			e.go_to(dest)                     # still on the way (or wandered off)
+		if want == "home" and e._near and randf() < 0.15:
+			e._pop("Zzz", Color(0.7, 0.8, 1.0))
+	# evening at the tavern: the regulars talk
+	if phase == "tavern" and _near(TAVERN, 7.0):
+		_banter_acc += 2.0
+		if _banter_acc >= 16.0:
+			_banter_acc = 0.0
+			var here: Array[String] = []
+			for v in villagers:
+				var e2: Entity = v["e"]
+				if String(v["phase"]) == "tavern" and e2.position.distance_to(world.tile_center(TAVERN)) < 6.0:
+					here.append(e2.display_name)
+			if not here.is_empty():
+				game.world_event(String(BANTER[randi() % BANTER.size()]) % here[randi() % here.size()])
+
+
+func villager(n: String) -> Entity:
+	for v in villagers:
+		if (v["e"] as Entity).display_name == n:
+			return v["e"]
+	return null
+
+
+# --- the tavern --------------------------------------------------------------------------------
+
+func _build_tavern() -> void:
+	var c := world.tile_center(TAVERN)
+	var wood := Color(0.42, 0.27, 0.14)
+	var dark := Color(0.28, 0.18, 0.1)
+	# the bar counter, with mugs and barrels behind it
+	_mesh([[Art.box(2.6, 0.9, 0.45), Art.at(0, 0.45, 0), wood], [Art.box(2.7, 0.08, 0.55), Art.at(0, 0.92, 0), dark],
+		[Art.cone(0.06, 0.14, 0.06, 6), Art.at(-0.6, 1.03, 0), Color(0.75, 0.65, 0.4)],
+		[Art.cone(0.06, 0.14, 0.06, 6), Art.at(0.4, 1.03, 0.05), Color(0.75, 0.65, 0.4)],
+		[Art.cone(0.3, 0.7, 0.3, 8), Art.at(-1.0, 0.35, -0.75), wood], [Art.cone(0.3, 0.7, 0.3, 8), Art.at(1.0, 0.35, -0.75), wood]],
+		c + Vector3(0, 0, 0.45))
+	# tables and stools
+	for p in [Vector3(-1.6, 0, 1.6), Vector3(1.4, 0, 1.8), Vector3(-0.1, 0, 2.9)]:
+		var parts := [[Art.cone(0.45, 0.06, 0.45, 10), Art.at(0, 0.62, 0), wood], [Art.cone(0.08, 0.6, 0.08, 6), Art.at(0, 0.3, 0), dark]]
+		for a in range(3):
+			var ang := TAU * a / 3.0
+			parts.append([Art.cone(0.16, 0.4, 0.16, 8), Art.at(cos(ang) * 0.7, 0.2, sin(ang) * 0.7), dark])
+		_mesh(parts, c + p)
+	# a hanging sign on a post
+	_mesh([[Art.box(0.1, 2.2, 0.1), Art.at(0, 1.1, 0), dark], [Art.box(0.9, 0.08, 0.08), Art.at(0.4, 2.1, 0), dark],
+		[Art.box(0.7, 0.45, 0.06), Art.at(0.5, 1.75, 0), Color(0.6, 0.35, 0.2)], [Art.ball(0.12), Art.at(0.5, 1.75, -0.05), Color(0.6, 0.85, 1.0)]],
+		c + Vector3(-2.3, 0, -0.8))
+	# the hearth
+	var h := world.tile_center(HEARTH)
+	_mesh([[Art.box(1.0, 0.5, 0.6), Art.at(0, 0.25, 0), Color(0.45, 0.43, 0.42)], [Art.box(0.6, 0.12, 0.4), Art.at(0, 0.55, 0), Color(0.2, 0.15, 0.12)]], h)
+	_hearth_fire = Node3D.new()
+	add_child(_hearth_fire)
+	_hearth_fire.position = h + Vector3(0, 0.6, 0)
+	var fire := Fx.flame(0.3, 18, 0.6)
+	_hearth_fire.add_child(fire)
+	fire.add_to_group("view_fx")
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.6, 0.3)
+	light.omni_range = 6.0
+	light.position.y = 0.6
+	_hearth_fire.add_child(light)
+
+
+func _at_tavern() -> bool:
+	return _near(TAVERN, 4.5)
+
+
+func _page_tavern() -> void:
+	_h("%s, Southmoor" % TAVERN_NAME.capitalize())
+	var rosa := villager("Rosa the Barkeep")
+	var present: Array[String] = []
+	for v in villagers:
+		var e: Entity = v["e"]
+		if e != rosa and e.position.distance_to(world.tile_center(TAVERN)) < 6.0:
+			present.append(e.display_name)
+	_t("A low room of smoke, song and spilled ale. Rosa keeps the bar. " + \
+		("In tonight: %s." % ", ".join(present) if not present.is_empty() else "It is quiet; the regulars come in the evening."))
+	if not _at_tavern():
+		_t("You are not at the tavern.")
+		_b("Walk to the tavern", _walk_to.bind(TAVERN))
+		return
+	_b("Mug of ale (4 gold)", _tavern_buy.bind("ale", 4))
+	_b("Hot meal (12 gold): heals, well fed", _tavern_meal)
+	_b("Rent a room (25 gold): sleep till morning", _tavern_room)
+	_b("Listen for rumours (2 gold)", _tavern_rumour)
+	_b("Play dice (10 gold)", _tavern_dice)
+	_b("Cook at the hearth", _open.bind("cook"))
+
+
+func _tavern_buy(item: String, price: int) -> void:
+	if _pay(price):
+		_give(item)
+		game.log_event("Rosa pours you a %s." % Items.item_name(item).to_lower())
+	_refresh()
+
+
+func _tavern_meal() -> void:
+	if _pay(12):
+		hero.hp = float(hero.stats.max_hp())
+		hero.stamina = float(hero.stats.max_stamina())
+		hero.add_effect("well_fed", {"secs": 600.0, "mods": {"str": 3, "dex": 3, "int": 3}, "name": "Well fed", "color": Color(1.0, 0.85, 0.4)})
+		game.log_event("A bowl of Rosa's stew and a heel of bread. You feel ready for anything.")
+		game.count("food_eaten")
+	_refresh()
+
+
+func _tavern_room() -> void:
+	if _pay(25):
+		hero.hp = float(hero.stats.max_hp())
+		hero.mana = float(hero.stats.max_mana())
+		hero.stamina = float(hero.stats.max_stamina())
+		if game.is_night():
+			game.day_time = 0.27
+		hero.add_effect("rested", {"secs": 900.0, "mods": {"int": 3, "dex": 3}, "name": "Rested", "color": Color(0.7, 0.9, 1.0)})
+		game.log_event("You sleep in a soft bed upstairs and wake rested.")
+	_refresh()
+
+
+func _tavern_rumour() -> void:
+	if _pay(2):
+		game.log_event("You overhear: " + String(RUMOURS[randi() % RUMOURS.size()]))
+		if randf() < 0.06:
+			var m: String = game.make_treasure_map()
+			_give(m)
+			game.log_event("A drunk sells you an old treasure map for a song. (Bag > Read)")
+	_refresh()
+
+
+func _tavern_dice() -> void:
+	if _pay(10):
+		var mine := randi_range(1, 6) + randi_range(1, 6)
+		var theirs := randi_range(1, 6) + randi_range(1, 6)
+		if mine > theirs:
+			hero.gold += 20
+			game.log_event("Dice: you roll %d against %d. You win 20 gold!" % [mine, theirs])
+		elif mine == theirs:
+			hero.gold += 10
+			game.log_event("Dice: %d each. Your stake comes back." % mine)
+		else:
+			game.log_event("Dice: you roll %d against %d. You lose." % [mine, theirs])
+	_refresh()
+
+
+# --- side quests ---------------------------------------------------------------------------
+
+func _sq(id: String) -> Dictionary:
+	var all: Dictionary = data["sq"]
+	if not all.has(id) or not (all[id] is Dictionary):
+		all[id] = {"state": "", "kills": 0, "mult": 1.0}
+	return all[id]
+
+
+func _quests_of(giver: String) -> Array[String]:
+	var out: Array[String] = []
+	for id in SIDE_QUESTS:
+		if String(SIDE_QUESTS[id]["giver"]) == giver:
+			out.append(String(id))
+	return out
+
+
+## The quest a villager has for you now (the first not yet finished), or "".
+func _quest_now(giver: String) -> String:
+	for id in _quests_of(giver):
+		if String(_sq(id)["state"]) != "done":
+			return id
+	return ""
+
+
+func _goal_done(id: String) -> bool:
+	var q: Dictionary = SIDE_QUESTS[id]
+	var g: Dictionary = q["goal"]
+	if String(g["kind"]) == "kill":
+		return int(_sq(id)["kills"]) >= int(g["count"])
+	return _has(String(g["item"]), int(g["count"]))
+
+
+func _goal_text(id: String) -> String:
+	var g: Dictionary = SIDE_QUESTS[id]["goal"]
+	if String(g["kind"]) == "kill":
+		return "Slay %s: %d/%d" % [g["target"], mini(int(_sq(id)["kills"]), int(g["count"])), int(g["count"])]
+	return "Bring %s: %d/%d" % [Items.item_name(String(g["item"])), mini(int(hero.inventory.get(String(g["item"]), 0)), int(g["count"])), int(g["count"])]
+
+
+## A mark for the action button: ! a new quest, ? one ready to hand in.
+func _talk_mark(giver: String) -> String:
+	var id := _quest_now(giver)
+	if id == "":
+		return ""
+	var st := String(_sq(id)["state"])
+	if st == "active":
+		return " (?)" if _goal_done(id) else ""
+	return " (!)"
+
+
+func _page_talk() -> void:
+	var e := villager(talk_with)
+	_h(talk_with)
+	if e != null and e.position.distance_to(hero.position) > 4.0:
+		_t("%s is not here. %s" % [talk_with, "They're at the tavern this evening." if String(_vphase(talk_with)) == "tavern" else ""])
+		_b("Walk to %s" % talk_with, _walk_to_villager.bind(talk_with))
+		return
+	if talk_text != "":
+		_t(talk_text)
+		talk_text = ""
+		_b("Continue", _refresh)
+		return
+	match talk_with:
+		"Rosa the Barkeep":
+			_b("The tavern", _open.bind("tavern"))
+		"Kael the Arena Master":
+			_b("The arena", _open.bind("arena"))
+	var id := _quest_now(talk_with)
+	if id == "":
+		_t("\"Good to see you again, friend. Thanks to you, things are better round here.\"" if not _quests_of(talk_with).is_empty() \
+			else "\"%s\"" % ["Busy day.", "Mind how you go.", "Fine weather for it, eh?"][randi() % 3])
+		return
+	var q: Dictionary = SIDE_QUESTS[id]
+	var st: Dictionary = _sq(id)
+	_small_text(String(q["title"]))
+	if String(st["state"]) == "active":
+		if _goal_done(id):
+			_t(String(q["done_text"]))
+			for i in range(q["turn_in"].size()):
+				var ch: Dictionary = q["turn_in"][i]
+				var ok := true
+				var take: Dictionary = ch.get("take", {})
+				for item in take:
+					ok = ok and _has(String(item), int(take[item]))
+				_b(String(ch["text"]), _turn_in.bind(id, i), ok)
+		else:
+			_t(String(q["remind"]))
+			_small_text(_goal_text(id))
+			_b("Abandon this task", _abandon.bind(id))
+		return
+	_t(String(q["intro"]))
+	for i in range(q["choices"].size()):
+		_b(String(q["choices"][i]["text"]), _choose.bind(id, i))
+
+
+func _vphase(n: String) -> String:
+	for v in villagers:
+		if (v["e"] as Entity).display_name == n:
+			return String(v["phase"])
+	return ""
+
+
+func _choose(id: String, i: int) -> void:
+	var q: Dictionary = SIDE_QUESTS[id]
+	var ch: Dictionary = q["choices"][i]
+	var st: Dictionary = _sq(id)
+	match String(ch.get("go", "stay")):
+		"accept":
+			st["state"] = "active"
+			st["kills"] = 0
+			st["mult"] = float(ch.get("mult", 1.0))
+			game.log_event("New task: %s (%s)." % [q["title"], talk_with])
+		"decline":
+			st["state"] = "declined"
+	if int(ch.get("advance", 0)) > 0:
+		hero.gold += int(ch["advance"])
+	if int(ch.get("karma", 0)) != 0:
+		hero.add_karma(int(ch["karma"]))
+	talk_text = String(ch.get("say", ""))
+	_refresh()
+
+
+func _abandon(id: String) -> void:
+	_sq(id)["state"] = "declined"
+	talk_text = "\"Oh. Well, if you change your mind...\""
+	_refresh()
+
+
+func _turn_in(id: String, i: int) -> void:
+	var q: Dictionary = SIDE_QUESTS[id]
+	var ch: Dictionary = q["turn_in"][i]
+	var st: Dictionary = _sq(id)
+	talk_text = String(ch.get("say", ""))
+	if String(ch.get("go", "")) == "stay":
+		_refresh()
+		return
+	var take: Dictionary = ch.get("take", {})
+	for item in take:
+		_take(String(item), int(take[item]))
+	var gold := roundi(float(q["gold"]) * float(st["mult"]) * float(ch.get("mult", 1.0))) + int(ch.get("bonus", 0))
+	hero.gold += gold
+	hero.add_fame(int(q["fame"]) + int(ch.get("fame", 0)))
+	hero.add_karma(int(q["karma"]) + int(ch.get("karma", 0)))
+	var items: Dictionary = q.get("items", {})
+	for item in items:
+		_give(String(item), int(items[item]))
+	if bool(ch.get("map", false)):
+		_give(game.make_treasure_map())
+	if bool(q.get("song", false)):
+		hero.add_effect("song", {"secs": 1800.0, "mods": {"dex": 5}, "name": "Inspired by song", "color": Color(0.9, 0.7, 1.0)})
+	st["state"] = "done"
+	game.count("side_quests")
+	game.log_event("Task done: %s.%s" % [q["title"], (" +%d gold." % gold) if gold > 0 else ""])
+	game.sound("gain", hero.position)
+	_refresh()
+
+
+func _page_quests() -> void:
+	_h("Side quests")
+	_t("Townsfolk across the land need help. Walk up to them and talk (the action button appears). ! means they have work for you, ? that you can hand it in.")
+	for v in villagers:
+		var n := (v["e"] as Entity).display_name
+		var ids := _quests_of(n)
+		if ids.is_empty():
+			continue
+		var line := ""
+		for id in ids:
+			var st := String(_sq(id)["state"])
+			var q: Dictionary = SIDE_QUESTS[id]
+			match st:
+				"done":
+					line += "%s: done. " % q["title"]
+				"active":
+					line += "%s: %s%s. " % [q["title"], _goal_text(id), " - hand it in!" if _goal_done(id) else ""]
+				_:
+					line += "%s: not taken. " % q["title"]
+		_small_text("%s (%s)\n%s" % [n, world.place_name(world.to_tile((v["e"] as Entity).position)) if world.place_name(world.to_tile((v["e"] as Entity).position)) != "" else "out in the wilds", line])
+		_b("Walk to %s" % n, _walk_to_villager.bind(n))
+
+
+func _walk_to_villager(n: String) -> void:
+	var e := villager(n)
+	if e != null:
+		game.hero_journey(world.to_tile(e.position))
+		_close()
+
+
+func _walk_to(t: Vector2i) -> void:
+	game.hero_journey(t)
+	_close()
+
+
+# --- bounty boards ---------------------------------------------------------------------------
+
+func _new_board() -> void:
+	var offers: Array = []
+	var k: Array = ELITE_KINDS[randi() % ELITE_KINDS.size()]
+	var nm := "%s the %s" % [EPITHETS[randi() % EPITHETS.size()], k[0]]
+	var base := _cfg_of(String(k[0]))
+	var reward := 120 + int(float(base.get("danger", 2)) * 60.0)
+	offers.append({"kind": "elite", "target": nm, "base": k[0], "count": 1, "reward": reward, "fame": 60,
+		"text": "WANTED: %s, a beast of uncommon size. %d gold." % [nm, reward], "rect": [k[1].position.x, k[1].position.y, k[1].size.x, k[1].size.y]})
+	var h: Array = HUNTS[randi() % HUNTS.size()]
+	offers.append({"kind": "hunt", "target": h[0], "count": h[1], "reward": h[2], "fame": 30,
+		"text": "CULL: %d %s. %d gold." % [h[1], h[0], h[2]]})
+	for item in game.creatures:
+		var e := item as Entity
+		if e.kind == Entity.Kind.PLAYER and not e.is_hero and not e.dead and e.notoriety() == Entity.Notoriety.RED:
+			var r2 := 150 + 40 * e.murder_counts
+			offers.append({"kind": "outlaw", "target": e.display_name, "count": 1, "reward": r2, "fame": 80,
+				"text": "OUTLAW: %s, murderer (%d counts). %d gold, dead." % [e.display_name, e.murder_counts, r2]})
+			break
+	data["board"] = offers
+	data["board_at"] = game.property.play_time
+
+
+static func _cfg_of(n: String) -> Dictionary:
+	match n:
+		"Wolf":
+			return Bestiary.WOLF
+		"Orc":
+			return Bestiary.ORC
+		"Brown Bear":
+			return Bestiary.BROWN_BEAR
+		"Frost Wolf":
+			return Bestiary.FROST_WOLF
+		"Sand Scorpion":
+			return Bestiary.SAND_SCORPION
+		"Bog Troll":
+			return Bestiary.BOG_TROLL
+		"Skeleton":
+			return Bestiary.SKELETON
+		"Giant Spider":
+			return Bestiary.GIANT_SPIDER
+	return Bestiary.ORC
+
+
+func _spawn_elite(b: Dictionary) -> void:
+	var cfg := _cfg_of(String(b.get("base", "Orc"))).duplicate(true)
+	cfg["str"] = int(float(cfg.get("str", 30)) * 1.9)
+	cfg["dex"] = int(float(cfg.get("dex", 30)) * 1.2)
+	cfg["dmg_min"] = float(cfg.get("dmg_min", 2)) * 1.5
+	cfg["dmg_max"] = float(cfg.get("dmg_max", 5)) * 1.5
+	cfg["armor"] = float(cfg.get("armor", 0.0)) + 2.0
+	cfg["scale"] = float(cfg.get("scale", 1.0)) * 1.3
+	cfg["danger"] = float(cfg.get("danger", 2)) + 2.0
+	cfg["passive"] = false
+	cfg["tame"] = -1.0
+	cfg["species"] = ""
+	var loot: Dictionary = cfg.get("loot", {}).duplicate(true)
+	loot["gold_min"] = int(loot.get("gold_min", 10)) * 3 + 20
+	loot["gold_max"] = int(loot.get("gold_max", 20)) * 3 + 40
+	cfg["loot"] = loot
+	var rr: Array = b.get("rect", [20, 16, 10, 6])
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var t := world.open_tile_in(Rect2i(int(rr[0]), int(rr[1]), int(rr[2]), int(rr[3])), rng)
+	bounty_target = game.pool_spawn(String(b["target"]), cfg, Color(0.9, 0.3, 0.2), world.tile_center(t))
+
+
+func _at_board() -> bool:
+	for t in BOARDS:
+		if _near(t, 2.6):
+			return true
+	return false
+
+
+func _page_board() -> void:
+	_h("Bounty board")
+	if data["board"].is_empty() or game.property.play_time - float(data.get("board_at", -1.0e9)) > DAY:
+		_new_board()
+	var b: Dictionary = data["bounty"]
+	if not b.is_empty():
+		_t("Your bounty: " + String(b["text"]))
+		if String(b["kind"]) == "hunt":
+			_small_text("Progress: %d/%d" % [int(b.get("done", 0)), int(b["count"])])
+		elif String(b["kind"]) == "elite" and bounty_target != null and not bounty_target.dead:
+			_small_text("It roams %s (a red mark on the map)." % _where(bounty_target.position))
+		_b("Give up this bounty", _drop_bounty)
+		return
+	if not _at_board():
+		_t("The boards stand in each town: the main town, the outpost and Southmoor.")
+		_b("Walk to the nearest board", _walk_to.bind(_nearest_board()))
+	_t("Posted notices (one bounty at a time; paid as soon as the deed is done):")
+	for i in range(data["board"].size()):
+		var o: Dictionary = data["board"][i]
+		_b(String(o["text"]), _take_bounty.bind(i), _at_board())
+
+
+func _nearest_board() -> Vector2i:
+	var best: Vector2i = BOARDS[0]
+	for t in BOARDS:
+		if world.tile_center(t).distance_to(hero.position) < world.tile_center(best).distance_to(hero.position):
+			best = t
+	return best
+
+
+func _where(p: Vector3) -> String:
+	var v := p - hero.position
+	return "%d m %s" % [roundi(v.length()), game._compass(v)]
+
+
+func _take_bounty(i: int) -> void:
+	var o: Dictionary = (data["board"][i] as Dictionary).duplicate(true)
+	o["done"] = 0
+	data["bounty"] = o
+	(data["board"] as Array).remove_at(i)
+	if String(o["kind"]) == "elite":
+		_spawn_elite(o)
+	game.log_event("Bounty taken: " + String(o["text"]))
+	_refresh()
+
+
+func _drop_bounty() -> void:
+	if bounty_target != null and not bounty_target.dead:
+		bounty_target.vanish()
+	bounty_target = null
+	data["bounty"] = {}
+	_refresh()
+
+
+func _bounty_paid(b: Dictionary) -> void:
+	hero.gold += int(b["reward"])
+	hero.add_fame(int(b["fame"]))
+	game.count("bounties")
+	game.log_event("Bounty claimed: %d gold." % int(b["reward"]))
+	game.sound("loot", hero.position)
+	data["bounty"] = {}
+	bounty_target = null
+
+
+# --- the dungeon's depths ------------------------------------------------------------------
+
+func _build_stairs() -> void:
+	var c := world.tile_center(STAIRS)
+	var parts := []
+	for i in range(4):
+		parts.append([Art.box(0.9, 0.12, 0.25), Art.at(0, 0.06 - i * 0.12 + 0.36, -0.36 + i * 0.24), Color(0.3, 0.28, 0.26).darkened(i * 0.15)])
+	parts.append([Art.box(1.0, 0.05, 1.0), Art.at(0, 0.0, 0), Color(0.05, 0.04, 0.04)])
+	_mesh(parts, c + Vector3(0, -0.3, 0))
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(0.6, 0.3, 0.9)
+	glow.omni_range = 3.0
+	glow.position = c + Vector3(0, 0.8, 0)
+	add_child(glow)
+
+
+func deepest() -> int:
+	var d := maxi(_i("deepest", 1), 1)
+	if d < 2 and _killed("The Bone King"):
+		d = 2
+	return mini(d, DEPTHS.size())
+
+
+func _page_stairs() -> void:
+	_h("The stairs down")
+	_t("Stone steps wind down into the dark beneath the Bone King's hall. Each level is darker, its dead stronger and richer. Slay a level's master to open the way deeper.")
+	_small_text("You are on level %d: %s. Deepest open: %d." % [depth, DEPTHS[depth - 1]["name"], deepest()])
+	if deepest() < 2:
+		_t("The way down is sealed while the Bone King rules the halls.")
+	for d in range(1, deepest() + 1):
+		if d != depth:
+			_b("%s to level %d: %s" % ["Descend" if d > depth else "Climb", d, DEPTHS[d - 1]["name"]], _go_depth.bind(d), _near(STAIRS, 2.5))
+
+
+func _go_depth(d: int) -> void:
+	_set_depth(d)
+	hero.position = world.tile_center(DUNGEON_DOOR if d > 1 else STAIRS)
+	hero.path.clear()
+	hero.target = null
+	hero.has_journey = false
+	for p in hero.pets:
+		if not p.dead and not p.parked:
+			p.position = hero.position
+	var verb := "descend" if d > 1 else "climb back"
+	game.log_event("You %s to level %d: %s." % [verb, d, DEPTHS[d - 1]["name"]])
+	game.sound("cast", hero.position)
+	_close()
+
+
+func _set_depth(d: int) -> void:
+	depth = d
+	var m := 1.0 + 0.4 * (d - 1)
+	for item in game.creatures:
+		var e := item as Entity
+		if e.kind != Entity.Kind.MONSTER or game._pool.has(e) or not world.is_dungeon(world.to_tile(e.home)):
+			continue
+		if not e.has_meta("fr_base"):
+			e.set_meta("fr_base", [e.stats.strength, e.stats.dexterity, e.dmg_min, e.dmg_max, e.armor, e.danger])
+		var b: Array = e.get_meta("fr_base")
+		e.stats.strength = roundi(float(b[0]) * m)
+		e.stats.dexterity = roundi(float(b[1]) * (1.0 + 0.15 * (d - 1)))
+		e.dmg_min = float(b[2]) * m
+		e.dmg_max = float(b[3]) * m
+		e.armor = float(b[4]) + (d - 1)
+		e.danger = float(b[5]) + (d - 1)
+		if not e.dead:
+			e.hp = float(e.stats.max_hp())
+	var tint: Color = DEPTHS[d - 1]["tint"]
+	if world.dungeon_floor_mat != null:
+		world.dungeon_floor_mat.albedo_color = tint
+	if _depth_boss != null and not _depth_boss.dead:
+		_depth_boss.vanish()
+	_depth_boss = null
+	if d > 1:
+		var cfg := Bestiary.BONE_KING.duplicate(true)
+		cfg["look"] = String(DEPTHS[d - 1]["look"])
+		cfg["str"] = 300 + 90 * d
+		cfg["dmg_min"] = 12.0 + 3.0 * d
+		cfg["dmg_max"] = 24.0 + 5.0 * d
+		cfg["armor"] = 5.0 + d
+		cfg["danger"] = 8 + d
+		cfg["loot"] = {"gold_min": 400 * d, "gold_max": 700 * d, "reagents": 30,
+			"drops": [["platemail", 0.5], ["cave_crystal", 1.0], ["scroll_meteor_swarm", 0.4], ["bonecleaver", 0.3]]}
+		_depth_boss = game.pool_spawn(String(DEPTHS[d - 1]["boss"]), cfg, tint.darkened(0.3), world.tile_center(DEPTH_BOSS_AT))
+
+
+func _depth_tick(delta: float) -> void:
+	if depth <= 1:
+		return
+	if hero.dead or not world.is_dungeon(world.to_tile(hero.position)):
+		_out_of_dungeon += delta
+		if _out_of_dungeon > 3.0:
+			_out_of_dungeon = 0.0
+			_set_depth(1)
+			if not hero.dead:
+				game.log_event("You climb back up into the daylight. The depths fall quiet behind you.")
+	else:
+		_out_of_dungeon = 0.0
+
+
+# --- boats ---------------------------------------------------------------------------------
+
+func _boat_parts() -> Array:
+	var wood := Color(0.45, 0.3, 0.16)
+	return [[Art.box(0.7, 0.25, 1.5), Art.at(0, 0.12, 0), wood], [Art.box(0.5, 0.05, 1.2), Art.at(0, 0.26, 0), wood.darkened(0.3)],
+		[Art.cone(0.35, 0.5, 0.0, 4), Art.at(0, 0.12, 0.95, Vector3(PI / 2.0, 0, 0)), wood],
+		[Art.box(0.6, 0.06, 0.18), Art.at(0, 0.3, 0.1), wood.lightened(0.15)],
+		[Art.box(0.04, 0.04, 1.2), Art.at(0.38, 0.28, -0.3, Vector3(0.3, 0, 0)), Color(0.6, 0.45, 0.25)]]
+
+
+func _build_docks() -> void:
+	for d in DOCKS:
+		var t: Vector2i = d["tile"]
+		var other: Vector2i = DOCKS[int(d["to"])]["tile"]
+		var dir := (Vector2(other) - Vector2(t)).normalized()
+		var c := world.tile_center(t)
+		var pier := _mesh([[Art.box(0.9, 0.08, 1.4), Art.at(0, 0.2, 0.5), Color(0.5, 0.36, 0.2)],
+			[Art.box(0.1, 0.5, 0.1), Art.at(-0.4, 0.05, 1.1), Color(0.3, 0.2, 0.1)], [Art.box(0.1, 0.5, 0.1), Art.at(0.4, 0.05, 1.1), Color(0.3, 0.2, 0.1)]], c)
+		pier.rotation.y = atan2(dir.x, dir.y)
+		var boat := _mesh(_boat_parts(), c + Vector3(dir.x, 0.0, dir.y) * 1.4 + Vector3(0.6 * dir.y, -0.05, -0.6 * dir.x))
+		boat.position.y = 0.02
+		boat.rotation.y = atan2(dir.x, dir.y)
+	_sail_node = _mesh(_boat_parts(), Vector3.ZERO)
+	_sail_node.visible = false
+
+
+func _at_dock() -> int:
+	for i in range(DOCKS.size()):
+		if _near(DOCKS[i]["tile"], 2.2):
+			return i
+	return -1
+
+
+func _page_dock() -> void:
+	var d: Dictionary = DOCKS[dock_i]
+	var to: Dictionary = DOCKS[int(d["to"])]
+	_h(String(d["name"]))
+	var own := bool(data.get("boat", false))
+	_t("A wooden landing on the lake. %s" % ("Your own boat is tied up here." if own else "A ferryman rows travellers across for a few coins; boats are for sale."))
+	if _at_dock() != dock_i:
+		_b("Walk to the landing", _walk_to.bind(d["tile"]))
+		return
+	_b("Sail across to %s%s" % [to["name"], "" if own else " (%d gold)" % FERRY_PRICE], _sail.bind(dock_i, false))
+	if own:
+		_b("Fish from the boat, out on the deep water", _sail.bind(dock_i, true), _has("fishing_pole"))
+		if not _has("fishing_pole"):
+			_small_text("You need a fishing pole (any merchant sells them).")
+	else:
+		_b("Buy a boat (%d gold)" % BOAT_PRICE, _buy_boat)
+
+
+func _buy_boat() -> void:
+	if _pay(BOAT_PRICE):
+		data["boat"] = true
+		game.log_event("You buy a little rowing boat. It waits for you at every landing.")
+	_refresh()
+
+
+func _sail(i: int, fishing: bool) -> void:
+	if not fishing and not bool(data.get("boat", false)) and not _pay(FERRY_PRICE):
+		_refresh()
+		return
+	if hero.mounted_on != null:
+		hero.dismount()
+	var a := world.tile_center(DOCKS[i]["tile"])
+	var b := world.tile_center(DOCKS[int(DOCKS[i]["to"])]["tile"])
+	if fishing:
+		b = a.lerp(b, 0.5)                     # out to the middle of the lake
+	sail = {"a": a, "b": b, "t": 0.0, "dur": a.distance_to(b) / BOAT_SPEED, "mode": "fish_out" if fishing else "cross", "wait": 0.0, "home": a}
+	_sail_node.visible = true
+	game.log_event("You push off from %s." % DOCKS[i]["name"])
+	_close()
+
+
+func _sail_tick(delta: float) -> void:
+	if sail.is_empty():
+		return
+	if hero.dead:
+		sail = {}
+		_sail_node.visible = false
+		return
+	var a: Vector3 = sail["a"]
+	var b: Vector3 = sail["b"]
+	var mode := String(sail["mode"])
+	var p := b
+	if mode == "fish_wait":
+		sail["wait"] = float(sail["wait"]) + delta
+		if float(sail["wait"]) >= 2.5:
+			sail["wait"] = 0.0
+			sail["casts"] = int(sail.get("casts", 0)) + 1
+			_boat_cast()
+			if int(sail["casts"]) >= 4:
+				sail["mode"] = "fish_back"
+				sail["a"] = b
+				sail["b"] = sail["home"]
+				sail["t"] = 0.0
+	else:
+		sail["t"] = float(sail["t"]) + delta
+		var f := clampf(float(sail["t"]) / maxf(float(sail["dur"]), 0.1), 0.0, 1.0)
+		p = a.lerp(b, f)
+		if f >= 1.0:
+			if mode == "fish_out":
+				sail["mode"] = "fish_wait"
+				game.log_event("You ship the oars and cast your line.")
+			else:
+				sail = {}
+				_sail_node.visible = false
+				hero.position = b
+				hero.path.clear()
+				game.log_event("The boat bumps against the landing. You step ashore.")
+				return
+	var bob := sin(Time.get_ticks_msec() / 400.0) * 0.04
+	_sail_node.position = Vector3(p.x, 0.02 + bob, p.z)
+	var dir := b - a
+	if dir.length() > 0.1:
+		_sail_node.rotation.y = atan2(dir.x, dir.z)
+	hero.position = Vector3(p.x, 0.12 + bob, p.z)
+	hero.path.clear()
+	hero.target = null
+	hero.has_journey = false
+	hero.pause = 0.5
+	hero.gather_tile = Vector2i(-1, -1)
+
+
+func _boat_cast() -> void:
+	if not hero._use_tool("fishing_pole"):
+		game.log_event("Your fishing pole breaks.")
+		sail["casts"] = 99
+		return
+	hero.stats.try_gain(Hero.Skill.FISHING)
+	var sk: float = hero._skill(Hero.Skill.FISHING)
+	if randf() > 0.45 + sk / 200.0:
+		hero._pop("nothing bites", Color(0.75, 0.75, 0.75))
+		return
+	var roll := randf()
+	var got := "fish"
+	if roll < 0.04 + sk / 1000.0:
+		got = "pearl"
+	elif roll < 0.3 + sk / 400.0:
+		got = "big_fish"
+	elif roll > 0.95:
+		got = "old_boot"
+	_give(got)
+	hero._pop("+1 " + Items.item_name(got), Color(0.6, 0.85, 1.0))
+	game.count("fish_caught")
+	if got == "pearl":
+		game.log_event("Something glints on the hook: a pearl!")
+
+
+# --- cooking ------------------------------------------------------------------------------
+
+func _can_cook_here() -> bool:
+	return game.near_campfire(hero.position) or _near(HEARTH, 3.0) or (_decor_has("hearth") and game._hero_at_house())
+
+
+func _page_cook() -> void:
+	_h("Cooking   (Cooking %.1f)" % hero._skill(Hero.Skill.COOKING))
+	var here := _can_cook_here()
+	_t("Cook at a campfire, the tavern's hearth or a hearth in your house. A good meal heals you and makes you stronger for a while (one meal's strength at a time)." if here \
+		else "You need a fire to cook: light a campfire (one log), or use the tavern's hearth in Southmoor.")
+	if not here:
+		_b("Light a campfire (1 log)", _make_fire, _has("log"))
+	for id in RECIPE_ORDER:
+		var r: Dictionary = RECIPES[id]
+		var ok := here and hero._skill(Hero.Skill.COOKING) >= float(r["min"]) and Crafting.has_mats(hero.inventory, r["mats"])
+		_b("Cook %s: %s (%d%%)" % [Items.item_name(id), Items.mats_text(r["mats"]),
+			roundi(Rules.craft_chance(hero._skill(Hero.Skill.COOKING), float(r["min"])) * 100.0)], _cook.bind(id), ok)
+	_h("Eat")
+	var any := false
+	for id in MEALS:
+		if _has(String(id)):
+			any = true
+			var m: Dictionary = MEALS[id]
+			_b("Eat %s (x%d): +%d HP%s" % [Items.item_name(String(id)), int(hero.inventory[id]), int(m["heal"]), _mods_text(m["mods"])], _eat.bind(String(id)))
+	if not any:
+		_small_text("Nothing to eat in your bag. Hunt for meat (deer, bears, wolves), fish, or visit the tavern.")
+
+
+static func _mods_text(mods: Dictionary) -> String:
+	var parts: Array[String] = []
+	for k in mods:
+		parts.append("%s%d %s" % ["+" if int(mods[k]) >= 0 else "", int(mods[k]), String(k).capitalize()])
+	return (", " + ", ".join(parts)) if not parts.is_empty() else ""
+
+
+func _make_fire() -> void:
+	if _has("log"):
+		_take("log")
+		game.light_campfire(hero.position)
+		hero.stats.try_gain(Hero.Skill.CAMPING)
+		game.log_event("You build a small fire.")
+	_refresh()
+
+
+func _cook(id: String) -> void:
+	var r: Dictionary = RECIPES[id]
+	if not _can_cook_here() or not Crafting.has_mats(hero.inventory, r["mats"]):
+		_refresh()
+		return
+	Crafting.take_mats(hero.inventory, r["mats"], 1.0)
+	hero.stats.try_gain(Hero.Skill.COOKING)
+	if randf() < Rules.craft_chance(hero._skill(Hero.Skill.COOKING), float(r["min"])):
+		_give(id)
+		game.count("cooked")
+		game.log_event("You cook %s." % Items.item_name(id).to_lower())
+		game.sound("gather", hero.position)
+	else:
+		game.log_event("You burn the %s." % Items.item_name(id).to_lower())
+	_refresh()
+
+
+func _eat(id: String) -> void:
+	if not _has(id):
+		return
+	_take(id)
+	var m: Dictionary = MEALS[id]
+	hero.hp = minf(hero.hp + float(m["heal"]), float(hero.stats.max_hp()))
+	if float(m["secs"]) > 0.0:
+		if id == "ale":
+			hero.stamina = float(hero.stats.max_stamina())
+			hero.add_effect("tipsy", {"secs": float(m["secs"]), "mods": m["mods"], "name": "Tipsy", "color": Color(0.9, 0.75, 0.4)})
+		else:
+			hero.add_effect("well_fed", {"secs": float(m["secs"]), "mods": m["mods"], "name": "Well fed", "color": Color(1.0, 0.85, 0.4)})
+	game.count("food_eaten")
+	game.log_event("You eat the %s." % Items.item_name(id).to_lower())
+	_refresh()
+
+
+# --- alchemy: brews and blade poisons -----------------------------------------------------
+
+func _page_alchemy() -> void:
+	_h("Alchemy   (Alchemy %.1f, reagents %d)" % [hero._skill(Hero.Skill.ALCHEMY), int(hero.reagents)])
+	_t("Brew with reagents and what the wilds give: swamp herbs from the Fen, scorpion venom from the Wastes, crystals from the caves, meat from the hunt. Poison your blade and the next blows may poison your foe.")
+	for id in BREWS:
+		var r: Dictionary = Crafting.RECIPES[id]
+		_b("Brew %s: %s, Alchemy %d (%d%%)" % [Items.item_name(id), Items.mats_text(r["mats"]), int(r["min"]),
+			roundi(Rules.craft_chance(hero._skill(Hero.Skill.ALCHEMY), float(r["min"])) * 100.0)], _brew.bind(id), hero.craft_problem(id) == "")
+	_h("Use")
+	if hero.blade_poison_hits > 0:
+		_small_text("Your blade is poisoned (%s, %d blows left)." % [Rules.POISON_NAMES[hero.blade_poison], hero.blade_poison_hits])
+	var any := false
+	for id in BREWS:
+		if _has(id):
+			any = true
+			_b("%s %s (x%d)" % ["Coat your blade:" if id.begins_with("poison") else "Drink", Items.item_name(id), int(hero.inventory[id])], _use_brew.bind(id))
+	if not any:
+		_small_text("You carry none of these brews.")
+
+
+func _brew(id: String) -> void:
+	hero.craft(id)
+	_refresh()
+
+
+func _use_brew(id: String) -> void:
+	if not _has(id):
+		return
+	if id.begins_with("poison") and (hero.weapon == "" or Gear.is_ranged(hero.weapon)):
+		game.log_event("You need a blade in hand to poison it.")
+		return
+	_take(id)
+	match id:
+		"potion_strength":
+			hero.add_effect("potion_strength", {"secs": 180.0, "mods": {"str": 10}, "name": "Strength!", "color": Color(1.0, 0.55, 0.3)})
+		"potion_agility":
+			hero.add_effect("potion_agility", {"secs": 180.0, "mods": {"dex": 10}, "name": "Agility!", "color": Color(0.5, 1.0, 0.6)})
+		"potion_invisibility":
+			hero.add_effect("potion_invisibility", {"secs": 30.0, "flag": "invisible", "name": "You fade from sight", "color": Color(0.7, 0.8, 1.0)})
+			hero.target = null
+		"poison_lesser":
+			hero.blade_poison = 1
+			hero.blade_poison_hits = 12
+			game.log_event("You coat your blade with a lesser poison.")
+		"poison_deadly":
+			hero.blade_poison = 3
+			hero.blade_poison_hits = 8
+			game.log_event("You coat your blade with a deadly poison.")
+	game.count("potions_drunk")
+	_refresh()
+
+
+# --- house decoration -----------------------------------------------------------------------
+
+func _decor_has(id: String) -> bool:
+	return (data["decor"] as Array).has(id)
+
+
+func comfort() -> int:
+	var n := 0
+	for id in data["decor"]:
+		if DECOR.has(String(id)):
+			n += int(DECOR[String(id)]["comfort"])
+	return n
+
+
+func _decor_slots() -> int:
+	return 4 + game.property.house_size * 2
+
+
+func _page_house() -> void:
+	var pr: Property = game.property
+	_h("Your home")
+	if not pr.has_house():
+		_t("You have no house yet. Buy a deed at the bank (Bank & House) and place it out in the wilds; then furnish it here.")
+		return
+	var at_home: bool = game._hero_at_house()
+	_t("Comfort %d. Furniture %d/%d. A comfortable home makes resting in it count for more: after a night in your own bed you're Rested for longer (comfort x 2 minutes)." % [comfort(), data["decor"].size(), _decor_slots()])
+	if not at_home:
+		_b("Walk home", _walk_to.bind(pr.house_center_tile()))
+	if _decor_has("bed"):
+		_b("Sleep in your bed", _rest, at_home and game.property.play_time - float(data.get("rest_at", -1.0e9)) > 120.0)
+	if _decor_has("bookshelf"):
+		_b("Study at the bookshelf (once a day)", _study, at_home and game.property.play_time - float(data.get("study_at", -1.0e9)) > DAY)
+	if _decor_has("garden"):
+		_b("Gather from the herb garden (once a day)", _garden, at_home and game.property.play_time - float(data.get("garden_at", -1.0e9)) > DAY)
+	if _decor_has("hearth"):
+		_b("Cook at the hearth", _open.bind("cook"), at_home)
+	_h("Furnish (delivered at once)")
+	for id in DECOR_ORDER:
+		var d: Dictionary = DECOR[id]
+		if d.has("trophy"):
+			if not _killed(String(d["trophy"])) or _decor_has(id):
+				continue
+			_b("Place %s (earned)" % d["name"], _buy_decor.bind(id), data["decor"].size() < _decor_slots())
+		else:
+			_b("%s: %d gold" % [d["name"], int(d["price"])], _buy_decor.bind(id), data["decor"].size() < _decor_slots() and hero.gold >= int(d["price"]))
+	if not data["decor"].is_empty():
+		_h("Placed")
+		for i in range(data["decor"].size()):
+			var id2 := String(data["decor"][i])
+			if DECOR.has(id2):
+				_b("Remove %s (half back)" % DECOR[id2]["name"], _remove_decor.bind(i))
+
+
+func _buy_decor(id: String) -> void:
+	var price := int(DECOR[id]["price"])
+	if price > 0 and not _pay(price):
+		return
+	(data["decor"] as Array).append(id)
+	game.log_event("%s is set up in your house." % DECOR[id]["name"])
+	_decor_key = ""
+	_refresh()
+
+
+func _remove_decor(i: int) -> void:
+	var id := String(data["decor"][i])
+	hero.gold += int(DECOR.get(id, {"price": 0})["price"]) / 2
+	(data["decor"] as Array).remove_at(i)
+	_decor_key = ""
+	_refresh()
+
+
+func _rest() -> void:
+	data["rest_at"] = game.property.play_time
+	hero.hp = float(hero.stats.max_hp())
+	hero.mana = float(hero.stats.max_mana())
+	hero.stamina = float(hero.stats.max_stamina())
+	if game.is_night():
+		game.day_time = 0.27
+	var c := comfort()
+	hero.add_effect("rested", {"secs": 300.0 + c * 120.0, "mods": {"str": 2 + c / 4, "dex": 2 + c / 4, "int": 2 + c / 4}, "name": "Rested", "color": Color(0.7, 0.9, 1.0)})
+	game.log_event("You sleep soundly in your own bed and wake Rested.")
+	_refresh()
+
+
+func _study() -> void:
+	data["study_at"] = game.property.play_time
+	for s in [Hero.Skill.ITEM_IDENTIFICATION, Hero.Skill.ARMS_LORE, Hero.Skill.EVALUATING_INTELLECT, Hero.Skill.ANIMAL_LORE]:
+		hero.stats.try_gain(s)
+	game.log_event("You spend an hour with your books. Your mind feels keener.")
+	_refresh()
+
+
+func _garden() -> void:
+	data["garden_at"] = game.property.play_time
+	_give("swamp_herb", 3)
+	game.log_event("You gather three herbs from your garden.")
+	_refresh()
+
+
+## Rebuilds the furniture when the house or what's in it changes.
+func _decor_tick() -> void:
+	var pr: Property = game.property
+	var key := "%s|%d|%s" % [pr.house_origin, pr.house_size, ",".join(PackedStringArray(data["decor"]))]
+	if key == _decor_key:
+		return
+	_decor_key = key
+	if _decor_node != null:
+		_decor_node.queue_free()
+		_decor_node = null
+	if not pr.has_house():
+		return
+	_decor_node = Node3D.new()
+	add_child(_decor_node)
+	var slots := _decor_positions(pr.house_origin, pr.house_size)
+	for i in range(mini(data["decor"].size(), slots.size())):
+		var id := String(data["decor"][i])
+		var parts := _decor_parts(id)
+		if parts.is_empty():
+			continue
+		var mi := _mesh(parts, slots[i], _decor_node)
+		mi.rotation.y = (i % 4) * PI / 2.0
+		if id == "lantern" or id == "hearth":
+			var l := OmniLight3D.new()
+			l.light_color = Color(1.0, 0.7, 0.4)
+			l.omni_range = 3.0
+			l.position = Vector3(0, 0.8, 0)
+			mi.add_child(l)
+		if id == "hearth":
+			var fl := Fx.flame(0.2, 12, 0.4)
+			fl.position = Vector3(0, 0.5, 0)
+			mi.add_child(fl)
+
+
+func _decor_positions(o: Vector2i, size: int) -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	var centre := World.house_center(o, size)
+	for dy in range(1, size - 1):
+		for dx in range(1, size - 1):
+			var t := o + Vector2i(dx, dy)
+			for off in [Vector3(-0.25, 0, 0.25), Vector3(0.25, 0, 0.25), Vector3(-0.25, 0, -0.25), Vector3(0.25, 0, -0.25)]:
+				if t == centre and off.z < 0.0:
+					continue                    # the chest stands there
+				out.append(world.tile_center(t) + off)
+	# then the yard: along the sides and the back, outside the walls
+	for k in range(size):
+		for t2 in [o + Vector2i(-1, k), o + Vector2i(size, k), o + Vector2i(k, -1)]:
+			if not world.is_blocked(t2):
+				out.append(world.tile_center(t2))
+	return out
+
+
+func _decor_parts(id: String) -> Array:
+	var wood := Color(0.45, 0.29, 0.15)
+	var dark := Color(0.28, 0.18, 0.1)
+	match id:
+		"rug":
+			return [[Art.box(0.5, 0.02, 0.7), Art.at(0, 0.01, 0), Color(0.6, 0.15, 0.15)], [Art.box(0.4, 0.025, 0.6), Art.at(0, 0.012, 0), Color(0.8, 0.6, 0.2)]]
+		"table":
+			return [[Art.box(0.45, 0.05, 0.35), Art.at(0, 0.4, 0), wood], [Art.box(0.05, 0.4, 0.05), Art.at(-0.18, 0.2, -0.13), dark],
+				[Art.box(0.05, 0.4, 0.05), Art.at(0.18, 0.2, -0.13), dark], [Art.box(0.05, 0.4, 0.05), Art.at(-0.18, 0.2, 0.13), dark],
+				[Art.box(0.05, 0.4, 0.05), Art.at(0.18, 0.2, 0.13), dark]]
+		"chair":
+			return [[Art.box(0.25, 0.04, 0.25), Art.at(0, 0.24, 0), wood], [Art.box(0.25, 0.3, 0.04), Art.at(0, 0.4, -0.11), wood],
+				[Art.box(0.04, 0.24, 0.04), Art.at(-0.1, 0.12, 0.1), dark], [Art.box(0.04, 0.24, 0.04), Art.at(0.1, 0.12, 0.1), dark]]
+		"plant":
+			return [[Art.cone(0.1, 0.18, 0.13, 8), Art.at(0, 0.09, 0), Color(0.65, 0.35, 0.2)], [Art.ball(0.17), Art.at(0, 0.3, 0), Color(0.25, 0.55, 0.25)]]
+		"lantern":
+			return [[Art.box(0.04, 0.8, 0.04), Art.at(0, 0.4, 0), dark], [Art.box(0.12, 0.16, 0.12), Art.at(0, 0.85, 0), Color(1.0, 0.8, 0.4)]]
+		"weapon_rack":
+			return [[Art.box(0.45, 0.06, 0.1), Art.at(0, 0.5, 0), wood], [Art.box(0.04, 0.6, 0.04), Art.at(-0.15, 0.3, 0.03), Color(0.7, 0.7, 0.75)],
+				[Art.box(0.04, 0.65, 0.04), Art.at(0.0, 0.32, 0.03), Color(0.7, 0.7, 0.75)], [Art.box(0.04, 0.55, 0.04), Art.at(0.15, 0.28, 0.03), Color(0.6, 0.45, 0.3)]]
+		"bed":
+			return [[Art.box(0.45, 0.2, 0.75), Art.at(0, 0.1, 0), wood], [Art.box(0.43, 0.06, 0.55), Art.at(0, 0.23, 0.08), Color(0.25, 0.35, 0.7)],
+				[Art.box(0.35, 0.07, 0.14), Art.at(0, 0.24, -0.27), Color(0.95, 0.95, 0.92)]]
+		"bookshelf":
+			var p := [[Art.box(0.45, 0.8, 0.18), Art.at(0, 0.4, 0), dark]]
+			for row in range(3):
+				for b in range(4):
+					p.append([Art.box(0.08, 0.18, 0.12), Art.at(-0.15 + b * 0.1, 0.18 + row * 0.25, 0.04), [Color(0.6, 0.2, 0.2), Color(0.2, 0.3, 0.6), Color(0.3, 0.5, 0.3), Color(0.6, 0.5, 0.2)][(row + b) % 4]])
+			return p
+		"hearth":
+			return [[Art.box(0.55, 0.45, 0.3), Art.at(0, 0.22, 0), Color(0.5, 0.48, 0.46)], [Art.box(0.3, 0.2, 0.05), Art.at(0, 0.18, 0.14), Color(0.1, 0.07, 0.05)]]
+		"garden":
+			var g := [[Art.box(0.7, 0.08, 0.7), Art.at(0, 0.04, 0), Color(0.35, 0.24, 0.14)]]
+			for k in range(6):
+				g.append([Art.ball(0.09), Art.at(-0.22 + (k % 3) * 0.22, 0.14, -0.15 + (k / 3) * 0.3), Color(0.3, 0.6 + 0.05 * k, 0.25)])
+			return g
+	if id.begins_with("trophy"):
+		var top := Color(0.9, 0.75, 0.3)
+		match id:
+			"trophy_yeti":
+				top = Color(0.95, 0.97, 1.0)
+			"trophy_chief":
+				top = Color(0.9, 0.88, 0.8)
+			"trophy_abyss":
+				top = Color(0.6, 0.2, 0.3)
+			"trophy_malgrath":
+				top = Color(0.6, 0.4, 0.9)
+		return [[Art.box(0.3, 0.45, 0.3), Art.at(0, 0.22, 0), Color(0.55, 0.53, 0.5)], [Art.ball(0.13), Art.at(0, 0.56, 0), top]]
+	return []
+
+
+# --- the arena ----------------------------------------------------------------------------
+
+func _build_arena() -> void:
+	var c := world.tile_center(ARENA)
+	var n := 16
+	for i in range(n):
+		var ang := TAU * i / n
+		var p := c + Vector3(cos(ang), 0, sin(ang)) * ARENA_RADIUS
+		p.y = world.height_at(p)
+		var post := _mesh([[Art.box(0.12, 0.9, 0.12), Art.at(0, 0.45, 0), Color(0.4, 0.28, 0.15)],
+			[Art.box(0.08, 0.08, 1.4), Art.at(0, 0.75, 0), Color(0.5, 0.35, 0.2)]], p)
+		post.rotation.y = -ang
+	for side in [-1.0, 1.0]:
+		var bp := c + Vector3(side * (ARENA_RADIUS + 0.4), 0, -ARENA_RADIUS - 0.4)
+		bp.y = world.height_at(bp)
+		_mesh([[Art.box(0.1, 2.0, 0.1), Art.at(0, 1.0, 0), Color(0.3, 0.2, 0.1)], [Art.box(0.5, 0.35, 0.03), Art.at(0.25, 1.8, 0), Color(0.75, 0.2, 0.15)]], bp)
+
+
+func _in_arena() -> bool:
+	return _near(ARENA, ARENA_RADIUS + 1.0)
+
+
+func _page_arena() -> void:
+	_h("The Arena")
+	_t("Kael the Arena Master runs the ring. Pay the fee and fight his champions for the purse; bet on yourself and win double your stake. Or watch a bout and bet on a fighter. Leave the ring and you forfeit. Wins so far: %d." % _i("arena_wins"))
+	if not duel.is_empty():
+		_t("A duel is under way!")
+		return
+	var here := _near(ARENA, ARENA_RADIUS + 4.0)
+	if not here:
+		_b("Walk to the arena", _walk_to.bind(ARENA))
+	_b("Your bet on yourself: %d gold (tap to change)" % _arena_bet, _cycle_bet)
+	for i in range(ARENA_TIERS.size()):
+		var t: Dictionary = ARENA_TIERS[i]
+		_b("%s: fight %s. Fee %d, purse %d" % [t["name"], t["foe"], int(t["fee"]), int(t["purse"])], _start_duel.bind(i),
+			here and hero.gold >= int(t["fee"]) + _arena_bet and not hero.dead)
+	_h("Bouts")
+	if bout.is_empty():
+		_b("Watch a bout and bet (50 gold)", _start_bout.bind(50), here and hero.gold >= 50)
+		_b("Watch a bout and bet (200 gold)", _start_bout.bind(200), here and hero.gold >= 200)
+	else:
+		_small_text("A bout is on: %s against %s." % [bout["a"], bout["b"]])
+
+
+func _cycle_bet() -> void:
+	var i := BETS.find(_arena_bet)
+	_arena_bet = int(BETS[(i + 1) % BETS.size()])
+	_refresh()
+
+
+func _start_duel(i: int) -> void:
+	var t: Dictionary = ARENA_TIERS[i]
+	if not _pay(int(t["fee"]) + _arena_bet):
+		return
+	if hero.mounted_on != null:
+		hero.dismount()
+	var s: float = t["skill"]
+	var cfg := {
+		"look": "humanoid", "str": t["str"], "dex": t["dex"], "int": 20, "wspeed": 45, "dmg_min": t["lo"], "dmg_max": t["hi"],
+		"move": 3.6, "leash": 30, "aggro": 30.0, "respawn": 1.0e9, "armor": t["armor"], "danger": t["danger"],
+		"weapon": t["weapon"], "wear": t["wear"], "shield": t["shield"], "bandages": 0,
+		"loot": {"gold_min": 0, "gold_max": 0, "drops": []},
+		"skills": {Hero.Skill.SWORDSMANSHIP: s, Hero.Skill.TACTICS: s, Hero.Skill.MACE_FIGHTING: s, Hero.Skill.FENCING: s,
+			Hero.Skill.PARRYING: s * 0.8, Hero.Skill.ANATOMY: s * 0.6},
+	}
+	var c := world.tile_center(ARENA)
+	hero.position = c + Vector3(-1.5, 0, 0)
+	hero.path.clear()
+	hero.has_journey = false
+	var opp: Entity = game.pool_spawn(String(t["foe"]), cfg, Color(0.85, 0.3, 0.25), c + Vector3(1.5, 0, 0))
+	opp.target = hero
+	hero.target = opp
+	duel = {"opp": opp, "bet": _arena_bet, "purse": int(t["purse"]), "tier": i, "t": 0.0, "away": 0.0}
+	game.world_event("The crowd roars as %s steps into the ring against %s!" % [hero.display_name, t["foe"]])
+	_close()
+
+
+func _duel_tick(delta: float) -> void:
+	if duel.is_empty():
+		return
+	var opp: Entity = duel["opp"]
+	duel["t"] = float(duel["t"]) + delta
+	if opp.dead:
+		var won := int(duel["purse"]) + int(duel["bet"]) * 2
+		hero.gold += won
+		hero.add_fame(20 * (int(duel["tier"]) + 1))
+		data["arena_wins"] = _i("arena_wins") + 1
+		game.count("arena_wins")
+		game.event_about("%s wins in the arena and takes %d gold!" % [hero.display_name, won], true)
+		duel = {}
+		return
+	if hero.dead:
+		opp.vanish()
+		game.event_about("%s falls in the arena. The crowd groans." % hero.display_name, true)
+		duel = {}
+		return
+	opp.target = hero
+	if not _near(ARENA, ARENA_RADIUS + 3.0):
+		duel["away"] = float(duel["away"]) + delta
+	else:
+		duel["away"] = 0.0
+	if float(duel["away"]) > 4.0 or float(duel["t"]) > 180.0:
+		opp.vanish()
+		game.event_about("%s leaves the ring and forfeits the duel." % hero.display_name, true)
+		duel = {}
+
+
+func _start_bout(bet: int) -> void:
+	if not _pay(bet):
+		return
+	var pool := GLADIATORS.duplicate()
+	pool.shuffle()
+	var ra := randi_range(40, 90)
+	var rb := randi_range(40, 90)
+	bout = {"a": pool[0], "b": pool[1], "ra": ra, "rb": rb, "bet": bet, "pick": -1, "t": 0.0, "step": 0}
+	_open("bout")
+
+
+func _page_bout() -> void:
+	_h("A bout: %s against %s" % [bout["a"], bout["b"]])
+	var ra := float(bout["ra"])
+	var rb := float(bout["rb"])
+	if int(bout["pick"]) < 0:
+		_t("Kael calls the odds. Pick your fighter (stake %d gold):" % int(bout["bet"]))
+		_b("%s (wins %d%% of fights; pays %.1fx)" % [bout["a"], roundi(ra / (ra + rb) * 100.0), 1.0 + rb / ra], _pick_fighter.bind(0))
+		_b("%s (wins %d%% of fights; pays %.1fx)" % [bout["b"], roundi(rb / (ra + rb) * 100.0), 1.0 + ra / rb], _pick_fighter.bind(1))
+	else:
+		_t("The bout is on - watch the log.")
+
+
+func _pick_fighter(i: int) -> void:
+	bout["pick"] = i
+	bout["win"] = 0 if randf() < float(bout["ra"]) / (float(bout["ra"]) + float(bout["rb"])) else 1
+	_close()
+
+
+func _bout_tick(delta: float) -> void:
+	if bout.is_empty() or int(bout["pick"]) < 0:
+		return
+	bout["t"] = float(bout["t"]) + delta
+	if float(bout["t"]) < 2.0:
+		return
+	bout["t"] = 0.0
+	var a := String(bout["a"])
+	var b := String(bout["b"])
+	var w := a if int(bout["win"]) == 0 else b
+	var l := b if int(bout["win"]) == 0 else a
+	match int(bout["step"]):
+		0:
+			game.world_event("Arena: %s and %s circle each other..." % [a, b])
+		1:
+			game.world_event("Arena: %s lands a heavy blow! The crowd roars." % [l if randf() < 0.5 else w])
+		2:
+			game.world_event("Arena: %s staggers, but keeps their feet!" % l)
+		3:
+			game.world_event("Arena: %s wins the bout!" % w)
+			if int(bout["pick"]) == int(bout["win"]):
+				var mine := float(bout["ra"]) if int(bout["win"]) == 0 else float(bout["rb"])
+				var theirs := float(bout["rb"]) if int(bout["win"]) == 0 else float(bout["ra"])
+				var pay := roundi(int(bout["bet"]) * (1.0 + theirs / mine))
+				hero.gold += pay
+				game.log_event("Your fighter won! You collect %d gold." % pay)
+			else:
+				game.log_event("Your fighter lost. So goes your stake.")
+			bout = {}
+			return
+	bout["step"] = int(bout["step"]) + 1
+
+
+# --- guild towers -----------------------------------------------------------------------------
+
+func _build_towers() -> void:
+	for i in range(TOWERS.size()):
+		var tt: Vector2i = World.TOWER_TILES[i]
+		var key := str(i)
+		if not data["towers"].has(key):
+			data["towers"][key] = TOWERS[i]["start"]
+		var c := world.tile_center(tt)
+		var node := Node3D.new()
+		add_child(node)
+		node.position = c
+		var stone := Color(0.55, 0.53, 0.5)
+		var parts := [[Art.cone(0.78, 3.2, 0.68, 10), Art.at(0, 1.6, 0), stone], [Art.cone(0.86, 0.3, 0.86, 10), Art.at(0, 3.3, 0), stone.darkened(0.1)],
+			[Art.box(0.3, 0.5, 0.06), Art.at(0, 0.25, 0.75), Color(0.25, 0.16, 0.1)], [Art.box(0.05, 1.3, 0.05), Art.at(0, 4.0, 0), Color(0.3, 0.2, 0.1)]]
+		for k in range(5):
+			var ang := TAU * k / 5.0
+			parts.append([Art.box(0.25, 0.25, 0.25), Art.at(cos(ang) * 0.75, 3.55, sin(ang) * 0.75), stone])
+		_mesh(parts, Vector3.ZERO, node)
+		var flag := MeshInstance3D.new()
+		flag.mesh = Art.box(0.7, 0.45, 0.03)
+		var fm := StandardMaterial3D.new()
+		fm.albedo_color = _guild_color(String(data["towers"][key]))
+		flag.material_override = fm
+		flag.position = Vector3(0.37, 4.4, 0)
+		node.add_child(flag)
+		towers.append({"node": node, "flag": fm, "guild": "", "p": 0.0})
+
+
+func _guild_color(g: String) -> Color:
+	return GUILD_COLORS.get(g, Color(0.9, 0.9, 0.9))
+
+
+func _guild_name(g: String) -> String:
+	if g == "":
+		return "no one"
+	return String(game.guilds.list[g]["name"]) if game.guilds.list.has(g) else g
+
+
+func tower_owner(i: int) -> String:
+	return String(data["towers"].get(str(i), ""))
+
+
+func _towers_tick(delta: float) -> void:
+	_tower_acc += delta
+	if _tower_acc < 0.5:
+		return
+	var step := _tower_acc
+	_tower_acc = 0.0
+	for i in range(towers.size()):
+		var tw: Dictionary = towers[i]
+		var c := world.tile_center(World.TOWER_TILES[i])
+		var holder := tower_owner(i)
+		var present := {}
+		for item in game.creatures:
+			var e := item as Entity
+			if e.kind != Entity.Kind.PLAYER or e.dead or e.ghost or e.position.distance_to(c) > TOWER_RANGE:
+				continue
+			var gid := e.guild_id()
+			if gid != "":
+				present[gid] = true
+		var defended := false
+		var attackers: Array[String] = []
+		for pg in present:
+			if game.guilds.allied(String(pg), holder):
+				defended = true
+			else:
+				attackers.append(String(pg))
+		if attackers.size() == 1 and not defended:
+			if String(tw["guild"]) != attackers[0]:
+				tw["guild"] = attackers[0]
+				tw["p"] = 0.0
+			tw["p"] = float(tw["p"]) + step
+			if float(tw["p"]) >= CAPTURE_SECS:
+				_capture(i, attackers[0])
+		elif attackers.is_empty():
+			tw["p"] = maxf(float(tw["p"]) - step, 0.0)
+	_raid_in -= step
+	if _raid_in <= 0.0:
+		_raid_in = randf_range(180.0, 320.0)
+		_start_raid()
+	for r in raids.duplicate():
+		r["left"] = float(r["left"]) - step
+		var dest := world.tile_center(World.TOWER_TILES[int(r["tower"])])
+		for m in r["members"]:
+			var e2 := m as Entity
+			if is_instance_valid(e2) and not e2.dead and e2.target == null and not e2.recovering and not e2.retreating \
+					and e2.position.distance_to(dest) > 2.5 and not e2.has_journey:
+				e2.set_journey(dest)
+		if float(r["left"]) <= 0.0:
+			raids.erase(r)
+
+
+func _capture(i: int, g: String) -> void:
+	data["towers"][str(i)] = g
+	towers[i]["p"] = 0.0
+	towers[i]["guild"] = ""
+	(towers[i]["flag"] as StandardMaterial3D).albedo_color = _guild_color(g)
+	var mine := g != "" and g == hero.guild_id()
+	game.event_about("%s takes %s!" % [_guild_name(g), TOWERS[i]["name"]], mine)
+	if mine and hero.position.distance_to(world.tile_center(World.TOWER_TILES[i])) <= TOWER_RANGE + 1.0:
+		game.count("towers_taken")
+		hero.add_fame(50)
+
+
+## A computer guild sends a couple of its members to take a tower from a rival.
+func _start_raid() -> void:
+	var ids: Array = game.guilds.list.keys()
+	ids.shuffle()
+	for g in ids:
+		if String(g) == "player":
+			continue
+		var choices: Array[int] = []
+		for i in range(TOWERS.size()):
+			var o := tower_owner(i)
+			if o != String(g) and not game.guilds.allied(String(g), o):
+				choices.append(i)
+		if choices.is_empty():
+			continue
+		var ti: int = choices[randi() % choices.size()]
+		var members: Array = []
+		for item in game.creatures:
+			var e := item as Entity
+			if e.kind == Entity.Kind.PLAYER and not e.is_hero and not e.dead and e.guild_id() == String(g) and members.size() < 2:
+				members.append(e)
+		if members.is_empty():
+			continue
+		raids.append({"members": members, "tower": ti, "left": 90.0})
+		game.world_event("%s march on %s." % [_guild_name(String(g)), TOWERS[ti]["name"]])
+		return
+
+
+func _tower_income() -> void:
+	var t: float = game.property.play_time
+	if t - float(data.get("income_at", 0.0)) < DAY:
+		return
+	data["income_at"] = t
+	var g := hero.guild_id()
+	if g == "":
+		return
+	var n := 0
+	for i in range(TOWERS.size()):
+		if tower_owner(i) == g:
+			n += 1
+	if n > 0:
+		game.property.bank_gold += TOWER_INCOME * n
+		hero.add_fame(10 * n)
+		game.log_event("Your guild's towers pay their tolls: %d gold to your bank." % (TOWER_INCOME * n))
+
+
+func _at_tower() -> int:
+	for i in range(TOWERS.size()):
+		if _near(World.TOWER_TILES[i], TOWER_RANGE):
+			return i
+	return -1
+
+
+func _page_towers() -> void:
+	_h("Guild towers")
+	var g := hero.guild_id()
+	_t("Three old watchtowers stand in the wilds. A guild takes one by holding the ground round it (%d seconds, with no defenders of its owner or their allies nearby). Each tower pays its guild %d gold a day - into your bank, if it's your guild's. %s" % [
+		int(CAPTURE_SECS), TOWER_INCOME, "You fight for %s." % _guild_name(g) if g != "" else "Join or found a guild (Guild & Fame) to take part."])
+	for i in range(TOWERS.size()):
+		var tw: Dictionary = towers[i]
+		var prog := ""
+		if float(tw["p"]) > 0.0:
+			prog = "  %s taking it: %d%%" % [_guild_name(String(tw["guild"])), roundi(float(tw["p"]) / CAPTURE_SECS * 100.0)]
+		_small_text("%s: held by %s. %s%s" % [TOWERS[i]["name"], _guild_name(tower_owner(i)), _where(world.tile_center(World.TOWER_TILES[i])), prog])
+		_b("Walk to %s" % TOWERS[i]["name"], _walk_to.bind(World.TOWER_TILES[i] + Vector2i(0, 1)))
+
+
+# --- what's around: the action button, biomes, snow -------------------------------------------
+
+func _build_snow() -> void:
+	_snow = CPUParticles3D.new()
+	_snow.amount = 220
+	_snow.lifetime = 4.0
+	_snow.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_snow.emission_box_extents = Vector3(10, 0.5, 10)
+	_snow.direction = Vector3(0.2, -1, 0)
+	_snow.spread = 15.0
+	_snow.initial_velocity_min = 0.6
+	_snow.initial_velocity_max = 1.2
+	_snow.gravity = Vector3(0, -0.6, 0)
+	var q := QuadMesh.new()
+	q.size = Vector2(0.06, 0.06)
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(1, 1, 1, 0.9)
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	q.material = m
+	_snow.mesh = q
+	_snow.emitting = false
+	add_child(_snow)
+
+
+func _env_tick(delta: float) -> void:
+	_env_acc += delta
+	if _snow.emitting:
+		_snow.position = hero.position + Vector3(0, 5.0, 0)
+	if _env_acc < 1.0:
+		return
+	_env_acc = 0.0
+	var t := world.to_tile(hero.position)
+	var b := world.biome_at(t)
+	if b != _biome:
+		if b != "":
+			game.log_event("You enter %s." % World.BIOME_NAMES[b])
+		elif _biome != "":
+			game.log_event("You leave %s." % World.BIOME_NAMES[_biome])
+		_biome = b
+	_snow.emitting = b == "snow" and game.property.weather_on
+	var cv := world.cave_at(t)
+	if cv != _cave:
+		if cv >= 0:
+			game.log_event("You enter %s. The air is cold and still." % World.CAVES[cv]["name"])
+		_cave = cv
+
+
+func _act_tick(delta: float) -> void:
+	_act_acc += delta
+	if _act_acc < 0.3:
+		return
+	_act_acc = 0.0
+	_act = _find_act()
+	act_button.visible = not _act.is_empty() and not panel.visible and not game.paused \
+		and game._flyby_t < 0.0 and game._cine_phase == 0
+	if act_button.visible:
+		act_button.text = String(_act["label"])
+
+
+func _find_act() -> Dictionary:
+	if hero.dead or not sail.is_empty() or not duel.is_empty():
+		return {}
+	for v in villagers:
+		var e: Entity = v["e"]
+		if e.position.distance_to(hero.position) <= 2.6:
+			return {"label": "Talk: %s%s" % [e.display_name, _talk_mark(e.display_name)], "page": "talk", "who": e.display_name}
+	if _at_board():
+		return {"label": "Bounty board", "page": "board"}
+	var d := _at_dock()
+	if d >= 0:
+		return {"label": "Boat: %s" % DOCKS[d]["name"], "page": "dock", "dock": d}
+	if world.is_dungeon(world.to_tile(hero.position)) and _near(STAIRS, 2.5):
+		return {"label": "Stairs down", "page": "stairs"}
+	var tw := _at_tower()
+	if tw >= 0:
+		return {"label": TOWERS[tw]["name"], "page": "towers"}
+	if _at_tavern():
+		return {"label": "Tavern", "page": "tavern"}
+	if _in_arena():
+		return {"label": "Arena", "page": "arena"}
+	if game._hero_at_house():
+		return {"label": "Home", "page": "house"}
+	if game.near_campfire(hero.position):
+		for id in RECIPES:
+			if Crafting.has_mats(hero.inventory, RECIPES[id]["mats"]):
+				return {"label": "Cook", "page": "cook"}
+	return {}
+
+
+func _on_act() -> void:
+	if _act.is_empty():
+		return
+	if _act.has("who"):
+		talk_with = String(_act["who"])
+		talk_text = ""
+	if _act.has("dock"):
+		dock_i = int(_act["dock"])
+	_open(String(_act["page"]))
+
+
+# --- the game's hooks -------------------------------------------------------------------------
+
+func tick(delta: float) -> void:
+	_sail_tick(delta)
+	_routines(delta)
+	_depth_tick(delta)
+	_duel_tick(delta)
+	_bout_tick(delta)
+	_towers_tick(delta)
+	_env_tick(delta)
+	_act_tick(delta)
+	if Engine.get_process_frames() % 30 == 0:
+		_decor_tick()
+		_tower_income()
+
+
+func on_kill(killer: Entity, victim: Entity) -> void:
+	if killer == null or not killer.is_hero:
+		return
+	for id in SIDE_QUESTS:
+		var st: Dictionary = _sq(String(id))
+		var g: Dictionary = SIDE_QUESTS[id]["goal"]
+		if String(st["state"]) == "active" and String(g["kind"]) == "kill" and String(g["target"]) == victim.display_name \
+				and int(st["kills"]) < int(g["count"]):
+			st["kills"] = int(st["kills"]) + 1
+			game.log_event("%s: %s" % [SIDE_QUESTS[id]["title"], _goal_text(String(id))])
+			if int(st["kills"]) >= int(g["count"]):
+				game.log_event("Return to %s." % SIDE_QUESTS[id]["giver"])
+	var b: Dictionary = data["bounty"]
+	if not b.is_empty() and String(b["target"]) == victim.display_name:
+		if String(b["kind"]) == "hunt":
+			b["done"] = int(b.get("done", 0)) + 1
+			if int(b["done"]) >= int(b["count"]):
+				_bounty_paid(b)
+			else:
+				game.log_event("Bounty: %d/%d %s." % [int(b["done"]), int(b["count"]), b["target"]])
+		else:
+			_bounty_paid(b)
+	if depth > 1 and victim.kind == Entity.Kind.MONSTER and world.is_dungeon(world.to_tile(victim.position)):
+		var bonus := randi_range(5, 15) * (depth - 1)
+		hero.gold += bonus
+		hero._pop("+%d gold (depth %d)" % [bonus, depth], Color(1.0, 0.85, 0.3))
+		if victim == _depth_boss:
+			data["deepest"] = maxi(deepest(), mini(depth + 1, DEPTHS.size()))
+			game.count("depth_bosses")
+			game.event_about("%s has fallen! %s" % [victim.display_name,
+				"The way deeper lies open." if depth < DEPTHS.size() else "The Abyss is silent at last."], true)
+
+
+func hud_text() -> String:
+	var parts: Array[String] = []
+	if depth > 1:
+		parts.append("Dungeon level %d: %s" % [depth, DEPTHS[depth - 1]["name"]])
+	var b: Dictionary = data["bounty"]
+	if not b.is_empty():
+		var extra := ""
+		if String(b["kind"]) == "hunt":
+			extra = " (%d/%d)" % [int(b.get("done", 0)), int(b["count"])]
+		elif bounty_target != null and not bounty_target.dead:
+			extra = " (%s)" % _where(bounty_target.position)
+		parts.append("Bounty: %s%s" % [b["target"], extra])
+	if hero.blade_poison_hits > 0:
+		parts.append("Poisoned blade: %d" % hero.blade_poison_hits)
+	if not duel.is_empty():
+		var opp: Entity = duel["opp"]
+		parts.append("Arena: %s %d/%d" % [opp.display_name, ceili(opp.hp), opp.stats.max_hp()])
+	return ("\n" + "   ".join(parts)) if not parts.is_empty() else ""
+
+
+## Marks on the minimap: towers in their guild's colours, the arena, the tavern, the landings and
+## the elite you're hunting. Called from the minimap's _draw.
+func draw_marks(mm) -> void:
+	for i in range(towers.size()):
+		var tp: Vector2 = mm._to_map(world.tile_center(World.TOWER_TILES[i]))
+		mm.draw_rect(Rect2(tp - Vector2(3.5, 3.5), Vector2(7, 7)), Color.BLACK)
+		mm.draw_rect(Rect2(tp - Vector2(2.5, 2.5), Vector2(5, 5)), _guild_color(tower_owner(i)))
+	var ap: Vector2 = mm._to_map(world.tile_center(ARENA))
+	mm.draw_arc(ap, 4.0, 0.0, TAU, 12, Color(0.95, 0.75, 0.3), 1.5)
+	var tvp: Vector2 = mm._to_map(world.tile_center(TAVERN))
+	mm.draw_circle(tvp, 3.0, Color(0.0, 0.0, 0.0, 0.6))
+	mm.draw_circle(tvp, 2.0, Color(0.95, 0.6, 0.2))
+	for d in DOCKS:
+		var dp: Vector2 = mm._to_map(world.tile_center(d["tile"]))
+		mm.draw_rect(Rect2(dp - Vector2(1.5, 1.5), Vector2(3, 3)), Color(0.75, 0.55, 0.3))
+	if bounty_target != null and is_instance_valid(bounty_target) and not bounty_target.dead:
+		var bp: Vector2 = mm._to_map(bounty_target.position)
+		mm.draw_circle(bp, 4.5, Color(0, 0, 0, 0.7))
+		mm.draw_circle(bp, 3.2, Color(0.95, 0.15, 0.1))
+
+
+# --- the panel -------------------------------------------------------------------------------
+
+func _build_ui(layer: CanvasLayer) -> void:
+	panel = game._make_overlay(layer)
+	box = panel.get_meta("box")
+	act_button = game._menu_button("", _on_act)
+	act_button.custom_minimum_size = Vector2(320, 70)
+	act_button.add_theme_font_size_override("font_size", 24)
+	act_button.visible = false
+	layer.add_child(act_button)
+	act_button.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 16)
+	act_button.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	act_button.offset_top -= 190.0
+	act_button.offset_bottom -= 190.0
+
+
+func open_hub() -> void:
+	_open("hub")
+
+
+func _open(p: String) -> void:
+	page = p
+	game.paused = true
+	game.menu.visible = false
+	panel.visible = true
+	act_button.visible = false
+	_refresh()
+
+
+func _close() -> void:
+	panel.visible = false
+	talk_text = ""
+	game._resume()
+
+
+func _refresh() -> void:
+	if not panel.visible:
+		return
+	for ch in box.get_children():
+		box.remove_child(ch)
+		ch.queue_free()
+	match page:
+		"hub":
+			_page_hub()
+		"talk":
+			_page_talk()
+		"quests":
+			_page_quests()
+		"tavern":
+			_page_tavern()
+		"board":
+			_page_board()
+		"dock":
+			_page_dock()
+		"stairs":
+			_page_stairs()
+		"arena":
+			_page_arena()
+		"bout":
+			_page_bout()
+		"cook":
+			_page_cook()
+		"alchemy":
+			_page_alchemy()
+		"house":
+			_page_house()
+		"towers":
+			_page_towers()
+	if page != "hub":
+		_b("Adventures", _open.bind("hub"))
+	_b("Close", _close)
+
+
+func _page_hub() -> void:
+	_h("Adventures")
+	var b: Dictionary = data["bounty"]
+	_t("Beyond the story: the Frostmarch in the north, the Sunscar Wastes in the south-east and the Blackwater Fen round the southern lake, each with its own creatures; three caves; the dungeon's depths; boats on the lakes; the tavern in Southmoor; the arena south of town; and the guild towers.")
+	var active := 0
+	for id in SIDE_QUESTS:
+		if String(_sq(String(id))["state"]) == "active":
+			active += 1
+	_b("Side quests (%d under way)" % active, _open.bind("quests"))
+	_b("Bounties%s" % (": " + String(b["target"]) if not b.is_empty() else ""), _open.bind("board"))
+	_b("The tavern", _open.bind("tavern"))
+	_b("Cooking", _open.bind("cook"))
+	_b("Alchemy: brews and poisons", _open.bind("alchemy"))
+	_b("Furnish your house", _open.bind("house"))
+	_b("The arena", _open.bind("arena"))
+	_b("Guild towers", _open.bind("towers"))
+	_b("The dungeon's depths (deepest: %d)" % deepest(), _open.bind("stairs"))
+	var dk := _at_dock()
+	if dk >= 0:
+		dock_i = dk
+		_b("Boat", _open.bind("dock"))
+	else:
+		_small_text("Boats: walk to a landing on one of the three lakes (brown marks on the map).")
+
+
+func _h(text: String) -> void:
+	box.add_child(game._heading(text))
+
+
+func _t(text: String) -> void:
+	box.add_child(game._info(text))
+
+
+func _small_text(text: String) -> void:
+	box.add_child(game._small(text))
+
+
+func _b(text: String, cb: Callable, enabled := true) -> void:
+	var b: Button = game._action(text, cb, enabled)
+	b.custom_minimum_size = Vector2(840, 64)
+	b.add_theme_font_size_override("font_size", 22)
+	b.clip_text = true
+	box.add_child(b)

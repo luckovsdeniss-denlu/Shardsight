@@ -3,6 +3,50 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.59.0
+The wider world: twelve new things to do, all in the main game (Main Menu > Adventures; an
+action button appears at the bottom of the screen when you stand by something you can use).
+- Dungeon depths: stairs in the Bone King's hall lead down through four deeper levels (the Bone
+  Galleries, the Weeping Crypts, the Ember Deep, the Abyss). Each level's dead are stronger and
+  pay extra gold; each has its own master to slay before the way goes deeper. Slay the Bone King
+  to open the stairs. Leave the dungeon and you're back on the first level.
+- Biomes: the Frostmarch (snow, with falling snow) in the north, the Sunscar Wastes (desert) in
+  the south-east and the Blackwater Fen (swamp) round the southern lake. The ground, the trees
+  and the minimap take their colours, and each has its own creatures and spoils: frost wolves
+  and a yeti (frost pelts), sand scorpions and mummies (venom, ancient wrappings), bog leeches and
+  a bog troll (swamp herbs). Deer, bears and wolves now give raw meat.
+- Caves: Frostfang Cavern (north), Scorpion Hollow (desert) and the Goblin Warren (south-west):
+  walled hollows with one way in, dark floors, cave spiders, goblins and a chief in each (the
+  Frost Giant, the Scorpion Queen, the Goblin Chief). Their rocks hold richer ore and crystals.
+- Boats: landings on all three lakes. Ride the ferry across for a few coins, or buy a boat
+  (150 gold) to cross free and to fish from out on the deep water (big fish and pearls).
+- The tavern: the Drunken Shard in Southmoor. Ale, a hot meal, a room for the night (sleep till
+  morning), rumours, dice, and its hearth to cook at.
+- Townsfolk with a daily round: a farmer, a fisherwoman and a minstrel work by day, go to the
+  tavern in the evening and home at night; a barkeep, the arena master and four folk out in the
+  wilds keep their posts.
+- Side quests told in dialogue, with choices that change the reward, your karma and your fame:
+  wolves at Tobin's fold, Nell's pearl, Bram's yeti, Wren's herbs, Zahir's venom, Garret's goblin
+  warren, a song from Tam, Rosa's rats.
+- Bounty boards in every town: an elite beast of uncommon size (marked red on the map), a cull of
+  some monster, or a murderer among the players. One at a time, paid on the spot.
+- Cooking (a new skill): cook fish, steaks, fish pie, hearty stew and Frostmarch chowder at a
+  campfire (light one with a log), the tavern's hearth or your own. Meals heal and make you
+  Well fed: stronger, quicker or sharper for ten to twenty minutes.
+- Alchemy: Strength and Agility potions, an Invisibility potion, and Lesser and Deadly blade
+  poisons that coat your weapon (each blow may poison the foe), brewed from reagents and what the
+  wilds give.
+- House decoration: rugs, tables, chairs, plants, lanterns, a weapon rack, a bed (sleep and wake
+  Rested; the more comfortable the house the longer it lasts), a bookshelf (study once a day), a
+  hearth (cook at home), an herb garden (herbs every day) and trophies from the great foes you've
+  slain.
+- The arena south of the main town: fight Kael's four champions for a purse, betting on yourself
+  to win double your stake, or bet on a bout between two gladiators.
+- Guild towers: three watchtowers in the wilds, each held by a guild (its flag on the tower and
+  the minimap). Hold the ground round one for twenty seconds, with no defenders, to take it; the
+  computer guilds raid each other's. A tower pays its guild 75 gold a day (into your bank if
+  it's yours).
+
 ## 0.58.2
 - Fix: white streaks across the screen in the rain. The rain started at the overhead camera's
   height, so drops were born right by the lens and smeared across the view (worse zoomed in); it

@@ -58,6 +58,7 @@ var graphics := "medium"               # low, medium or high
 var weather_on := true
 var cam_zoom := 1.0
 var cam_yaw := 0.0
+var frontier := {}                     # the wider world's progress: side quests, bounties, depths, towers, decor (see Frontier)
 
 
 const MAX_RUNES := 8
@@ -169,6 +170,7 @@ func to_dict() -> Dictionary:
 		"vendor_last": vendor_last, "stats_counts": stats_counts, "play_time": play_time,
 		"achievements": achievements, "title_choice": title_choice,
 		"story_step": story_step, "story_done": story_done, "story_started": story_started,
+		"frontier": frontier,
 	}
 	if has_house():
 		d["house"] = {
@@ -217,6 +219,8 @@ func load_dict(d: Dictionary) -> void:
 	story_step = clampi(int(d.get("story_step", 0)), 0, Story.STEPS.size() - 1)
 	story_done = bool(d.get("story_done", false))
 	story_started = bool(d.get("story_started", false))
+	var fr: Variant = d.get("frontier", {})
+	frontier = (fr as Dictionary).duplicate(true) if fr is Dictionary else {}
 	sound_on = bool(d.get("sound_on", true))
 	music_on = bool(d.get("music_on", true))
 	names_on = bool(d.get("names_on", false))

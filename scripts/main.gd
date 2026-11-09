@@ -18,6 +18,7 @@ var creatures: Array[Entity] = []
 var corpses: Array[Corpse] = []
 var hero: Entity
 var guilds := Guilds.new()
+var frontier: Frontier                 # the wider world: depths, biomes, boats, tavern, side quests, arena...
 var music := Music.new()
 var weather := "clear"           # clear, rain, storm or fog
 const CLEAR_HAZE := 0.008        # fog density on a clear day: just a little depth
@@ -129,6 +130,7 @@ const TIPS := [
 	"Tip: with Auto on, your hero fights, loots, gathers, crafts and banks by itself.",
 	"Tip: Menu has Skills, Craft, Bank & House, Travel, Settings and Help.",
 	"Tip: pinch with two fingers to zoom, twist them to turn the camera.",
+	"Tip: townsfolk with a ! over their action button have work for you. Main Menu > Adventures lists it all.",
 ]
 var _tips_left: Array = []
 var _tip_timer := 8.0
@@ -322,6 +324,8 @@ func _ready() -> void:
 		log_event("Welcome to Shardsight. Tap a monster to attack it.")
 		_tips_left = TIPS.duplicate()        # first launch: a few tips over the first minute
 	_update_corner_buttons()                 # the saved switches: stats, map
+	frontier = Frontier.new()
+	frontier.setup(self, layer)
 	for e in creatures:
 		e.show_name(property.names_on)
 	if property.rune.x < 0 or property.runes.is_empty():
@@ -371,6 +375,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	scroll.add_child(grid)
 	grid.add_child(_menu_button("Resume", _resume))
 	grid.add_child(_menu_button("Story", _open_story))
+	grid.add_child(_menu_button("Adventures", _open_adventures))
 	grid.add_child(_menu_button("Skills", _open_skills))
 	grid.add_child(_menu_button("Craft", _open_craft))
 	grid.add_child(_menu_button("Bank & House", _open_property))
@@ -1801,6 +1806,8 @@ func on_kill(killer: Entity, victim: Entity) -> void:
 		killer = killer.pet_owner                # a pet's kill counts for its owner (quests too)
 	if killer != null and killer.kind == Entity.Kind.PLAYER and killer != victim:
 		killer.reputation_for_kill(victim)
+	if frontier != null:
+		frontier.on_kill(killer, victim)
 	if victim.kind == Entity.Kind.PLAYER:
 		victim.add_fame(-victim.fame / 10)       # dying costs a tenth of your fame
 	if killer != null and killer.is_hero:
@@ -2196,6 +2203,7 @@ func _open_help() -> void:
 	settings_box.add_child(title)
 	for line in [
 		"Tap anywhere on the minimap and your hero walks there, right across the map if need be (a gold flag marks it; tap the ground to stop).",
+		"Main Menu > Adventures: side quests, bounties, the tavern, cooking, brews and blade poisons, furnishing your house, the arena, the guild towers and the dungeon's depths. When you stand by something you can use (a villager, a bounty board, a landing, the stairs down, a tower, the tavern, the arena, your house, a campfire), an action button appears at the bottom of the screen.",
 		"Tap the ground to walk there. Tap a monster to attack it, a corpse to loot it, a rock to mine it, a tree to chop it. Tap a player to pick them: Attack and Info buttons appear at the bottom.",
 		"The Menu button (top right) opens every button: Auto, Main Menu, Bag, Spells, Retreat, Ride, Mute, and switches to show names, stats and the map, Bow / Melee (draw your bow, the shield goes in the bag; switch back for sword and shield), and First person / Top view (in first person you see through the hero's eyes; twist two fingers to look around). Auto lets your hero play by itself: fight, heal, loot, gather, craft at the forge, sell to Bran and bank with Oswin. Tapping takes over for a few seconds.",
 		"Names (Menu > Show names): blue innocent, grey criminal, red murderer or monster. The tan towns are safe: nobody can be hurt inside a town, and nobody can attack out of one.",
@@ -3854,6 +3862,11 @@ func _open_menu() -> void:
 	_autosave()
 
 
+func _open_adventures() -> void:
+	if frontier != null:
+		frontier.open_hub()
+
+
 func _resume() -> void:
 	paused = false
 	menu.visible = false
@@ -4693,6 +4706,8 @@ func _toggle_map() -> void:
 func _process(delta: float) -> void:
 	if paused:
 		_update_hud()
+		if frontier != null:
+			frontier.act_button.visible = false   # no action button over a menu or panel
 		return
 	if autotest:
 		_autotest_tick(delta)
@@ -4716,6 +4731,7 @@ func _process(delta: float) -> void:
 		if e.shop != null:
 			e.shop.tick(delta)
 	_flush_spawns()
+	frontier.tick(delta)
 	_vendor_tick(delta)
 	_gates_tick(delta)
 	day_time = fmod(day_time + delta / DAY_SECONDS * (4.0 if Experiments.on("fast_time") else 1.0), 1.0)
@@ -4778,7 +4794,7 @@ func _update_hud() -> void:
 		floori(hero.reagents), hero.bandages, hero.gold,
 		s.strength, s.dexterity, s.intelligence, s.stat_total(), Rules.STAT_CAP,
 		s.skill_total(), Rules.SKILL_CAP_TOTAL, tile.x, tile.y, hero.gear_text() + _pets_text(), bag_text,
-		_quest_text() + _boss_text()]
+		_quest_text() + _boss_text() + (frontier.hud_text() if frontier != null else "")]
 
 
 ## factor > 1 zooms in.
