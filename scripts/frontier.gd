@@ -411,7 +411,10 @@ func _mesh(parts: Array, at: Vector3, parent: Node3D = null) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = Art.merge(parts)
 	mi.material_override = Art.vc_mat()
-	(parent if parent != null else self).add_child(mi)
+	if parent != null:
+		parent.add_child(mi)
+	else:
+		add_child(mi)
 	mi.position = at
 	return mi
 
@@ -888,6 +891,18 @@ func _spawn_elite(b: Dictionary) -> void:
 	rng.randomize()
 	var t := world.open_tile_in(Rect2i(int(rr[0]), int(rr[1]), int(rr[2]), int(rr[3])), rng)
 	bounty_target = game.pool_spawn(String(b["target"]), cfg, Color(0.9, 0.3, 0.2), world.tile_center(t))
+
+
+## A notice board on two posts in each town, pinned with papers.
+func _build_boards() -> void:
+	var wood := Color(0.4, 0.27, 0.14)
+	for t in BOARDS:
+		_mesh([[Art.box(0.08, 1.6, 0.08), Art.at(-0.5, 0.8, 0), wood], [Art.box(0.08, 1.6, 0.08), Art.at(0.5, 0.8, 0), wood],
+			[Art.box(1.15, 0.75, 0.06), Art.at(0, 1.15, 0), wood.lightened(0.15)],
+			[Art.box(0.25, 0.3, 0.02), Art.at(-0.3, 1.2, 0.04), Color(0.92, 0.88, 0.75)],
+			[Art.box(0.22, 0.28, 0.02), Art.at(0.05, 1.1, 0.04), Color(0.95, 0.9, 0.8)],
+			[Art.box(0.25, 0.22, 0.02), Art.at(0.35, 1.25, 0.04), Color(0.9, 0.85, 0.7)],
+			[Art.box(1.25, 0.08, 0.15), Art.at(0, 1.56, 0), wood.darkened(0.2)]], world.tile_center(t) + Vector3(0, 0, -0.35))
 
 
 func _at_board() -> bool:
