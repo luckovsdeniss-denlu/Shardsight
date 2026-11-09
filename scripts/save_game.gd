@@ -3,16 +3,21 @@ class_name SaveGame
 ## other characters are not saved; they start fresh each launch.
 
 const PATH := "user://shardsight_save.json"
+static var slot := ""                     # "" for the ordinary game, "_experimental" for experimental mode
+
+
+static func path() -> String:
+	return "user://shardsight_save%s.json" % slot
 const FORMAT := 1
 
 
 static func exists() -> bool:
-	return FileAccess.file_exists(PATH)
+	return FileAccess.file_exists(path())
 
 
 static func erase() -> void:
 	if exists():
-		DirAccess.remove_absolute(PATH)
+		DirAccess.remove_absolute(path())
 
 
 static func _pets_of(hero: Entity) -> Array:
@@ -62,7 +67,7 @@ static func save(hero: Entity, property: Property) -> bool:
 		"amulet": hero.amulet_id,
 		"tile": [tile.x, tile.y],
 	}
-	var f := FileAccess.open(PATH, FileAccess.WRITE)
+	var f := FileAccess.open(path(), FileAccess.WRITE)
 	if f == null:
 		return false
 	f.store_string(JSON.stringify(data, "\t"))
@@ -73,7 +78,7 @@ static func save(hero: Entity, property: Property) -> bool:
 static func load_into(hero: Entity, property: Property) -> bool:
 	if not exists():
 		return false
-	var f := FileAccess.open(PATH, FileAccess.READ)
+	var f := FileAccess.open(path(), FileAccess.READ)
 	if f == null:
 		return false
 	var parsed: Variant = JSON.parse_string(f.get_as_text())

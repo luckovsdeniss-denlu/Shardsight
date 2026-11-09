@@ -48,6 +48,8 @@ var shop_panel: Control
 var shop_box: VBoxContainer
 var shop_open: Entity                    # the merchant whose shop is showing
 var shop_tab := "buy"                    # "buy" or "sell"
+var exp_panel: Control
+var exp_box: VBoxContainer
 var stats_panel: Control
 var stats_box: VBoxContainer
 var spell_details := true              # the Spells panel shows each spell's numbers
@@ -132,7 +134,17 @@ var _tips_left: Array = []
 var _tip_timer := 8.0
 
 
+## The mode this run was started in: "" (first start: the title offers the choice), "classic" or
+## "experimental". Kept across restarts of the scene (a mode switch reloads it).
+static var start_mode := ""
+
+
 func _ready() -> void:
+	# experimental mode: its own save, and the experiments' switches
+	Experiments.active = start_mode == "experimental" and not autotest
+	SaveGame.slot = "_experimental" if Experiments.active else ""
+	if Experiments.active:
+		Experiments.load_cfg()
 	world.build(self)
 	call_deferred("_apply_graphics")         # once the sun and the rain exist
 	_build_environment()
@@ -270,6 +282,8 @@ func _ready() -> void:
 	priest_box = priest_panel.get_meta("box")
 	stats_panel = _make_overlay(layer)
 	stats_box = stats_panel.get_meta("box")
+	exp_panel = _make_overlay(layer)
+	exp_box = exp_panel.get_meta("box")
 	shop_panel = _make_overlay(layer)
 	shop_box = shop_panel.get_meta("box")
 	thief_panel = _make_overlay(layer)
@@ -345,22 +359,36 @@ func _build_menu(layer: CanvasLayer) -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 34)
 	box.add_child(title)
-	box.add_child(_menu_button("Resume", _resume))
-	box.add_child(_menu_button("Skills", _open_skills))
-	box.add_child(_menu_button("Craft", _open_craft))
-	box.add_child(_menu_button("Bank & House", _open_property))
-	box.add_child(_menu_button("Travel & Spellbook", _open_travel))
-	box.add_child(_menu_button("Players", _open_players.bind(null)))
-	box.add_child(_menu_button("Guild & Fame", _open_guild))
-	box.add_child(_menu_button("Thievery", _open_thief))
-	box.add_child(_menu_button("Animals", _open_animals))
-	box.add_child(_menu_button("Bard", _open_bard))
-	box.add_child(_menu_button("Prices", _open_prices))
-	box.add_child(_menu_button("Settings", _open_settings))
-	box.add_child(_menu_button("Help", _open_help))
-	box.add_child(_menu_button("Save now", _save_now))
+	# the buttons in two columns that scroll, so they all fit the screen
+	var scroll := TouchScroll.new()
+	scroll.custom_minimum_size = Vector2(640, 520)
+	box.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 10)
+	scroll.add_child(grid)
+	grid.add_child(_menu_button("Resume", _resume))
+	grid.add_child(_menu_button("Skills", _open_skills))
+	grid.add_child(_menu_button("Craft", _open_craft))
+	grid.add_child(_menu_button("Bank & House", _open_property))
+	grid.add_child(_menu_button("Travel & Spellbook", _open_travel))
+	grid.add_child(_menu_button("Players", _open_players.bind(null)))
+	grid.add_child(_menu_button("Guild & Fame", _open_guild))
+	grid.add_child(_menu_button("Thievery", _open_thief))
+	grid.add_child(_menu_button("Animals", _open_animals))
+	grid.add_child(_menu_button("Bard", _open_bard))
+	grid.add_child(_menu_button("Prices", _open_prices))
+	grid.add_child(_menu_button("Settings", _open_settings))
+	grid.add_child(_menu_button("Help", _open_help))
+	grid.add_child(_menu_button("Save now", _save_now))
 	reset_button = _menu_button("Reset progress", _reset_progress)
-	box.add_child(reset_button)
+	grid.add_child(reset_button)
+	if Experiments.active:
+		grid.add_child(_menu_button("Experiments", _open_experiments))
+		grid.add_child(_menu_button("Ordinary game", _switch_mode.bind("classic")))
+	else:
+		grid.add_child(_menu_button("Experimental mode", _switch_mode.bind("experimental")))
 
 
 func _build_skills_panel(layer: CanvasLayer) -> void:
@@ -3500,6 +3528,49 @@ func _resume() -> void:
 	menu.visible = false
 
 
+## Restarts in the other mode (the ordinary game and experimental mode keep separate saves).
+func _switch_mode(mode: String) -> void:
+	if not skip_save and hero != null and start_mode != "":
+		SaveGame.save(hero, property)          # keep this game's progress
+	start_mode = mode
+	get_tree().reload_current_scene()
+
+
+func _open_experiments() -> void:
+	paused = true
+	menu.visible = false
+	exp_panel.visible = true
+	_refresh_experiments()
+
+
+func _close_experiments() -> void:
+	exp_panel.visible = false
+	_resume()
+
+
+func _refresh_experiments() -> void:
+	for c in exp_box.get_children():
+		exp_box.remove_child(c)
+		c.queue_free()
+	var t := _info("Experiments")
+	t.add_theme_font_size_override("font_size", 30)
+	t.add_theme_color_override("font_color", Color(1.0, 0.6, 0.25))
+	exp_box.add_child(t)
+	exp_box.add_child(_info("New ideas tried out here first, in a game with its own save. Switch them on and off; the ordinary game is never touched."))
+	for e: Dictionary in Experiments.LIST:
+		var id := String(e["id"])
+		var is_on := bool(Experiments.enabled.get(id, false))
+		exp_box.add_child(_action("%s: %s" % [e["name"], "On" if is_on else "Off"], _toggle_experiment.bind(id), true))
+		exp_box.add_child(_small(String(e["desc"])))
+	exp_box.add_child(_menu_button("Back", _close_experiments))
+
+
+func _toggle_experiment(id: String) -> void:
+	Experiments.enabled[id] = not bool(Experiments.enabled.get(id, false))
+	Experiments.save_cfg()
+	_refresh_experiments()
+
+
 func _save_now() -> void:
 	if SaveGame.save(hero, property):
 		log_event("Progress saved.")
@@ -3663,6 +3734,8 @@ func _even_out_monsters(rng: RandomNumberGenerator) -> void:
 				if world.zone_rect(i).has_point(world.to_tile(e.home)):
 					counts[i] += 1
 	var goal: int = counts.max()
+	if Experiments.on("crowded"):
+		goal = ceili(goal * 1.5)
 	var red := Color("c0392b")
 	# What each region gets: north-west (by the start) to south-east (the graveyard).
 	var picks := [
@@ -4311,7 +4384,7 @@ func _process(delta: float) -> void:
 	_flush_spawns()
 	_vendor_tick(delta)
 	_gates_tick(delta)
-	day_time = fmod(day_time + delta / DAY_SECONDS, 1.0)
+	day_time = fmod(day_time + delta / DAY_SECONDS * (4.0 if Experiments.on("fast_time") else 1.0), 1.0)
 	_apply_daylight()
 	_quest_tick()
 	if property.has_house() and _someone_minds_house():
@@ -4466,7 +4539,7 @@ func _show_title(layer: CanvasLayer) -> void:
 	var lines := [["SHARDSIGHT", 96, Color(0.85, 0.71, 0.29)],
 		["a world of swords, spells and skill", 30, Color(0.72, 0.8, 0.92)],
 		["v" + String(ProjectSettings.get_setting("application/config/version", "")), 22, Color(0.5, 0.55, 0.62)],
-		["tap to begin", 24, Color(0.85, 0.85, 0.85)]]
+		["tap to begin" if start_mode != "" else "tap to begin, or choose a mode", 24, Color(0.85, 0.85, 0.85)]]
 	for l in lines:
 		var lab := Label.new()
 		lab.text = String(l[0])
@@ -4477,10 +4550,32 @@ func _show_title(layer: CanvasLayer) -> void:
 		lab.add_theme_constant_override("outline_size", 10)
 		lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(lab)
+	if Experiments.active:
+		var ex := Label.new()
+		ex.text = "EXPERIMENTAL MODE"
+		ex.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		ex.add_theme_font_size_override("font_size", 26)
+		ex.add_theme_color_override("font_color", Color(1.0, 0.55, 0.2))
+		ex.add_theme_color_override("font_outline_color", Color.BLACK)
+		ex.add_theme_constant_override("outline_size", 10)
+		ex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(ex)
+	if start_mode == "":                           # first start: choose the ordinary or experimental game
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 24)
+		var play := _menu_button("Play", func() -> void: _title_close.call())
+		var exp_b := _menu_button("Experimental mode", _switch_mode.bind("experimental"))
+		exp_b.custom_minimum_size = Vector2(320, 80)
+		row.add_child(play)
+		row.add_child(exp_b)
+		box.add_child(row)
 	var close := func() -> void:
 		if not is_instance_valid(card) or card.get_meta("closing", false):
 			return
 		card.set_meta("closing", true)
+		if start_mode == "":
+			start_mode = "classic"                 # playing the ordinary game
 		_skip_flyby()                              # a tap glides the camera down to the hero
 		var tw := card.create_tween()
 		tw.tween_property(card, "modulate:a", 0.0, 0.6)

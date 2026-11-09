@@ -145,7 +145,7 @@ func try_gain(skill: int) -> bool:
 		return false
 	# Every use teaches: +1 each time (1% of the 100 maximum, no dice), up to 100 and the
 	# skill cap (every skill at 100); at the cap the gain is paid for by a skill marked "down".
-	var gain := minf(SKILL_GAIN, Rules.SKILL_MAX - v)
+	var gain := minf(SKILL_GAIN * (2.0 if Experiments.on("quick_learning") else 1.0), Rules.SKILL_MAX - v)
 	var room := float(Rules.SKILL_CAP_TOTAL) - skill_total()
 	if room < gain - 0.001:
 		gain = maxf(room, 0.0) + _take_from_down_skill(skill, gain - maxf(room, 0.0))

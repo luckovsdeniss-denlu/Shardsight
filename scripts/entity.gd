@@ -1048,6 +1048,8 @@ func _armor_rating() -> float:
 
 func take_damage(amount: float, from: Entity) -> void:
 	amount *= form_value("taken", 1.0)          # a wraith shrugs blows off; a lich is brittle
+	if Experiments.on("glass_cannon"):
+		amount *= 2.0
 	var snd := _hit_sound if _hit_sound != "" else "hit"   # what hit us (spells: the plain hit)
 	_hit_sound = ""
 	if dead or kind == Kind.NPC:

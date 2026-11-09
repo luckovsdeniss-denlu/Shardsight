@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.57.0
+Experimental mode.
+- The start screen offers a choice: Play (the ordinary game) or Experimental mode, a separate
+  game with its own save where new ideas are tried out first. In experimental mode the title
+  says so, and Main Menu > Experiments switches each experiment on and off (the choices are
+  kept); Main Menu > Ordinary game goes back (and Experimental mode goes the other way), saving
+  first. The ordinary game is never touched by experiments.
+- The first experiments: Fast days (day and night four times as fast), Crowded wilds (half as many
+  monsters again, from the next start), Quick learning (skills rise twice as fast) and Glass cannon
+  (everyone deals and takes double damage).
+- The main menu is laid out in two columns that scroll, so every button fits on the screen.
+
 ## 0.56.0
 A deeper fight.
 - Twelve new hand weapons, each with its own model: Scimitar, Katana and Viking Sword; Axe,
