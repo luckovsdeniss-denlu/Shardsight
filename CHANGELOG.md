@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.59.1
+- Builds: the APK is kept for 3 days (so old builds no longer fill GitHub's artifact storage),
+  and a full storage no longer stops the build before the smoke test checks the game.
+
 ## 0.59.0
 The wider world: twelve new things to do, all in the main game (Main Menu > Adventures; an
 action button appears at the bottom of the screen when you stand by something you can use).

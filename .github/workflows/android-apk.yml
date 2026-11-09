@@ -78,10 +78,14 @@ jobs:
           godot --headless --import || true
           godot --headless --verbose --export-debug "Android" "build/$APK_NAME.apk"
 
+      # Kept 3 days (so old builds don't fill the artifact storage); if the storage is full anyway,
+      # the build carries on to the smoke test instead of stopping here.
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: ${{ env.APK_NAME }}
           path: build/${{ env.APK_NAME }}.apk
+          retention-days: 3
 
       # A release build (no debug overhead), signed with the same fixed key. Only when the key
       # secrets are set (see SIGNING.md); without them every build would get a different key.
@@ -100,6 +104,7 @@ jobs:
         with:
           name: ${{ env.APK_NAME }}-release
           path: build/${{ env.APK_NAME }}-release.apk
+          retention-days: 3
 
       # Godot packages scripts even when they contain errors, so a green export alone proves
       # little. Run the game headless for a while and fail on any script error.
