@@ -1034,7 +1034,7 @@ void fragment() {
 	ROUGHNESS = 0.9;
 }
 """
-const TOWN_COLOURS := [Color(0.72, 0.16, 0.13), Color(0.18, 0.35, 0.72), Color(0.2, 0.55, 0.25)]
+const TOWN_COLOURS := [Color(0.72, 0.16, 0.13), Color(0.18, 0.35, 0.72), Color(0.2, 0.55, 0.25), Color(0.85, 0.6, 0.15)]
 var _birds: Array[Node3D] = []
 var _bird_wings: Array = []                 # [left pivot, right pivot] per bird
 var _flock_centre := Vector3.ZERO
@@ -4070,6 +4070,12 @@ func _spawn_all() -> void:
 	var hollis := _spawn(Entity.Kind.NPC, "Hollis", Bestiary.MERCHANT, cream, Vector2i(53, 31))
 	hollis.shop = Shop.new("Southmoor", 1.15, 1.1)
 	_spawn(Entity.Kind.NPC, "Pell", Bestiary.BANKER, cream, Vector2i(46, 37))
+	# Dawnport, the town of the eastern lands: far from anywhere, so goods are dear.
+	_spawn(Entity.Kind.NPC, "Sister Ilse", Bestiary.HEALER, cream, Vector2i(106, 10))
+	_spawn(Entity.Kind.NPC, "Father Edric", Bestiary.PRIEST, Color("e8dcc0"), Vector2i(112, 10))
+	var quill := _spawn(Entity.Kind.NPC, "Quill", Bestiary.MERCHANT, cream, Vector2i(107, 14))
+	quill.shop = Shop.new("Dawnport", 1.35, 1.3)
+	_spawn(Entity.Kind.NPC, "Marta", Bestiary.BANKER, cream, Vector2i(111, 14))
 
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(12, 8))
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(6, 11))
@@ -4156,9 +4162,10 @@ func _even_out_monsters(rng: RandomNumberGenerator) -> void:
 	var red := Color("c0392b")
 	# What each region gets: north-west (by the start) to south-east (the graveyard).
 	var picks := [
-		["Rat", Bestiary.RAT, red], ["Orc", Bestiary.ORC, red], ["Wolf", Bestiary.WOLF, red],
-		["Orc", Bestiary.ORC, red], ["Wolf", Bestiary.WOLF, red], ["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")],
-		["Orc", Bestiary.ORC, red], ["Skeleton", Bestiary.SKELETON, Color("d8d2c0")],
+		["Rat", Bestiary.RAT, red], ["Rat", Bestiary.RAT, red], ["Wolf", Bestiary.WOLF, red],
+		["Orc", Bestiary.ORC, red], ["Wolf", Bestiary.WOLF, red], ["Orc", Bestiary.ORC, red],
+		["Wolf", Bestiary.WOLF, red], ["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")], ["Orc", Bestiary.ORC, red],
+		["Skeleton", Bestiary.SKELETON, Color("d8d2c0")], ["Wolf", Bestiary.WOLF, red], ["Orc", Bestiary.ORC, red],
 	]
 	for i in range(world.zone_count()):
 		for _k in range(goal - counts[i]):

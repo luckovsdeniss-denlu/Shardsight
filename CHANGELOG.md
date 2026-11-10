@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.63.0
+A bigger map: the eastern lands.
+- The land is half as wide again (144 by 66 tiles, from 96 by 66): the old eastern wall is gone
+  and open country runs on beyond the orc fort and the graveyard.
+- Dawnport, a fourth town, with a healer, a priest, a merchant (remote, so dear), a banker, a
+  bounty board and a road from the east.
+- The Ashlands in the far north-east: grey ash veined with embers, charred trees, ash hounds,
+  fire-throwing cinder imps and the Ember Lord. Smith Orla of Dawnport has a task about him.
+- Mirrormere, a fourth lake, with two landings; two more ankh shrines; wolves, bears, orcs, deer
+  and wild horses on the eastern plains.
+- The land is split into twelve regions (from eight) for spreading players and monsters; the
+  minimap is a little larger to fit it.
+
 ## 0.62.0
 A big one: thirteen additions.
 - Sounds for the wider world: oars on the water, beasts' roars, hisses and rattles as they turn

@@ -7,7 +7,7 @@ extends Control
 ## and murderers red, criminals grey, other players blue, NPCs cream). Framed in gold with a
 ## north mark.
 
-const MAX_WIDTH := 240.0         # the bigger the map, the smaller each tile on the minimap
+const MAX_WIDTH := 320.0         # the bigger the map, the smaller each tile on the minimap
 const SUB := 3                   # painted pixels per tile
 var px := 4.0
 
@@ -35,7 +35,7 @@ var _terrain: ImageTexture       # the map itself, painted once (and again when 
 var _revision := -1
 
 
-const BIOME_MAP := {"snow": Color("e2e8ef"), "desert": Color("c9a96c"), "swamp": Color("3a4a2c")}
+const BIOME_MAP := {"snow": Color("e2e8ef"), "desert": Color("c9a96c"), "swamp": Color("3a4a2c"), "ash": Color("4a4340")}
 
 func setup(p_game, p_world: World) -> void:
 	game = p_game

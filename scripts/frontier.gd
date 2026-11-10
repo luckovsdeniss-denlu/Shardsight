@@ -17,7 +17,7 @@ const ARENA_RADIUS := 3.5
 const STAIRS := Vector2i(47, 21)            # the stairs down, in the dungeon's deepest hall
 const DUNGEON_DOOR := Vector2i(38, 16)      # where you arrive on a new level
 const DEPTH_BOSS_AT := Vector2i(39, 13)
-const BOARDS := [Vector2i(28, 11), Vector2i(40, 6), Vector2i(45, 34)]   # a bounty board in each town
+const BOARDS := [Vector2i(28, 11), Vector2i(40, 6), Vector2i(45, 34), Vector2i(109, 15)]   # a bounty board in each town
 const DOCKS := [
 	{"name": "Westmere Landing", "tile": Vector2i(5, 15), "to": 1},
 	{"name": "Eastmere Landing", "tile": Vector2i(13, 15), "to": 0},
@@ -27,6 +27,8 @@ const DOCKS := [
 	{"name": "Reedbank Jetty", "tile": Vector2i(41, 39), "to": 4},
 	{"name": "Southmoor Harbour", "tile": Vector2i(48, 46), "to": 7},      # the sea voyage
 	{"name": "Isle Landing", "tile": Vector2i(48, 56), "to": 6},
+	{"name": "Mirrormere West", "tile": Vector2i(110, 34), "to": 9},       # the lake of the eastern lands
+	{"name": "Mirrormere East", "tile": Vector2i(126, 34), "to": 8},
 ]
 const LAKE_DOCKS := 6                       # the first six are on the lakes
 const ISLE_SHRINE := Vector2i(47, 58)
@@ -58,6 +60,7 @@ const VILLAGERS := [
 	{"name": "Wren the Herbwife", "work": Vector2i(28, 34), "color": Color("6aa86a")},
 	{"name": "Zahir the Nomad", "work": Vector2i(72, 38), "color": Color("d8b878")},
 	{"name": "Old Garret the Miner", "work": Vector2i(13, 42), "color": Color("8a8a7a")},
+	{"name": "Smith Orla", "work": Vector2i(113, 13), "color": Color("b8643a")},
 ]
 
 # --- side quests: dialogue with choices -----------------------------------------------------
@@ -183,6 +186,23 @@ const SIDE_QUESTS := {
 		"done_text": "Tam drains the mug, tunes his lute, and sings of your deeds. People stop in the street to listen.",
 		"turn_in": [
 			{"text": "Hand him the ale.", "take": {"ale": 1}, "say": "The song stays with you: you feel quicker for it."},
+		],
+	},
+	"orla_ember": {
+		"giver": "Smith Orla", "title": "The Ember Lord",
+		"intro": "\"See that glow to the east at night? The Ashlands. Something walks there made of fire - the Ember Lord - and its hounds come closer every week. Dawnport is timber and thatch. Put it out, and I'll pay you in the best stones I own.\"",
+		"choices": [
+			{"text": "\"I'll quench it.\"", "go": "accept", "say": "\"It keeps to the heart of the ash. Steel alone won't be enough; bring potions.\""},
+			{"text": "\"How strong is it?\"", "go": "stay", "say": "\"Stronger than an ogre and twice as angry. Its imps throw fire.\""},
+			{"text": "\"Not yet.\"", "go": "decline", "say": "\"Then pray for rain.\""},
+		],
+		"goal": {"kind": "kill", "target": "The Ember Lord", "count": 1},
+		"gold": 500, "fame": 200, "karma": 100, "items": {"ruby": 2, "diamond": 1},
+		"remind": "\"The east still glows at night.\"",
+		"done_text": "\"The glow's gone! You've saved the town.\"",
+		"turn_in": [
+			{"text": "Take the reward.", "say": "Orla tips two rubies and a diamond into your palm."},
+			{"text": "\"Keep the stones. Rebuild with them.\"", "mult": 0.0, "karma": 250, "fame": 150, "say": "Orla stares, then laughs. \"They'll name a street for you.\""},
 		],
 	},
 	"rosa_rats": {
@@ -457,6 +477,21 @@ func _spawn_wildlife() -> void:
 		["Scorpion Queen", r.call(Bestiary.CAVE_CHIEF, "scorpion", 1.6, {"poison": [3, 0.25]}), Color("d0a030"), [Vector2i(64, 41)]],
 		["Goblin", Bestiary.GOBLIN, Color("6a8a3a"), [Vector2i(5, 41), Vector2i(8, 43), Vector2i(9, 41)]],
 		["Goblin Chief", r.call(Bestiary.CAVE_CHIEF, "goblin", 1.5, {}), Color("8aa83a"), [Vector2i(6, 42)]],
+		# the eastern lands and the Ashlands
+		["Ash Hound", r.call(Bestiary.FROST_WOLF, "wolf", 1.0, {"str": 50, "danger": 4,
+			"loot": {"gold_min": 15, "gold_max": 30, "drops": [["raw_meat", 0.5], ["ruby", 0.03]]}}), Color("6a3a2a"),
+			[Vector2i(127, 10), Vector2i(132, 12), Vector2i(136, 13), Vector2i(134, 8)]],
+		["Cinder Imp", r.call(Bestiary.EVIL_MAGE, "daemon", 0.65, {"danger": 5, "int": 55,
+			"loot": {"gold_min": 30, "gold_max": 60, "reagents": 6, "drops": [["cave_crystal", 0.15], ["ruby", 0.06]]}}), Color("c8502a"),
+			[Vector2i(130, 4), Vector2i(139, 8)]],
+		["The Ember Lord", r.call(Bestiary.CAVE_CHIEF, "fire_elemental", 1.7, {"str": 160, "danger": 9, "armor": 4.5,
+			"loot": {"gold_min": 500, "gold_max": 900, "reagents": 20, "drops": [["ruby", 1.0], ["ruby", 0.6], ["diamond", 0.4], ["cave_crystal", 1.0]]}}),
+			Color("ff7a2a"), [Vector2i(137, 4)]],
+		["Wolf", Bestiary.WOLF, Color("c0392b"), [Vector2i(100, 20), Vector2i(120, 22)]],
+		["Brown Bear", Bestiary.BROWN_BEAR, Color("6b4a2a"), [Vector2i(135, 25), Vector2i(130, 40)]],
+		["Orc", Bestiary.ORC, Color("c0392b"), [Vector2i(140, 30), Vector2i(125, 44), Vector2i(98, 4)]],
+		["Hind", Bestiary.HIND, Color("b08a5a"), [Vector2i(102, 30), Vector2i(105, 40)]],
+		["Horse", Bestiary.HORSE, Color("7a5232"), [Vector2i(118, 26), Vector2i(100, 36)]],
 		# the Isle of Tides
 		["Giant Crab", r.call(Bestiary.SAND_SCORPION, "scorpion", 1.25, {"poison": [], "armor": 3.5, "str": 55,
 			"loot": {"gold_min": 20, "gold_max": 45, "drops": [["pearl", 0.2], ["raw_meat", 0.6]]}}), Color("c05a3a"),
@@ -471,8 +506,12 @@ func _spawn_wildlife() -> void:
 	for row in list:
 		for t in row[3]:
 			game._spawn(Entity.Kind.MONSTER, String(row[0]), row[1], row[2], t if world.on_island(t) else _spot(t))
-	# an ankh on the isle, so the dead there need not wait for a ship
-	var sp := world.tile_center(ISLE_SHRINE)
+	# ankhs on the isle (the dead there need not wait for a ship) and in the eastern lands
+	for st in [ISLE_SHRINE, Vector2i(120, 20), Vector2i(128, 38)]:
+		_add_ankh(world.tile_center(_spot(st) if not world.on_island(st) else st))
+
+
+func _add_ankh(sp: Vector3) -> void:
 	game.shrines.append(sp)
 	var ankh := _mesh([[Art.box(0.12, 0.9, 0.12), Art.at(0, 0.55, 0), Color(0.8, 0.9, 1.0)], [Art.box(0.5, 0.12, 0.12), Art.at(0, 0.75, 0), Color(0.8, 0.9, 1.0)],
 		[Art.ring_mesh(0.1, 0.2), Art.at(0, 1.15, 0, Vector3(PI / 2.0, 0, 0)), Color(0.8, 0.9, 1.0)], [Art.box(0.6, 0.1, 0.6), Art.at(0, 0.05, 0), Color(0.5, 0.52, 0.56)]], sp)
