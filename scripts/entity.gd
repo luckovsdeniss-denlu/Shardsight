@@ -152,6 +152,7 @@ var bleed_from: Entity
 var _bleed_acc := 0.0
 var blade_poison := 0           # a weapon coated with poison (Alchemy): its level, and blows left
 var blade_poison_hits := 0
+var tick_debt := 0.0            # time not yet lived (off screen, creatures tick every third frame)
 var _dying := 0.0               # the fall when slain (seconds left)         # the hero in first person: its own model, bar and label hidden
 var _hit_sound := ""            # set by whoever strikes us, so the blow sounds like what hit what
 var cast_bar: MeshInstance3D    # the hero's casting progress, under the health bar

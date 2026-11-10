@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.59.5
+Aiming at 60 frames a second.
+- The world off screen costs a third of what it did: creatures you can't see live every third
+  frame (a third of them at a time, catching up on the time they missed). The hero, everyone on
+  screen and whoever is after the hero still live every frame.
+- The frame-rate keeper now holds 60 rather than 28: under 54 it lowers the 3D resolution (to
+  half at most, faster when far below); if that isn't enough it turns off the sun's shadows, then
+  the grass, flowers and fine ground. Those stay off until you change Settings > Graphics, so
+  nothing flickers. After ten smooth seconds the resolution climbs back a step, and it learns
+  where to stop. The first seconds after starting aren't counted.
+- Never more than 60 frames a second, even on a 120 Hz screen: steadier, cooler, kinder to the
+  battery.
+- A smaller shadow map on Low and Medium graphics.
+
 ## 0.59.4
 - The logs are in colour, each line with a mark in front, by what it's about: deaths red (†),
   danger orange (!), gold yellow ($), spoils and things you make pale gold (+), skills and levels

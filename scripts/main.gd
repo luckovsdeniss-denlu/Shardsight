@@ -147,6 +147,8 @@ func _ready() -> void:
 	SaveGame.slot = "_experimental" if Experiments.active else ""
 	if Experiments.active:
 		Experiments.load_cfg()
+	if not autotest and DisplayServer.get_name() != "headless":
+		Engine.max_fps = FPS_GOAL                # no faster than 60, even on a 120 Hz screen (cooler, steadier)
 	world.build(self)
 	call_deferred("_apply_graphics")         # once the sun and the rain exist
 	_build_environment()
@@ -930,9 +932,19 @@ var _fps_acc := 0.0
 var _fps_frames := 0
 
 
-## If the game runs slowly (under 28 frames a second), the 3D picture is drawn at a lower
-## resolution, a step at a time, down to 55%; once it runs smoothly again (over 50) it climbs
-## back to what the graphics setting asks for. The buttons and text stay sharp.
+## Aiming at 60 frames a second. Measured every two seconds: under 54, the 3D picture is drawn
+## at a lower resolution, a step at a time, down to half; if that isn't enough, the sun's shadows
+## go, then the grass, flowers and fine ground (these stay off until the graphics setting is
+## changed, so nothing flickers on and off). After ten smooth seconds the resolution climbs back a
+## step; if that brings the stutter back, it settles where it was. Buttons and text stay sharp.
+const FPS_GOAL := 60
+var _perf_tier := 0                   # 0 as set, 1 no shadows, 2 no decor or fine ground either
+var _fps_good := 0                    # smooth two-second spells in a row
+var _scale_cap := 1.0                 # the resolution it has learned not to go above
+var _fps_windows := 0
+var _raised_ago := 99                 # two-second spells since the resolution last went up
+
+
 func _adapt_resolution(delta: float) -> void:
 	_fps_acc += delta
 	_fps_frames += 1
@@ -941,14 +953,46 @@ func _adapt_resolution(delta: float) -> void:
 	var fps := _fps_frames / _fps_acc
 	_fps_acc = 0.0
 	_fps_frames = 0
+	_fps_windows += 1
+	if _fps_windows <= 4:
+		return                                 # the first seconds stutter while everything loads: don't judge by them
+	_raised_ago += 1
 	var want := _render_scale
-	if fps < 28.0:
-		want = maxf(_render_scale - 0.05, 0.55)
-	elif fps > 50.0:
-		want = minf(_render_scale + 0.05, _render_base)
+	if fps < FPS_GOAL * 0.9:
+		_fps_good = 0
+		if _raised_ago <= 2:
+			_scale_cap = maxf(_render_scale - 0.05, 0.5)   # going up again cost too much: stay below
+		if _render_scale > 0.5:
+			want = maxf(_render_scale - (0.1 if fps < FPS_GOAL * 0.6 else 0.05), 0.5)
+		elif _perf_tier < 2:
+			_perf_tier += 1
+			_apply_perf_tier()
+	elif fps > FPS_GOAL * 0.97:
+		_fps_good += 1
+		if _fps_good >= 5 and _render_scale < minf(_render_base, _scale_cap):
+			_fps_good = 0
+			_raised_ago = 0
+			want = minf(_render_scale + 0.05, minf(_render_base, _scale_cap))
+	else:
+		_fps_good = 0
 	if not is_equal_approx(want, _render_scale):
 		_render_scale = want
 		get_viewport().scaling_3d_scale = _render_scale
+
+
+## What is given up when a lower resolution alone can't hold the frame rate.
+func _apply_perf_tier() -> void:
+	if _perf_tier >= 1:
+		sun.shadow_enabled = false
+	if _perf_tier >= 2:
+		world.set_ground_detail(false)
+		for n in world.decor:
+			if n != null:
+				(n as Node3D).visible = false
+		env.glow_enabled = false
+		get_viewport().msaa_3d = Viewport.MSAA_DISABLED
+		if rain != null:
+			rain.amount = 250
 
 
 # --- the world in motion: banners, birds, butterflies, leaves, the ankhs ---------------------
@@ -4766,8 +4810,19 @@ func _process(delta: float) -> void:
 	if save_timer >= 20.0:
 		save_timer = 0.0
 		_autosave()
-	for e in creatures:
-		e.tick(delta)
+	# Everyone on screen (and the hero, and whoever is after the hero) lives every frame; the rest
+	# of the world every third frame, a third of them at a time, with the time they missed.
+	_tick_n += 1
+	for i in range(creatures.size()):
+		var e := creatures[i]
+		if e._near or e.is_hero or e.parked or e.target == hero:
+			e.tick(delta + e.tick_debt)
+			e.tick_debt = 0.0
+		else:
+			e.tick_debt += delta
+			if (i + _tick_n) % 3 == 0:
+				e.tick(e.tick_debt)
+				e.tick_debt = 0.0
 		if e.shop != null:
 			e.shop.tick(delta)
 	_flush_spawns()
@@ -4814,6 +4869,7 @@ func _process(delta: float) -> void:
 
 
 var _hud_timer := 0.0
+var _tick_n := 0
 
 
 func _update_hud() -> void:
@@ -5680,6 +5736,11 @@ func _apply_graphics() -> void:
 	world.set_ground_detail(g != "low")
 	_render_base = {"low": 0.7, "medium": 0.85, "high": 1.0}[g]
 	_render_scale = _render_base
+	_perf_tier = 0                                    # a fresh start for the frame-rate keeper
+	_scale_cap = 1.0
+	_fps_good = 0
+	# a smaller shadow map is plenty for shadows that reach 30 m (45 m on High)
+	RenderingServer.directional_shadow_atlas_set_size(2048 if g == "high" else 1024, true)
 	for n in world.decor:
 		if n != null:
 			(n as Node3D).visible = g != "low"
