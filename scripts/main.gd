@@ -5100,7 +5100,7 @@ void fragment() {
 """
 var _fov_rest := 50.0
 var _bank := 0.0                       # the camera leans into the turns
-var _heading := 0.0
+var _fx_heading := 0.0
 var _fx_seg := -1
 var _fx_bars: Array[ColorRect] = []
 var _fx_caption: Label
@@ -5185,8 +5185,8 @@ func _flyby_fx_step(delta: float, pos: Vector3, look: Vector3) -> void:
 	var dir := Vector2(look.x - pos.x, look.z - pos.z)
 	if dir.length() > 0.01 and delta > 0.0:
 		var hd := atan2(dir.x, dir.y)
-		var turn := wrapf(hd - _heading, -PI, PI) / delta
-		_heading = hd
+		var turn := wrapf(hd - _fx_heading, -PI, PI) / delta
+		_fx_heading = hd
 		_bank = lerpf(_bank, clampf(turn * 0.12, -0.14, 0.14), minf(1.0, 2.0 * delta))
 	_bank *= 1.0 - smoothstep(0.8, 1.0, k)          # level again as it comes down
 	cam.rotate_object_local(Vector3(0, 0, 1), _bank)

@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.60.1
+- Fix: the game wouldn't start in 0.59.7 and 0.60.0 (a name used twice in the fly-by's camera
+  code).
+
 ## 0.60.0
 Auto plays the whole game.
 - On Auto your hero no longer only fights, loots, gathers and crafts: every minute or so, when
