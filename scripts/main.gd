@@ -4988,7 +4988,8 @@ func _show_title(layer: CanvasLayer) -> void:
 	var lines := [["SHARDSIGHT", 96, Color(0.85, 0.71, 0.29)],
 		["a world of swords, spells and skill", 30, Color(0.72, 0.8, 0.92)],
 		["v" + String(ProjectSettings.get_setting("application/config/version", "")), 22, Color(0.5, 0.55, 0.62)],
-		["tap to begin" if start_mode != "" else "tap to begin, or choose a mode", 24, Color(0.85, 0.85, 0.85)]]
+		["tap to skip", 24, Color(0.85, 0.85, 0.85)]]
+	var hint: Label = null
 	for l in lines:
 		var lab := Label.new()
 		lab.text = String(l[0])
@@ -4999,6 +5000,7 @@ func _show_title(layer: CanvasLayer) -> void:
 		lab.add_theme_constant_override("outline_size", 10)
 		lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(lab)
+		hint = lab                                 # the last line: "tap to skip"
 	if Experiments.active:
 		var ex := Label.new()
 		ex.text = "EXPERIMENTAL MODE"
@@ -5009,32 +5011,48 @@ func _show_title(layer: CanvasLayer) -> void:
 		ex.add_theme_constant_override("outline_size", 10)
 		ex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(ex)
-	if start_mode == "":                           # first start: choose the ordinary or experimental game
-		var row := HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 24)
-		var play := _menu_button("Play", func() -> void: _title_close.call())
-		var exp_b := _menu_button("Experimental mode", _switch_mode.bind("experimental"))
-		exp_b.custom_minimum_size = Vector2(320, 80)
-		row.add_child(play)
-		row.add_child(exp_b)
-		box.add_child(row)
+	# The mode buttons wait, hidden, until the fly-by has come down to the hero.
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 24)
+	row.visible = false
+	row.modulate.a = 0.0
+	box.add_child(row)
 	var close := func() -> void:
 		if not is_instance_valid(card) or card.get_meta("closing", false):
 			return
 		card.set_meta("closing", true)
-		if start_mode == "":
-			start_mode = "classic"                 # playing the ordinary game
-		_skip_flyby()                              # a tap glides the camera down to the hero
+		paused = false
 		var tw := card.create_tween()
 		tw.tween_property(card, "modulate:a", 0.0, 0.6)
 		tw.tween_callback(card.queue_free)
+	var play := _menu_button("Play", func() -> void:
+		start_mode = "classic"                     # the ordinary game
+		close.call())
+	var exp_b := _menu_button("Experimental mode", _switch_mode.bind("experimental"))
+	exp_b.custom_minimum_size = Vector2(320, 80)
+	row.add_child(play)
+	row.add_child(exp_b)
+	# Once the camera is down: on a fresh start, the choice of mode (the game waits for it);
+	# after switching modes the choice is already made, so the title simply fades.
+	var flyby_done := func() -> void:
+		if not is_instance_valid(card) or card.get_meta("closing", false) or row.visible:
+			return
+		if start_mode != "":
+			close.call()
+			return
+		paused = true
+		if hint != null:
+			hint.text = "choose how to play"
+		row.visible = true
+		var tw := row.create_tween()
+		tw.tween_property(row, "modulate:a", 1.0, 0.5)
 	card.gui_input.connect(func(ev: InputEvent) -> void:
 		if (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed) or (ev is InputEventScreenTouch and (ev as InputEventScreenTouch).pressed):
-			close.call())
-	_title_close = close
+			_skip_flyby())                         # a tap glides the camera down to the hero
+	_title_close = flyby_done
 	_flyby_t = 0.0                                 # start the fly-by over the world
-	get_tree().create_timer(FLYBY_SEG * FLYBY.size() + 3.0).timeout.connect(close)   # just in case
+	get_tree().create_timer(FLYBY_SEG * FLYBY.size() + 3.0).timeout.connect(flyby_done)   # just in case
 
 
 # --- the opening fly-by ------------------------------------------------------------

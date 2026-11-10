@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.59.6
+- The start screen: the title shows over the opening fly-by (tap to skip it); once the camera
+  has come down to your hero, the mode buttons fade in - Play (the ordinary game) or
+  Experimental mode - and the game waits for your choice. After switching modes from the menu
+  the choice is already made, so the title simply fades once the fly-by is over.
+
 ## 0.59.5
 Aiming at 60 frames a second.
 - The world off screen costs a third of what it did: creatures you can't see live every third
