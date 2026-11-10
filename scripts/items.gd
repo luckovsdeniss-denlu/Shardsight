@@ -46,6 +46,17 @@ const LIST := {
 	"hearty_stew": {"name": "Hearty Stew", "value": 30, "food": true},
 	"frost_chowder": {"name": "Frostmarch Chowder", "value": 40, "food": true},
 	"ale": {"name": "Mug of Ale", "value": 4, "food": true},
+	# Gems: set one into a weapon, armour or shield at the forge.
+	"ruby": {"name": "Ruby", "value": 90},
+	"sapphire": {"name": "Sapphire", "value": 90},
+	"emerald": {"name": "Emerald", "value": 90},
+	"diamond": {"name": "Diamond", "value": 160},
+	# Farming: crops from the fields by your house.
+	"wheat": {"name": "Sheaf of Wheat", "value": 3},
+	"carrot": {"name": "Carrot", "value": 3},
+	"pumpkin": {"name": "Pumpkin", "value": 8},
+	"vegetable_stew": {"name": "Vegetable Stew", "value": 18, "food": true},
+	"pumpkin_pie": {"name": "Pumpkin Pie", "value": 28, "food": true},
 	# Alchemy: stronger brews and poisons for your blade.
 	"potion_strength": {"name": "Strength Potion", "value": 25, "potion": true},
 	"potion_agility": {"name": "Agility Potion", "value": 25, "potion": true},

@@ -185,6 +185,10 @@ static func creature(look: String, style: Dictionary, scale: float) -> Dictionar
 			_ostard(model)
 		"spider":
 			_spider(model)
+		"scorpion":
+			_scorpion(model)
+		"leech":
+			_leech(model)
 		"earth_elemental", "air_elemental", "fire_elemental", "water_elemental":
 			_elemental(model, look)
 		"vortex", "blades":
@@ -247,6 +251,24 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			hair = DARK
 			cloth = Color(0.3, 0.06, 0.05)
 			build = 1.25
+		"goblin":                                  # small, green, big-eared
+			skin = Color(0.45, 0.62, 0.22)
+			hair = DARK
+			cloth = Color(0.4, 0.3, 0.18)
+			pants = Color(0.3, 0.22, 0.12)
+			build = 0.85
+		"mummy":                                   # wrapped head to foot, reaching
+			skin = Color(0.8, 0.74, 0.58)
+			hair = skin
+			cloth = skin
+			pants = skin.darkened(0.08)
+			model["arm_rest"] = -1.4
+		"yeti":                                    # a great white ape of the snows
+			skin = Color(0.92, 0.94, 0.97)
+			hair = skin
+			cloth = skin
+			pants = skin.darkened(0.06)
+			build = 1.45
 	var torso_col := cloth
 	var ab := Gear.base(armor)                  # armor kind
 	var ex := armor.contains("@ex")             # exceptional: gold trim
@@ -300,6 +322,22 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 				p.append([box(0.5 * w, 0.04, 0.3 * w), at(0, 0.88 + 0.12 * i, 0), Color(0.3, 0.28, 0.24)])
 		if look == "ogre":
 			p.append([ball(0.3, 7, 4), at(0, 0.92, -0.12), skin])          # a big belly
+		if look == "goblin":                           # long pointed ears and a hooked nose
+			p.append([cone(0.05, 0.2), at(-0.2, 1.46, 0, Vector3(0, 0, 1.3)), skin.darkened(0.1)])
+			p.append([cone(0.05, 0.2), at(0.2, 1.46, 0, Vector3(0, 0, -1.3)), skin.darkened(0.1)])
+			p.append([cone(0.035, 0.1), at(0, 1.4, -0.18, Vector3(-1.4, 0, 0)), skin.darkened(0.15)])
+		if look == "mummy":                            # the wrappings: bands round body and head
+			for i in range(5):
+				p.append([box(0.5 * w, 0.03, 0.31 * w), at(0, 0.8 + 0.11 * i, 0, Vector3(0, 0, 0.12 * (i % 2 * 2 - 1))), skin.darkened(0.18)])
+			for i in range(3):
+				p.append([box(0.36, 0.025, 0.36), at(0, 1.35 + 0.08 * i, 0, Vector3(0, 0, 0.15 * (i % 2 * 2 - 1))), skin.darkened(0.2)])
+		if look == "yeti":                             # shaggy fur, a pale blue face and great horns of ice
+			for i in range(6):
+				var a := TAU * i / 6.0
+				p.append([ball(0.12, 6, 3), at(cos(a) * 0.24 * w, 1.05 + 0.08 * (i % 2), sin(a) * 0.14 * w), skin.darkened(0.05)])
+			p.append([box(0.22, 0.16, 0.03), at(0, 1.42, -0.16), Color(0.55, 0.68, 0.85)])
+			p.append([cone(0.05, 0.2), at(-0.13, 1.6, 0, Vector3(0, 0, 0.5)), Color(0.75, 0.88, 1.0)])
+			p.append([cone(0.05, 0.2), at(0.13, 1.6, 0, Vector3(0, 0, -0.5)), Color(0.75, 0.88, 1.0)])
 		# head, hair, eyes
 		p.append([ball(0.17, 8, 5), at(0, 1.43, 0), skin])
 		if not bony and not hat in ["hood", "plate_helm", "coif"]:
@@ -756,6 +794,56 @@ static func _spider(model: Dictionary) -> void:
 				var z := -0.32 + 0.16 * i
 				p.append([box(0.55, 0.05, 0.05), at(side * 0.38, 0.5, z, Vector3(0, 0.25 * (i - 1.5), side * -0.45)), dark])
 				p.append([box(0.05, 0.42, 0.05), at(side * 0.66, 0.24, z), dark])
+		return p)
+	_instance(root, body, vc_mat(), model["meshes"])
+
+
+## A desert scorpion: a low armoured body, two great pincers and a tail curled up over its back
+## with a stinger.
+static func _scorpion(model: Dictionary) -> void:
+	var root: Node3D = model["root"]
+	var body := _cached("scorpion", func() -> Array:
+		var shell := Color(0.62, 0.45, 0.2)
+		var dark := shell.darkened(0.35)
+		var p := [[ball(0.3, 8, 5), at(0, 0.32, 0.05, Vector3.ZERO, Vector3(1.0, 0.55, 1.4)), shell],
+			[ball(0.17, 7, 4), at(0, 0.3, -0.38, Vector3.ZERO, Vector3(1.1, 0.7, 0.9)), shell.lightened(0.08)],
+			[box(0.05, 0.05, 0.03), at(-0.07, 0.36, -0.52), DARK], [box(0.05, 0.05, 0.03), at(0.07, 0.36, -0.52), DARK]]
+		for i in range(4):                              # the bands of the back
+			p.append([box(0.5, 0.04, 0.06), at(0, 0.45, 0.25 - 0.15 * i), dark])
+		for side in [-1.0, 1.0]:
+			for i in range(4):                          # legs
+				var z := -0.2 + 0.15 * i
+				p.append([box(0.45, 0.04, 0.04), at(side * 0.32, 0.25, z, Vector3(0, 0.2 * (i - 1.5), side * -0.5)), dark])
+			# the pincers: an arm and a claw
+			p.append([box(0.08, 0.08, 0.35), at(side * 0.25, 0.3, -0.62, Vector3(0, side * 0.35, 0)), shell])
+			p.append([box(0.16, 0.1, 0.18), at(side * 0.33, 0.3, -0.82), shell.lightened(0.05)])
+			p.append([box(0.05, 0.06, 0.16), at(side * 0.4, 0.3, -0.95), dark])
+		# the tail: segments rising up and over, then the stinger
+		var tz := 0.45
+		var ty := 0.35
+		for i in range(5):
+			var ang := 0.45 * i
+			tz += 0.13 * cos(ang)
+			ty += 0.13 * sin(ang) + 0.04
+			p.append([ball(0.09 - 0.008 * i, 6, 3), at(0, ty, tz), shell])
+		p.append([cone(0.05, 0.18), at(0, ty + 0.1, tz - 0.12, Vector3(-2.3, 0, 0)), Color(0.25, 0.08, 0.05)])
+		return p)
+	_instance(root, body, vc_mat(), model["meshes"])
+
+
+## A bog leech: a fat, glistening, segmented worm, its head raised with a ring of teeth.
+static func _leech(model: Dictionary) -> void:
+	var root: Node3D = model["root"]
+	var body := _cached("leech", func() -> Array:
+		var skin := Color(0.28, 0.22, 0.16)
+		var p := []
+		for i in range(7):
+			var r := 0.17 - absf(i - 3.0) * 0.022
+			var y := 0.16 + (0.12 if i == 0 else 0.0) + 0.03 * sin(i * 1.3)
+			p.append([ball(r, 7, 4), at(sin(i * 0.9) * 0.08, y, -0.3 + 0.13 * i), skin.lightened(0.04 * (i % 2))])
+		p.append([ring_mesh(0.05, 0.09), at(0, 0.3, -0.42, Vector3(PI / 2.0, 0, 0)), Color(0.75, 0.3, 0.3)])
+		p.append([box(0.04, 0.04, 0.02), at(-0.06, 0.38, -0.38), Color(0.9, 0.8, 0.3)])
+		p.append([box(0.04, 0.04, 0.02), at(0.06, 0.38, -0.38), Color(0.9, 0.8, 0.3)])
 		return p)
 	_instance(root, body, vc_mat(), model["meshes"])
 

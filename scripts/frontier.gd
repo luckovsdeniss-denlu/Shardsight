@@ -26,7 +26,7 @@ const DOCKS := [
 	{"name": "Fen Jetty", "tile": Vector2i(31, 39), "to": 5},
 	{"name": "Reedbank Jetty", "tile": Vector2i(41, 39), "to": 4},
 ]
-const BOAT_PRICE := 150
+const BOAT_PRICE := 300
 const FERRY_PRICE := 8
 const POLE_PRICE := 15
 const BOAT_SPEED := 2.2
@@ -216,8 +216,11 @@ const RECIPES := {
 	"fish_pie": {"min": 30.0, "mats": {"big_fish": 1, "bread": 1}},
 	"hearty_stew": {"min": 45.0, "mats": {"raw_meat": 2, "swamp_herb": 1}},
 	"frost_chowder": {"min": 70.0, "mats": {"fish": 2, "raw_meat": 1, "swamp_herb": 1}},
+	"bread": {"min": 0.0, "mats": {"wheat": 2}},
+	"vegetable_stew": {"min": 20.0, "mats": {"carrot": 2, "raw_meat": 1}},
+	"pumpkin_pie": {"min": 40.0, "mats": {"pumpkin": 1, "wheat": 1}},
 }
-const RECIPE_ORDER := ["cooked_fish", "grilled_steak", "fish_pie", "hearty_stew", "frost_chowder"]
+const RECIPE_ORDER := ["bread", "cooked_fish", "grilled_steak", "vegetable_stew", "fish_pie", "hearty_stew", "pumpkin_pie", "frost_chowder"]
 ## What eating does: health back, and a "well fed" spell of stats for a while.
 const MEALS := {
 	"cooked_fish": {"heal": 15, "secs": 600.0, "mods": {"int": 4}},
@@ -226,6 +229,8 @@ const MEALS := {
 	"hearty_stew": {"heal": 45, "secs": 900.0, "mods": {"str": 6, "dex": 4}},
 	"frost_chowder": {"heal": 60, "secs": 1200.0, "mods": {"str": 5, "dex": 5, "int": 5}},
 	"ale": {"heal": 0, "secs": 300.0, "mods": {"str": 3, "dex": -2}},
+	"vegetable_stew": {"heal": 30, "secs": 900.0, "mods": {"str": 4, "int": 3}},
+	"pumpkin_pie": {"heal": 40, "secs": 1200.0, "mods": {"dex": 6, "int": 4}},
 	"bread": {"heal": 10, "secs": 0.0, "mods": {}},
 	"fish": {"heal": 10, "secs": 0.0, "mods": {}},
 	"big_fish": {"heal": 20, "secs": 0.0, "mods": {}},
@@ -234,16 +239,16 @@ const BREWS := ["potion_strength", "potion_agility", "potion_invisibility", "poi
 
 # --- house decoration ------------------------------------------------------------------------
 const DECOR := {
-	"rug": {"name": "Woven Rug", "price": 120, "comfort": 1},
-	"table": {"name": "Oak Table", "price": 150, "comfort": 1},
-	"chair": {"name": "Carved Chair", "price": 80, "comfort": 1},
-	"plant": {"name": "Potted Fern", "price": 60, "comfort": 1},
-	"lantern": {"name": "Brass Lantern", "price": 90, "comfort": 1},
-	"weapon_rack": {"name": "Weapon Rack", "price": 200, "comfort": 1},
-	"bed": {"name": "Feather Bed (rest)", "price": 400, "comfort": 3},
-	"bookshelf": {"name": "Bookshelf (study)", "price": 350, "comfort": 2},
-	"hearth": {"name": "Stone Hearth (cook at home)", "price": 500, "comfort": 3},
-	"garden": {"name": "Herb Garden (herbs every day)", "price": 300, "comfort": 1},
+	"rug": {"name": "Woven Rug", "price": 200, "comfort": 1},
+	"table": {"name": "Oak Table", "price": 250, "comfort": 1},
+	"chair": {"name": "Carved Chair", "price": 150, "comfort": 1},
+	"plant": {"name": "Potted Fern", "price": 100, "comfort": 1},
+	"lantern": {"name": "Brass Lantern", "price": 150, "comfort": 1},
+	"weapon_rack": {"name": "Weapon Rack", "price": 350, "comfort": 1},
+	"bed": {"name": "Feather Bed (rest)", "price": 800, "comfort": 3},
+	"bookshelf": {"name": "Bookshelf (study)", "price": 700, "comfort": 2},
+	"hearth": {"name": "Stone Hearth (cook at home)", "price": 900, "comfort": 3},
+	"garden": {"name": "Herb Garden (herbs every day)", "price": 600, "comfort": 1},
 	"trophy_bone_king": {"name": "Trophy: the Bone King's Crown", "price": 0, "comfort": 3, "trophy": "The Bone King"},
 	"trophy_malgrath": {"name": "Trophy: Malgrath's Broken Staff", "price": 0, "comfort": 4, "trophy": "Malgrath the Shardbreaker"},
 	"trophy_yeti": {"name": "Trophy: Yeti Hide", "price": 0, "comfort": 2, "trophy": "Yeti"},
@@ -275,7 +280,7 @@ const TOWERS := [
 ]
 const CAPTURE_SECS := 20.0
 const TOWER_RANGE := 3.5
-const TOWER_INCOME := 75                    # gold a tower brings its guild each day (to your bank)
+const TOWER_INCOME := 150                   # gold a tower brings its guild each day (to your bank)
 const GUILD_COLORS := {"oss": Color(0.82, 0.84, 0.92), "wos": Color(0.3, 0.7, 0.35), "shd": Color(0.45, 0.2, 0.55), "player": Color(0.95, 0.78, 0.25)}
 
 const RUMOURS := [
@@ -444,9 +449,9 @@ func _spawn_wildlife() -> void:
 		["Cave Spider", Bestiary.CAVE_SPIDER, Color("3a3a4a"), [Vector2i(54, 5), Vector2i(58, 7)]],
 		["Frost Giant", r.call(Bestiary.CAVE_CHIEF, "ogre", 1.8, {}), Color("a8c8e8"), [Vector2i(56, 6)]],
 		["Sand Scorpion", Bestiary.SAND_SCORPION, Color("b08a40"), [Vector2i(62, 40), Vector2i(66, 42)]],
-		["Scorpion Queen", r.call(Bestiary.CAVE_CHIEF, "spider", 1.5, {"poison": [3, 0.25]}), Color("d0a030"), [Vector2i(64, 41)]],
+		["Scorpion Queen", r.call(Bestiary.CAVE_CHIEF, "scorpion", 1.6, {"poison": [3, 0.25]}), Color("d0a030"), [Vector2i(64, 41)]],
 		["Goblin", Bestiary.GOBLIN, Color("6a8a3a"), [Vector2i(5, 41), Vector2i(8, 43), Vector2i(9, 41)]],
-		["Goblin Chief", r.call(Bestiary.CAVE_CHIEF, "orc", 1.35, {}), Color("8aa83a"), [Vector2i(6, 42)]],
+		["Goblin Chief", r.call(Bestiary.CAVE_CHIEF, "goblin", 1.5, {}), Color("8aa83a"), [Vector2i(6, 42)]],
 	]
 	for row in list:
 		for t in row[3]:
@@ -1059,7 +1064,7 @@ func _set_depth(d: int) -> void:
 		cfg["armor"] = 5.0 + d
 		cfg["danger"] = 8 + d
 		cfg["loot"] = {"gold_min": 400 * d, "gold_max": 700 * d, "reagents": 30,
-			"drops": [["platemail", 0.5], ["cave_crystal", 1.0], ["scroll_meteor_swarm", 0.4], ["bonecleaver", 0.3]]}
+			"drops": [["platemail", 0.5], ["cave_crystal", 1.0], ["scroll_meteor_swarm", 0.4], ["bonecleaver", 0.3], ["diamond", 0.5]]}
 		_depth_boss = game.pool_spawn(String(DEPTHS[d - 1]["boss"]), cfg, tint.darkened(0.3), world.tile_center(DEPTH_BOSS_AT))
 
 
@@ -1197,6 +1202,11 @@ func _sail_tick(delta: float) -> void:
 				hero.path.clear()
 				game.log_event("The boat bumps against the landing. You step ashore.")
 				return
+	if mode != "fish_wait":
+		sail["oar"] = float(sail.get("oar", 0.0)) - delta
+		if float(sail["oar"]) <= 0.0:
+			sail["oar"] = 1.1                   # a stroke of the oars
+			game.sound("oar", hero.position, randf_range(0.9, 1.1), -4.0)
 	var bob := sin(Time.get_ticks_msec() / 400.0) * 0.04
 	_sail_node.position = Vector3(p.x, 0.02 + bob, p.z)
 	var dir := b - a
@@ -1658,6 +1668,7 @@ func _duel_tick(delta: float) -> void:
 		data["arena_wins"] = _i("arena_wins") + 1
 		game.count("arena_wins")
 		game.event_about("%s wins in the arena and takes %d gold!" % [hero.display_name, won], true)
+		game.sound("cheer", world.tile_center(ARENA))
 		duel = {}
 		return
 	if hero.dead:
@@ -1725,6 +1736,7 @@ func _bout_tick(delta: float) -> void:
 			game.world_event("Arena: %s staggers, but keeps their feet!" % l)
 		3:
 			game.world_event("Arena: %s wins the bout!" % w)
+			game.sound("cheer", world.tile_center(ARENA), 1.0, -6.0)
 			if int(bout["pick"]) == int(bout["win"]):
 				var mine := float(bout["ra"]) if int(bout["win"]) == 0 else float(bout["rb"])
 				var theirs := float(bout["rb"]) if int(bout["win"]) == 0 else float(bout["ra"])
@@ -1950,12 +1962,48 @@ func _env_tick(delta: float) -> void:
 		elif _biome != "":
 			game.log_event("You leave %s." % World.BIOME_NAMES[_biome])
 		_biome = b
-	_snow.emitting = b == "snow" and game.property.weather_on
+	_snow.emitting = (b == "snow" or snowing()) and game.property.weather_on and not world.is_dungeon(t)
+	_sound_tick(b)
 	var cv := world.cave_at(t)
 	if cv != _cave:
 		if cv >= 0:
 			game.log_event("You enter %s. The air is cold and still." % World.CAVES[cv]["name"])
 		_cave = cv
+
+
+## The beasts' voices (as they turn on you): [sound, pitch].
+const VOICES := {"Yeti": ["roar", 0.8], "Bog Troll": ["roar", 1.0], "Frost Giant": ["roar", 0.7], "Brown Bear": ["roar", 1.15],
+	"Goblin Chief": ["roar", 1.3], "Goblin": ["roar", 1.7], "Ogre": ["roar", 0.9], "Sand Scorpion": ["hiss", 1.1],
+	"Scorpion Queen": ["hiss", 0.8], "Bog Leech": ["hiss", 1.4], "Cave Spider": ["hiss", 1.2], "Giant Spider": ["hiss", 1.1],
+	"Mummy": ["rattle", 0.9], "Skeleton": ["rattle", 1.2], "Skeleton Archer": ["rattle", 1.25]}
+
+
+## The loops of the wider world (each second): the wind in the snow, the tavern's hum and lute,
+## the arena's crowd; and the voices of beasts that turn on you.
+func _sound_tick(biome: String) -> void:
+	var on: bool = game.property.sound_on and not game.autotest and not hero.dead
+	if not on:
+		for k in ["wind", "tavern", "crowd"]:
+			game._amb_set(k, -80.0)
+		return
+	game._amb_set("wind", -14.0 if biome == "snow" or season() == "winter" and not world.is_town(world.to_tile(hero.position)) else -80.0)
+	var td := world.tile_center(TAVERN).distance_to(hero.position)
+	var evening := _phase_now() == "tavern"
+	game._amb_set("tavern", lerpf(-8.0 if evening else -16.0, -34.0, td / 12.0) if td < 12.0 else -80.0)
+	var crowd_on := (not duel.is_empty() or not bout.is_empty()) and _near(ARENA, 14.0)
+	game._amb_set("crowd", -12.0 if crowd_on else -80.0)
+	for item in game.creatures:
+		var e := item as Entity
+		if e.kind != Entity.Kind.MONSTER or e.dead or not VOICES.has(e.display_name):
+			continue
+		if e.target == null:
+			if e.has_meta("voiced"):
+				e.remove_meta("voiced")
+			continue
+		if not e.has_meta("voiced") and e.position.distance_to(hero.position) < 14.0:
+			e.set_meta("voiced", true)
+			var v: Array = VOICES[e.display_name]
+			game.sound(String(v[0]), e.position, float(v[1]), 2.0)
 
 
 func _act_tick(delta: float) -> void:
@@ -2023,6 +2071,11 @@ func tick(delta: float) -> void:
 	_env_tick(delta)
 	_act_tick(delta)
 	_auto_tick(delta)
+	_season_acc += delta
+	if _season_acc >= 1.0:
+		_season_tick(_season_acc)
+		_farm_tick(_season_acc)
+		_season_acc = 0.0
 	if Engine.get_process_frames() % 30 == 0:
 		_decor_tick()
 		_tower_income()
@@ -2084,6 +2137,7 @@ func hud_text() -> String:
 ## Marks on the minimap: towers in their guild's colours, the arena, the tavern, the landings and
 ## the elite you're hunting. Called from the minimap's _draw.
 func draw_marks(mm) -> void:
+	_draw_quest_marks(mm)
 	for i in range(towers.size()):
 		var tp: Vector2 = mm._to_map(world.tile_center(World.TOWER_TILES[i]))
 		mm.draw_rect(Rect2(tp - Vector2(3.5, 3.5), Vector2(7, 7)), Color.BLACK)
@@ -2170,6 +2224,12 @@ func _refresh() -> void:
 			_page_house()
 		"towers":
 			_page_towers()
+		"farm":
+			_page_farm()
+		"journal":
+			_page_journal()
+		"enchant":
+			_page_enchant()
 	if page != "hub":
 		_b("Adventures", _open.bind("hub"))
 	_b("Close", _close)
@@ -2183,12 +2243,15 @@ func _page_hub() -> void:
 	for id in SIDE_QUESTS:
 		if String(_sq(String(id))["state"]) == "active":
 			active += 1
+	_b("Journal: everything you're doing", _open.bind("journal"))
 	_b("Side quests (%d under way)" % active, _open.bind("quests"))
 	_b("Bounties%s" % (": " + String(b["target"]) if not b.is_empty() else ""), _open.bind("board"))
 	_b("The tavern", _open.bind("tavern"))
 	_b("Cooking", _open.bind("cook"))
 	_b("Alchemy: brews and poisons", _open.bind("alchemy"))
 	_b("Furnish your house", _open.bind("house"))
+	_b("Your fields", _open.bind("farm"))
+	_b("Enchant & set gems (at the forge)", _open.bind("enchant"))
 	_b("The arena", _open.bind("arena"))
 	_b("Guild towers", _open.bind("towers"))
 	_b("The dungeon's depths (deepest: %d)" % deepest(), _open.bind("stairs"))
@@ -2227,7 +2290,7 @@ func _b(text: String, cb: Callable, enabled := true) -> void:
 ## cooking, brewing, the tavern, fishing from a boat, the arena, the dungeon's depths, the guild
 ## towers, its house, and now and then a look at a cave or a biome. In a fight it drinks a
 ## strength or agility potion and poisons its blade against tough foes, and it keeps itself fed.
-const ERRANDS := {"quest": 3.0, "bounty": 2.0, "cook": 1.5, "brew": 1.0, "tavern": 1.0, "fishing": 1.0,
+const ERRANDS := {"enchant": 0.8, "farm": 1.2, "quest": 3.0, "bounty": 2.0, "cook": 1.5, "brew": 1.0, "tavern": 1.0, "fishing": 1.0,
 	"arena": 1.0, "depths": 1.0, "tower": 1.0, "house": 1.0, "explore": 0.7}
 ## Where a fetched item comes from: the creature that drops it.
 const DROPPED_BY := {"swamp_herb": "Bog Leech", "scorpion_venom": "Sand Scorpion", "frost_pelt": "Frost Wolf"}
@@ -2293,6 +2356,10 @@ func _pick_errand() -> void:
 				started = _errand_house()
 			"explore":
 				started = _errand_explore()
+			"farm":
+				started = _errand_farm()
+			"enchant":
+				started = _errand_enchant()
 		if started:
 			return
 
@@ -2635,7 +2702,482 @@ func _auto_food() -> void:
 		return
 	var best := ""
 	for id in RECIPE_ORDER:
-		if _has(String(id)):
+		if _has(String(id)) and MEALS.has(id) and (hurt or float(MEALS[id]["secs"]) > 0.0):
 			best = String(id)                  # the order runs plain to rich: the last one held is best
 	if best != "":
 		_eat(best)
+
+
+# --- the seasons -------------------------------------------------------------------------------
+## Spring, summer, autumn and winter, three days each. The ground and the trees take their colours
+## (green, golden, russet, frosted), snow lies in winter and the rain falls as snow; crops grow
+## fastest in summer and not at all in winter.
+const SEASONS := ["spring", "summer", "autumn", "winter"]
+const SEASON_DAYS := 3
+const SEASON_LOOK := {
+	"spring": {"ground": Color(1.0, 1.05, 0.95), "leaves": Color(0.95, 1.08, 0.92), "snow": 0.0, "frost": 0.0},
+	"summer": {"ground": Color(1.06, 1.02, 0.85), "leaves": Color(1.0, 1.0, 0.88), "snow": 0.0, "frost": 0.0},
+	"autumn": {"ground": Color(1.12, 0.95, 0.72), "leaves": Color(1.4, 0.82, 0.42), "snow": 0.0, "frost": 0.0},
+	"winter": {"ground": Color(0.94, 0.97, 1.06), "leaves": Color(0.85, 0.9, 0.96), "snow": 0.8, "frost": 0.55},
+}
+const SEASON_NEWS := {
+	"spring": "Spring comes: the snow melts and the fields wake.",
+	"summer": "Summer comes: long golden days, and the crops grow fast.",
+	"autumn": "Autumn comes: the leaves turn red and gold.",
+	"winter": "Winter comes: snow on the land, and nothing grows in the fields.",
+}
+var _season_acc := 0.0
+var _season_seen := ""
+var _look := {"ground": Color(1, 1, 1), "leaves": Color(1, 1, 1), "snow": 0.0, "frost": 0.0}
+
+
+func season_index() -> int:
+	return int(game.property.play_time / (DAY * SEASON_DAYS)) % SEASONS.size()
+
+
+func season() -> String:
+	return String(SEASONS[season_index()])
+
+
+## "Day 7 of autumn" for the clock.
+func season_text() -> String:
+	var day := int(fmod(game.property.play_time, DAY * SEASON_DAYS) / DAY) + 1
+	return "%s, day %d" % [season().capitalize(), day]
+
+
+func _season_tick(step: float) -> void:
+	var s := season()
+	if s != _season_seen:
+		if _season_seen != "":
+			game.log_event(String(SEASON_NEWS[s]))
+		else:
+			_look = (SEASON_LOOK[s] as Dictionary).duplicate()   # straight to it at start
+		_season_seen = s
+	var want: Dictionary = SEASON_LOOK[s]
+	var k := minf(1.0, step / 20.0)                  # the change creeps over twenty seconds
+	var cg: Color = _look["ground"]
+	var cl: Color = _look["leaves"]
+	_look["ground"] = cg.lerp(want["ground"], k)
+	_look["leaves"] = cl.lerp(want["leaves"], k)
+	_look["snow"] = lerpf(float(_look["snow"]), float(want["snow"]), k)
+	_look["frost"] = lerpf(float(_look["frost"]), float(want["frost"]), k)
+	var g: Color = _look["ground"]
+	var l: Color = _look["leaves"]
+	if world.ground_material != null:
+		world.ground_material.set_shader_parameter("season_tint", Vector3(g.r, g.g, g.b))
+		world.ground_material.set_shader_parameter("snow", float(_look["snow"]))
+	var fm := World._foliage_mat()
+	fm.set_shader_parameter("season_tint", Vector3(l.r, l.g, l.b))
+	fm.set_shader_parameter("frost", float(_look["frost"]))
+
+
+## In winter the rain falls as snow.
+func snowing() -> bool:
+	return season() == "winter" and game.weather in ["rain", "storm"]
+
+
+# --- farming ---------------------------------------------------------------------------------
+## Fields by your house: plant wheat, carrots or pumpkins (seed bought here), and they grow with
+## the seasons - fastest in summer, slowest in autumn, not at all in winter. Farming skill makes the
+## harvest bigger. Wheat bakes into bread, carrots into stew, pumpkins into pie.
+const CROPS := {
+	"wheat": {"name": "Wheat", "seed": 5, "secs": 240.0, "yield": 3, "color": Color(0.9, 0.78, 0.35)},
+	"carrot": {"name": "Carrots", "seed": 8, "secs": 360.0, "yield": 3, "color": Color(0.95, 0.5, 0.15)},
+	"pumpkin": {"name": "Pumpkins", "seed": 15, "secs": 600.0, "yield": 2, "color": Color(0.95, 0.55, 0.1)},
+}
+const CROP_ORDER := ["wheat", "carrot", "pumpkin"]
+const GROWTH := {"spring": 1.0, "summer": 1.4, "autumn": 0.8, "winter": 0.0}
+const PLOTS := 4
+var _farm_node: Node3D
+var _farm_key := ""
+
+
+func _plots() -> Array:
+	if not data.has("farm") or not (data["farm"] is Array):
+		data["farm"] = []
+	var f: Array = data["farm"]
+	while f.size() < PLOTS:
+		f.append({"crop": "", "growth": 0.0})
+	return f
+
+
+## Where the fields lie: open ground round the house, two tiles out.
+func _plot_tiles() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var pr: Property = game.property
+	if not pr.has_house():
+		return out
+	var o := pr.house_origin
+	var n := pr.house_size
+	var door_out := World.house_door(o, n) + Vector2i(0, 1)
+	for ring in range(2, 5):
+		for y in range(o.y - ring, o.y + n + ring):
+			for x in range(o.x - ring, o.x + n + ring):
+				var t := Vector2i(x, y)
+				var edge := x == o.x - ring or y == o.y - ring or x == o.x + n + ring - 1 or y == o.y + n + ring - 1
+				if not edge or world.is_blocked(t) or world.is_town(t) or absi(t.x - door_out.x) <= 1 and t.y >= door_out.y:
+					continue
+				out.append(t)
+				if out.size() >= PLOTS:
+					return out
+	return out
+
+
+func _farm_tick(step: float) -> void:
+	if not game.property.has_house():
+		return
+	var rate: float = GROWTH[season()]
+	var key := ""
+	for p in _plots():
+		var crop := String(p["crop"])
+		if crop != "" and rate > 0.0:
+			p["growth"] = minf(1.0, float(p["growth"]) + step * rate / float(CROPS[crop]["secs"]))
+		key += "%s%d," % [crop, int(float(p["growth"]) * 3.0)]
+	key += str(game.property.house_origin)
+	if key != _farm_key:
+		_farm_key = key
+		_build_fields()
+
+
+func _build_fields() -> void:
+	if _farm_node != null:
+		_farm_node.queue_free()
+		_farm_node = null
+	var tiles := _plot_tiles()
+	if tiles.is_empty():
+		return
+	_farm_node = Node3D.new()
+	add_child(_farm_node)
+	var plots := _plots()
+	for i in range(mini(tiles.size(), PLOTS)):
+		var p: Dictionary = plots[i]
+		var parts := [[Art.box(0.9, 0.06, 0.9), Art.at(0, 0.03, 0), Color(0.33, 0.22, 0.12)]]
+		for r in range(3):
+			parts.append([Art.box(0.85, 0.04, 0.08), Art.at(0, 0.07, -0.3 + r * 0.3), Color(0.26, 0.17, 0.09)])
+		var crop := String(p["crop"])
+		if crop != "":
+			var g := float(p["growth"])
+			var col: Color = CROPS[crop]["color"]
+			var green := Color(0.3, 0.6, 0.22)
+			for r in range(3):
+				for c in range(3):
+					var at := Art.at(-0.3 + c * 0.3, 0.07, -0.3 + r * 0.3)
+					match crop:
+						"wheat":
+							var hgt := 0.1 + 0.45 * g
+							parts.append([Art.box(0.05, hgt, 0.05), at * Art.at(0, hgt / 2.0, 0), green.lerp(col, smoothstep(0.6, 1.0, g))])
+							if g >= 0.95:
+								parts.append([Art.box(0.08, 0.12, 0.08), at * Art.at(0, hgt, 0), col])
+						"carrot":
+							parts.append([Art.cone(0.05 + 0.05 * g, 0.12 + 0.18 * g, 0.0, 5), at * Art.at(0, 0.08 + 0.09 * g, 0), green])
+						"pumpkin":
+							parts.append([Art.ball(0.04 + 0.04 * g), at * Art.at(0, 0.05, 0), green])
+							if g > 0.3 and (r + c) % 2 == 0:
+								parts.append([Art.ball(0.05 + 0.12 * g, 8, 5), at * Art.at(0, 0.06 + 0.06 * g, 0), green.lerp(col, smoothstep(0.4, 1.0, g))])
+		_mesh(parts, world.tile_center(tiles[i]), _farm_node)
+
+
+func _page_farm() -> void:
+	_h("Your fields   (Farming %.1f)" % hero._skill(Hero.Skill.FARMING))
+	if not game.property.has_house():
+		_t("Fields lie round a house. Buy a deed at the bank (Bank & House) and place it out in the wilds first.")
+		return
+	var at_home: bool = game._hero_at_house() or _near(game.property.house_center_tile(), 6.0)
+	_t("It is %s. Crops grow %s." % [season_text(), {"spring": "well", "summer": "fast", "autumn": "slowly", "winter": "not at all: the ground is frozen"}[season()]])
+	if not at_home:
+		_b("Walk home", _walk_to.bind(game.property.house_center_tile()))
+	var plots := _plots()
+	for i in range(PLOTS):
+		var p: Dictionary = plots[i]
+		var crop := String(p["crop"])
+		if crop == "":
+			_small_text("Field %d: bare earth." % (i + 1))
+			for c in CROP_ORDER:
+				var cd: Dictionary = CROPS[c]
+				_b("Plant %s (%d gold)" % [cd["name"], int(cd["seed"])], _plant.bind(i, String(c)), at_home and hero.gold >= int(cd["seed"]))
+		elif float(p["growth"]) >= 1.0:
+			_small_text("Field %d: %s, ripe!" % [i + 1, CROPS[crop]["name"]])
+			_b("Harvest the %s" % String(CROPS[crop]["name"]).to_lower(), _harvest.bind(i), at_home)
+		else:
+			_small_text("Field %d: %s, %d%% grown." % [i + 1, CROPS[crop]["name"], roundi(float(p["growth"]) * 100.0)])
+
+
+func _plant(i: int, crop: String) -> void:
+	if not _pay(int(CROPS[crop]["seed"])):
+		return
+	var p: Dictionary = _plots()[i]
+	p["crop"] = crop
+	p["growth"] = 0.0
+	hero.stats.try_gain(Hero.Skill.FARMING)
+	game.log_event("You sow %s." % String(CROPS[crop]["name"]).to_lower())
+	_refresh()
+
+
+func _harvest(i: int) -> void:
+	var p: Dictionary = _plots()[i]
+	var crop := String(p["crop"])
+	if crop == "" or float(p["growth"]) < 1.0:
+		return
+	var n := int(CROPS[crop]["yield"]) + int(hero._skill(Hero.Skill.FARMING) / 34.0)
+	_give(crop, n)
+	hero.stats.try_gain(Hero.Skill.FARMING)
+	p["crop"] = ""
+	p["growth"] = 0.0
+	game.count("harvests")
+	game.log_event("You harvest %d %s." % [n, Items.item_name(crop).to_lower()])
+	_refresh()
+
+
+## Auto: go home to harvest what's ripe and sow the bare fields (not in winter).
+func _errand_farm() -> bool:
+	if not game.property.has_house():
+		return false
+	var work := false
+	for p in _plots():
+		if String(p["crop"]) != "" and float(p["growth"]) >= 1.0:
+			work = true
+		elif String(p["crop"]) == "" and season() != "winter" and hero.gold >= 60:
+			work = true
+	if not work:
+		return false
+	return _go("farm", world.tile_center(game.property.house_center_tile()), _auto_farm, null, 3.0)
+
+
+func _auto_farm() -> void:
+	var plots := _plots()
+	for i in range(PLOTS):
+		var p: Dictionary = plots[i]
+		if String(p["crop"]) != "" and float(p["growth"]) >= 1.0:
+			_harvest(i)
+		if String(p["crop"]) == "" and season() != "winter":
+			var pick := String(CROP_ORDER[i % CROP_ORDER.size()])
+			if hero.gold >= int(CROPS[pick]["seed"]) + 50:
+				_plant(i, pick)
+
+
+# --- the journal and the quest marks on the map --------------------------------------------
+## Gold "!" over townsfolk with work for you, green "?" over those waiting for what you bring, and
+## a small orange ring on the nearest creature a task asks you to slay.
+func _draw_quest_marks(mm) -> void:
+	var font := ThemeDB.fallback_font
+	for v in villagers:
+		var e: Entity = v["e"]
+		var mark := _talk_mark(e.display_name).strip_edges()
+		if mark == "":
+			continue
+		var p: Vector2 = mm._to_map(e.position)
+		var col := Color(0.4, 1.0, 0.45) if mark == "(?)" else Color(1.0, 0.85, 0.3)
+		var ch := "?" if mark == "(?)" else "!"
+		mm.draw_circle(p, 5.0, Color(0, 0, 0, 0.75))
+		mm.draw_string(font, p + Vector2(-3.0, 5.0), ch, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, col)
+	for id in SIDE_QUESTS:
+		var st: Dictionary = _sq(String(id))
+		var g: Dictionary = SIDE_QUESTS[id]["goal"]
+		if String(st["state"]) != "active" or _goal_done(String(id)):
+			continue
+		var want := String(g.get("target", DROPPED_BY.get(String(g.get("item", "")), "")))
+		if want == "":
+			continue
+		var e2 := _nearest_named(want)
+		if e2 != null:
+			mm.draw_arc(mm._to_map(e2.position), 4.0, 0.0, TAU, 12, Color(1.0, 0.6, 0.2), 1.5)
+	var b: Dictionary = data["bounty"]
+	if not b.is_empty() and String(b["kind"]) != "elite":
+		var e3 := _nearest_named(String(b["target"]))
+		if e3 != null:
+			mm.draw_arc(mm._to_map(e3.position), 4.5, 0.0, TAU, 12, Color(0.95, 0.2, 0.15), 1.5)
+
+
+## Everything under way in one list: the story, the captain's quest, side quests, the bounty, the
+## arena, the depths, the towers, the fields - each with a way to walk there.
+func _page_journal() -> void:
+	_h("Journal")
+	var pr: Property = game.property
+	_small_text(season_text() + ".   Gold %d, bank %d." % [hero.gold, pr.bank_gold])
+	_h("The story")
+	if pr.story_done:
+		_t("The Shattered Sight: done. You are the Shardbearer.")
+	else:
+		var st: Dictionary = Story.STEPS[pr.story_step]
+		_t("%s - %s" % [st["title"], st["goal"]])
+		if game.has_story_target:
+			_b("Walk there (violet mark on the map)", _walk_to.bind(world.to_tile(game.story_target)))
+	_h("The captain's work")
+	_t(String(game._quest_text()).trim_prefix("Quest: "))
+	_h("Side quests")
+	var any := false
+	for id in SIDE_QUESTS:
+		var sid := String(id)
+		var q: Dictionary = SIDE_QUESTS[id]
+		var state := String(_sq(sid)["state"])
+		if state != "active":
+			continue
+		any = true
+		var giver := String(q["giver"])
+		if _goal_done(sid):
+			_t("%s: done - return to %s (green ? on the map)." % [q["title"], giver])
+			_b("Walk to %s" % giver, _walk_to_villager.bind(giver))
+		else:
+			_t("%s (%s): %s." % [q["title"], giver, _goal_text(sid)])
+			var g: Dictionary = q["goal"]
+			var want := String(g.get("target", DROPPED_BY.get(String(g.get("item", "")), "")))
+			var e: Entity = _nearest_named(want) if want != "" else null
+			if e != null:
+				_b("Walk towards the nearest %s (orange ring)" % want, _walk_to.bind(world.to_tile(e.position)))
+	var offers: Array[String] = []
+	for v in villagers:
+		var n := (v["e"] as Entity).display_name
+		if _talk_mark(n) == " (!)":
+			offers.append(n)
+	if not any:
+		_small_text("None under way.")
+	if not offers.is_empty():
+		_small_text("Work on offer (gold ! on the map): " + ", ".join(offers) + ".")
+	_h("Bounty")
+	var b: Dictionary = data["bounty"]
+	if b.is_empty():
+		_small_text("None taken. The boards stand in every town.")
+	else:
+		_t(String(b["text"]))
+		var tgt := bounty_target if String(b["kind"]) == "elite" else _nearest_named(String(b["target"]))
+		if tgt != null and is_instance_valid(tgt) and not tgt.dead:
+			_b("Walk towards it (%s)" % _where(tgt.position), _walk_to.bind(world.to_tile(tgt.position)))
+	_h("Elsewhere")
+	_small_text("Arena wins: %d.   The depths: deepest level %d.   Your boat: %s." % [_i("arena_wins"), deepest(), "yes" if bool(data.get("boat", false)) else "none"])
+	var g2 := hero.guild_id()
+	if g2 != "":
+		var held: Array[String] = []
+		for i in range(TOWERS.size()):
+			if tower_owner(i) == g2:
+				held.append(String(TOWERS[i]["name"]))
+		_small_text("Your guild holds: %s." % (", ".join(held) if not held.is_empty() else "no towers"))
+	if pr.has_house():
+		var ripe := 0
+		for p in _plots():
+			if String(p["crop"]) != "" and float(p["growth"]) >= 1.0:
+				ripe += 1
+		_small_text("Your fields: %d ripe for the harvest." % ripe)
+
+
+# --- enchanting and gem sockets (at the forge) -------------------------------------------------
+
+## The gear you could work on: what you wear, then what's in the bag.
+func _workable() -> Array[String]:
+	var out: Array[String] = []
+	for sl in ["weapon", "armor", "shield"]:
+		var id: String = hero._equipped_id(sl)
+		if id != "":
+			out.append(id)
+	for id in hero.inventory:
+		if Gear.has(String(id)) and out.size() < 14 and not out.has(String(id)):
+			out.append(String(id))
+	return out
+
+
+func _page_enchant() -> void:
+	_h("Enchanting and gems")
+	var here: bool = world.near_forge(hero.position)
+	_t("At the forge in the smith's house: enchant a weapon, armour or shield with cave crystals (each level +8% damage or armour, up to +3; it may fail and the crystals are lost), or set one gem in it (a ruby lends strength, a sapphire intelligence, an emerald dexterity, a diamond a little of each). Crystals %d.  Gems: %s." % [
+		int(hero.inventory.get("cave_crystal", 0)), _gems_held_text()])
+	if not here:
+		_b("Walk to the forge", _walk_to.bind(world.forge_tile + Vector2i(0, 1)))
+	for id in _workable():
+		var lv := Gems.enchant_level(id)
+		var worn := id == hero.weapon or id == hero.armor_id or id == hero.shield_id
+		_small_text("%s%s" % [Items.item_name(id), "  (worn)" if worn else ""])
+		if lv < Gems.MAX_ENCHANT:
+			var need := lv + 1
+			var gold := Gems.ENCHANT_GOLD * need
+			_b("Enchant to +%d: %d crystal%s, %d gold (%d%%)" % [need, need, "" if need == 1 else "s", gold,
+				roundi(_enchant_chance(lv) * 100.0)], _enchant.bind(id), here and _has("cave_crystal", need) and hero.gold >= gold)
+		if Gems.gem_of(id) == "":
+			for gem in Gems.GEMS:
+				if _has(String(gem)):
+					_b("Set the %s (%s)" % [Gems.GEMS[gem]["name"], Gems.describe_mods(Gems.GEMS[gem]["mods"])], _socket.bind(id, String(gem)), here)
+
+
+func _gems_held_text() -> String:
+	var parts: Array[String] = []
+	for gem in Gems.GEMS:
+		if _has(String(gem)):
+			parts.append("%s x%d" % [Gems.GEMS[gem]["name"], int(hero.inventory[gem])])
+	return ", ".join(parts) if not parts.is_empty() else "none"
+
+
+func _enchant_chance(lv: int) -> float:
+	return minf(0.98, float(Gems.ENCHANT_CHANCE[lv]) + hero._skill(Hero.Skill.MAGERY) / 400.0 + hero._skill(Hero.Skill.BLACKSMITHY) / 400.0)
+
+
+## Swaps a piece of gear for its improved self, wherever it is (worn or in the bag).
+func _replace_gear(old: String, new_id: String) -> void:
+	if hero.weapon == old:
+		hero.weapon = new_id
+	elif hero.armor_id == old:
+		hero.armor_id = new_id
+	elif hero.shield_id == old:
+		hero.shield_id = new_id
+	else:
+		_take(old)
+		_give(new_id)
+	if hero.wear.has(old):                          # it keeps its wear
+		hero.wear[new_id] = hero.wear[old]
+		hero.wear.erase(old)
+	hero.refresh_look()
+	hero._recompute_effects()
+
+
+func _enchant(id: String) -> void:
+	var lv := Gems.enchant_level(id)
+	var need := lv + 1
+	if lv >= Gems.MAX_ENCHANT or not _has("cave_crystal", need) or not _pay(Gems.ENCHANT_GOLD * need):
+		_refresh()
+		return
+	_take("cave_crystal", need)
+	hero.stats.try_gain(Hero.Skill.MAGERY)
+	if randf() < _enchant_chance(lv):
+		var nid := Gems.with_enchant(id, need)
+		_replace_gear(id, nid)
+		game.log_event("The crystals flare and sink into the metal: %s." % Items.item_name(nid))
+		game.count("enchanted")
+		game.sound("cast", hero.position)
+		Fx.sparkle(game, hero.position + Vector3(0, 1.0, 0), Color(0.6, 0.85, 1.0), 30)
+	else:
+		game.log_event("The enchanting fails; the crystals crumble to dust.")
+	_refresh()
+
+
+func _socket(id: String, gem: String) -> void:
+	if Gems.gem_of(id) != "" or not _has(gem):
+		return
+	_take(gem)
+	var nid := Gems.with_gem(id, gem)
+	_replace_gear(id, nid)
+	game.log_event("You set the %s: %s." % [String(Gems.GEMS[gem]["name"]).to_lower(), Items.item_name(nid)])
+	game.count("gems_set")
+	_refresh()
+
+
+## Auto: set any gem into the weapon (then armour), and enchant the weapon when crystals and gold
+## allow, at the forge.
+func _errand_enchant() -> bool:
+	var w := hero.weapon
+	if w == "" and hero.armor_id == "":
+		return false
+	var gem := ""
+	for g in Gems.GEMS:
+		if _has(String(g)):
+			gem = String(g)
+	var target := w if w != "" and Gems.gem_of(w) == "" else (hero.armor_id if hero.armor_id != "" and Gems.gem_of(hero.armor_id) == "" else "")
+	var socket_ok := gem != "" and target != ""
+	var lv := Gems.enchant_level(w) if w != "" else 99
+	var enchant_ok := w != "" and lv < Gems.MAX_ENCHANT and _has("cave_crystal", lv + 1) and hero.gold >= Gems.ENCHANT_GOLD * (lv + 1) + 200
+	if not socket_ok and not enchant_ok:
+		return false
+	return _go("enchant", world.tile_center(world.forge_tile + Vector2i(0, 1)), _auto_enchant.bind(gem, target, enchant_ok), null, 2.0)
+
+
+func _auto_enchant(gem: String, target: String, enchant_ok: bool) -> void:
+	if gem != "" and target != "" and _has(gem):
+		_socket(target, gem)
+	if enchant_ok and hero.weapon != "":
+		_enchant(hero.weapon)

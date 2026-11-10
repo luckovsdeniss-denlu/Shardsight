@@ -1928,6 +1928,8 @@ func _equip(id: String) -> void:
 	if old != "":
 		inventory[old] = int(inventory.get(old, 0)) + 1
 	refresh_look()
+	if Gems.gem_of(id) != "" or Gems.gem_of(old) != "":
+		_recompute_effects()                    # a socketed gem's strength comes and goes with it
 	if is_hero:
 		game.log_event("You equip the %s." % Items.item_name(id))
 
@@ -3812,6 +3814,10 @@ func _recompute_effects() -> void:
 			var jm: Dictionary = Jewelry.LIST[String(jid)].get("mods", {})
 			for stat in jm:
 				m[stat] = int(m.get(stat, 0)) + int(jm[stat])
+	for gid in [weapon, armor_id, shield_id]:       # gems set in the gear worn
+		var gm := Gems.mods_of(String(gid))
+		for stat in gm:
+			m[stat] = int(m.get(stat, 0)) + int(gm[stat])
 	flags.clear()
 	for k in effects:
 		var e: Dictionary = effects[k]
@@ -4815,6 +4821,8 @@ func unequip(slot: String) -> void:
 		_:
 			armor_id = ""
 	refresh_look()
+	if Gems.gem_of(id) != "":
+		_recompute_effects()
 	if is_hero:
 		game.log_event("You take off the %s." % Items.item_name(id))
 

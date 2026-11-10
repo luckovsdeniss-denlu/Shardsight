@@ -269,6 +269,73 @@ func _build_ambience() -> void:
 	fire.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	fire.loop_end = int(2.0 * RATE)
 	_pending["fire"] = [fire]
+	_build_wider_world()
+
+
+## The wider world's sounds: oars and waves, beasts' voices, the wind of the Frostmarch, the hum
+## of the tavern, the arena's crowd.
+func _build_wider_world() -> void:
+	var oar := []
+	for d: float in [0.35, 0.42]:
+		var olp := [0.0]
+		oar.append(_make(d, func(t: float) -> float:
+			olp[0] = float(olp[0]) * 0.8 + randf_range(-1.0, 1.0) * 0.2
+			return float(olp[0]) * 2.2 * sin(PI * t / d) * (0.6 + 0.4 * sin(TAU * 7.0 * t))))
+	_pending["oar"] = oar
+	var roar := []
+	for f: float in [70.0, 85.0, 100.0]:
+		var rlp := [0.0]
+		roar.append(_make(0.9, func(t: float) -> float:
+			rlp[0] = float(rlp[0]) * 0.9 + randf_range(-1.0, 1.0) * 0.1
+			var env := sin(PI * minf(t / 0.9, 1.0))
+			return (sin(TAU * (f + 20.0 * sin(TAU * 6.0 * t)) * t) * 0.6 + float(rlp[0]) * 3.0) * env))
+	_pending["roar"] = roar
+	var hiss := []
+	for k: float in [0.5, 0.7]:
+		hiss.append(_make(0.5, func(t: float) -> float:
+			return randf_range(-1.0, 1.0) * sin(PI * t / 0.5) * k * (0.7 + 0.3 * sin(TAU * 30.0 * t))))
+	_pending["hiss"] = hiss
+	var rattle := []
+	for f: float in [900.0, 1200.0]:
+		rattle.append(_make(0.45, func(t: float) -> float:
+			var click := 1.0 if fmod(t, 0.05) < 0.012 else 0.0
+			return sin(TAU * f * t) * click * exp(-t * 3.0) * 0.6))
+	_pending["rattle"] = rattle
+	var cheer := []
+	for d: float in [1.6, 2.0]:
+		var clp := [0.0]
+		cheer.append(_make(d, func(t: float) -> float:
+			clp[0] = float(clp[0]) * 0.75 + randf_range(-1.0, 1.0) * 0.25
+			return float(clp[0]) * 2.4 * sin(PI * t / d) * (0.8 + 0.2 * sin(TAU * 11.0 * t))))
+	_pending["cheer"] = cheer
+	# loops
+	var wind_lp := [0.0]
+	var wind := _make(4.0, func(t: float) -> float:
+		wind_lp[0] = float(wind_lp[0]) * 0.985 + randf_range(-1.0, 1.0) * 0.015
+		var gust := 0.55 + 0.45 * sin(TAU * 0.25 * t) * sin(TAU * 0.5 * t + 1.0)
+		return float(wind_lp[0]) * 9.0 * gust)
+	wind.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	wind.loop_end = int(4.0 * RATE)
+	_pending["wind"] = [wind]
+	var chat_lp := [0.0]
+	var notes := [196.0, 247.0, 294.0, 330.0, 294.0, 247.0, 220.0, 247.0]
+	var tavern := _make(4.0, func(t: float) -> float:
+		chat_lp[0] = float(chat_lp[0]) * 0.9 + randf_range(-1.0, 1.0) * 0.1
+		var murmur := float(chat_lp[0]) * 2.5 * (0.6 + 0.4 * sin(TAU * 2.3 * t) * sin(TAU * 0.7 * t))
+		var nt := fmod(t, 0.5)
+		var f: float = notes[int(t / 0.5) % notes.size()]
+		var lute := sin(TAU * f * nt) * exp(-nt * 7.0) * 0.35 + sin(TAU * f * 2.0 * nt) * exp(-nt * 9.0) * 0.12
+		return murmur + lute)
+	tavern.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	tavern.loop_end = int(4.0 * RATE)
+	_pending["tavern"] = [tavern]
+	var crowd_lp := [0.0]
+	var crowd := _make(4.0, func(t: float) -> float:
+		crowd_lp[0] = float(crowd_lp[0]) * 0.8 + randf_range(-1.0, 1.0) * 0.2
+		return float(crowd_lp[0]) * 2.6 * (0.7 + 0.3 * sin(TAU * 0.5 * t)))
+	crowd.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	crowd.loop_end = int(4.0 * RATE)
+	_pending["crowd"] = [crowd]
 
 
 ## A looping ambience ("crickets", "water", "fire") once built, else null.

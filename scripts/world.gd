@@ -783,8 +783,10 @@ void vertex() {
 	VERTEX.x += sway * 0.035 * h * h;
 	VERTEX.z += cos(TIME * 1.3 + o.x * 0.6) * 0.02 * h * h;
 }
+uniform vec3 season_tint = vec3(1.0);
+uniform float frost = 0.0;
 void fragment() {
-	ALBEDO = COLOR.rgb;
+	ALBEDO = mix(COLOR.rgb * season_tint, vec3(0.88, 0.92, 0.96), frost * smoothstep(0.2, 0.8, NORMAL.y * 0.5 + 0.5));
 	ROUGHNESS = 0.9;
 }
 """
@@ -822,6 +824,9 @@ uniform sampler2D heightmap : filter_linear;
 uniform float hmax = 4.0;
 uniform vec2 grid = vec2(96.0, 48.0);          // the map in tiles
 uniform float tile = 1.0;
+uniform vec3 season_tint = vec3(1.0);          // the seasons: golden summer, russet autumn...
+uniform float snow = 0.0;                      // ...and winter's snow, lying on the flatter ground
+varying float up;
 
 float land(vec2 uv) {
 	return texture(heightmap, (uv * grid + 0.5) / (grid + 1.0)).r * hmax;
@@ -833,13 +838,17 @@ void vertex() {
 	float hx = land(UV + vec2(e.x, 0.0)) - land(UV - vec2(e.x, 0.0));
 	float hz = land(UV + vec2(0.0, e.y)) - land(UV - vec2(0.0, e.y));
 	NORMAL = normalize(vec3(-hx / (2.0 * tile), 1.0, -hz / (2.0 * tile)));   // lit as slopes
+	up = NORMAL.y;
 }
 
 void fragment() {
 	vec3 base = texture(paint, UV).rgb;
 	float g = texture(grain, UV * grain_scale).r;
 	float cl = texture(clouds, UV * vec2(3.0, 1.5) + TIME * vec2(0.006, 0.0035)).r;
-	ALBEDO = base * (0.86 + 0.28 * g) * (1.0 - cloud_amount * 0.24 * smoothstep(0.52, 0.74, cl));
+	vec3 col = base * season_tint * (0.86 + 0.28 * g);
+	float cover = snow * smoothstep(0.35, 0.75, g * 0.6 + snow * 0.6) * smoothstep(0.8, 0.97, up);
+	col = mix(col, vec3(0.9, 0.93, 0.97) * (0.92 + 0.12 * g), cover);
+	ALBEDO = col * (1.0 - cloud_amount * 0.24 * smoothstep(0.52, 0.74, cl));
 	ROUGHNESS = 1.0;
 }
 """

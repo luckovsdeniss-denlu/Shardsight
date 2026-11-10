@@ -166,6 +166,10 @@ static func stats(id: String) -> Dictionary:
 		elif p == "ex":
 			exceptional = true
 			mult += EXCEPTIONAL_BONUS
+		elif Gems.is_gem(p):
+			pass                                    # a socketed gem: its stats come through Gems.mods_of
+		elif p.length() == 2 and p.begins_with("e") and p[1].is_valid_int():
+			mult += Gems.ENCHANT_BONUS * int(p[1])   # enchanted at the forge
 		else:
 			var t := Crafting.tier_index(p)
 			if t > 0:
@@ -173,10 +177,13 @@ static func stats(id: String) -> Dictionary:
 				prefix = String(Crafting.ORE_TIERS[t]["name"]) + " " + prefix
 	if exceptional:
 		prefix = "Exceptional " + prefix
-	g["name"] = art_name if art_name != "" else prefix + String(g["name"])
+	g["name"] = (art_name if art_name != "" else prefix + String(g["name"])) + Gems.label(id)
 	g["exceptional"] = exceptional
 	g["artifact"] = art_name != ""
 	g["value"] = roundi(int(g["value"]) * mult * (1.25 if exceptional else 1.0) * (6.0 if art_name != "" else 1.0))
+	var gem := Gems.gem_of(id)
+	if gem != "":
+		g["value"] = int(g["value"]) + int(Gems.GEMS[gem]["value"])
 	match String(g["slot"]):
 		"weapon":
 			g["min"] = float(g["min"]) * mult

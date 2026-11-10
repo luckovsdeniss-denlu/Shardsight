@@ -7,7 +7,7 @@ const STAT_MIN := 10
 const STAT_MAX := 100           # per stat
 const STAT_MAX_AT_CREATION := 45
 const STAT_POINTS_AT_CREATION := 65
-const SKILL_CAP_TOTAL := 3800 # the maximum: every one of the 38 skills can reach 100
+const SKILL_CAP_TOTAL := 4000 # the maximum: every one of the 40 skills (Cooking and Farming too) can reach 100
 const SKILL_MAX := 100
 
 

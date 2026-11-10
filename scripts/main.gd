@@ -2889,8 +2889,15 @@ func _refresh_bag() -> void:
 		if Items.is_known(id) and not Items.is_tool_item(id):
 			line += "   worth %d each" % Items.value(id)
 		var row := HBoxContainer.new()
+		var pic := TextureRect.new()                   # a little picture of what it is
+		pic.texture = Icons.tex(Icons.for_item(String(id)))
+		pic.custom_minimum_size = Vector2(40, 40)
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pic.modulate = Art.item_color(String(id))
+		row.add_child(pic)
 		var info := _info(line)
-		info.custom_minimum_size = Vector2(560, 0)
+		info.custom_minimum_size = Vector2(520, 0)
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(info)
 		if Gear.has(id):
@@ -4415,23 +4422,23 @@ func _build_marker() -> void:
 ## cyan (*), quests and bounties violet (»), magic blue (*), healing and rest green (+), travel
 ## teal (»), tips grey. The first kind whose words appear in the line wins.
 const LOG_KINDS := [
-	["†", "ff6a5c", ["slain", "you die", "has fallen", "falls in the arena", "murdered"]],
-	["»", "c9a2ff", ["quest", "task", "bounty", "chapter", "story", "return to "]],
-	["!", "ffa64d", ["attack", "poison", "criminal", "murder", "invasion", "warband", "raises the dead", "march on", "breaks",
+	["skull", "ff6a5c", ["slain", "you die", "has fallen", "falls in the arena", "murdered"]],
+	["scroll", "c9a2ff", ["quest", "task", "bounty", "chapter", "story", "return to "]],
+	["alert", "ffa64d", ["attack", "poison", "criminal", "murder", "invasion", "warband", "raises the dead", "march on", "breaks",
 		"you burn", "you fail", "you lose", "can't", "you need", "forfeit", "champion", "wanted", "stolen", "steal"]],
-	["$", "ffd94d", ["gold", "you sell", "you buy", "bank", "reward", "tolls"]],
-	["*", "66e0ff", ["skill", "level", "you learn", "title", "achievement", "stronger", "you are now"]],
-	["*", "7fa8ff", ["cast", "spell", "scroll", "bless", "resurrect", "mana", "summon", "transform"]],
-	["+", "7dea7d", ["heal", "cured", "rested", "well fed", "you eat", "you drink", "you sleep", "welcome", "bandage"]],
-	["»", "5fd9c0", ["you enter", "you leave", "set off", "descend", "climb", "push off", "ashore", "arrive", "takes ", "tower"]],
-	["+", "f0dc9a", ["loot", "you find", "you make", "you cook", "you catch", "you gather", "you brew", "treasure", "pearl", "+1",
-		"you take", "you pick", "smelt", "tame"]],
-	["·", "aab2c0", ["tip:"]],
+	["coin", "ffd94d", ["gold", "you sell", "you buy", "bank", "reward", "tolls"]],
+	["star", "66e0ff", ["skill", "level", "you learn", "title", "achievement", "stronger", "you are now"]],
+	["magic", "7fa8ff", ["cast", "spell", "scroll", "bless", "resurrect", "mana", "summon", "transform", "enchant"]],
+	["heart", "7dea7d", ["heal", "cured", "rested", "well fed", "you eat", "you drink", "you sleep", "welcome", "bandage"]],
+	["travel", "5fd9c0", ["you enter", "you leave", "set off", "descend", "climb", "push off", "ashore", "arrive", "takes ", "tower", "comes:"]],
+	["chest", "f0dc9a", ["loot", "you find", "you make", "you cook", "you catch", "you gather", "you brew", "treasure", "pearl", "+1",
+		"you take", "you pick", "smelt", "tame", "harvest", "you sow"]],
+	["info", "aab2c0", ["tip:"]],
 ]
 
 
 func _setup_log(l: RichTextLabel, font_px: int, width: float) -> void:
-	l.bbcode_enabled = true
+	l.bbcode_enabled = false
 	l.fit_content = true
 	l.scroll_active = false
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -4440,31 +4447,44 @@ func _setup_log(l: RichTextLabel, font_px: int, width: float) -> void:
 	l.add_theme_font_size_override("normal_font_size", font_px)
 	l.add_theme_color_override("font_outline_color", Color.BLACK)
 	l.add_theme_constant_override("outline_size", 8)
+	l.set_meta("px", font_px)
 
 
-## A log line in its colour, with its mark in front (BBCode).
-static func _log_markup(text: String) -> String:
+## Which kind of line this is (an index into LOG_KINDS), or -1.
+static func _log_kind(text: String) -> int:
 	var low := text.to_lower()
-	var mark := "•"
-	var col := "eeeeea"
-	for kind in LOG_KINDS:
-		var found := false
-		for word in kind[2]:
+	for i in range(LOG_KINDS.size()):
+		for word in LOG_KINDS[i][2]:
 			if low.contains(String(word)):
-				found = true
-				break
-		if found:
-			mark = String(kind[0])
-			col = String(kind[1])
-			break
-	return "[color=#%s]%s %s[/color]" % [col, mark, text.replace("[", "[lb]")]
+				return i
+	return -1
+
+
+## Writes the lines into a log: each with its little icon in front, in its colour.
+func _render_log(l: RichTextLabel, lines: Array[String], right: bool) -> void:
+	l.clear()
+	var px := int(l.get_meta("px", 24))
+	if right:
+		l.push_paragraph(HORIZONTAL_ALIGNMENT_RIGHT)
+	for i in range(lines.size()):
+		var k := _log_kind(lines[i])
+		var col := Color("eeeeea") if k < 0 else Color(String(LOG_KINDS[k][1]))
+		var icon := "dot" if k < 0 else String(LOG_KINDS[k][0])
+		l.add_image(Icons.tex(icon), px, px, col)
+		l.push_color(col)
+		l.add_text(" " + lines[i])
+		l.pop()
+		if i < lines.size() - 1:
+			l.newline()
+	if right:
+		l.pop()
 
 
 func log_event(text: String) -> void:
-	log_lines.append(_log_markup(text))
+	log_lines.append(text)
 	while log_lines.size() > LOG_LINES:
 		log_lines.remove_at(0)
-	log_label.text = "\n".join(log_lines)
+	_render_log(log_label, log_lines, false)
 
 
 ## Goes to the player's log (left) if it involves the hero, otherwise to the world log (right).
@@ -4476,10 +4496,10 @@ func event_about(text: String, mine: bool) -> void:
 
 
 func world_event(text: String) -> void:
-	world_lines.append(_log_markup(text))
+	world_lines.append(text)
 	while world_lines.size() > LOG_LINES:
 		world_lines.remove_at(0)
-	world_label.text = "[right]" + "\n".join(world_lines) + "[/right]"
+	_render_log(world_label, world_lines, true)
 
 
 # --- input -----------------------------------------------------------------
@@ -4743,9 +4763,17 @@ func _make_ui_solid(t: Theme) -> void:
 	t.set_stylebox("panel", "Panel", panel)
 
 
+const BUTTON_ICONS := {"Main Menu": "scroll", "Bag": "chest", "Spells": "magic", "Retreat": "alert", "Ride": "travel",
+	"Bow": "weapon", "Statistics": "star"}
+
+
 func _corner_add(b: Button) -> void:
 	b.custom_minimum_size = Vector2(200, 58)
 	b.add_theme_font_size_override("font_size", 22)
+	if BUTTON_ICONS.has(b.text):                       # a little picture beside the word
+		b.icon = Icons.tex(String(BUTTON_ICONS[b.text]))
+		b.expand_icon = false
+		b.add_theme_constant_override("icon_max_width", 28)
 	corner_grid.add_child(b)
 
 
@@ -5668,14 +5696,19 @@ func _weather_tick(delta: float) -> void:
 		# streaked across the screen as big white smears (worse zoomed in).
 		var above := clampf(cam.position.y - hero.position.y - 2.0, 2.5, 6.0)
 		rain.global_position = hero.position + Vector3(0.0, above, 0.0)
-		rain.visible = not world.is_dungeon(world.to_tile(hero.position))   # no rain underground
+		rain.visible = not world.is_dungeon(world.to_tile(hero.position)) \
+			and not (frontier != null and frontier.season() == "winter")    # no rain underground; in winter it snows
 	if not property.weather_on:
 		return
 	_weather_timer -= delta
 	if _weather_timer <= 0.0:
 		_weather_timer = randf_range(180.0, 420.0)
 		var roll := randf()
-		_set_weather("clear" if roll < 0.5 else ("rain" if roll < 0.75 else ("fog" if roll < 0.9 else "storm")))
+		# the seasons lean the dice: dry summers, wet autumns, grey winters
+		var sn := frontier.season() if frontier != null else "spring"
+		var clear_p: float = {"spring": 0.5, "summer": 0.68, "autumn": 0.38, "winter": 0.42}[sn]
+		var rain_p: float = clear_p + {"spring": 0.27, "summer": 0.16, "autumn": 0.32, "winter": 0.33}[sn]
+		_set_weather("clear" if roll < clear_p else ("rain" if roll < rain_p else ("fog" if roll < rain_p + 0.13 else "storm")))
 	if weather == "storm":
 		if _thunder_in < 0.0 and randf() < delta / 9.0:
 			_flash = 0.15
@@ -5876,7 +5909,8 @@ func _pets_text() -> String:
 func _clock_text() -> String:
 	var minutes := int(day_time * 24.0 * 60.0)
 	var hour := minutes / 60
-	return "%02d:%02d %s" % [hour, minutes % 60, "day" if hour >= 6 and hour < 20 else "night"]
+	return "%02d:%02d %s%s" % [hour, minutes % 60, "day" if hour >= 6 and hour < 20 else "night",
+		("   " + frontier.season_text()) if frontier != null else ""]
 
 
 func _refresh_settings() -> void:
