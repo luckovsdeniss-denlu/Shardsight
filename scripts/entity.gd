@@ -155,6 +155,8 @@ var pet_xp := 0.0
 var _loot_skip := {}            # corpses found unreachable (instance id -> true)
 var blade_poison := 0           # a weapon coated with poison (Alchemy): its level, and blows left
 var blade_poison_hits := 0
+var _pop_slot := 0               # floating texts that come close together are stacked, not overlaid
+var _pop_at := 0
 var tick_debt := 0.0            # time not yet lived (off screen, creatures tick every third frame)
 var _dying := 0.0               # the fall when slain (seconds left)         # the hero in first person: its own model, bar and label hidden
 var _hit_sound := ""            # set by whoever strikes us, so the blow sounds like what hit what
@@ -357,6 +359,7 @@ func _build_visual(color: Color, s: float) -> void:
 	label.modulate = base_label_color
 	label.position = Vector3(0.0, 1.5 * s + 0.32, 0.0)
 	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM   # extra lines grow upward, clear of the bar
+	label.line_spacing = 10.0                # a little air between the lines
 	add_child(label)
 	label.visible = bool(game.property.names_on)
 	hp_bar = Art.hp_bar()
@@ -1299,9 +1302,15 @@ func _pop(text: String, color: Color) -> void:
 	l.outline_size = 12
 	l.no_depth_test = true
 	get_parent().add_child(l)
-	l.position = position + Vector3(0.0, 2.0, 0.0)
+	# Several at once (a spell's name, the damage, "critical!") don't pile on top of each other:
+	# each one that follows closely starts a step higher and a little to the side.
+	var now := Time.get_ticks_msec()
+	_pop_slot = (_pop_slot + 1) % 5 if now - _pop_at < 700 else 0
+	_pop_at = now
+	var side := 0.0 if _pop_slot == 0 else (0.35 if _pop_slot % 2 == 1 else -0.35)
+	l.position = position + Vector3(side, 2.0 * maxf(visual_scale, 0.6) + 0.5 + 0.42 * _pop_slot, 0.0)
 	var tw := l.create_tween()
-	tw.tween_property(l, "position:y", l.position.y + 0.9, 0.8)
+	tw.tween_property(l, "position:y", l.position.y + 0.9, 0.9)
 	tw.tween_callback(l.queue_free)
 
 

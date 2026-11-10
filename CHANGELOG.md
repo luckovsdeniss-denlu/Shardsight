@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.63.5
+- The texts over heads are spaced out: floating texts that come close together (the spell's
+  words, the damage, "critical!", loot) no longer land on top of each other - each starts a step
+  higher and a little to the side, above the name; and the lines of the name label have a little
+  more room between them.
+
 ## 0.63.4
 - Spell names are plain again everywhere (Fireball, Recall, Night Sight...). Only the words
   spoken when casting keep their new old-tongue spelling (Vaas Flaem, Khal Orth Pohr, Yn Lhor).
