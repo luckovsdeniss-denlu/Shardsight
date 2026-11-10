@@ -125,7 +125,7 @@ static func item_name(id: String) -> String:
 		var g := Gear.stats(id)
 		return String(g["name"]) + (" (your maker's mark)" if bool(g["exceptional"]) else "")
 	if is_scroll(id):
-		return "Scroll of " + String(Spells.LIST[Spells.spell_of_scroll(id)]["name"])
+		return "Scroll of " + String(Spells.LIST[Spells.spell_of_scroll(id)]["plain"])   # scrolls keep the plain names
 	if Jewelry.has(id):
 		return String(Jewelry.LIST[id]["name"])
 	if is_map(id):
