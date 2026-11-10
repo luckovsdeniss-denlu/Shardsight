@@ -2754,9 +2754,9 @@ func _area_blast(sp: Dictionary) -> void:
 			continue
 		if _near_hero():
 			match String(sp["name"]):
-				"Meteor Swarm":
+				"Meteor Swarme":
 					Fx.meteor(get_parent(), e.position, randf_range(0.0, 0.4))
-				"Chain Lightning":
+				"Chayn Lyghtning":
 					Fx.lightning(get_parent(), e.position, sp["color"])
 				_:
 					Fx.sparkle(get_parent(), e.position + Vector3(0.0, 0.4, 0.0), sp["color"], 12)

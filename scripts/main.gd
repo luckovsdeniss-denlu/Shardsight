@@ -2055,7 +2055,7 @@ func _refresh_travel() -> void:
 	var title := _info("Travel magic")
 	title.add_theme_font_size_override("font_size", 30)
 	travel_box.add_child(title)
-	travel_box.add_child(_info("Runebook (%d of %d runes). Recall and Gate Travel use the selected rune; Mark adds a rune where you stand (when the book is full it replaces the selected one)." % [
+	travel_box.add_child(_info("Runebook (%d of %d runes). Recalle and Gate Travail use the selected rune; Marke adds a rune where you stand (when the book is full it replaces the selected one)." % [
 		property.runes.size(), Property.MAX_RUNES]))
 	for i in range(property.runes.size()):
 		var r: Vector2i = property.runes[i]
@@ -2076,7 +2076,7 @@ func _refresh_travel() -> void:
 			roundi(Rules.cast_chance(float(hero.stats.skills[Hero.Skill.MAGERY]), float(sp["min"])) * 100.0),
 			"" if problem == "" else " (" + problem + ")"]))
 		travel_box.add_child(_action("Cast " + String(sp["name"]), _on_travel.bind(id), problem == ""))
-	travel_box.add_child(_info("Recall takes you to the selected rune; Mark adds a rune where you stand; Gate Travel opens a moongate there that anyone can use for %d seconds." % int(GATE_SECONDS)))
+	travel_box.add_child(_info("Recalle takes you to the selected rune; Marke adds a rune where you stand; Gate Travail opens a moongate there that anyone can use for %d seconds." % int(GATE_SECONDS)))
 	# The spellbook: what you know, circle by circle. Scrolls drop from monsters (tougher ones
 	# carry higher circles) and merchants sell circles 1-6; they are copied in automatically.
 	var spellbook_title := _info("Spellbook (%d of %d spells)" % [hero.spellbook.size(), Spells.ORDER.size()])
@@ -2278,7 +2278,7 @@ func _open_help() -> void:
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
 		"The world is bigger now: Southmoor, a third town, lies south. Wolf packs and an orc fort roam the far east, spiders the southern forest, and the restless dead an old graveyard in the south-east. The hills south-east are rich in ore.",
 		"Priests (Father Corwin by the healer, Brother Anselm at the outpost, Mother Isolde in Southmoor) cure poison, lift curses, restore mana and raise the dead for free, bless you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lift a murder count for 50 gold. Stand near one, or tap them.",
-		"Menu also has Craft, Bank & House (deeds, lock-downs, co-owners), Travel & Spellbook (a runebook of up to 8 runes for Recall and Gate Travel, and the spells you know) and Settings (sound, camera).",
+		"Menu also has Craft, Bank & House (deeds, lock-downs, co-owners), Travel & Spellbook (a runebook of up to 8 runes for Recalle and Gate Travail, and the spells you know) and Settings (sound, camera).",
 		"Spells must be in your spellbook. You start with circles 1-4; scrolls for more drop from monsters (tougher ones carry higher circles) or are sold by merchants (circles 1-6), and are copied in as soon as you pick them up.",
 	]:
 		settings_box.add_child(_info("• " + String(line)))
@@ -3406,7 +3406,7 @@ func _refresh_spells() -> void:
 			if spell_details:
 				spells_box.add_child(_small(_spell_detail(id)))
 	spells_box.add_child(_info("Magery makes spells hit and heal harder and cast faster; Evaluating Intellect adds damage. A blow while you cast may break the spell (less likely the better your Magery); the Protection spell stops that."))
-	spells_box.add_child(_info("Greyed-out spells need more mana, reagents or Magery. Find or buy scrolls to fill your book; Recall, Mark and Gate Travel are under Menu > Travel."))
+	spells_box.add_child(_info("Greyed-out spells need more mana, reagents or Magery. Find or buy scrolls to fill your book; Recalle, Marke and Gate Travail are under Menu > Travel."))
 	spells_box.add_child(_menu_button("Close", _close_spells))
 
 

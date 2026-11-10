@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.63.2
+- Every spell has its own name now, in an old spelling close to the plain one: Fyrebal, Hele,
+  Greter Hele, Lyghtning, Nyght Syght, Recalle, Marke, Gate Travail, Flamestryke, Chayn Lyghtning,
+  Summoun Demoun, Lych Forme and the rest (all 67, and the transformations: Wolf Forme, Bear Forme,
+  Ogre Forme). Scrolls, the spellbook, the logs and the help text use the new names.
+
 ## 0.63.1
 - The words of power are the game's own now: every spell's incantation is respelled in an older
   tongue, close to how it sounded before (In Lor is Yn Lhor, Vas Flam is Vaas Flaem, Kal Ort Por
