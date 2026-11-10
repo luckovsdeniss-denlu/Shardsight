@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.63.4
+- Spell names are plain again everywhere (Fireball, Recall, Night Sight...). Only the words
+  spoken when casting keep their new old-tongue spelling (Vaas Flaem, Khal Orth Pohr, Yn Lhor).
+
 ## 0.63.3
 - Spell scrolls keep the plain names ("Scroll of Fireball"); the spells themselves keep their new
   ones.
