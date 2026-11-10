@@ -139,6 +139,7 @@ var _tip_timer := 8.0
 ## The mode this run was started in: "" (first start: the title offers the choice), "classic" or
 ## "experimental". Kept across restarts of the scene (a mode switch reloads it).
 static var start_mode := ""
+var booted := false                    # the world is built (the loading screen is done)
 
 
 func _ready() -> void:
@@ -149,12 +150,26 @@ func _ready() -> void:
 		Experiments.load_cfg()
 	if not autotest and DisplayServer.get_name() != "headless":
 		Engine.max_fps = FPS_GOAL                # no faster than 60, even on a 120 Hz screen (cooler, steadier)
+	# The loading screen, then the world built a step at a time so it can move between steps.
+	# Nothing ticks until it's all built.
+	set_process(false)
+	var loading := LoadingScreen.new()
+	add_child(loading)
+	loading.step(0.05, "Waking the shard")
+	await get_tree().process_frame
+	loading.step(0.3, "Raising the land")
+	await get_tree().process_frame
 	world.build(self)
-	call_deferred("_apply_graphics")         # once the sun and the rain exist
+	loading.step(0.5, "Lighting the sky")
+	await get_tree().process_frame
 	_build_environment()
 	_build_marker()
+	loading.step(0.65, "Calling the creatures")
+	await get_tree().process_frame
 	_spawn_all()
 	_build_rings()
+	loading.step(0.78, "Building the towns")
+	await get_tree().process_frame
 
 	cam.fov = 50.0
 	add_child(cam)
@@ -288,9 +303,8 @@ func _ready() -> void:
 	bard_box = bard_panel.get_meta("box")
 	animals_box = animals_panel.get_meta("box")
 	settings_box = settings_panel.get_meta("box")
-	if not autotest:
-		_show_title(layer)
-
+	loading.step(0.88, "Remembering your hero")
+	await get_tree().process_frame
 	if autotest:
 		seed(20261103)                       # same dice every run, so results are comparable
 		skip_save = true                     # a fresh game; never touch the real save
@@ -316,6 +330,8 @@ func _ready() -> void:
 		log_event("Welcome to Shardsight. Tap a monster to attack it.")
 		_tips_left = TIPS.duplicate()        # first launch: a few tips over the first minute
 	_update_corner_buttons()                 # the saved switches: stats, map
+	loading.step(0.96, "Opening the wider world")
+	await get_tree().process_frame
 	frontier = Frontier.new()
 	frontier.setup(self, layer)
 	for e in creatures:
@@ -324,7 +340,13 @@ func _ready() -> void:
 		property.rune = DEFAULT_RUNE         # a starting rune marked in town, for Recall
 		property.runes.clear()
 		property.runes.append(DEFAULT_RUNE)
+	_apply_graphics()                        # now that the sun and the rain exist
 	_follow_camera()
+	booted = true
+	set_process(true)
+	loading.finish()
+	if not autotest:
+		_show_title(layer)                   # the title and the fly-by, as the loading screen fades
 
 
 func _menu_button(text: String, callback: Callable) -> Button:
@@ -3967,7 +3989,7 @@ func _reset_progress() -> void:
 
 
 func _autosave() -> void:
-	if not skip_save and hero != null:
+	if not skip_save and hero != null and booted:   # never over the save while it's still loading
 		SaveGame.save(hero, property)
 
 
@@ -4460,7 +4482,7 @@ func world_event(text: String) -> void:
 # --- input -----------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
-	if paused:
+	if paused or not booted:
 		return
 	# Two fingers: pinch to zoom, twist to turn the camera. Taps are ignored meanwhile.
 	if event is InputEventScreenTouch:

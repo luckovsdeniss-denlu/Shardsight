@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.61.0
+A loading screen.
+- From the moment the game opens: a dark field of glowing hexagons with a pulse rolling out from
+  the middle and a scan line sweeping down; at the centre the Shard spins inside turning rings of
+  light, with a gold progress arc and tick marks round it; the name spaced out in gold; a
+  segmented progress bar with a bright leading edge and the per cent; the step being loaded,
+  typed out with a blinking cursor; system lines lower left; viewfinder corners and the version.
+- The world is built a step at a time behind it (the land, the sky, the creatures, the towns,
+  your saved hero, the wider world), so the screen keeps moving instead of freezing; then it
+  fades into the title and the fly-by.
+- The game is never saved while it is still loading (going to the background then could have
+  saved a fresh hero over yours).
+
 ## 0.60.1
 - Fix: the game wouldn't start in 0.59.7 and 0.60.0 (a name used twice in the fly-by's camera
   code).
