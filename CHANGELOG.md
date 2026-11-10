@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.59.7
+The opening fly-by as a film.
+- It fades in from black; black bars frame the picture and the corners are darkened, and the
+  bars slide away when the camera reaches your hero.
+- Each place it passes is named in the corner: the Southern Woods, the Town, the Dungeon, the
+  Eastern Wilds, the Old Graveyard, Southmoor.
+- The camera leans into its turns and looks through a wider lens up high, levelling out and
+  narrowing to the usual view as it comes down.
+- Golden motes drift in the air ahead of it.
+- The title's lines fade in one after another, and the name shimmers gold.
+
 ## 0.59.6
 - The start screen: the title shows over the opening fly-by (tap to skip it); once the camera
   has come down to your hero, the mode buttons fade in - Play (the ordinary game) or

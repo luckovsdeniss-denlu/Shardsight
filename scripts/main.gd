@@ -4976,10 +4976,11 @@ func near_campfire(p: Vector3) -> bool:
 ## subtitle and the version. It fades after a few seconds, or at once on a tap.
 func _show_title(layer: CanvasLayer) -> void:
 	var card := ColorRect.new()
-	card.color = Color(0.043, 0.055, 0.09, 0.35)   # see-through: the fly-by shows behind the title
+	card.color = Color(0.043, 0.055, 0.09, 0.15)   # see-through: the fly-by shows behind the title
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(card)
 	card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_build_flyby_fx(card)
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -5001,6 +5002,16 @@ func _show_title(layer: CanvasLayer) -> void:
 		lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(lab)
 		hint = lab                                 # the last line: "tap to skip"
+		lab.modulate.a = 0.0                       # each line fades in after the one before
+		var k := box.get_child_count() - 1
+		var tw := lab.create_tween()
+		tw.tween_interval(0.5 + 0.45 * k)
+		tw.tween_property(lab, "modulate:a", 1.0, 0.9)
+		if k == 0:                                 # the name: a slow golden shimmer
+			var sh := lab.create_tween().set_loops()
+			sh.tween_interval(1.4)
+			sh.tween_property(lab, "modulate", Color(1.35, 1.25, 1.0, 1.0), 1.1).set_trans(Tween.TRANS_SINE)
+			sh.tween_property(lab, "modulate", Color(1.0, 1.0, 1.0, 1.0), 1.1).set_trans(Tween.TRANS_SINE)
 	if Experiments.active:
 		var ex := Label.new()
 		ex.text = "EXPERIMENTAL MODE"
@@ -5038,6 +5049,7 @@ func _show_title(layer: CanvasLayer) -> void:
 	var flyby_done := func() -> void:
 		if not is_instance_valid(card) or card.get_meta("closing", false) or row.visible:
 			return
+		_flyby_fx_end()
 		if start_mode != "":
 			close.call()
 			return
@@ -5052,6 +5064,7 @@ func _show_title(layer: CanvasLayer) -> void:
 			_skip_flyby())                         # a tap glides the camera down to the hero
 	_title_close = flyby_done
 	_flyby_t = 0.0                                 # start the fly-by over the world
+	_fov_rest = cam.fov
 	get_tree().create_timer(FLYBY_SEG * FLYBY.size() + 3.0).timeout.connect(flyby_done)   # just in case
 
 
@@ -5075,6 +5088,138 @@ var _skip_from_pos := Vector3.ZERO
 var _skip_from_look := Vector3.ZERO
 var _cam_look := Vector3.ZERO          # where the camera looks during the fly-by
 var _title_close: Callable
+# the fly-by's effects
+const FLYBY_PLACES := ["The Southern Woods", "The Town", "The Dungeon", "The Eastern Wilds", "The Old Graveyard", "Southmoor"]
+const VIGNETTE_SHADER := """
+shader_type canvas_item;
+uniform float strength = 0.75;
+void fragment() {
+	vec2 d = (UV - vec2(0.5)) * vec2(1.25, 1.0);
+	COLOR = vec4(0.0, 0.0, 0.03, smoothstep(0.32, 0.8, length(d)) * strength);
+}
+"""
+var _fov_rest := 50.0
+var _bank := 0.0                       # the camera leans into the turns
+var _heading := 0.0
+var _fx_seg := -1
+var _fx_bars: Array[ColorRect] = []
+var _fx_caption: Label
+var _fx_motes: CPUParticles3D
+var _fx_done := false
+
+
+## The fly-by as a film: it fades in from black, black bars frame the picture, the corners are
+## darkened, golden motes drift in the air ahead, the camera leans into its turns with a wider
+## lens, and each place it passes is named in the corner.
+func _build_flyby_fx(card: Control) -> void:
+	var vig := ColorRect.new()
+	var sh := Shader.new()
+	sh.code = VIGNETTE_SHADER
+	var vm := ShaderMaterial.new()
+	vm.shader = sh
+	vig.material = vm
+	vig.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(vig)
+	vig.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var h := get_viewport().get_visible_rect().size.y
+	for top in [true, false]:
+		var bar := ColorRect.new()
+		bar.color = Color.BLACK
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(bar)
+		bar.set_anchors_preset(Control.PRESET_TOP_WIDE if top else Control.PRESET_BOTTOM_WIDE)
+		bar.offset_left = 0.0
+		bar.offset_right = 0.0
+		bar.offset_top = 0.0 if top else -h * 0.11
+		bar.offset_bottom = h * 0.11 if top else 0.0
+		_fx_bars.append(bar)
+	_fx_caption = Label.new()
+	_fx_caption.add_theme_font_size_override("font_size", 34)
+	_fx_caption.add_theme_color_override("font_color", Color(0.95, 0.88, 0.7))
+	_fx_caption.add_theme_color_override("font_outline_color", Color.BLACK)
+	_fx_caption.add_theme_constant_override("outline_size", 10)
+	_fx_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fx_caption.modulate.a = 0.0
+	card.add_child(_fx_caption)
+	_fx_caption.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 40)
+	_fx_caption.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_fx_caption.offset_top -= h * 0.11
+	_fx_caption.offset_bottom -= h * 0.11
+	var black := ColorRect.new()                   # fades in from black
+	black.color = Color.BLACK
+	black.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(black)
+	black.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var tw := black.create_tween()
+	tw.tween_property(black, "modulate:a", 0.0, 1.6).set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(black.queue_free)
+	_fx_motes = CPUParticles3D.new()
+	_fx_motes.amount = 70
+	_fx_motes.lifetime = 4.0
+	_fx_motes.preprocess = 2.0
+	_fx_motes.mesh = Fx._quad(0.12, Color(1.0, 0.85, 0.5))
+	_fx_motes.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_fx_motes.emission_box_extents = Vector3(7, 3, 7)
+	_fx_motes.direction = Vector3(0, 1, 0)
+	_fx_motes.spread = 60.0
+	_fx_motes.gravity = Vector3(0, 0.08, 0)
+	_fx_motes.initial_velocity_min = 0.1
+	_fx_motes.initial_velocity_max = 0.4
+	var ramp := Gradient.new()
+	ramp.offsets = PackedFloat32Array([0.0, 0.3, 0.7, 1.0])
+	ramp.colors = PackedColorArray([Color(1, 0.85, 0.5, 0.0), Color(1, 0.85, 0.5, 0.9), Color(1, 0.9, 0.6, 0.7), Color(1, 0.9, 0.6, 0.0)])
+	_fx_motes.color_ramp = ramp
+	add_child(_fx_motes)
+
+
+func _flyby_fx_step(delta: float, pos: Vector3, look: Vector3) -> void:
+	if _fx_done:
+		return
+	# a wider lens high above, narrowing to the usual as it comes down to the hero
+	var t_all := FLYBY_SEG * (FLYBY.size() + 1)     # the places, then down to the hero
+	var k := clampf(_flyby_t / t_all, 0.0, 1.0)
+	if _skip_t >= 0.0:
+		k = maxf(k, smoothstep(0.0, 1.0, minf(_skip_t / FLYBY_SKIP, 1.0)))
+	cam.fov = lerpf(62.0, _fov_rest, smoothstep(0.75, 1.0, k))
+	# lean into the turns
+	var dir := Vector2(look.x - pos.x, look.z - pos.z)
+	if dir.length() > 0.01 and delta > 0.0:
+		var hd := atan2(dir.x, dir.y)
+		var turn := wrapf(hd - _heading, -PI, PI) / delta
+		_heading = hd
+		_bank = lerpf(_bank, clampf(turn * 0.12, -0.14, 0.14), minf(1.0, 2.0 * delta))
+	_bank *= 1.0 - smoothstep(0.8, 1.0, k)          # level again as it comes down
+	cam.rotate_object_local(Vector3(0, 0, 1), _bank)
+	if _fx_motes != null:
+		_fx_motes.position = pos.lerp(look, 0.35)
+	# name each place as the camera reaches it
+	var seg := floori(_flyby_t / FLYBY_SEG) if _skip_t < 0.0 else 99
+	if seg != _fx_seg:
+		_fx_seg = seg
+		var tw := _fx_caption.create_tween()
+		tw.tween_property(_fx_caption, "modulate:a", 0.0, 0.3)
+		if seg >= 0 and seg < FLYBY_PLACES.size():
+			tw.tween_callback(func() -> void: _fx_caption.text = String(FLYBY_PLACES[seg]))
+			tw.tween_property(_fx_caption, "modulate:a", 1.0, 0.6)
+
+
+## The film ends: the bars slide away, the motes settle, the lens and the horizon come back.
+func _flyby_fx_end() -> void:
+	if _fx_done:
+		return
+	_fx_done = true
+	cam.fov = _fov_rest
+	_bank = 0.0
+	for i in range(_fx_bars.size()):
+		var bar := _fx_bars[i]
+		if is_instance_valid(bar):                 # the top bar slides up, the bottom one down
+			bar.create_tween().tween_property(bar, "offset_bottom" if i == 0 else "offset_top", 0.0, 0.7).set_trans(Tween.TRANS_SINE)
+	if is_instance_valid(_fx_caption):
+		_fx_caption.create_tween().tween_property(_fx_caption, "modulate:a", 0.0, 0.4)
+	if _fx_motes != null:
+		_fx_motes.emitting = false
+		get_tree().create_timer(4.5).timeout.connect(_fx_motes.queue_free)
+		_fx_motes = null
 
 
 func _hero_cam_pos() -> Vector3:
@@ -5245,6 +5390,7 @@ func _flyby_step(delta: float) -> bool:
 	_cam_look = look
 	cam.position = pos
 	cam.look_at(look, Vector3.UP)
+	_flyby_fx_step(delta, pos, look)
 	view_planes = cam.get_frustum()
 	return true
 
@@ -5252,6 +5398,7 @@ func _flyby_step(delta: float) -> bool:
 func _end_flyby() -> void:
 	_flyby_t = -1.0
 	_skip_t = -1.0
+	_flyby_fx_end()
 	if _title_close.is_valid():
 		_title_close.call()
 
