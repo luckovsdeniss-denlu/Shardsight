@@ -2322,7 +2322,8 @@ func _errand_step() -> void:
 		hero.path.clear()
 		then.call()
 		return
-	if hero.target == null and not hero.recovering and not hero.retreating and hero.pause <= 0.0:
+	if hero.target == null and hero.loot_target == null and not hero.recovering and not hero.retreating \
+			and hero.pause <= 0.0:                 # (never cut short a fight or the looting of a corpse)
 		if not hero.has_journey or hero.journey.distance_to(dest) > 2.5:
 			hero.set_journey(dest)
 	hero.roam_timer = maxf(hero.roam_timer, 30.0)   # don't wander off to another region meanwhile

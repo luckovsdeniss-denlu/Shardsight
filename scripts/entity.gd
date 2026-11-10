@@ -150,6 +150,7 @@ var bleed_timer := 0.0          # a bleeding wound (seconds left), its damage a 
 var bleed_dmg := 0.0
 var bleed_from: Entity
 var _bleed_acc := 0.0
+var _loot_skip := {}            # corpses found unreachable (instance id -> true)
 var blade_poison := 0           # a weapon coated with poison (Alchemy): its level, and blows left
 var blade_poison_hits := 0
 var tick_debt := 0.0            # time not yet lived (off screen, creatures tick every third frame)
@@ -523,6 +524,13 @@ func _think(delta: float) -> void:
 		if roam_timer <= 0.0:
 			game.next_region(self)
 	if kind == Kind.PLAYER and has_journey and target == null and not recovering:
+		# on the way somewhere: stop for spoils lying near the road, then carry on
+		if loot_target != null and _loot_step():
+			return
+		if (not is_hero or ai_enabled) and pause <= 0.0 and _seek_loot():
+			path.clear()                           # off the road to it
+			if _loot_step():
+				return
 		if _journey_step():
 			return
 	var autonomous := kind != Kind.PLAYER or ai_enabled
@@ -1759,13 +1767,20 @@ func _loot_step() -> bool:
 	if not is_instance_valid(loot_target) or loot_target.is_empty():
 		loot_target = null
 		return false
-	if position.distance_to(loot_target.position) > LOOT_RANGE:
-		if path.is_empty() and not go_to(loot_target.position):
-			if position.distance_to(loot_target.position) <= SPELL_RANGE and casting_id == "" \
+	var lp := loot_target.position
+	var flat := Vector2(position.x - lp.x, position.z - lp.z).length()   # hills: height doesn't count
+	if flat > LOOT_RANGE:
+		if path.is_empty() and not go_to(lp):
+			if flat < 3.0 and world.walk_clear(position, lp):
+				path.clear()
+				path.append(lp)                    # right here (on this tile or the next): just step over
+				return true
+			if position.distance_to(lp) <= SPELL_RANGE and casting_id == "" \
 					and cast_cd <= 0.0 and can_cast("telekinesis"):
 				cast_corpse = loot_target          # pull it over with Telekinesis
 				loot_target = null
 				return start_cast("telekinesis", self)
+			_loot_skip[loot_target.get_instance_id()] = true   # don't keep trying for it
 			loot_target = null        # unreachable
 			return false
 		return true
@@ -1798,23 +1813,39 @@ func _take(c: Corpse) -> void:
 
 ## Picks the nearest corpse worth looting, unless a monster is close.
 func _seek_loot() -> bool:
-	if _nearest(Kind.MONSTER, 4.0) != null:
+	if _hostile_near(4.0):
 		return false
 	var best: Corpse = null
-	var best_d := LOOT_SEEK
+	var best_score := INF
 	var list: Array = game.corpses
 	for item in list:
 		var c := item as Corpse
-		if c.is_empty() or not c.can_loot(self):
+		if c.is_empty() or not c.can_loot(self) or _loot_skip.has(c.get_instance_id()):
 			continue
-		var d := position.distance_to(c.position)
-		if d <= best_d:
+		var d := Vector2(position.x - c.position.x, position.z - c.position.z).length()
+		# a treasure chest's beam is seen from far off, and it's worth the walk
+		if d > (LOOT_SEEK * 2.5 if c.is_chest else LOOT_SEEK):
+			continue
+		var score := d - (8.0 if c.is_chest else 0.0)
+		if score < best_score:
 			best = c
-			best_d = d
+			best_score = score
 	if best == null:
 		return false
 	loot_target = best
 	return true
+
+
+## A monster close by that might fight (deer, horses and other peaceful beasts don't count).
+func _hostile_near(radius: float) -> bool:
+	var list: Array = game.creatures
+	for item in list:
+		var e := item as Entity
+		if e.dead or e.parked or e.kind != Kind.MONSTER or e.passive or e.peaced_timer > 0.0:
+			continue
+		if position.distance_to(e.position) <= radius:
+			return true
+	return false
 
 
 # --- equipment -------------------------------------------------------------

@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.61.2
+Fix: the hero (on Auto) left treasure chests and corpses lying.
+- Auto's errands kept re-issuing the walk to their destination, which dropped whatever the hero
+  was about to loot; they now wait while it loots (or fights).
+- On any long walk (an errand, or off to another region) the hero now stops for spoils lying
+  near its way, then carries on; before, it walked straight past them.
+- Deer, horses and other peaceful beasts nearby no longer stop it looting (only a monster that
+  might fight does).
+- Treasure chests are noticed from 22 m (their beam is seen from afar) and come first.
+- On hills, the reach to a corpse is measured along the ground, and one on the same tile is just
+  stepped over to; a corpse that truly can't be reached is no longer tried again and again.
+
 ## 0.61.1
 - Treasure chests rise out of the ground: they push up through the earth with a shake and a
   spray of dirt, then glint with gold sparkles.
