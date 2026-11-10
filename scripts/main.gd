@@ -2161,8 +2161,8 @@ func _autotest_tick(delta: float) -> void:
 ## Things that must never happen, whatever the AI does.
 func _check_invariants() -> void:
 	for e in creatures:
-		if e.dead:
-			continue
+		if e.dead or (e.is_hero and frontier != null and not frontier.sail.is_empty()):
+			continue                               # (out on the lake in a boat is fine)
 		var p := e.position
 		if is_nan(p.x) or is_nan(p.z):
 			_note_problem("%s has an invalid position" % e.display_name)

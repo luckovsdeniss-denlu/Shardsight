@@ -3,6 +3,25 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.60.0
+Auto plays the whole game.
+- On Auto your hero no longer only fights, loots, gathers and crafts: every minute or so, when
+  nothing presses, it runs an errand - whichever kind it has gone longest without (side quests
+  weigh most, then bounties, then the rest): takes side quests from the townsfolk, hunts or
+  fetches for them and hands them in; takes bounties at a board and hunts them down; cooks (lighting
+  a fire with a log); brews strength and agility potions and blade poisons; visits the tavern (a
+  meal, a bed at night, rumours, an ale for the minstrel); buys a boat and a fishing pole when
+  gold allows and fishes the lakes (or rides the ferry); fights the arena champion it can beat;
+  goes down the dungeon's stairs as deep as it safely can; stands on rival guilds' towers to take
+  them; goes home to sleep, gather the garden, study and furnish the house; and now and then goes
+  to look at a cave or a biome.
+- It only takes on fights it can win, and only spends gold it can spare.
+- In a fight with a tough foe it drinks a strength or agility potion and poisons its blade; when
+  fleeing badly hurt it drinks invisibility. Out of a fight it eats its best cooked meal to stay
+  Well fed, or when hurt.
+- A tap still takes over: errands wait while you're steering.
+- Landings sell fishing poles (15 gold).
+
 ## 0.59.7
 The opening fly-by as a film.
 - It fades in from black; black bars frame the picture and the corners are darkened, and the

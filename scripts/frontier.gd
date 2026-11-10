@@ -28,6 +28,7 @@ const DOCKS := [
 ]
 const BOAT_PRICE := 150
 const FERRY_PRICE := 8
+const POLE_PRICE := 15
 const BOAT_SPEED := 2.2
 const DAY := 480.0                         # one game day (Main.DAY_SECONDS)
 
@@ -1125,6 +1126,15 @@ func _page_dock() -> void:
 			_small_text("You need a fishing pole (any merchant sells them).")
 	else:
 		_b("Buy a boat (%d gold)" % BOAT_PRICE, _buy_boat)
+	if not _has("fishing_pole"):
+		_b("Buy a fishing pole (%d gold)" % POLE_PRICE, _buy_pole)
+
+
+func _buy_pole() -> void:
+	if _pay(POLE_PRICE):
+		_give("fishing_pole")
+		game.log_event("The ferryman sells you a fishing pole.")
+	_refresh()
 
 
 func _buy_boat() -> void:
@@ -2012,6 +2022,7 @@ func tick(delta: float) -> void:
 	_towers_tick(delta)
 	_env_tick(delta)
 	_act_tick(delta)
+	_auto_tick(delta)
 	if Engine.get_process_frames() % 30 == 0:
 		_decor_tick()
 		_tower_income()
@@ -2207,3 +2218,423 @@ func _b(text: String, cb: Callable, enabled := true) -> void:
 	b.add_theme_font_size_override("font_size", 22)
 	b.clip_text = true
 	box.add_child(b)
+
+
+# --- Auto: the hero plays everything, a little of each ---------------------------------------
+## On Auto the hero doesn't only fight, loot and gather: every minute or so, when nothing presses,
+## it picks an errand - whichever kind it has gone longest without, weighted - walks there and
+## does it: side quests (taking them, hunting or fetching for them, handing them in), bounties,
+## cooking, brewing, the tavern, fishing from a boat, the arena, the dungeon's depths, the guild
+## towers, its house, and now and then a look at a cave or a biome. In a fight it drinks a
+## strength or agility potion and poisons its blade against tough foes, and it keeps itself fed.
+const ERRANDS := {"quest": 3.0, "bounty": 2.0, "cook": 1.5, "brew": 1.0, "tavern": 1.0, "fishing": 1.0,
+	"arena": 1.0, "depths": 1.0, "tower": 1.0, "house": 1.0, "explore": 0.7}
+## Where a fetched item comes from: the creature that drops it.
+const DROPPED_BY := {"swamp_herb": "Bog Leech", "scorpion_venom": "Sand Scorpion", "frost_pelt": "Frost Wolf"}
+var errand := {}                           # {"kind", "dest", "who", "reach", "do", "until"}
+var auto_last := {}                        # errand kind -> play time when last tried
+var _auto_acc := 0.0
+var _auto_wait := 40.0
+
+
+func _now() -> float:
+	return game.property.play_time
+
+
+func _auto_tick(delta: float) -> void:
+	if not hero.ai_enabled or hero.dead or hero.ghost or not sail.is_empty() or not duel.is_empty():
+		return
+	_auto_acc += delta
+	if _auto_acc < 0.5:
+		return
+	var step := _auto_acc
+	_auto_acc = 0.0
+	_auto_combat_aids()
+	_auto_food()
+	if hero.pause > 0.0 and errand.is_empty():
+		return                                 # you tapped: hands off for a moment
+	if not errand.is_empty():
+		_errand_step()
+		return
+	_auto_wait -= step
+	if _auto_wait > 0.0 or hero.target != null or hero.recovering or hero.retreating or hero.has_journey:
+		return
+	_auto_wait = randf_range(35.0, 60.0)
+	_pick_errand()
+
+
+func _pick_errand() -> void:
+	var kinds: Array = ERRANDS.keys()
+	kinds.sort_custom(func(a, b) -> bool:
+		return (_now() - float(auto_last.get(a, -1000.0))) * float(ERRANDS[a]) > (_now() - float(auto_last.get(b, -1000.0))) * float(ERRANDS[b]))
+	for k in kinds:
+		auto_last[k] = _now()
+		var started := false
+		match String(k):
+			"quest":
+				started = _errand_quest()
+			"bounty":
+				started = _errand_bounty()
+			"cook":
+				started = _errand_cook()
+			"brew":
+				started = _errand_brew()
+			"tavern":
+				started = _errand_tavern()
+			"fishing":
+				started = _errand_fishing()
+			"arena":
+				started = _errand_arena()
+			"depths":
+				started = _errand_depths()
+			"tower":
+				started = _errand_tower()
+			"house":
+				started = _errand_house()
+			"explore":
+				started = _errand_explore()
+		if started:
+			return
+
+
+## Sets off on an errand: walk to `dest` (or after `who`, who may move) and then call `then`.
+func _go(kind: String, dest: Vector3, then: Callable, who: Entity = null, reach := 2.2) -> bool:
+	errand = {"kind": kind, "dest": dest, "who": who, "reach": reach, "do": then, "until": _now() + 180.0}
+	return true
+
+
+func _errand_step() -> void:
+	if _now() > float(errand["until"]):
+		errand = {}
+		return
+	var dest: Vector3 = errand["dest"]
+	var wv: Variant = errand["who"]
+	if wv != null:
+		if not is_instance_valid(wv) or (wv as Entity).dead:
+			errand = {}
+			return
+		dest = (wv as Entity).position
+		errand["dest"] = dest
+	if Vector2(hero.position.x - dest.x, hero.position.z - dest.z).length() <= float(errand["reach"]):
+		var then: Callable = errand["do"]
+		errand = {}
+		hero.has_journey = false
+		hero.path.clear()
+		then.call()
+		return
+	if hero.target == null and not hero.recovering and not hero.retreating and hero.pause <= 0.0:
+		if not hero.has_journey or hero.journey.distance_to(dest) > 2.5:
+			hero.set_journey(dest)
+	hero.roam_timer = maxf(hero.roam_timer, 30.0)   # don't wander off to another region meanwhile
+
+
+func _nearest_named(n: String) -> Entity:
+	var best: Entity = null
+	var best_d := INF
+	for item in game.creatures:
+		var e := item as Entity
+		if e.dead or e.kind == Entity.Kind.NPC or e.display_name != n or e.parked:
+			continue
+		var d := e.position.distance_to(hero.position)
+		if d < best_d:
+			best = e
+			best_d = d
+	return best
+
+
+## A fight the hero can take on: not far stronger than it is.
+func _can_take(e: Entity) -> bool:
+	return e != null and e.threat() <= hero.power() + 1.0
+
+
+func _hunt(kind: String, n: String) -> bool:
+	var e := _nearest_named(n)
+	if e == null or not _can_take(e):
+		return false
+	return _go(kind, e.position, _engage.bind(e), e, 6.0)
+
+
+func _engage(e: Entity) -> void:
+	if is_instance_valid(e) and not e.dead:
+		hero.target = e
+
+
+# side quests: take one, work at it, hand it in
+func _errand_quest() -> bool:
+	var active := 0
+	for id in SIDE_QUESTS:
+		if String(_sq(String(id))["state"]) == "active":
+			active += 1
+	for v in villagers:
+		var e: Entity = v["e"]
+		var id := _quest_now(e.display_name)
+		if id == "":
+			continue
+		var st := String(_sq(id)["state"])
+		if st == "active" and _goal_done(id):
+			return _go("quest", e.position, _auto_talk.bind(e.display_name, id), e, 2.5)
+		if st != "active" and active < 2:
+			return _go("quest", e.position, _auto_talk.bind(e.display_name, id), e, 2.5)
+	for id in SIDE_QUESTS:                     # under way: go and get it done
+		if String(_sq(String(id))["state"]) != "active" or _goal_done(String(id)):
+			continue
+		var g: Dictionary = SIDE_QUESTS[id]["goal"]
+		if String(g["kind"]) == "kill":
+			if _hunt("quest", String(g["target"])):
+				return true
+		elif DROPPED_BY.has(String(g["item"])):
+			if _hunt("quest", String(DROPPED_BY[String(g["item"])])):
+				return true
+		elif String(g["item"]) == "ale":
+			return _errand_tavern()
+		elif String(g["item"]) == "pearl":
+			return _errand_fishing()
+	return false
+
+
+func _auto_talk(giver: String, id: String) -> void:
+	talk_with = giver
+	var q: Dictionary = SIDE_QUESTS[id]
+	if String(_sq(id)["state"]) == "active":
+		if not _goal_done(id):
+			return
+		for i in range(q["turn_in"].size()):
+			var ch: Dictionary = q["turn_in"][i]
+			if String(ch.get("go", "")) == "stay":
+				continue
+			var ok := true
+			var take: Dictionary = ch.get("take", {})
+			for item in take:
+				ok = ok and _has(String(item), int(take[item]))
+			if ok:
+				_turn_in(id, i)
+				return
+		return
+	for i in range(q["choices"].size()):
+		if String(q["choices"][i].get("go", "")) == "accept":
+			_choose(id, i)
+			return
+
+
+# bounties: take one at a board, then hunt it down
+func _errand_bounty() -> bool:
+	var b: Dictionary = data["bounty"]
+	if b.is_empty():
+		return _go("bounty", world.tile_center(_nearest_board()), _auto_take_bounty)
+	match String(b["kind"]):
+		"elite":
+			if bounty_target != null and is_instance_valid(bounty_target) and not bounty_target.dead and _can_take(bounty_target):
+				return _go("bounty", bounty_target.position, _engage.bind(bounty_target), bounty_target, 6.0)
+		_:
+			return _hunt("bounty", String(b["target"]))
+	return false
+
+
+func _auto_take_bounty() -> void:
+	if data["board"].is_empty() or _now() - float(data.get("board_at", -1.0e9)) > DAY:
+		_new_board()
+	var best := -1
+	for i in range(data["board"].size()):
+		var o: Dictionary = data["board"][i]
+		var ok := false
+		match String(o["kind"]):
+			"hunt":
+				var e := _nearest_named(String(o["target"]))
+				ok = e != null and _can_take(e)
+			"elite":
+				ok = float(_cfg_of(String(o.get("base", "Orc"))).get("danger", 2)) + 2.0 <= hero.power()
+			"outlaw":
+				ok = hero.power() >= 4.0
+		if ok:
+			best = i
+			break
+	if best >= 0:
+		_take_bounty(best)
+
+
+# cooking: light a fire if need be, cook what there is
+func _errand_cook() -> bool:
+	var any := false
+	for id in RECIPE_ORDER:
+		var r: Dictionary = RECIPES[id]
+		if hero._skill(Hero.Skill.COOKING) >= float(r["min"]) and Crafting.has_mats(hero.inventory, r["mats"]):
+			any = true
+	if not any:
+		return false
+	if not _can_cook_here():
+		if not _has("log"):
+			return false
+		_make_fire()
+	for _n in range(4):
+		var made := false
+		for id in RECIPE_ORDER:
+			var r2: Dictionary = RECIPES[id]
+			if hero._skill(Hero.Skill.COOKING) >= float(r2["min"]) and Crafting.has_mats(hero.inventory, r2["mats"]):
+				_cook(String(id))
+				made = true
+				break
+		if not made:
+			break
+	return true
+
+
+# brewing: a strength or agility potion, a blade poison, while the makings last
+func _errand_brew() -> bool:
+	for id in BREWS:
+		if int(hero.inventory.get(id, 0)) < 2 and hero.craft_problem(String(id)) == "":
+			hero.craft(String(id))
+			return true
+	return false
+
+
+# the tavern: a meal, a bed at night, the talk of the room, an ale for the minstrel
+func _errand_tavern() -> bool:
+	if hero.gold < 40:
+		return false
+	return _go("tavern", world.tile_center(TAVERN) + Vector3(0, 0, 1.2), _auto_tavern)
+
+
+func _auto_tavern() -> void:
+	var tam := String(_sq("tam_song")["state"])
+	if tam == "active" and not _has("ale") and hero.gold >= 4:
+		_tavern_buy("ale", 4)
+	if hero.hp < float(hero.stats.max_hp()) * 0.8 and hero.gold >= 60:
+		_tavern_meal()
+	if game.is_night() and hero.gold >= 80:
+		_tavern_room()
+	if hero.gold >= 20:
+		_tavern_rumour()
+
+
+# fishing from a boat (buying the boat and a pole when there's gold to spare), or the ferry
+func _errand_fishing() -> bool:
+	var best := 0
+	for i in range(DOCKS.size()):
+		if world.tile_center(DOCKS[i]["tile"]).distance_to(hero.position) < world.tile_center(DOCKS[best]["tile"]).distance_to(hero.position):
+			best = i
+	if not bool(data.get("boat", false)) and hero.gold < BOAT_PRICE + 150:
+		return false
+	return _go("fishing", world.tile_center(DOCKS[best]["tile"]), _auto_dock.bind(best), null, 1.8)
+
+
+func _auto_dock(i: int) -> void:
+	if not bool(data.get("boat", false)) and hero.gold >= BOAT_PRICE + 150:
+		_buy_boat()
+	if not _has("fishing_pole") and hero.gold >= POLE_PRICE + 50:
+		_buy_pole()
+	if bool(data.get("boat", false)) and _has("fishing_pole"):
+		_sail(i, true)
+	else:
+		_sail(i, false)
+
+
+# the arena: the hardest champion it can beat, when the fee is easily spared
+func _errand_arena() -> bool:
+	var pick := -1
+	for i in range(ARENA_TIERS.size()):
+		var t: Dictionary = ARENA_TIERS[i]
+		if float(t["danger"]) <= hero.power() and hero.gold >= int(t["fee"]) + 150:
+			pick = i
+	if pick < 0:
+		return false
+	_arena_bet = 0
+	return _go("arena", world.tile_center(ARENA), _start_duel.bind(pick), null, 3.0)
+
+
+# the depths: down the stairs as deep as it can safely go
+func _errand_depths() -> bool:
+	var d := clampi(int(hero.power()) - 5, 0, deepest())
+	if d < 2:
+		return false
+	return _go("depths", world.tile_center(STAIRS), _go_depth.bind(d), null, 1.8)
+
+
+# the guild towers: stand on one that isn't your guild's until it falls
+func _errand_tower() -> bool:
+	var g := hero.guild_id()
+	if g == "":
+		return false
+	for i in range(TOWERS.size()):
+		var o := tower_owner(i)
+		if o != g and not game.guilds.allied(g, o):
+			return _go("tower", world.tile_center(World.TOWER_TILES[i] + Vector2i(0, 1)), _hold_tower, null, 2.0)
+	return false
+
+
+func _hold_tower() -> void:
+	hero.pause = CAPTURE_SECS + 4.0            # stays put (and fights anyone who comes) till it's taken
+
+
+# home: sleep, the garden, the books, and a new piece of furniture when there's gold
+func _errand_house() -> bool:
+	if not game.property.has_house():
+		return false
+	return _go("house", world.tile_center(game.property.house_center_tile()), _auto_home, null, 1.2)
+
+
+func _auto_home() -> void:
+	if _decor_has("bed") and (game.is_night() or hero.hp < float(hero.stats.max_hp()) * 0.6) and _now() - float(data.get("rest_at", -1.0e9)) > 120.0:
+		_rest()
+	if _decor_has("garden") and _now() - float(data.get("garden_at", -1.0e9)) > DAY:
+		_garden()
+	if _decor_has("bookshelf") and _now() - float(data.get("study_at", -1.0e9)) > DAY:
+		_study()
+	if data["decor"].size() < _decor_slots():
+		for id in DECOR_ORDER:
+			var d: Dictionary = DECOR[id]
+			if _decor_has(String(id)):
+				continue
+			if d.has("trophy"):
+				if _killed(String(d["trophy"])):
+					_buy_decor(String(id))
+					return
+			elif hero.gold >= int(d["price"]) + 400:
+				_buy_decor(String(id))
+				return
+
+
+# a look at a cave or one of the biomes
+func _errand_explore() -> bool:
+	var spots: Array[Vector2i] = []
+	for cave in World.CAVES:
+		spots.append(cave["out"])
+	for k in World.BIOMES:
+		spots.append((World.BIOMES[k] as Rect2i).get_center())
+	var t: Vector2i = spots[randi() % spots.size()]
+	t = _spot(t)
+	game.log_event("Your hero sets off to see %s." % world.place_name(t) if world.place_name(t) != "" else "Your hero sets off exploring.")
+	return _go("explore", world.tile_center(t), func() -> void: pass, null, 2.5)
+
+
+# in a fight: potions and blade poison against tough foes; invisibility to escape
+func _auto_combat_aids() -> void:
+	var t := hero.target
+	if t != null and is_instance_valid(t) and not t.dead and t.kind == Entity.Kind.MONSTER:
+		if t.is_boss or t.threat() >= hero.power() - 0.5:
+			if _has("potion_strength") and not hero.effects.has("potion_strength"):
+				_use_brew("potion_strength")
+			elif _has("potion_agility") and not hero.effects.has("potion_agility"):
+				_use_brew("potion_agility")
+			if hero.blade_poison_hits <= 0 and hero.weapon != "" and not Gear.is_ranged(hero.weapon):
+				if _has("poison_deadly"):
+					_use_brew("poison_deadly")
+				elif _has("poison_lesser"):
+					_use_brew("poison_lesser")
+	if hero.retreating and hero.hp < float(hero.stats.max_hp()) * 0.25 and _has("potion_invisibility") \
+			and not hero.flags.has("invisible"):
+		_use_brew("potion_invisibility")
+
+
+# keep fed: a cooked meal when hungry for strength or hurt, out of a fight
+func _auto_food() -> void:
+	if hero.target != null:
+		return
+	var hurt := hero.hp < float(hero.stats.max_hp()) * 0.5
+	if hero.effects.has("well_fed") and not hurt:
+		return
+	var best := ""
+	for id in RECIPE_ORDER:
+		if _has(String(id)):
+			best = String(id)                  # the order runs plain to rich: the last one held is best
+	if best != "":
+		_eat(best)
