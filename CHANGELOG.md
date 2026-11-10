@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.63.1
+- The words of power are the game's own now: every spell's incantation is respelled in an older
+  tongue, close to how it sounded before (In Lor is Yn Lhor, Vas Flam is Vaas Flaem, Kal Ort Por
+  is Khal Orth Pohr...). Each syllable keeps one spelling across all the spells, so the language
+  still reads as a language: Yn, Ahn, Vaas, Khal, Rhel, Uhs, Dess, Eks, Pohr, Orth, Flaem, Graav,
+  Mahni, Nokh, Korph, Wys, Zhen, Juks, Lhor, Sankt, Hyr, Kwas, Bhal, Uhm, Ylaem.
+
 ## 0.63.0
 A bigger map: the eastern lands.
 - The land is half as wide again (144 by 66 tiles, from 96 by 66): the old eastern wall is gone
