@@ -3,6 +3,41 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.62.0
+A big one: thirteen additions.
+- Sounds for the wider world: oars on the water, beasts' roars, hisses and rattles as they turn
+  on you, wind in the snow and in winter, the tavern's hum and lute, the arena's crowd and cheers.
+- Their own bodies for the new creatures: the yeti (a white horned ape), scorpions (pincers and a
+  curled tail), mummies (wrapped, reaching), goblins (small, big-eared), bog leeches (fat worms).
+- A Journal (Main Menu > Adventures): the story, the captain's quest, side quests, the bounty and
+  the rest in one list, with a walk-there button for each. On the minimap: a gold ! over
+  townsfolk with work, a green ? when you can hand it in, rings on the creatures a task wants.
+- Balance: the skill cap covers all 40 skills; furniture and the boat cost about double; a
+  guild tower pays 150 gold a day.
+- Icons: little pixel pictures in front of every log line (instead of text marks), beside each
+  thing in the bag, and on the menu's buttons.
+- Pets level up (to 10) from the kills they share in: stronger, tougher, and they carry part of
+  your load. Levels are saved with the pet (Animals shows them).
+- Enchanting and gems at the forge: cave crystals and gold enchant a weapon, armour or shield
+  to +1..+3 (8% a level; it can fail); rubies, sapphires, emeralds and diamonds (from cave
+  chiefs, mummies, the depths and bosses) set into gear lend strength, intelligence or dexterity.
+- Seasons: spring, summer, autumn and winter, three days each. The land and the trees change
+  colour, snow lies and falls in winter, and the weather leans with the season (the clock shows
+  the season and day).
+- Farming (a new skill): four fields by your house for wheat, carrots and pumpkins; they grow
+  with the seasons (fast in summer, not in winter). New recipes: bread, vegetable stew, pumpkin pie.
+- From the saddle, blows land 15% harder (more on a high-level mount). Horse races at the arena:
+  a lap of the course on your own mount against three riders, with a stake.
+- The sea: Southmoor Harbour on the south coast, and a voyage to the Isle of Tides - giant
+  crabs, drowned sailors, and the Drowned King in his ruin (pearls, sapphires, a diamond). An ankh
+  stands on the isle.
+- World bosses: now and then a giant wakes in the wilds (Tharok the World-Eater, the Frost Wyrm,
+  the Queen of Ashes, Grandfather Yeti). The strong players come from every side; it leaves two
+  treasure chests, and gold, fame and a diamond for a hero who fought.
+- Auto's errands can each be switched on or off (Adventures > What Auto does), and Auto also
+  farms, enchants, races and joins world-boss fights.
+- A Tutorial button on the start screen: the ordinary game with six guided first steps.
+
 ## 0.61.2
 Fix: the hero (on Auto) left treasure chests and corpses lying.
 - Auto's errands kept re-issuing the walk to their destination, which dropped whatever the hero

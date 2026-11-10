@@ -25,7 +25,11 @@ const DOCKS := [
 	{"name": "Frostshore Pier", "tile": Vector2i(78, 11), "to": 2},
 	{"name": "Fen Jetty", "tile": Vector2i(31, 39), "to": 5},
 	{"name": "Reedbank Jetty", "tile": Vector2i(41, 39), "to": 4},
+	{"name": "Southmoor Harbour", "tile": Vector2i(48, 46), "to": 7},      # the sea voyage
+	{"name": "Isle Landing", "tile": Vector2i(48, 56), "to": 6},
 ]
+const LAKE_DOCKS := 6                       # the first six are on the lakes
+const ISLE_SHRINE := Vector2i(47, 58)
 const BOAT_PRICE := 300
 const FERRY_PRICE := 8
 const POLE_PRICE := 15
@@ -326,6 +330,7 @@ var _snow: CPUParticles3D
 var _biome := ""
 var _cave := -1
 var _env_acc := 0.0
+var _on_isle := false
 var _banter_acc := 0.0
 var _decor_node: Node3D
 var _decor_key := ""
@@ -452,10 +457,30 @@ func _spawn_wildlife() -> void:
 		["Scorpion Queen", r.call(Bestiary.CAVE_CHIEF, "scorpion", 1.6, {"poison": [3, 0.25]}), Color("d0a030"), [Vector2i(64, 41)]],
 		["Goblin", Bestiary.GOBLIN, Color("6a8a3a"), [Vector2i(5, 41), Vector2i(8, 43), Vector2i(9, 41)]],
 		["Goblin Chief", r.call(Bestiary.CAVE_CHIEF, "goblin", 1.5, {}), Color("8aa83a"), [Vector2i(6, 42)]],
+		# the Isle of Tides
+		["Giant Crab", r.call(Bestiary.SAND_SCORPION, "scorpion", 1.25, {"poison": [], "armor": 3.5, "str": 55,
+			"loot": {"gold_min": 20, "gold_max": 45, "drops": [["pearl", 0.2], ["raw_meat", 0.6]]}}), Color("c05a3a"),
+			[Vector2i(40, 59), Vector2i(38, 60), Vector2i(50, 62), Vector2i(40, 62)]],
+		["Drowned Sailor", r.call(Bestiary.MUMMY, "zombie", 1.05, {"loot": {"gold_min": 50, "gold_max": 110,
+			"drops": [["pearl", 0.25], ["scimitar", 0.15], ["sapphire", 0.06]]}}), Color("5a8a8a"), [Vector2i(46, 60), Vector2i(50, 58)]],
+		["The Drowned King", r.call(Bestiary.CAVE_CHIEF, "lich", 1.6, {"str": 150, "danger": 8, "reagents": 999, "int": 90,
+			"loot": {"gold_min": 400, "gold_max": 800, "reagents": 20, "drops": [["diamond", 0.7], ["sapphire", 1.0], ["pearl", 1.0], ["pearl", 0.6], ["platemail", 0.3]]},
+			"skills": {Hero.Skill.SWORDSMANSHIP: 80.0, Hero.Skill.TACTICS: 80.0, Hero.Skill.MAGERY: 85.0, Hero.Skill.EVALUATING_INTELLECT: 70.0,
+				Hero.Skill.MEDITATION: 70.0, Hero.Skill.RESISTING_SPELLS: 60.0}}), Color("3a6a8a"), [Vector2i(56, 60)]],
 	]
 	for row in list:
 		for t in row[3]:
-			game._spawn(Entity.Kind.MONSTER, String(row[0]), row[1], row[2], _spot(t))
+			game._spawn(Entity.Kind.MONSTER, String(row[0]), row[1], row[2], t if world.on_island(t) else _spot(t))
+	# an ankh on the isle, so the dead there need not wait for a ship
+	var sp := world.tile_center(ISLE_SHRINE)
+	game.shrines.append(sp)
+	var ankh := _mesh([[Art.box(0.12, 0.9, 0.12), Art.at(0, 0.55, 0), Color(0.8, 0.9, 1.0)], [Art.box(0.5, 0.12, 0.12), Art.at(0, 0.75, 0), Color(0.8, 0.9, 1.0)],
+		[Art.ring_mesh(0.1, 0.2), Art.at(0, 1.15, 0, Vector3(PI / 2.0, 0, 0)), Color(0.8, 0.9, 1.0)], [Art.box(0.6, 0.1, 0.6), Art.at(0, 0.05, 0), Color(0.5, 0.52, 0.56)]], sp)
+	var al := OmniLight3D.new()
+	al.light_color = Color(0.6, 0.8, 1.0)
+	al.omni_range = 3.5
+	al.position = Vector3(0, 1.2, 0)
+	ankh.add_child(al)
 
 
 # --- townsfolk and their daily round ---------------------------------------------------------
@@ -1972,6 +1997,11 @@ func _env_tick(delta: float) -> void:
 		_biome = b
 	_snow.emitting = (b == "snow" or snowing()) and game.property.weather_on and not world.is_dungeon(t)
 	_sound_tick(b)
+	var isle := world.on_island(t)
+	if isle != _on_isle:
+		_on_isle = isle
+		if isle:
+			game.log_event("You land on %s: crabs on the sand, drowned sailors in the surf, and a ruin where their king still holds court." % World.ISLAND_NAME)
 	var cv := world.cave_at(t)
 	if cv != _cave:
 		if cv >= 0:
@@ -2276,7 +2306,7 @@ func _page_hub() -> void:
 		dock_i = dk
 		_b("Boat", _open.bind("dock"))
 	else:
-		_small_text("Boats: walk to a landing on one of the three lakes (brown marks on the map).")
+		_small_text("Boats: walk to a landing on one of the three lakes, or to Southmoor Harbour on the south coast for the voyage to the Isle of Tides (brown marks on the map).")
 
 
 func _h(text: String) -> void:
@@ -2345,6 +2375,10 @@ func _auto_tick(delta: float) -> void:
 
 
 func _pick_errand() -> void:
+	if world.on_island(world.to_tile(hero.position)):
+		if randf() < 0.3:                          # time to sail home from the isle
+			_go("sail_home", world.tile_center(DOCKS[7]["tile"]), _sail.bind(7, false), null, 1.8)
+		return
 	var kinds: Array = ERRANDS.keys()
 	kinds.sort_custom(func(a, b) -> bool:
 		return (_now() - float(auto_last.get(a, -1000.0))) * float(ERRANDS[a]) > (_now() - float(auto_last.get(b, -1000.0))) * float(ERRANDS[b]))
@@ -2601,7 +2635,7 @@ func _auto_tavern() -> void:
 # fishing from a boat (buying the boat and a pole when there's gold to spare), or the ferry
 func _errand_fishing() -> bool:
 	var best := 0
-	for i in range(DOCKS.size()):
+	for i in range(LAKE_DOCKS):                     # the lakes only: the sea voyage is yours to choose
 		if world.tile_center(DOCKS[i]["tile"]).distance_to(hero.position) < world.tile_center(DOCKS[best]["tile"]).distance_to(hero.position):
 			best = i
 	if not bool(data.get("boat", false)) and hero.gold < BOAT_PRICE + 150:

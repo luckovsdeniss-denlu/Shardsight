@@ -5527,14 +5527,17 @@ func _build_shrines() -> void:
 func nearest_resurrection(e: Entity) -> Dictionary:
 	var best := {}
 	var best_d := INF
+	var isle := world.on_island(world.to_tile(e.position))     # the sea can't be walked: stay on your shore
 	for p in shrines:
+		if world.on_island(world.to_tile(p)) != isle:
+			continue
 		var d := e.position.distance_to(p)
 		if d < best_d:
 			best_d = d
 			best = {"pos": p, "name": "Ankh shrine", "healer": null}
 	if not e.died_red and e.notoriety() == Entity.Notoriety.BLUE:
 		for c in creatures:
-			if (c.role == "healer" or c.role == "priest") and not c.dead:
+			if (c.role == "healer" or c.role == "priest") and not c.dead and world.on_island(world.to_tile(c.position)) == isle:
 				var d := e.position.distance_to(c.position)
 				if d < best_d:
 					best_d = d
