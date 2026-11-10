@@ -5497,6 +5497,8 @@ func _build_shrines() -> void:
 		[Art.box(0.56, 0.1, 0.1), Art.at(0, 0.92, 0), gold],
 		[Art.ring_mesh(0.11, 0.17), Art.at(0, 1.22, 0, Vector3(PI / 2, 0, 0)), gold]])
 	for i in range(world.zone_count()):
+		if (i % World.ZONE_COLS + i / World.ZONE_COLS) % 2 != 0:
+			continue                             # every other region, chequer-wise: half as many ankhs
 		var r := world.zone_rect(i)
 		var mid := Rect2i(r.position + r.size / 4, r.size / 2)
 		var t := world.open_tile_in(mid, rng)

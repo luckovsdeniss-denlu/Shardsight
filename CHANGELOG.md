@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.63.6
+- Half as many ankh shrines: seven instead of fifteen (one in every other region, chequer-wise,
+  and the one on the Isle of Tides). Ghosts have further to walk; healers and priests in the four
+  towns still raise the dead.
+
 ## 0.63.5
 - The texts over heads are spaced out: floating texts that come close together (the spell's
   words, the damage, "critical!", loot) no longer land on top of each other - each starts a step

@@ -506,8 +506,8 @@ func _spawn_wildlife() -> void:
 	for row in list:
 		for t in row[3]:
 			game._spawn(Entity.Kind.MONSTER, String(row[0]), row[1], row[2], t if world.on_island(t) else _spot(t))
-	# ankhs on the isle (the dead there need not wait for a ship) and in the eastern lands
-	for st in [ISLE_SHRINE, Vector2i(120, 20), Vector2i(128, 38)]:
+	# an ankh on the isle (the dead there need not wait for a ship)
+	for st in [ISLE_SHRINE]:
 		_add_ankh(world.tile_center(_spot(st) if not world.on_island(st) else st))
 
 
