@@ -4163,8 +4163,10 @@ func spawn_corpse(victim: Entity) -> void:
 	var c := Corpse.new()
 	add_child(c)
 	var open_to_all := victim.notoriety() != Entity.Notoriety.BLUE   # monsters, criminals, murderers
+	var at := victim.position
+	at.y = world.height_at(at)                    # lies on the ground (a creature may die mid-stride or in a boat)
 	c.setup(victim.display_name, open_to_all, victim.kind == Entity.Kind.PLAYER,
-		victim.get_instance_id(), victim.position, victim.make_loot())
+		victim.get_instance_id(), at, victim.make_loot())
 	corpses.append(c)
 	c.label.visible = property.corpse_names_on
 	if victim.kind == Entity.Kind.MONSTER and not victim.summoned and randf() < CHEST_CHANCE:
@@ -4313,6 +4315,7 @@ func _drop_chest(victim: Entity) -> void:
 	var pos := victim.position + Vector3(randf_range(-0.9, 0.9), 0.0, randf_range(-0.9, 0.9))
 	if world.is_blocked(world.to_tile(pos)):
 		pos = victim.position
+	pos.y = world.height_at(pos)                  # on the ground, hillside or not
 	var c := Corpse.new()
 	add_child(c)
 	c.setup("Treasure", true, false, 0, pos, loot)

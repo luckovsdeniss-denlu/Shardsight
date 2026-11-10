@@ -21,6 +21,9 @@ var _base_y := 0.0               # the ground it lies on (it sinks from there)
 var is_chest := false            # a treasure chest fallen from the sky (with an artifact inside)
 var _body: MeshInstance3D
 var _beam: MeshInstance3D
+var _chest_model: Node3D
+var _rise := 0.0                 # a treasure chest pushing up out of the ground (seconds left)
+const RISE_SECONDS := 1.3
 const CHEST_LIFETIME := 180.0
 
 
@@ -108,6 +111,10 @@ func make_chest() -> void:
 		_body.queue_free()
 	var model := Node3D.new()
 	add_child(model)
+	_chest_model = model
+	model.position.y = -0.75                        # it starts below the ground and pushes up
+	_rise = RISE_SECONDS
+	_dust()
 	var wood := Color(0.42, 0.26, 0.12)
 	var gold_c := Color(0.95, 0.78, 0.3)
 	var chest := MeshInstance3D.new()
@@ -148,6 +155,43 @@ func make_chest() -> void:
 	Fx.sparkle(get_parent(), global_position + Vector3(0.0, 0.3, 0.0), Color(1.0, 0.85, 0.45), 26)
 
 
+## Earth and grit thrown up round a chest breaking out of the ground.
+func _dust() -> void:
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.6
+	p.amount = 40
+	p.lifetime = 1.4
+	var q := QuadMesh.new()
+	q.size = Vector2(0.12, 0.12)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.vertex_color_use_as_albedo = true
+	q.material = m
+	p.mesh = q
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	p.emission_ring_axis = Vector3.UP
+	p.emission_ring_radius = 0.45
+	p.emission_ring_inner_radius = 0.2
+	p.emission_ring_height = 0.05
+	p.direction = Vector3(0, 1, 0)
+	p.spread = 50.0
+	p.initial_velocity_min = 1.0
+	p.initial_velocity_max = 2.4
+	p.gravity = Vector3(0, -6.0, 0)
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.6
+	var ramp := Gradient.new()
+	ramp.colors = PackedColorArray([Color(0.45, 0.34, 0.22, 0.95), Color(0.35, 0.27, 0.18, 0.0)])
+	p.color_ramp = ramp
+	add_child(p)
+	p.position.y = 0.05
+	p.emitting = true
+	get_tree().create_timer(2.0).timeout.connect(p.queue_free)
+
+
 func set_title(t: String) -> void:
 	title = t
 	_last_text = ""
@@ -156,6 +200,13 @@ func set_title(t: String) -> void:
 
 func tick(delta: float) -> void:
 	life -= delta
+	if _rise > 0.0 and _chest_model != null:       # rising out of the earth, shaking free of it
+		_rise = maxf(_rise - delta, 0.0)
+		var k := 1.0 - _rise / RISE_SECONDS
+		var up := 1.0 - pow(1.0 - k, 3.0)
+		_chest_model.position = Vector3(sin(k * 60.0) * 0.03 * (1.0 - k), lerpf(-0.75, 0.0, up), cos(k * 47.0) * 0.03 * (1.0 - k))
+		if _rise <= 0.0:
+			Fx.sparkle(get_parent(), global_position + Vector3(0.0, 0.4, 0.0), Color(1.0, 0.85, 0.45), 30)
 	if life < 2.5:                                  # sinking into the ground as it rots away
 		position.y = _base_y - 0.4 * (1.0 - maxf(life, 0.0) / 2.5)
 		label.visible = false

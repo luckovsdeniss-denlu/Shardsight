@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.61.1
+- Treasure chests rise out of the ground: they push up through the earth with a shake and a
+  spray of dirt, then glint with gold sparkles.
+- Fix: chests dropped by monsters on a hillside could sit buried in the slope or float above it
+  (they took the monster's height, not the ground's under them); corpses and chests now always
+  lie on the ground where they fall.
+
 ## 0.61.0
 A loading screen.
 - From the moment the game opens: a dark field of glowing hexagons with a pulse rolling out from
