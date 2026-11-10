@@ -3,9 +3,10 @@
 - **Never build an APK unless the owner asks for one** ("build", "push and build", "пуш и билд").
   The workflow `.github/workflows/android-apk.yml` runs only on `workflow_dispatch`; start it on
   `main` when asked, and only then.
-- Whenever a build is started or checked, give the link to its run page straight away, without
-  being asked. The APK itself is published to Releases:
-  `https://github.com/luckovsdeniss-denlu/Shardsight/releases/tag/v<version>`; give that link too.
+- Whenever a build is started or checked, give the APK's download link straight away, without
+  being asked: the APK is published to Releases,
+  `https://github.com/luckovsdeniss-denlu/Shardsight/releases/tag/v<version>`. Don't give the
+  Actions run page link.
 - "push" means: fast-forward `main` to the dev branch `claude/android-game-apk-init-3zkjp2`,
   without building.
 - Play-tests: don't start extra play-test runs or schedule check-ins.
