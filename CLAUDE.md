@@ -4,7 +4,8 @@
   The workflow `.github/workflows/android-apk.yml` runs only on `workflow_dispatch`; start it on
   `main` when asked, and only then.
 - Whenever a build is started or checked, give the link to its run page straight away, without
-  being asked.
+  being asked. The APK itself is published to Releases:
+  `https://github.com/luckovsdeniss-denlu/Shardsight/releases/tag/v<version>`; give that link too.
 - "push" means: fast-forward `main` to the dev branch `claude/android-game-apk-init-3zkjp2`,
   without building.
 - Play-tests: don't start extra play-test runs or schedule check-ins.

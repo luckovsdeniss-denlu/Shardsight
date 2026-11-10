@@ -15,6 +15,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write          # to publish the APK as a release
     steps:
       - uses: actions/checkout@v4
 
@@ -120,6 +122,24 @@ jobs:
             echo "::error::Script errors while running the game (see above)"
             exit 1
           fi
+
+      # The APK goes to the repository's Releases (tag v<version>), which don't use the Actions
+      # artifact storage: a permanent download link per version. Published once the smoke test has
+      # shown the game starts; building the same version again replaces its APK.
+      - name: Publish the APK as a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${APK_NAME#shardsight-}"
+          FILES="build/$APK_NAME.apk"
+          if [ -f "build/$APK_NAME-release.apk" ]; then FILES="$FILES build/$APK_NAME-release.apk"; fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" $FILES --clobber
+          else
+            gh release create "$TAG" $FILES --target "$GITHUB_SHA" --title "Shardsight $TAG" \
+              --notes "Android APK built from $GITHUB_SHA. See CHANGELOG.md for what changed."
+          fi
+          echo "APK: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
 
       # A longer automated play: a fresh game in Auto mode for 15 game-minutes (fixed 20 fps,
       # as fast as the runner allows). Fails if the hero never fights, loots or improves, if

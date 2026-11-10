@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.59.3
+- Builds: the APK is published to the repository's Releases (tag `v<version>`), so there is a
+  permanent download link for every version and a full Actions artifact storage no longer
+  matters. It is published once the smoke test has shown the game starts.
+
 ## 0.59.2
 - Fix: the game wouldn't start in 0.59.0/0.59.1 (the bounty boards' building code was missing).
   The boards now stand in each town: two posts and a board pinned with notices.
