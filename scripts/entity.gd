@@ -150,6 +150,8 @@ var bleed_timer := 0.0          # a bleeding wound (seconds left), its damage a 
 var bleed_dmg := 0.0
 var bleed_from: Entity
 var _bleed_acc := 0.0
+var pet_level := 1               # pets grow with the fights they share (1..10)
+var pet_xp := 0.0
 var _loot_skip := {}            # corpses found unreachable (instance id -> true)
 var blade_poison := 0           # a weapon coated with poison (Alchemy): its level, and blows left
 var blade_poison_hits := 0
@@ -846,6 +848,8 @@ func _fight() -> void:
 			dmg *= Rules.PLAYER_MELEE_BONUS
 		if bless_timer > 0.0:
 			dmg *= BLESS_DAMAGE
+		if mounted_on != null and (wielded == "" or not Gear.is_ranged(wielded)):
+			dmg *= 1.15 + 0.01 * mounted_on.pet_level     # striking down from the saddle
 		if wielded == "" or not Gear.is_ranged(wielded):
 			dmg *= form_value("melee", 1.0)       # a beast's claws and weight
 		# How it wounds: bash breaks metal armour and bone, slash bites deep into the unarmoured,
@@ -3184,6 +3188,40 @@ func adopt_pet(p: Entity) -> void:
 	pets.append(p)
 
 
+const PET_LEVEL_MAX := 10
+
+
+## A pet learns from every kill it shares in: each level makes it stronger and tougher.
+func pet_gain_xp(n: float) -> void:
+	if kind != Kind.PET or pet_level >= PET_LEVEL_MAX:
+		return
+	pet_xp += n
+	while pet_level < PET_LEVEL_MAX and pet_xp >= pet_level * 40.0:
+		pet_xp -= pet_level * 40.0
+		_pet_level_up()
+		_pop("Level %d!" % pet_level, Color(1.0, 0.9, 0.4))
+		if pet_owner != null and pet_owner.is_hero:
+			game.log_event("Your %s grows stronger: level %d." % [display_name, pet_level])
+			game.count("pet_levels")
+
+
+func _pet_level_up() -> void:
+	pet_level += 1
+	stats.strength = roundi(stats.strength * 1.08)
+	stats.dexterity = roundi(stats.dexterity * 1.04)
+	dmg_min *= 1.07
+	dmg_max *= 1.07
+	armor += 0.4
+	hp = float(stats.max_hp())
+
+
+## Brings a saved pet back to the level it had reached.
+func set_pet_level(level: int, xp: float) -> void:
+	while pet_level < clampi(level, 1, PET_LEVEL_MAX):
+		_pet_level_up()
+	pet_xp = maxf(xp, 0.0)
+
+
 func release_pet(p: Entity) -> void:
 	pets.erase(p)
 	p.kind = Kind.MONSTER
@@ -4992,7 +5030,11 @@ func _spell_fire(id: String, tgt: Entity) -> bool:
 
 ## How many materials this player can carry (a giant beetle doubles it).
 func carry_limit() -> int:
-	return roundi(CARRY_MATERIALS * (mounted_on.mount_carry if mounted_on != null else 1.0))
+	var packs := 0                              # grown pets carry a share of the load
+	for p in pets:
+		if not p.dead:
+			packs += (p.pet_level - 1) * 2
+	return roundi(CARRY_MATERIALS * (mounted_on.mount_carry if mounted_on != null else 1.0)) + packs
 
 
 ## The Ride button: get on the nearest own mount, or off the one you're on. Returns a message.

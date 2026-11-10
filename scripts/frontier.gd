@@ -1615,6 +1615,14 @@ func _page_arena() -> void:
 		var t: Dictionary = ARENA_TIERS[i]
 		_b("%s: fight %s. Fee %d, purse %d" % [t["name"], t["foe"], int(t["fee"]), int(t["purse"])], _start_duel.bind(i),
 			here and hero.gold >= int(t["fee"]) + _arena_bet and not hero.dead)
+	_h("Races")
+	if race.is_empty():
+		var riding := hero.mounted_on != null
+		_small_text("A lap of the course on your own mount against three riders. First home takes the purse and three times the stake; second gets the stake back." + ("" if riding else " You must be in the saddle (Ride)."))
+		_b("Race (stake 50 gold)", _start_race.bind(50), here and riding and hero.gold >= 50)
+		_b("Race (stake 200 gold)", _start_race.bind(200), here and riding and hero.gold >= 200)
+	else:
+		_small_text("A race is on!")
 	_h("Bouts")
 	if bout.is_empty():
 		_b("Watch a bout and bet (50 gold)", _start_bout.bind(50), here and hero.gold >= 50)
@@ -2019,7 +2027,7 @@ func _act_tick(delta: float) -> void:
 
 
 func _find_act() -> Dictionary:
-	if hero.dead or not sail.is_empty() or not duel.is_empty():
+	if hero.dead or not sail.is_empty() or not duel.is_empty() or not race.is_empty():
 		return {}
 	for v in villagers:
 		var e: Entity = v["e"]
@@ -2071,10 +2079,13 @@ func tick(delta: float) -> void:
 	_env_tick(delta)
 	_act_tick(delta)
 	_auto_tick(delta)
+	_race_tick(delta)
+	_tutorial_tick(delta)
 	_season_acc += delta
 	if _season_acc >= 1.0:
 		_season_tick(_season_acc)
 		_farm_tick(_season_acc)
+		_world_boss_tick(_season_acc)
 		_season_acc = 0.0
 	if Engine.get_process_frames() % 30 == 0:
 		_decor_tick()
@@ -2082,6 +2093,8 @@ func tick(delta: float) -> void:
 
 
 func on_kill(killer: Entity, victim: Entity) -> void:
+	if world_boss != null and victim == world_boss:
+		_world_boss_slain(killer)
 	if killer == null or not killer.is_hero:
 		return
 	for id in SIDE_QUESTS:
@@ -2230,6 +2243,8 @@ func _refresh() -> void:
 			_page_journal()
 		"enchant":
 			_page_enchant()
+		"auto":
+			_page_auto()
 	if page != "hub":
 		_b("Adventures", _open.bind("hub"))
 	_b("Close", _close)
@@ -2244,6 +2259,7 @@ func _page_hub() -> void:
 		if String(_sq(String(id))["state"]) == "active":
 			active += 1
 	_b("Journal: everything you're doing", _open.bind("journal"))
+	_b("What Auto does: choose its errands", _open.bind("auto"))
 	_b("Side quests (%d under way)" % active, _open.bind("quests"))
 	_b("Bounties%s" % (": " + String(b["target"]) if not b.is_empty() else ""), _open.bind("board"))
 	_b("The tavern", _open.bind("tavern"))
@@ -2290,7 +2306,7 @@ func _b(text: String, cb: Callable, enabled := true) -> void:
 ## cooking, brewing, the tavern, fishing from a boat, the arena, the dungeon's depths, the guild
 ## towers, its house, and now and then a look at a cave or a biome. In a fight it drinks a
 ## strength or agility potion and poisons its blade against tough foes, and it keeps itself fed.
-const ERRANDS := {"enchant": 0.8, "farm": 1.2, "quest": 3.0, "bounty": 2.0, "cook": 1.5, "brew": 1.0, "tavern": 1.0, "fishing": 1.0,
+const ERRANDS := {"world_boss": 2.5, "race": 0.8, "enchant": 0.8, "farm": 1.2, "quest": 3.0, "bounty": 2.0, "cook": 1.5, "brew": 1.0, "tavern": 1.0, "fishing": 1.0,
 	"arena": 1.0, "depths": 1.0, "tower": 1.0, "house": 1.0, "explore": 0.7}
 ## Where a fetched item comes from: the creature that drops it.
 const DROPPED_BY := {"swamp_herb": "Bog Leech", "scorpion_venom": "Sand Scorpion", "frost_pelt": "Frost Wolf"}
@@ -2305,15 +2321,17 @@ func _now() -> float:
 
 
 func _auto_tick(delta: float) -> void:
-	if not hero.ai_enabled or hero.dead or hero.ghost or not sail.is_empty() or not duel.is_empty():
+	if not hero.ai_enabled or hero.dead or hero.ghost or not sail.is_empty() or not duel.is_empty() or not race.is_empty():
 		return
 	_auto_acc += delta
 	if _auto_acc < 0.5:
 		return
 	var step := _auto_acc
 	_auto_acc = 0.0
-	_auto_combat_aids()
-	_auto_food()
+	if auto_on("potions"):
+		_auto_combat_aids()
+	if auto_on("meals"):
+		_auto_food()
 	if hero.pause > 0.0 and errand.is_empty():
 		return                                 # you tapped: hands off for a moment
 	if not errand.is_empty():
@@ -2331,6 +2349,8 @@ func _pick_errand() -> void:
 	kinds.sort_custom(func(a, b) -> bool:
 		return (_now() - float(auto_last.get(a, -1000.0))) * float(ERRANDS[a]) > (_now() - float(auto_last.get(b, -1000.0))) * float(ERRANDS[b]))
 	for k in kinds:
+		if not auto_on(String(k)):
+			continue                               # switched off in the Auto settings
 		auto_last[k] = _now()
 		var started := false
 		match String(k):
@@ -2360,6 +2380,10 @@ func _pick_errand() -> void:
 				started = _errand_farm()
 			"enchant":
 				started = _errand_enchant()
+			"race":
+				started = _errand_race()
+			"world_boss":
+				started = _errand_world_boss()
 		if started:
 			return
 
@@ -3181,3 +3205,329 @@ func _auto_enchant(gem: String, target: String, enchant_ok: bool) -> void:
 		_socket(target, gem)
 	if enchant_ok and hero.weapon != "":
 		_enchant(hero.weapon)
+
+
+# --- what Auto does: its switches --------------------------------------------------------------
+const AUTO_NAMES := {
+	"quest": "Side quests", "bounty": "Bounties", "cook": "Cooking", "brew": "Brewing potions and poisons",
+	"tavern": "Visiting the tavern", "fishing": "Boats and fishing", "arena": "Arena duels", "race": "Horse races",
+	"depths": "The dungeon's depths", "tower": "Taking guild towers", "house": "Home: rest, garden, furniture",
+	"farm": "Farming", "enchant": "Enchanting and gems", "explore": "Exploring caves and biomes",
+	"world_boss": "Joining the fight against world bosses",
+	"potions": "Potions and blade poison in a fight", "meals": "Eating cooked meals",
+}
+const AUTO_ORDER := ["quest", "bounty", "world_boss", "cook", "meals", "brew", "potions", "tavern", "fishing", "arena", "race",
+	"depths", "tower", "house", "farm", "enchant", "explore"]
+
+
+func auto_on(kind: String) -> bool:
+	var off: Variant = data.get("auto_off", {})
+	return not (off is Dictionary and bool((off as Dictionary).get(kind, false)))
+
+
+func _page_auto() -> void:
+	_h("What Auto does")
+	_t("With Auto on, your hero fights, loots, gathers, crafts and banks by itself, and every minute or so runs one of these errands when nothing presses. Switch off the ones you'd rather do yourself (or not at all).")
+	for k in AUTO_ORDER:
+		_b("%s: %s" % [AUTO_NAMES[k], "On" if auto_on(String(k)) else "Off"], _toggle_auto_kind.bind(String(k)))
+
+
+func _toggle_auto_kind(kind: String) -> void:
+	if not (data.get("auto_off") is Dictionary):
+		data["auto_off"] = {}
+	data["auto_off"][kind] = auto_on(kind)
+	if errand.get("kind", "") == kind:
+		errand = {}
+	_refresh()
+
+
+# --- horse races -----------------------------------------------------------------------------
+## A lap from the arena round a course of posts and back, on your own mount, against three riders
+## whose times are drawn from their horses' pace.
+const RACE_COURSE := [Vector2i(24, 15), Vector2i(29, 17), Vector2i(26, 20), Vector2i(22, 21), Vector2i(19, 19)]
+const RACERS := ["Swift Marigold", "Old Thunder", "Ser Aldous on Nightwind", "The Stable Boy", "Red Fenna", "Hal's Grey"]
+var race := {}
+var _race_posts: Array[MeshInstance3D] = []
+
+
+func _start_race(bet: int) -> void:
+	if hero.mounted_on == null or not _pay(bet):
+		return
+	var pts: Array[Vector3] = []
+	var length := 0.0
+	var prev := hero.position
+	for t in RACE_COURSE:
+		var p := world.tile_center(_spot(t))
+		pts.append(p)
+		length += prev.distance_to(p) * 1.25          # paths wind a little
+		prev = p
+	var names := RACERS.duplicate()
+	names.shuffle()
+	var rivals: Array = []
+	for i in range(3):
+		rivals.append({"name": names[i], "time": length / randf_range(4.6, 6.4), "in": false})
+	race = {"pts": pts, "i": 0, "t": 0.0, "bet": bet, "rivals": rivals}
+	for p in pts:                                    # a flag at each post
+		var post := _mesh([[Art.box(0.08, 1.8, 0.08), Art.at(0, 0.9, 0), Color(0.3, 0.2, 0.1)],
+			[Art.box(0.45, 0.3, 0.03), Art.at(0.25, 1.6, 0), Color(0.95, 0.85, 0.2)]], p)
+		_race_posts.append(post)
+	game.world_event("The riders line up at the arena... and they're off!")
+	game.sound("cheer", hero.position, 1.0, -4.0)
+	_close()
+
+
+func _end_race() -> void:
+	for post in _race_posts:
+		if is_instance_valid(post):
+			post.queue_free()
+	_race_posts.clear()
+	race = {}
+
+
+func _race_tick(delta: float) -> void:
+	if race.is_empty():
+		return
+	race["t"] = float(race["t"]) + delta
+	if hero.dead or hero.mounted_on == null or float(race["t"]) > 240.0:
+		game.log_event("You are out of the race.")
+		_end_race()
+		return
+	for r in race["rivals"]:
+		if not bool(r["in"]) and float(race["t"]) >= float(r["time"]):
+			r["in"] = true
+			game.world_event("Race: %s crosses the line." % r["name"])
+	var pts: Array = race["pts"]
+	var dest: Vector3 = pts[int(race["i"])]
+	if Vector2(hero.position.x - dest.x, hero.position.z - dest.z).length() <= 2.2:
+		race["i"] = int(race["i"]) + 1
+		if int(race["i"]) >= pts.size():
+			var place := 1
+			for r in race["rivals"]:
+				if bool(r["in"]):
+					place += 1
+			var bet := int(race["bet"])
+			if place == 1:
+				hero.gold += bet * 3 + 100
+				hero.add_fame(40)
+				game.count("races_won")
+				game.event_about("%s wins the race! %d gold." % [hero.display_name, bet * 3 + 100], true)
+				game.sound("cheer", hero.position)
+			elif place == 2:
+				hero.gold += bet
+				game.log_event("Second place: your stake comes back.")
+			else:
+				game.log_event("You finish %s. The stake is lost." % ("third" if place == 3 else "last"))
+			_end_race()
+		return
+	hero.target = null                               # nothing but the course
+	if not hero.has_journey or hero.journey.distance_to(dest) > 1.0:
+		hero.set_journey(dest)
+	hero.pause = 0.5
+
+
+## Auto: enter a race when riding (or with a mount to hand) and gold to stake.
+func _errand_race() -> bool:
+	if hero.gold < 250:
+		return false
+	var has_mount := hero.mounted_on != null
+	for p in hero.pets:
+		if hero.can_ride(p):
+			has_mount = true
+	if not has_mount:
+		return false
+	return _go("race", world.tile_center(ARENA), _auto_race, null, 3.0)
+
+
+func _auto_race() -> void:
+	if hero.mounted_on == null:
+		for p in hero.pets:
+			if hero.can_ride(p) and not p.dead:
+				p.position = hero.position
+				hero.mount(p)
+				break
+	if hero.mounted_on != null:
+		_start_race(50)
+
+
+# --- world bosses ----------------------------------------------------------------------------
+## Now and then a giant wakes somewhere in the wilds. The whole land hears of it, and the stronger
+## players come from every side to bring it down. It leaves two treasure chests, and gold, fame
+## and a diamond for a hero who was in the fight.
+const WORLD_BOSSES := [
+	{"name": "Tharok the World-Eater", "look": "ogre", "scale": 2.6, "color": Color(0.5, 0.35, 0.25)},
+	{"name": "The Frost Wyrm", "look": "swamp_dragon", "scale": 2.3, "color": Color(0.7, 0.85, 1.0)},
+	{"name": "The Queen of Ashes", "look": "daemon", "scale": 2.2, "color": Color(0.8, 0.3, 0.15)},
+	{"name": "Grandfather Yeti", "look": "yeti", "scale": 2.4, "color": Color(0.9, 0.95, 1.0)},
+]
+const WORLD_BOSS_EVERY := 1200.0
+const WORLD_BOSS_LASTS := 600.0
+var world_boss: Entity
+var _wb_in := 700.0
+var _wb_left := 0.0
+var _wb_call := 0.0
+var _wb_hero_fought := false
+
+
+func _world_boss_tick(step: float) -> void:
+	if game.autotest:
+		return                                     # the play-test keeps to the ordinary world
+	if world_boss == null:
+		_wb_in -= step
+		if _wb_in <= 0.0:
+			_spawn_world_boss()
+		return
+	if hero.target == world_boss or world_boss.target == hero:
+		_wb_hero_fought = true
+	_wb_left -= step
+	if world_boss.dead:
+		world_boss = null
+		_wb_in = WORLD_BOSS_EVERY * randf_range(0.8, 1.2)
+		return
+	if _wb_left <= 0.0:
+		game.world_event("%s sinks back into the earth, unbeaten." % world_boss.display_name)
+		world_boss.vanish()
+		world_boss = null
+		_wb_in = WORLD_BOSS_EVERY * randf_range(0.8, 1.2)
+		return
+	_wb_call -= step
+	if _wb_call <= 0.0:                              # the strong answer the call
+		_wb_call = 12.0
+		var sent := 0
+		for item in game.creatures:
+			var e := item as Entity
+			if e.kind != Entity.Kind.PLAYER or e.is_hero or e.dead or e.ghost or e.target != null or e.recovering or e.retreating:
+				continue
+			if e.power() >= 3.5 and sent < 6 and e.position.distance_to(world_boss.position) > 6.0:
+				e.set_journey(world_boss.position + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)))
+				e.roam_timer = maxf(e.roam_timer, 120.0)
+				sent += 1
+
+
+func _spawn_world_boss() -> void:
+	var d: Dictionary = WORLD_BOSSES[randi() % WORLD_BOSSES.size()]
+	var cfg := Bestiary.BONE_KING.duplicate(true)
+	cfg["look"] = d["look"]
+	cfg["scale"] = d["scale"]
+	cfg["str"] = 900
+	cfg["dex"] = 70
+	cfg["dmg_min"] = 20.0
+	cfg["dmg_max"] = 36.0
+	cfg["armor"] = 7.0
+	cfg["danger"] = 12
+	cfg["leash"] = 5
+	cfg["aggro"] = 9.0
+	cfg["loot"] = {"gold_min": 1500, "gold_max": 2500, "reagents": 40,
+		"drops": [["diamond", 1.0], ["ruby", 0.5], ["sapphire", 0.5], ["emerald", 0.5], ["cave_crystal", 1.0], ["cave_crystal", 1.0], ["platemail", 0.6]]}
+	var at: Vector3 = game._wild_spot()
+	world_boss = game.pool_spawn(String(d["name"]), cfg, d["color"], at)
+	_wb_left = WORLD_BOSS_LASTS
+	_wb_call = 0.0
+	_wb_hero_fought = false
+	game.log_event("The earth shakes: %s has woken, %s! The strong are gathering." % [d["name"], _where(at)])
+	game.sound("thunder", hero.position)
+
+
+func _world_boss_slain(killer: Entity) -> void:
+	game._drop_chest(world_boss)
+	game._drop_chest(world_boss)
+	game.event_about("%s has fallen%s! The land breathes again." % [world_boss.display_name,
+		(" to " + killer.display_name) if killer != null else ""], true)
+	if _wb_hero_fought or (killer != null and killer.is_hero) or hero.position.distance_to(world_boss.position) < 12.0:
+		hero.gold += 500
+		hero.add_fame(200)
+		_give("diamond")
+		game.count("world_bosses")
+		game.log_event("For your part in the fight: 500 gold and a diamond.")
+
+
+## Auto: join the fight when strong enough.
+func _errand_world_boss() -> bool:
+	if world_boss == null or world_boss.dead or hero.power() < 6.0:
+		return false
+	return _go("world_boss", world_boss.position, _engage.bind(world_boss), world_boss, 7.0)
+
+
+# --- the tutorial (chosen on the start screen) -----------------------------------------------
+const TUTORIAL := [
+	"Welcome! Tap the ground to walk there. (Walk a few steps.)",
+	"Tap a monster to attack it - a rat is a fair first fight. (Slay something.)",
+	"Tap its corpse to take what it carried. (Loot something.)",
+	"The Menu button, top right, opens every other button. Open the Bag from it.",
+	"Main Menu > Adventures holds quests, bounties, the tavern, the arena and more. Open it.",
+	"Last: Menu > Auto lets your hero play by itself (fight, loot, quests, errands). Switch it on.",
+	"That's all you need. Tap the minimap to travel; Main Menu > Help has the rest. Good luck!",
+]
+var tutorial := -1                         # the step showing (-1: no tutorial)
+var _tut_label: Label
+var _tut_from := Vector3.ZERO
+var _tut_base := 0
+var _tut_wait := 0.0
+
+
+func start_tutorial() -> void:
+	if game.auto:
+		game._toggle_auto()                        # hands on: you do it yourself
+	_tut_label = Label.new()
+	_tut_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tut_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tut_label.custom_minimum_size = Vector2(760, 0)
+	_tut_label.add_theme_font_size_override("font_size", 28)
+	_tut_label.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
+	_tut_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_tut_label.add_theme_constant_override("outline_size", 10)
+	_tut_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	act_button.get_parent().add_child(_tut_label)
+	_tut_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 70)
+	_tut_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_tutorial_show(0)
+
+
+func _tutorial_show(i: int) -> void:
+	tutorial = i
+	_tut_label.text = "%d/%d  %s" % [i + 1, TUTORIAL.size(), TUTORIAL[i]]
+	_tut_from = hero.position
+	_tut_base = int(game.property.stats_counts.get("kills" if i == 1 else "loot", 0))
+	_tut_wait = 0.0
+	game.sound("gain", hero.position)
+
+
+func _tutorial_tick(delta: float) -> void:
+	if tutorial < 0:
+		return
+	var done := false
+	match tutorial:
+		0:
+			done = hero.position.distance_to(_tut_from) > 3.0
+		1:
+			done = int(game.property.stats_counts.get("kills", 0)) > _tut_base
+		2:
+			done = int(game.property.stats_counts.get("loot", 0)) > _tut_base
+		3:
+			done = _tut_seen(game.bag_panel)
+		4:
+			done = _tut_seen(panel)
+		5:
+			done = game.auto
+		_:
+			_tut_wait += delta
+			if _tut_wait > 12.0:
+				tutorial = -1
+				_tut_label.queue_free()
+				return
+	if done:
+		hero.gold += 10
+		game.log_event("Well done! (+10 gold)")
+		_tutorial_show(tutorial + 1)
+
+
+func _tut_seen(p: Control) -> bool:
+	return p.has_meta("tut_seen")
+
+
+## Called while the game is stopped behind a menu or panel: the tutorial notes which were opened.
+func while_paused() -> void:
+	if tutorial < 0:
+		return
+	for p in [game.bag_panel, panel]:
+		if (p as Control).visible:
+			(p as Control).set_meta("tut_seen", true)

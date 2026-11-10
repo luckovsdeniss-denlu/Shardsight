@@ -24,7 +24,7 @@ static func _pets_of(hero: Entity) -> Array:
 	var out := []
 	for p in hero.pets:
 		if not p.dead and p.species != "" and not p.summoned:   # summons fade, they aren't kept
-			out.append({"species": p.species, "name": p.display_name, "hp": p.hp})
+			out.append({"species": p.species, "name": p.display_name, "hp": p.hp, "level": p.pet_level, "xp": p.pet_xp})
 	return out
 
 

@@ -1856,6 +1856,12 @@ func on_kill(killer: Entity, victim: Entity) -> void:
 			(" by " + killer.display_name) if killer != null else ""], true)
 		if killer != null and killer.is_hero:
 			count("champions_slain")
+	if killer != null and victim.kind == Entity.Kind.MONSTER:    # pets learn from the kills they share in
+		var master: Entity = killer.pet_owner if killer.kind == Entity.Kind.PET else killer
+		if master != null:
+			for pet in master.pets:
+				if not pet.dead and (pet == killer or pet == master.mounted_on or pet.position.distance_to(victim.position) < 10.0):
+					pet.pet_gain_xp(victim.danger * (10.0 if pet == killer else 5.0))
 	if killer != null and killer.kind == Entity.Kind.PET and killer.pet_owner != null:
 		if killer.pet_owner.is_hero:
 			count("pet_kills")
@@ -2479,8 +2485,9 @@ func _restore_pets() -> void:
 			continue
 		var p := _spawn(Entity.Kind.MONSTER, String(d.get("name", "Pet")), cfg,
 			Color(String(cfg.get("color", "8a6a4a"))), world.to_tile(hero.position))
-		p.hp = clampf(float(d.get("hp", p.hp)), 1.0, float(p.stats.max_hp()))
 		hero.adopt_pet(p)
+		p.set_pet_level(int(d.get("level", 1)), float(d.get("xp", 0.0)))
+		p.hp = clampf(float(d.get("hp", p.hp)), 1.0, float(p.stats.max_hp()))
 
 
 func _refresh_animals() -> void:
@@ -2512,8 +2519,10 @@ func _refresh_animals() -> void:
 	if hero.pets.is_empty():
 		animals_box.add_child(_info("You have no pets (up to %d)." % Entity.MAX_PETS))
 	for p in hero.pets:
-		animals_box.add_child(_info("%s: HP %d/%d, Str %d, Dex %d" % [
-			p.display_name, ceili(p.hp), p.stats.max_hp(), p.stats.strength, p.stats.dexterity]))
+		animals_box.add_child(_info("%s: level %d%s, HP %d/%d, Str %d, Dex %d, carries +%d" % [
+			p.display_name, p.pet_level,
+			" (max)" if p.pet_level >= Entity.PET_LEVEL_MAX else " (%d/%d to the next)" % [int(p.pet_xp), p.pet_level * 40],
+			ceili(p.hp), p.stats.max_hp(), p.stats.strength, p.stats.dexterity, (p.pet_level - 1) * 2]))
 		if hero.can_ride(p) and hero.mounted_on == null:
 			animals_box.add_child(_action("Ride the %s" % p.display_name, _on_mount.bind(p), p.position.distance_to(hero.position) <= 3.0))
 		if p != hero.mounted_on:
@@ -4845,6 +4854,7 @@ func _process(delta: float) -> void:
 		_update_hud()
 		if frontier != null:
 			frontier.act_button.visible = false   # no action button over a menu or panel
+			frontier.while_paused()
 		return
 	if autotest:
 		_autotest_tick(delta)
@@ -5093,9 +5103,15 @@ func _show_title(layer: CanvasLayer) -> void:
 	var play := _menu_button("Play", func() -> void:
 		start_mode = "classic"                     # the ordinary game
 		close.call())
+	var tut := _menu_button("Tutorial", func() -> void:
+		start_mode = "classic"                     # the ordinary game, with a guide for the first minutes
+		close.call()
+		if frontier != null:
+			frontier.start_tutorial())
 	var exp_b := _menu_button("Experimental mode", _switch_mode.bind("experimental"))
 	exp_b.custom_minimum_size = Vector2(320, 80)
 	row.add_child(play)
+	row.add_child(tut)
 	row.add_child(exp_b)
 	# Once the camera is down: on a fresh start, the choice of mode (the game waits for it);
 	# after switching modes the choice is already made, so the title simply fades.
