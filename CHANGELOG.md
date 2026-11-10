@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.59.4
+- The logs are in colour, each line with a mark in front, by what it's about: deaths red (†),
+  danger orange (!), gold yellow ($), spoils and things you make pale gold (+), skills and levels
+  cyan (*), quests and bounties violet (»), magic blue (*), healing, food and rest green (+),
+  travel and towers teal (»), tips grey; everything else white (•). Both logs: yours (lower left)
+  and the world's (lower right).
+
 ## 0.59.3
 - Builds: the APK is published to the repository's Releases (tag `v<version>`), so there is a
   permanent download link for every version and a full Actions artifact storage no longer

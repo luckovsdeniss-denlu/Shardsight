@@ -66,10 +66,10 @@ var guild_box: VBoxContainer
 var cam := Camera3D.new()
 var marker := MeshInstance3D.new()
 var hud := Label.new()
-var log_label := Label.new()
+var log_label := RichTextLabel.new()
 var auto_button := Button.new()
 var log_lines: Array[String] = []
-var world_label := Label.new()        # what happens to everyone else (lower right)
+var world_label := RichTextLabel.new()        # what happens to everyone else (lower right)
 var world_lines: Array[String] = []
 var held := false
 var auto := true
@@ -184,11 +184,7 @@ func _ready() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.alignment = BoxContainer.ALIGNMENT_END
 	margin.add_child(column)
-	log_label.add_theme_font_size_override("font_size", 28)
-	log_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	log_label.add_theme_constant_override("outline_size", 8)
-	log_label.custom_minimum_size = Vector2(520, 0)
-	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_setup_log(log_label, 28, 520.0)
 	log_label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	column.add_child(log_label)
 
@@ -203,13 +199,7 @@ func _ready() -> void:
 	wcolumn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wcolumn.alignment = BoxContainer.ALIGNMENT_END
 	wmargin.add_child(wcolumn)
-	world_label.add_theme_font_size_override("font_size", 24)
-	world_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.8))
-	world_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	world_label.add_theme_constant_override("outline_size", 8)
-	world_label.custom_minimum_size = Vector2(460, 0)
-	world_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	world_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_setup_log(world_label, 24, 460.0)
 	world_label.size_flags_horizontal = Control.SIZE_SHRINK_END
 	wcolumn.add_child(world_label)
 
@@ -4351,8 +4341,58 @@ func _build_marker() -> void:
 	add_child(marker)
 
 
+## The logs are coloured by what a line is about, each with a mark in front: deaths red (†),
+## danger orange (!), gold yellow ($), spoils and things made pale gold (+), skills and levels
+## cyan (*), quests and bounties violet (»), magic blue (*), healing and rest green (+), travel
+## teal (»), tips grey. The first kind whose words appear in the line wins.
+const LOG_KINDS := [
+	["†", "ff6a5c", ["slain", "you die", "has fallen", "falls in the arena", "murdered"]],
+	["»", "c9a2ff", ["quest", "task", "bounty", "chapter", "story", "return to "]],
+	["!", "ffa64d", ["attack", "poison", "criminal", "murder", "invasion", "warband", "raises the dead", "march on", "breaks",
+		"you burn", "you fail", "you lose", "can't", "you need", "forfeit", "champion", "wanted", "stolen", "steal"]],
+	["$", "ffd94d", ["gold", "you sell", "you buy", "bank", "reward", "tolls"]],
+	["*", "66e0ff", ["skill", "level", "you learn", "title", "achievement", "stronger", "you are now"]],
+	["*", "7fa8ff", ["cast", "spell", "scroll", "bless", "resurrect", "mana", "summon", "transform"]],
+	["+", "7dea7d", ["heal", "cured", "rested", "well fed", "you eat", "you drink", "you sleep", "welcome", "bandage"]],
+	["»", "5fd9c0", ["you enter", "you leave", "set off", "descend", "climb", "push off", "ashore", "arrive", "takes ", "tower"]],
+	["+", "f0dc9a", ["loot", "you find", "you make", "you cook", "you catch", "you gather", "you brew", "treasure", "pearl", "+1",
+		"you take", "you pick", "smelt", "tame"]],
+	["·", "aab2c0", ["tip:"]],
+]
+
+
+func _setup_log(l: RichTextLabel, font_px: int, width: float) -> void:
+	l.bbcode_enabled = true
+	l.fit_content = true
+	l.scroll_active = false
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(width, 0)
+	l.add_theme_font_size_override("normal_font_size", font_px)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 8)
+
+
+## A log line in its colour, with its mark in front (BBCode).
+static func _log_markup(text: String) -> String:
+	var low := text.to_lower()
+	var mark := "•"
+	var col := "eeeeea"
+	for kind in LOG_KINDS:
+		var found := false
+		for word in kind[2]:
+			if low.contains(String(word)):
+				found = true
+				break
+		if found:
+			mark = String(kind[0])
+			col = String(kind[1])
+			break
+	return "[color=#%s]%s %s[/color]" % [col, mark, text.replace("[", "[lb]")]
+
+
 func log_event(text: String) -> void:
-	log_lines.append(text)
+	log_lines.append(_log_markup(text))
 	while log_lines.size() > LOG_LINES:
 		log_lines.remove_at(0)
 	log_label.text = "\n".join(log_lines)
@@ -4367,10 +4407,10 @@ func event_about(text: String, mine: bool) -> void:
 
 
 func world_event(text: String) -> void:
-	world_lines.append(text)
+	world_lines.append(_log_markup(text))
 	while world_lines.size() > LOG_LINES:
 		world_lines.remove_at(0)
-	world_label.text = "\n".join(world_lines)
+	world_label.text = "[right]" + "\n".join(world_lines) + "[/right]"
 
 
 # --- input -----------------------------------------------------------------
