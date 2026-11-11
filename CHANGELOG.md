@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.64.1
+The menus, remade.
+- Smoked glass: every menu, panel and button is see-through now - the game shows behind, dimmed a
+  little - with a thin gold edge, rounded corners and a soft shadow. All menu text has a dark
+  outline so it reads over anything. Buttons stand up a little and sink when pressed.
+- A close button (X) at the top of every panel, always in reach: no scrolling to the bottom for
+  Back. A tap outside a panel closes it too.
+- Every list still scrolls under your finger (drag anywhere, flick to glide), with a slim gold
+  scroll bar.
+- The main menu has three columns (less scrolling), a gold title, and little icons on its buttons.
+
 ## 0.64.0
 The Church of the Shard.
 - A stone church just south of the main town: walls with doors on the north side under an arch,

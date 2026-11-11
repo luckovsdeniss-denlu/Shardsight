@@ -349,9 +349,18 @@ func _ready() -> void:
 		_show_title(layer)                   # the title and the fly-by, as the loading screen fades
 
 
+const MENU_ICONS := {"Resume": "travel", "Story": "scroll", "Adventures": "star", "Skills": "star", "Craft": "tool",
+	"Bank & House": "coin", "Travel & Spellbook": "map", "Players": "info", "Guild & Fame": "shield", "Thievery": "gem",
+	"Animals": "heart", "Bard": "magic", "Prices": "coin", "Settings": "tool", "Help": "info", "Save now": "chest",
+	"Back": "travel", "Close": "travel"}
+
+
 func _menu_button(text: String, callback: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
+	if MENU_ICONS.has(text):                           # a little picture beside the word
+		b.icon = Icons.tex(String(MENU_ICONS[text]))
+		b.add_theme_constant_override("icon_max_width", 30)
 	b.custom_minimum_size = Vector2(240, 80)
 	b.add_theme_font_size_override("font_size", 28)
 	b.pressed.connect(callback)
@@ -377,13 +386,19 @@ func _build_menu(layer: CanvasLayer) -> void:
 	title.text = "Shardsight v%s" % version
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 34)
+	title.add_theme_color_override("font_color", Color(0.95, 0.8, 0.42))
 	box.add_child(title)
-	# the buttons in two columns that scroll, so they all fit the screen
+	var rule := ColorRect.new()
+	rule.color = Color(0.78, 0.64, 0.34, 0.6)
+	rule.custom_minimum_size = Vector2(0, 2)
+	box.add_child(rule)
+	# the buttons in three columns that scroll, so they all fit the screen
 	var scroll := TouchScroll.new()
-	scroll.custom_minimum_size = Vector2(640, 520)
+	scroll.custom_minimum_size = Vector2(790, 500)
 	box.add_child(scroll)
 	var grid := GridContainer.new()
-	grid.columns = 2
+	_dress_overlay(menu, grid)                         # dimmed behind; a tap outside resumes
+	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 10)
 	scroll.add_child(grid)
@@ -427,16 +442,41 @@ func _build_skills_panel(layer: CanvasLayer) -> void:
 	skills_box = VBoxContainer.new()
 	skills_box.add_theme_constant_override("separation", 6)
 	pad.add_child(_scroll_wrap(skills_box))
+	_dress_overlay(skills_panel, skills_box)
 
 
 ## Long lists scroll (drag on a phone) so they fit the screen.
-func _scroll_wrap(box: VBoxContainer) -> ScrollContainer:
+## A panel's body: a slim bar on top with a close button that is always in reach (no scrolling
+## to the bottom for Back), and under it the list, which scrolls under your finger.
+func _scroll_wrap(box: VBoxContainer) -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	var bar := HBoxContainer.new()
+	var hint := Label.new()
+	hint.text = "drag to scroll"
+	hint.add_theme_font_size_override("font_size", 16)
+	hint.add_theme_color_override("font_color", Color(0.8, 0.72, 0.5, 0.7))
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.add_child(hint)
+	var x := Button.new()
+	x.text = "X"
+	x.custom_minimum_size = Vector2(84, 48)
+	x.add_theme_font_size_override("font_size", 24)
+	x.pressed.connect(_press_back.bind(box))
+	bar.add_child(x)
+	col.add_child(bar)
+	var rule := ColorRect.new()                     # a thin gold line under the bar
+	rule.color = Color(0.78, 0.64, 0.34, 0.6)
+	rule.custom_minimum_size = Vector2(0, 2)
+	col.add_child(rule)
 	var scroll := TouchScroll.new()                 # drag anywhere to scroll, flick to glide
-	scroll.custom_minimum_size = Vector2(880, 560)
+	scroll.custom_minimum_size = Vector2(880, 540)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(box)
-	return scroll
+	col.add_child(scroll)
+	return col
 
 
 func _build_craft_panel(layer: CanvasLayer) -> void:
@@ -454,6 +494,7 @@ func _build_craft_panel(layer: CanvasLayer) -> void:
 	craft_box = VBoxContainer.new()
 	craft_box.add_theme_constant_override("separation", 6)
 	pad.add_child(_scroll_wrap(craft_box))
+	_dress_overlay(craft_panel, craft_box)
 
 
 ## Recipes with what they need. Blacksmithy and smelting need the forge in the smith's house;
@@ -585,6 +626,7 @@ func _build_property_panel(layer: CanvasLayer) -> void:
 	property_box = VBoxContainer.new()
 	property_box.add_theme_constant_override("separation", 8)
 	pad.add_child(_scroll_wrap(property_box))
+	_dress_overlay(property_panel, property_box)
 
 
 func _hero_at_bank() -> bool:
@@ -912,6 +954,7 @@ func _make_overlay(layer: CanvasLayer) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	pad.add_child(_scroll_wrap(box))
+	_dress_overlay(overlay, box)
 	overlay.set_meta("box", box)
 	return overlay
 
@@ -4751,32 +4794,82 @@ func _update_button() -> void:
 ## engine's default theme, so it reaches every menu (a theme set on the window doesn't pass
 ## through the CanvasLayer the menus live on).
 func _make_ui_solid(t: Theme) -> void:
+	# Smoked glass: the world shows through the panels and buttons, dimmed enough to read on, with
+	# a thin gold edge, rounded corners and a soft shadow. Text gets a dark outline so it stays
+	# clear over anything.
+	var gold := Color(0.78, 0.64, 0.34)
 	var looks := {
-		"normal": Color(0.16, 0.17, 0.21), "hover": Color(0.22, 0.24, 0.30),
-		"pressed": Color(0.30, 0.33, 0.42), "disabled": Color(0.12, 0.12, 0.14),
-		"focus": Color(0.16, 0.17, 0.21),
+		"normal": Color(0.10, 0.12, 0.17, 0.62), "hover": Color(0.18, 0.22, 0.30, 0.72),
+		"pressed": Color(0.42, 0.34, 0.16, 0.85), "disabled": Color(0.08, 0.08, 0.10, 0.40),
+		"focus": Color(0.10, 0.12, 0.17, 0.0),
 	}
 	for state: String in looks:
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = looks[state]
-		sb.border_color = Color(0.45, 0.40, 0.28)       # a thin gold-brown edge
-		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(6)
-		sb.content_margin_left = 10.0
-		sb.content_margin_right = 10.0
-		sb.content_margin_top = 6.0
-		sb.content_margin_bottom = 6.0
+		sb.border_color = gold if state in ["hover", "pressed"] else Color(gold, 0.55 if state != "disabled" else 0.2)
+		sb.set_border_width_all(1)
+		sb.border_width_bottom = 3                      # a heavier lower edge: the button stands up a little
+		sb.set_corner_radius_all(10)
+		sb.content_margin_left = 14.0
+		sb.content_margin_right = 14.0
+		sb.content_margin_top = 8.0
+		sb.content_margin_bottom = 8.0
+		if state == "pressed":
+			sb.border_width_bottom = 1                  # ...and sinks when pressed
+			sb.content_margin_top = 10.0
 		if state == "focus":
 			sb.draw_center = false                      # just the edge over the normal look
 		t.set_stylebox(state, "Button", sb)
-	t.set_color("font_disabled_color", "Button", Color(0.5, 0.5, 0.5))
+	t.set_color("font_color", "Button", Color(0.96, 0.93, 0.84))
+	t.set_color("font_hover_color", "Button", Color(1.0, 0.95, 0.8))
+	t.set_color("font_pressed_color", "Button", Color(1.0, 0.92, 0.6))
+	t.set_color("font_disabled_color", "Button", Color(0.6, 0.6, 0.6, 0.7))
+	t.set_color("font_outline_color", "Button", Color(0, 0, 0, 0.9))
+	t.set_constant("outline_size", "Button", 4)
+	t.set_color("font_outline_color", "Label", Color(0, 0, 0, 0.9))
+	t.set_constant("outline_size", "Label", 4)
 	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color(0.09, 0.10, 0.12)
-	panel.border_color = Color(0.45, 0.40, 0.28)
+	panel.bg_color = Color(0.05, 0.06, 0.09, 0.66)
+	panel.border_color = gold
 	panel.set_border_width_all(2)
-	panel.set_corner_radius_all(8)
+	panel.set_corner_radius_all(16)
+	panel.shadow_color = Color(0, 0, 0, 0.45)
+	panel.shadow_size = 14
 	t.set_stylebox("panel", "PanelContainer", panel)
 	t.set_stylebox("panel", "Panel", panel)
+	# a slim gold scroll bar
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(1, 1, 1, 0.06)
+	track.set_corner_radius_all(6)
+	track.content_margin_left = 5.0
+	track.content_margin_right = 5.0
+	t.set_stylebox("scroll", "VScrollBar", track)
+	for gs: Array in [["grabber", 0.55], ["grabber_highlight", 0.8], ["grabber_pressed", 1.0]]:
+		var gb := StyleBoxFlat.new()
+		gb.bg_color = Color(gold, float(gs[1]))
+		gb.set_corner_radius_all(6)
+		t.set_stylebox(String(gs[0]), "VScrollBar", gb)
+
+
+## Presses a panel's own Back / Close button (wherever its list has put it), so the X in the
+## corner and a tap outside the panel close it the way that button would.
+func _press_back(box: Node) -> void:
+	var kids := box.get_children()
+	for i in range(kids.size() - 1, -1, -1):
+		var b := kids[i] as Button
+		if b != null and not b.disabled and b.text in ["Back", "Close", "Continue", "Resume"]:
+			b.pressed.emit()
+			return
+
+
+## Behind an open panel the game is dimmed a little, and a tap there closes the panel.
+func _dress_overlay(overlay: Control, box: Node) -> void:
+	overlay.draw.connect(func() -> void:
+		overlay.draw_rect(Rect2(Vector2.ZERO, overlay.size), Color(0.0, 0.01, 0.03, 0.3)))
+	overlay.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed \
+				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			_press_back(box))
 
 
 const BUTTON_ICONS := {"Main Menu": "scroll", "Bag": "chest", "Spells": "magic", "Retreat": "alert", "Ride": "travel",
