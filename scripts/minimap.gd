@@ -7,8 +7,8 @@ extends Control
 ## and murderers red, criminals grey, other players blue, NPCs cream). Framed in gold with a
 ## north mark.
 
-const MAX_WIDTH := 320.0         # the bigger the map, the smaller each tile on the minimap
-const SUB := 3                   # painted pixels per tile
+const MAX_WIDTH := 264.0         # the bigger the map, the smaller each tile on the minimap
+const SUB := 2                   # painted pixels per tile
 var px := 4.0
 
 const GRASS := Color(0.24, 0.40, 0.22)

@@ -17,7 +17,7 @@ const ARENA_RADIUS := 3.5
 const STAIRS := Vector2i(47, 21)            # the stairs down, in the dungeon's deepest hall
 const DUNGEON_DOOR := Vector2i(38, 16)      # where you arrive on a new level
 const DEPTH_BOSS_AT := Vector2i(39, 13)
-const BOARDS := [Vector2i(28, 11), Vector2i(40, 6), Vector2i(45, 34), Vector2i(109, 15)]   # a bounty board in each town
+const BOARDS := [Vector2i(28, 11), Vector2i(40, 6), Vector2i(45, 34), Vector2i(109, 15), Vector2i(101, 107)]   # a bounty board in each town
 const DOCKS := [
 	{"name": "Westmere Landing", "tile": Vector2i(5, 15), "to": 1},
 	{"name": "Eastmere Landing", "tile": Vector2i(13, 15), "to": 0},
@@ -25,13 +25,13 @@ const DOCKS := [
 	{"name": "Frostshore Pier", "tile": Vector2i(78, 11), "to": 2},
 	{"name": "Fen Jetty", "tile": Vector2i(31, 39), "to": 5},
 	{"name": "Reedbank Jetty", "tile": Vector2i(41, 39), "to": 4},
-	{"name": "Southmoor Harbour", "tile": Vector2i(48, 46), "to": 7},      # the sea voyage
-	{"name": "Isle Landing", "tile": Vector2i(48, 56), "to": 6},
+	{"name": "Tidewater Harbour", "tile": Vector2i(48, 55), "to": 7},      # the sea voyage
+	{"name": "Isle Landing", "tile": Vector2i(48, 64), "to": 6},
 	{"name": "Mirrormere West", "tile": Vector2i(110, 34), "to": 9},       # the lake of the eastern lands
 	{"name": "Mirrormere East", "tile": Vector2i(126, 34), "to": 8},
 ]
 const LAKE_DOCKS := 6                       # the first six are on the lakes
-const ISLE_SHRINE := Vector2i(47, 58)
+const ISLE_SHRINE := Vector2i(47, 66)
 const BOAT_PRICE := 300
 const FERRY_PRICE := 8
 const POLE_PRICE := 15
@@ -496,13 +496,13 @@ func _spawn_wildlife() -> void:
 		# the Isle of Tides
 		["Giant Crab", r.call(Bestiary.SAND_SCORPION, "scorpion", 1.25, {"poison": [], "armor": 3.5, "str": 55,
 			"loot": {"gold_min": 20, "gold_max": 45, "drops": [["pearl", 0.2], ["raw_meat", 0.6]]}}), Color("c05a3a"),
-			[Vector2i(40, 59), Vector2i(38, 60), Vector2i(50, 62), Vector2i(40, 62)]],
+			[Vector2i(40, 67), Vector2i(38, 68), Vector2i(50, 70), Vector2i(40, 70)]],
 		["Drowned Sailor", r.call(Bestiary.MUMMY, "zombie", 1.05, {"loot": {"gold_min": 50, "gold_max": 110,
-			"drops": [["pearl", 0.25], ["scimitar", 0.15], ["sapphire", 0.06]]}}), Color("5a8a8a"), [Vector2i(46, 60), Vector2i(50, 58)]],
+			"drops": [["pearl", 0.25], ["scimitar", 0.15], ["sapphire", 0.06]]}}), Color("5a8a8a"), [Vector2i(46, 68), Vector2i(50, 66)]],
 		["The Drowned King", r.call(Bestiary.CAVE_CHIEF, "lich", 1.6, {"str": 150, "danger": 8, "reagents": 999, "int": 90,
 			"loot": {"gold_min": 400, "gold_max": 800, "reagents": 20, "drops": [["diamond", 0.7], ["sapphire", 1.0], ["pearl", 1.0], ["pearl", 0.6], ["platemail", 0.3]]},
 			"skills": {Hero.Skill.SWORDSMANSHIP: 80.0, Hero.Skill.TACTICS: 80.0, Hero.Skill.MAGERY: 85.0, Hero.Skill.EVALUATING_INTELLECT: 70.0,
-				Hero.Skill.MEDITATION: 70.0, Hero.Skill.RESISTING_SPELLS: 60.0}}), Color("3a6a8a"), [Vector2i(56, 60)]],
+				Hero.Skill.MEDITATION: 70.0, Hero.Skill.RESISTING_SPELLS: 60.0}}), Color("3a6a8a"), [Vector2i(56, 68)]],
 	]
 	for row in list:
 		for t in row[3]:
@@ -2352,7 +2352,7 @@ func _page_hub() -> void:
 		dock_i = dk
 		_b("Boat", _open.bind("dock"))
 	else:
-		_small_text("Boats: walk to a landing on one of the three lakes, or to Southmoor Harbour on the south coast for the voyage to the Isle of Tides (brown marks on the map).")
+		_small_text("Boats: walk to a landing on one of the three lakes, or to Tidewater Harbour, south of Southmoor, for the voyage to the Isle of Tides (brown marks on the map).")
 
 
 func _h(text: String) -> void:

@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.65.0
+A square map.
+- The long straight sea along the south is gone. The land now runs on south to make a square:
+  144 by 144 tiles (from 144 by 66), more than twice the ground.
+- The Isle of Tides sits in a round lake instead, the Tidewater, south of Southmoor; Tidewater
+  Harbour on its north shore is where the ship leaves.
+- The far south: forests, rocky hills, three more lakes, and Highmoor, a fifth town (healer,
+  merchant, banker, bounty board, a road from Southmoor). It is wilder and emptier than the
+  north: a handful of wolves, orcs, bears, spiders and the dead to each region.
+- The land is split into 36 regions; ten ankh shrines (one region in four, and the isle's).
+- To carry the bigger land: the ground is drawn with one quad a tile and painted a little
+  coarser, and the minimap is drawn a little coarser too.
+
 ## 0.64.1
 The menus, remade.
 - Smoked glass: every menu, panel and button is see-through now - the game shows behind, dimmed a

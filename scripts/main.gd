@@ -1077,7 +1077,7 @@ void fragment() {
 	ROUGHNESS = 0.9;
 }
 """
-const TOWN_COLOURS := [Color(0.72, 0.16, 0.13), Color(0.18, 0.35, 0.72), Color(0.2, 0.55, 0.25), Color(0.85, 0.6, 0.15)]
+const TOWN_COLOURS := [Color(0.72, 0.16, 0.13), Color(0.18, 0.35, 0.72), Color(0.2, 0.55, 0.25), Color(0.85, 0.6, 0.15), Color(0.55, 0.3, 0.7)]
 var _birds: Array[Node3D] = []
 var _bird_wings: Array = []                 # [left pivot, right pivot] per bird
 var _flock_centre := Vector3.ZERO
@@ -4119,6 +4119,11 @@ func _spawn_all() -> void:
 	var quill := _spawn(Entity.Kind.NPC, "Quill", Bestiary.MERCHANT, cream, Vector2i(107, 14))
 	quill.shop = Shop.new("Dawnport", 1.35, 1.3)
 	_spawn(Entity.Kind.NPC, "Marta", Bestiary.BANKER, cream, Vector2i(111, 14))
+	# Highmoor, the town of the far south.
+	_spawn(Entity.Kind.NPC, "Brother Tam", Bestiary.HEALER, cream, Vector2i(98, 102))
+	var wyn := _spawn(Entity.Kind.NPC, "Wyn", Bestiary.MERCHANT, cream, Vector2i(104, 102))
+	wyn.shop = Shop.new("Highmoor", 1.25, 1.2)
+	_spawn(Entity.Kind.NPC, "Osric", Bestiary.BANKER, cream, Vector2i(100, 106))
 
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(12, 8))
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(6, 11))
@@ -4210,9 +4215,14 @@ func _even_out_monsters(rng: RandomNumberGenerator) -> void:
 		["Wolf", Bestiary.WOLF, red], ["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")], ["Orc", Bestiary.ORC, red],
 		["Skeleton", Bestiary.SKELETON, Color("d8d2c0")], ["Wolf", Bestiary.WOLF, red], ["Orc", Bestiary.ORC, red],
 	]
+	# The far south (beyond the old coast) is wilder and emptier: a handful to a region.
+	var south := [["Wolf", Bestiary.WOLF, red], ["Orc", Bestiary.ORC, red], ["Brown Bear", Bestiary.BROWN_BEAR, Color("6b4a2a")],
+		["Giant Spider", Bestiary.GIANT_SPIDER, Color("3a3a2a")], ["Skeleton", Bestiary.SKELETON, Color("d8d2c0")],
+		["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")], ["Hind", Bestiary.HIND, Color("b08a5a")]]
 	for i in range(world.zone_count()):
-		for _k in range(goal - counts[i]):
-			var pick: Array = picks[i]
+		var far := i >= picks.size()
+		for _k in range((6 if far else goal) - counts[i]):
+			var pick: Array = south[(i + _k) % south.size()] if far else picks[i]
 			var cfg: Dictionary = pick[1]
 			_spawn(Entity.Kind.MONSTER, String(pick[0]), cfg, pick[2], world.open_tile_in(world.zone_rect(i), rng))
 
@@ -5590,8 +5600,8 @@ func _build_shrines() -> void:
 		[Art.box(0.56, 0.1, 0.1), Art.at(0, 0.92, 0), gold],
 		[Art.ring_mesh(0.11, 0.17), Art.at(0, 1.22, 0, Vector3(PI / 2, 0, 0)), gold]])
 	for i in range(world.zone_count()):
-		if (i % World.ZONE_COLS + i / World.ZONE_COLS) % 2 != 0:
-			continue                             # every other region, chequer-wise: half as many ankhs
+		if (i % World.ZONE_COLS) % 2 != 0 or (i / World.ZONE_COLS) % 2 != 0:
+			continue                             # one region in four: an ankh never too far, never crowding
 		var r := world.zone_rect(i)
 		var mid := Rect2i(r.position + r.size / 4, r.size / 2)
 		var t := world.open_tile_in(mid, rng)
