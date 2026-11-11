@@ -390,6 +390,7 @@ func setup(p_game, layer: CanvasLayer) -> void:
 	_build_tavern()
 	_build_arena()
 	_build_boards()
+	_build_church()
 	_build_stairs()
 	_build_towers()
 	_build_snow()
@@ -2102,6 +2103,8 @@ func _find_act() -> Dictionary:
 		var e: Entity = v["e"]
 		if e.position.distance_to(hero.position) <= 2.6:
 			return {"label": "Talk: %s%s" % [e.display_name, _talk_mark(e.display_name)], "page": "talk", "who": e.display_name}
+	if world.in_church(world.to_tile(hero.position)):
+		return {"label": "Church", "page": "church"}
 	if _at_board():
 		return {"label": "Bounty board", "page": "board"}
 	var d := _at_dock()
@@ -2154,6 +2157,7 @@ func tick(delta: float) -> void:
 	if _season_acc >= 1.0:
 		_season_tick(_season_acc)
 		_farm_tick(_season_acc)
+		_bell_tick()
 		_world_boss_tick(_season_acc)
 		_season_acc = 0.0
 	if Engine.get_process_frames() % 30 == 0:
@@ -2314,6 +2318,8 @@ func _refresh() -> void:
 			_page_enchant()
 		"auto":
 			_page_auto()
+		"church":
+			_page_church()
 	if page != "hub":
 		_b("Adventures", _open.bind("hub"))
 	_b("Close", _close)
@@ -2331,6 +2337,7 @@ func _page_hub() -> void:
 	_b("What Auto does: choose its errands", _open.bind("auto"))
 	_b("Side quests (%d under way)" % active, _open.bind("quests"))
 	_b("Bounties%s" % (": " + String(b["target"]) if not b.is_empty() else ""), _open.bind("board"))
+	_b("The church", _open.bind("church"))
 	_b("The tavern", _open.bind("tavern"))
 	_b("Cooking", _open.bind("cook"))
 	_b("Alchemy: brews and poisons", _open.bind("alchemy"))
@@ -3317,7 +3324,7 @@ func _toggle_auto_kind(kind: String) -> void:
 # --- horse races -----------------------------------------------------------------------------
 ## A lap from the arena round a course of posts and back, on your own mount, against three riders
 ## whose times are drawn from their horses' pace.
-const RACE_COURSE := [Vector2i(24, 15), Vector2i(29, 17), Vector2i(26, 20), Vector2i(22, 21), Vector2i(19, 19)]
+const RACE_COURSE := [Vector2i(23, 14), Vector2i(30, 16), Vector2i(30, 22), Vector2i(23, 22), Vector2i(19, 19)]
 const RACERS := ["Swift Marigold", "Old Thunder", "Ser Aldous on Nightwind", "The Stable Boy", "Red Fenna", "Hal's Grey"]
 var race := {}
 var _race_posts: Array[MeshInstance3D] = []
@@ -3604,3 +3611,129 @@ func while_paused() -> void:
 	for p in [game.bag_panel, panel]:
 		if (p as Control).visible:
 			(p as Control).set_meta("tut_seen", true)
+
+
+# --- the church ------------------------------------------------------------------------------
+## The Church of the Shard, just south of the main town: a stone nave with a paved floor and a red
+## runner from the doors to the altar, pews, candles, windows of coloured glass glowing in the
+## south wall, and a bell tower that tolls morning, noon and dusk. Father Corwin keeps it. Pray at
+## the altar once a day (healing, poison drawn out, a little karma, a blessing of the mind), or
+## give to the poor.
+var _bell_hour := -1
+
+
+func _build_church() -> void:
+	var r: Rect2i = World.CHURCH
+	var inner := Rect2i(r.position + Vector2i(1, 1), r.size - Vector2i(2, 2))
+	var mid := Vector3(inner.position.x + inner.size.x / 2.0, 0.0, inner.position.y + inner.size.y / 2.0)
+	var stone := Color(0.62, 0.6, 0.56)
+	var parts := [[Art.box(inner.size.x, 0.04, inner.size.y), Art.at(0, 0.02, 0), stone]]
+	for iy in range(inner.size.y):                    # paving: alternate slabs a shade darker
+		for ix in range(inner.size.x):
+			if (ix + iy) % 2 == 0:
+				parts.append([Art.box(0.94, 0.045, 0.94), Art.at(ix - inner.size.x / 2.0 + 0.5, 0.022, iy - inner.size.y / 2.0 + 0.5), stone.darkened(0.12)])
+	parts.append([Art.box(1.0, 0.05, inner.size.y + 1.0), Art.at(0, 0.03, -0.5), Color(0.6, 0.12, 0.12)])   # the runner
+	_mesh(parts, mid)
+	# the altar at the south end: a stone table, a gold ankh, two candles
+	var altar := mid + Vector3(0, 0, inner.size.y / 2.0 - 0.45)
+	var gold := Color(0.95, 0.8, 0.35)
+	_mesh([[Art.box(1.6, 0.7, 0.6), Art.at(0, 0.35, 0), Color(0.8, 0.78, 0.74)], [Art.box(1.7, 0.06, 0.7), Art.at(0, 0.73, 0), Color(0.92, 0.9, 0.86)],
+		[Art.box(0.08, 0.5, 0.08), Art.at(0, 1.05, 0), gold], [Art.box(0.34, 0.07, 0.07), Art.at(0, 1.12, 0), gold],
+		[Art.ring_mesh(0.07, 0.12), Art.at(0, 1.4, 0, Vector3(PI / 2.0, 0, 0)), gold],
+		[Art.box(0.06, 0.3, 0.06), Art.at(-0.6, 0.9, 0), Color(0.95, 0.93, 0.85)], [Art.box(0.06, 0.3, 0.06), Art.at(0.6, 0.9, 0), Color(0.95, 0.93, 0.85)]], altar)
+	for cx in [-0.6, 0.6]:
+		var fl := Fx.flame(0.08, 6, 0.25)
+		fl.position = altar + Vector3(cx, 1.08, 0)
+		add_child(fl)
+		fl.add_to_group("view_fx")
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(1.0, 0.85, 0.6)
+	glow.omni_range = 5.0
+	glow.position = altar + Vector3(0, 1.6, -0.5)
+	add_child(glow)
+	# pews either side of the runner
+	var wood := Color(0.4, 0.26, 0.14)
+	for row in range(3):
+		for px in [-1.25, 1.25]:
+			_mesh([[Art.box(1.1, 0.08, 0.3), Art.at(0, 0.3, 0), wood], [Art.box(1.1, 0.4, 0.06), Art.at(0, 0.5, -0.14), wood.darkened(0.1)],
+				[Art.box(0.06, 0.3, 0.3), Art.at(-0.5, 0.15, 0), wood.darkened(0.2)], [Art.box(0.06, 0.3, 0.3), Art.at(0.5, 0.15, 0), wood.darkened(0.2)]],
+				mid + Vector3(px, 0, -1.6 + row * 1.0))
+	# coloured glass glowing in the south wall, behind the altar
+	var wall_z := float(r.end.y) - 1.0 + 0.02
+	var colours := [Color(0.85, 0.2, 0.2), Color(0.95, 0.8, 0.25), Color(0.25, 0.45, 0.9), Color(0.3, 0.75, 0.4)]
+	for i in range(4):
+		var win := MeshInstance3D.new()
+		win.mesh = Art.box(0.5, 0.9, 0.06)
+		win.material_override = Art.glow_mat(colours[i])
+		win.position = Vector3(r.position.x + 1.5 + i * 1.0, 1.0, wall_z)
+		add_child(win)
+	# the bell tower on the north-west corner, with a pointed roof, a bell and an ankh on top
+	var corner := world.tile_center(r.position)
+	_mesh([[Art.box(1.04, 4.6, 1.04), Art.at(0, 2.3, 0), Color(0.5, 0.5, 0.53)], [Art.box(1.2, 0.12, 1.2), Art.at(0, 3.4, 0), Color(0.62, 0.62, 0.65)],
+		[Art.box(0.6, 0.7, 1.08), Art.at(0, 3.95, 0), Color(0.1, 0.09, 0.08)], [Art.box(1.08, 0.7, 0.6), Art.at(0, 3.95, 0), Color(0.1, 0.09, 0.08)],
+		[Art.ball(0.22, 8, 5), Art.at(0, 3.95, 0), gold],
+		[Art.cone(0.85, 1.4, 0.0, 4), Art.at(0, 5.3, 0, Vector3(0, PI / 4.0, 0)), Color(0.45, 0.2, 0.16)],
+		[Art.box(0.06, 0.5, 0.06), Art.at(0, 6.2, 0), gold], [Art.box(0.3, 0.06, 0.06), Art.at(0, 6.25, 0), gold]], corner)
+	# an arch over the doors
+	var door_mid := (world.tile_center(World.CHURCH_DOORS[0]) + world.tile_center(World.CHURCH_DOORS[1])) / 2.0
+	_mesh([[Art.box(2.3, 0.3, 1.06), Art.at(0, 1.85, 0), Color(0.5, 0.5, 0.53)], [Art.cone(0.9, 0.7, 0.0, 4), Art.at(0, 2.35, 0, Vector3(0, PI / 4.0, 0)), Color(0.45, 0.2, 0.16)],
+		[Art.ring_mesh(0.1, 0.18), Art.at(0, 1.85, -0.55, Vector3(PI / 2.0, 0, 0)), gold]], door_mid)
+
+
+## The bell tolls at six in the morning, at noon and at eight in the evening.
+func _bell_tick() -> void:
+	var hour := int(game.day_time * 24.0)
+	if hour == _bell_hour:
+		return
+	_bell_hour = hour
+	if hour in [6, 12, 20] and not game.autotest:
+		var at := world.tile_center(World.CHURCH.position)
+		game.sound("parry", at, 0.45, 2.0)
+		if at.distance_to(hero.position) < 25.0:
+			game.world_event("The church bell tolls %s." % {6: "the morning", 12: "noon", 20: "the evening"}[hour])
+
+
+func _page_church() -> void:
+	_h("The Church of the Shard")
+	var inside := world.in_church(world.to_tile(hero.position))
+	_t("Stone walls, coloured glass and candlelight, just south of the main town. Father Corwin keeps it; the bell tolls morning, noon and dusk. Karma %d." % hero.karma)
+	if not inside:
+		_b("Walk to the church", _walk_to.bind(Vector2i(26, 17)))
+		return
+	var prayed := _now() - float(data.get("pray_at", -1.0e9)) < DAY
+	_b("Pray at the altar (once a day)" if not prayed else "You have prayed today", _pray, not prayed)
+	_b("Give 50 gold to the poor", _alms, hero.gold >= 50)
+	_b("Speak with Father Corwin (blessing, confession)", _see_priest)
+
+
+func _pray() -> void:
+	data["pray_at"] = _now()
+	hero.hp = minf(hero.hp + float(hero.stats.max_hp()) * 0.5, float(hero.stats.max_hp()))
+	hero.mana = float(hero.stats.max_mana())
+	hero.poison_level = 0
+	hero.add_karma(15)
+	hero.add_effect("prayer", {"secs": 600.0, "mods": {"int": 3}, "name": "At peace", "color": Color(1.0, 0.95, 0.7)})
+	game.log_event("You kneel at the altar. The candlelight steadies you: your wounds ease and your mind clears.")
+	game.count("prayers")
+	_refresh()
+
+
+func _alms() -> void:
+	if _pay(50):
+		hero.add_karma(60)
+		hero.add_fame(5)
+		game.log_event("You give fifty gold to the poor box. Father Corwin nods his thanks.")
+	_refresh()
+
+
+func _see_priest() -> void:
+	var priest: Entity = null
+	for item in game.creatures:
+		var e := item as Entity
+		if e.display_name == "Father Corwin":
+			priest = e
+	panel.visible = false
+	if priest != null:
+		game._open_priest(priest)
+	else:
+		game._resume()

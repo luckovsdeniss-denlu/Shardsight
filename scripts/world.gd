@@ -23,6 +23,9 @@ const CAVES := [
 	{"name": "Goblin Warren", "rect": Rect2i(3, 39, 9, 7), "door": Vector2i(11, 42), "out": Vector2i(12, 42)},
 ]
 ## The guild towers out in the wilds (each stands on one solid tile).
+## The church, just south of the main town: stone walls, a door to the north, the altar within.
+const CHURCH := Rect2i(24, 15, 6, 7)
+const CHURCH_DOORS := [Vector2i(26, 15), Vector2i(27, 15)]
 const TOWER_TILES := [Vector2i(60, 22), Vector2i(35, 28), Vector2i(10, 26)]
 
 const LAYOUT := [
@@ -168,6 +171,16 @@ func _stamp_caves() -> void:
 		tiles[out.y * cols + out.x] = Tile.GRASS
 	for t in TOWER_TILES:
 		tiles[t.y * cols + t.x] = Tile.WALL
+	for y in range(CHURCH.position.y, CHURCH.end.y):
+		for x in range(CHURCH.position.x, CHURCH.end.x):
+			var rim := x == CHURCH.position.x or y == CHURCH.position.y or x == CHURCH.end.x - 1 or y == CHURCH.end.y - 1
+			tiles[y * cols + x] = Tile.WALL if rim else Tile.GRASS
+	for d in CHURCH_DOORS:
+		tiles[d.y * cols + d.x] = Tile.GRASS
+
+
+func in_church(c: Vector2i) -> bool:
+	return CHURCH.has_point(c)
 
 
 ## The Isle of Tides lies across the sea to the south, reached only by ship.
@@ -563,7 +576,7 @@ func _build_heights() -> void:
 		for x in range(cols):
 			var c := Vector2i(x, y)
 			var t := tiles[y * cols + x]
-			var flat := is_town(c) or is_dungeon(c) or is_cave(c) or t == Tile.WATER or t == Tile.WALL or t == Tile.FORGE or t == Tile.HOUSE
+			var flat := is_town(c) or is_dungeon(c) or is_cave(c) or in_church(c) or t == Tile.WATER or t == Tile.WALL or t == Tile.FORGE or t == Tile.HOUSE
 			dist[y * cols + x] = 0 if flat else 99
 	for _pass in range(4):
 		for y in range(rows):
@@ -1167,7 +1180,7 @@ func build(parent: Node3D) -> void:
 					parent.add_child(forge_smoke)
 					forge_smoke.add_to_group("view_fx")
 				Tile.GRASS:
-					if is_town(t) or is_dungeon(t) or is_cave(t):
+					if is_town(t) or is_dungeon(t) or is_cave(t) or in_church(t):
 						continue
 					var bio := biome_at(t)
 					if bio == "snow" or bio == "ash" or (bio == "desert" and rnd.randf() < 0.7):

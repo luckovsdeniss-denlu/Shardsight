@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.64.0
+The Church of the Shard.
+- A stone church just south of the main town: walls with doors on the north side under an arch,
+  a paved floor with a red runner, pews, an altar with a gold ankh and two candles, four windows
+  of coloured glass glowing in the south wall, and a bell tower on the corner with a pointed roof.
+- Father Corwin has moved in (the story's first and last chapters now lead to the church).
+- The bell tolls at six in the morning, at noon and at eight in the evening.
+- Inside, the Church button (or Adventures > The church): pray at the altar once a day (half
+  your health back, mana restored, poison drawn out, a little karma and a clear mind for ten
+  minutes), give 50 gold to the poor (karma), or speak with Father Corwin for a blessing or
+  confession.
+- The wolf, deer, bear and orc that lived on that ground have moved south of the wall; the race
+  course goes round the church.
+
 ## 0.63.6
 - Half as many ankh shrines: seven instead of fifteen (one in every other region, chequer-wise,
   and the one on the Isle of Tides). Ghosts have further to walk; healers and priests in the four

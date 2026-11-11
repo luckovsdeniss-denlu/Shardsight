@@ -4053,7 +4053,7 @@ func _spawn_all() -> void:
 	_build_banners()
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Hal the Stablemaster", Bestiary.STABLEMASTER, cream, Vector2i(21, 11))
-	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(25, 13))
+	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(26, 19))   # in his church
 	var bran := _spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
 	bran.shop = Shop.new("town", 1.0, 1.0)
 	# The outpost is remote: its merchant pays more for goods and charges more for supplies.
@@ -4079,12 +4079,12 @@ func _spawn_all() -> void:
 
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(12, 8))
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(6, 11))
-	_spawn(Entity.Kind.MONSTER, "Wolf", Bestiary.WOLF, red, Vector2i(26, 18))
+	_spawn(Entity.Kind.MONSTER, "Wolf", Bestiary.WOLF, red, Vector2i(21, 24))
 	_spawn(Entity.Kind.MONSTER, "Giant Spider", Bestiary.GIANT_SPIDER, Color("3a3a2a"), Vector2i(4, 21))   # south-west woods
 	_spawn(Entity.Kind.MONSTER, "Hind", Bestiary.HIND, Color("b08a5a"), Vector2i(4, 13))
-	_spawn(Entity.Kind.MONSTER, "Hind", Bestiary.HIND, Color("b08a5a"), Vector2i(24, 17))
-	_spawn(Entity.Kind.MONSTER, "Brown Bear", Bestiary.BROWN_BEAR, Color("6b4a2a"), Vector2i(29, 19))
-	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(27, 20))
+	_spawn(Entity.Kind.MONSTER, "Hind", Bestiary.HIND, Color("b08a5a"), Vector2i(12, 22))
+	_spawn(Entity.Kind.MONSTER, "Brown Bear", Bestiary.BROWN_BEAR, Color("6b4a2a"), Vector2i(27, 25))
+	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(24, 26))
 	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(16, 20))
 	_spawn(Entity.Kind.MONSTER, "Evil Mage", Bestiary.EVIL_MAGE, red, Vector2i(14, 22))
 	# The dungeon.
