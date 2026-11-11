@@ -3,6 +3,25 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.66.0
+People who move like people.
+- A human frame for every person (players, townsfolk, orcs, skeletons, zombies, liches and the
+  rest): a chest that tapers to the waist, shoulders, a neck, a jaw, nose, ears and mouth; arms
+  with elbows and legs with knees; a head that turns by itself; and a left arm that moves (the
+  shield is carried on it).
+- Walking: arms swing against the legs with loose elbows, the trailing knee bends. At ease, they
+  breathe and look about.
+- Fighting: an on-guard stance (knees bent, weapon up, shield or off hand forward, eyes on the
+  foe), and a different blow for each kind of weapon - a slash across the body with the torso
+  turning into it, a thrust drawn back and driven out, a two-handed overhead smash, a punch, and
+  a bow drawn to the cheek and loosed. A blow that lands snaps the head back and throws the arms out.
+- Casting: both hands raised and weaving while the words are spoken, head back, then thrust
+  forward as the spell is loosed.
+- Other work: kneeling to bandage, crouching with a hand out to tame, strumming a lute, swinging
+  a pick or axe with both hands, holding a fishing rod, riding with hands on the reins.
+- Fix: arms used to swing backwards (blows, aiming and the dead's reaching arms went behind the
+  back); they go forward now.
+
 ## 0.65.1
 A new look: from bright toy colours towards a painting.
 - A colour grade over the whole picture (under the buttons and text): a little less saturated,

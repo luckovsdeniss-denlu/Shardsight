@@ -2298,7 +2298,7 @@ func refresh_look() -> void:
 			mane.position = Vector3(0.0, 1.25, -0.45)
 			(m["root"] as Node3D).add_child(mane)
 		for leg in model["legs"]:
-			(leg as Node3D).rotation.x = -1.2
+			(leg as Node3D).rotation.x = 1.2            # thighs forward, astride
 		model["legs"] = m["legs"]
 		model["quad"] = true
 		(model["meshes"] as Array).append_array(m["meshes"])
@@ -2844,6 +2844,11 @@ func teleport_to(p: Vector3) -> void:
 
 ## Simple procedural motion: a bob while walking, a lunge on each swing, a float while casting,
 ## a chopping tilt while gathering, gentle breathing when idle, and a drifting ghost.
+## Eases a joint towards an angle (so poses flow into each other instead of snapping).
+static func _ease_x(n: Node3D, want: float, delta: float, rate := 14.0) -> void:
+	n.rotation.x = lerp_angle(n.rotation.x, want, minf(1.0, rate * delta))
+
+
 func _animate(delta: float) -> void:
 	anim_t += delta
 	swing_anim = maxf(swing_anim - delta, 0.0)
@@ -2902,31 +2907,12 @@ func _animate(delta: float) -> void:
 		# two legs: left/right alternate; four: front-left with back-right, front-right with back-left
 		var phase := 1.0 if (i % 2 == 0) == (i < 2 or not bool(model["quad"])) else -1.0
 		(legs[i] as Node3D).rotation.x = stride * phase
-	var arm: Node3D = model["arm"]
-	if arm != null:
-		var rest := float(model["arm_rest"])
-		var ranged := weapon != "" and Gear.is_ranged(weapon)
-		arm.rotation.z = move_toward(arm.rotation.z, 0.0, delta * 6.0)
-		if swing_anim > 0.0:
-			var p := 1.0 - swing_anim / SWING_ANIM          # 0 .. 1 through the blow
-			var k := sin(p * PI)
-			if ranged:
-				arm.rotation.x = rest - 1.45                 # held out, aiming
-			elif (weapon != "" and Gear.dtype(weapon) == "pierce"):
-				arm.rotation.x = rest - 1.35 * k             # a straight thrust
-			elif (weapon != "" and Gear.dtype(weapon) == "bash"):
-				arm.rotation.x = rest - lerpf(2.7, 0.3, p)   # raised high, brought down hard
-			else:
-				arm.rotation.x = rest - 1.6 * k              # a diagonal slash
-				arm.rotation.z = 0.55 * k
-		elif ranged and target != null and is_instance_valid(target) and not target.dead:
-			arm.rotation.x = rest - 1.4                      # keeps the bow up between shots
-		elif casting_id != "":
-			arm.rotation.x = rest - 1.2 - sin(anim_t * 8.0) * 0.2
-		elif gather_tile.x >= 0:
-			arm.rotation.x = rest - maxf(sin(anim_t * 6.0), 0.0) * 1.3
-		else:
-			arm.rotation.x = rest - stride * 0.5
+	if model.get("arm_l") != null:
+		_animate_human(delta, stride, moving)
+	else:
+		var arm: Node3D = model["arm"]
+		if arm != null:
+			arm.rotation.x = float(model["arm_rest"]) - stride * 0.5
 	var spin: Node3D = model["spin"]
 	if spin != null:
 		spin.rotation.y += delta * 6.0
@@ -5113,3 +5099,191 @@ func show_name(on: bool) -> void:
 	label.visible = (on or is_hero) and _near and not hide_self   # your own level and HP always show
 	if label.visible:
 		_label_acc = 1.0                      # refresh the label at once
+
+
+# --- the human body in motion ----------------------------------------------------------------
+## Shoulders, elbows, hips, knees and the neck, posed for what the character is doing and eased
+## from pose to pose. (A limb hanging down swings forward with a positive turn; a knee bends with
+## a negative one; the head looks up with a positive one.)
+func _animate_human(delta: float, stride: float, moving: bool) -> void:
+	var arm: Node3D = model["arm"]
+	var arm_l: Node3D = model["arm_l"]
+	var elbow: Node3D = model["elbow"]
+	var elbow_l: Node3D = model["elbow_l"]
+	var head: Node3D = model["head"]
+	var knees: Array = model["knees"]
+	var hips: Array = model["hips"]
+	var rest := float(model["arm_rest"])
+	var t := anim_t
+	var has_shield := shield_id != ""
+	var ranged := weapon != "" and Gear.is_ranged(weapon)
+	var fighting := target != null and is_instance_valid(target) and not target.dead
+	# what each joint is asked to do (radians); the defaults are standing at ease
+	var ax := rest + 0.05 * sin(t * 1.7)          # right shoulder, forward
+	var az := 0.0                                 # right shoulder, out to the side
+	var ex := 0.12                                # right elbow
+	var lx := rest - 0.05 * sin(t * 1.7)          # left shoulder
+	var lz := 0.0
+	var lex := 0.12                               # left elbow
+	var hx := 0.0                                 # head: up (+) or down (-)
+	var hy := sin(t * 0.5) * 0.25 if not fighting else 0.0   # head: glancing about
+	var crouch := 0.0                             # 0 standing .. 1 kneeling
+	var twist := 0.0                              # the body turning into a blow
+	var rate := 14.0
+	if has_shield:                                # the shield is carried in front
+		lx = 0.45
+		lex = 1.0
+	if mounted_on != null:                        # in the saddle: hands on the reins
+		ax = 0.5
+		ex = 0.7
+		if not has_shield:
+			lx = 0.5
+			lex = 0.7
+	elif _stride_k > 0.01:                        # walking: arms swing against the legs, elbows loose
+		ax = rest - stride * 0.7
+		ex = 0.25 + absf(stride) * 0.4
+		if not has_shield:
+			lx = rest + stride * 0.7
+			lex = 0.25 + absf(stride) * 0.4
+		hy = 0.0
+	if fighting and not moving and swing_anim <= 0.0 and casting_id == "":
+		# on guard: knees bent, weight low, weapon up, off hand (or shield) forward
+		crouch = 0.18 + 0.02 * sin(t * 3.0)
+		if ranged:
+			lx = 1.45                             # the bow arm out, the string hand at the cheek
+			lex = 0.05
+			ax = 1.2
+			ex = 1.9
+		else:
+			ax = 0.7 + 0.05 * sin(t * 3.0)
+			ex = 1.3
+			az = 0.15
+			if not has_shield:
+				lx = 0.5
+				lex = 1.1
+				lz = -0.2
+			else:
+				lx = 0.8
+				lex = 0.9
+	if swing_anim > 0.0:                          # the blow itself
+		var p := 1.0 - swing_anim / SWING_ANIM     # 0 .. 1 through it
+		var k := sin(p * PI)
+		rate = 40.0
+		crouch = 0.15 + 0.15 * k
+		if ranged:                                # loose: the string hand flies back
+			lx = 1.5
+			lex = 0.0
+			ax = 1.1
+			ex = lerpf(2.0, 0.6, p)
+			az = 0.3 * p
+		elif weapon != "" and Gear.dtype(weapon) == "pierce":
+			ax = lerpf(0.3, 1.5, smoothstep(0.15, 0.6, p))      # drawn back, then thrust straight out
+			ex = lerpf(1.7, 0.05, smoothstep(0.15, 0.6, p))
+			twist = lerpf(0.3, -0.2, p)
+		elif weapon != "" and Gear.dtype(weapon) == "bash":
+			ax = lerpf(3.0, 0.5, smoothstep(0.2, 0.75, p))      # raised overhead, brought down hard
+			ex = lerpf(0.9, 0.1, smoothstep(0.2, 0.75, p))
+			if not has_shield:
+				lx = lerpf(2.6, 0.5, smoothstep(0.2, 0.75, p))  # both hands on a heavy swing
+				lex = 0.6
+		elif weapon == "":
+			ax = 1.4 * k                          # a punch
+			ex = 1.5 * (1.0 - k)
+			twist = -0.3 * k
+			lx = 0.6
+			lex = 1.3
+		else:
+			ax = 0.4 + 1.3 * k                    # a slash across the body
+			az = lerpf(0.9, -0.7, p)
+			ex = lerpf(1.2, 0.15, p)
+			twist = lerpf(0.5, -0.5, p)
+	elif casting_id != "":                        # weaving the spell, then casting it forward
+		rate = 18.0
+		if cast_timer < 0.25:
+			ax = 1.5
+			lx = 1.5
+			ex = 0.05
+			lex = 0.05
+			hx = -0.1
+		else:
+			ax = 2.3 + sin(t * 7.0) * 0.35
+			lx = 2.3 + sin(t * 7.0 + PI) * 0.35
+			az = 0.35 + 0.2 * sin(t * 3.5)
+			lz = -0.35 - 0.2 * sin(t * 3.5)
+			ex = 0.6 + sin(t * 5.0) * 0.3
+			lex = 0.6 + sin(t * 5.0 + 1.0) * 0.3
+			hx = 0.3
+		hy = 0.0
+	elif bandage_timer > 0.0:                     # down on a knee, binding a wound (or speaking with spirits)
+		crouch = 0.9
+		ax = 0.9
+		lx = 0.9
+		ex = 1.1 + sin(t * 8.0) * 0.25
+		lex = 1.1 + sin(t * 8.0 + PI) * 0.25
+		hx = -0.4
+		hy = 0.0
+	elif tame_timer > 0.0:                        # coaxing an animal: crouched, a hand held out
+		crouch = 0.4
+		lx = 1.25 + sin(t * 2.0) * 0.1
+		lex = 0.2
+		hx = -0.15
+		hy = 0.0
+	elif perform_timer > 0.0:                     # playing the lute: one hand on the neck, one strumming
+		lx = 1.0
+		lex = 1.4
+		lz = -0.3
+		ax = 0.65
+		ex = 1.25 + sin(t * 14.0) * 0.22
+		az = -0.25
+		hx = sin(t * 3.5) * 0.12
+		hy = sin(t * 1.7) * 0.2
+	elif dig_timer > 0.0 or gather_tile.x >= 0:
+		if gather_tile.x >= 0 and world.resource_kind(gather_tile) == "fish":
+			ax = 1.1 + sin(t * 1.3) * 0.06        # holding the rod out over the water
+			ex = 0.3
+			lx = 0.9
+			lex = 0.7
+			hx = -0.15
+		else:
+			var sw := sin(t * 6.0)                # the pick, the axe, the shovel: up... and down
+			var down := maxf(sw, 0.0)
+			ax = 2.5 - 2.1 * down
+			ex = 0.5 - 0.3 * down
+			if not has_shield:
+				lx = 2.3 - 1.9 * down
+				lex = 0.7 - 0.3 * down
+			crouch = 0.2 * down
+			hx = -0.2 * down
+		hy = 0.0
+	if hit_anim > 0.0:                            # struck: the head snaps back, the arms fly out
+		var h := hit_anim / 0.18
+		hx += 0.35 * h
+		az += 0.5 * h
+		lz -= 0.5 * h
+	if fighting:                                  # eyes on the foe
+		hy = clampf(wrapf(atan2(-(target.position.x - position.x), -(target.position.z - position.z)) - rotation.y, -PI, PI), -0.9, 0.9)
+	# ease every joint to its pose
+	_ease_x(arm, ax, delta, rate)
+	arm.rotation.z = lerp_angle(arm.rotation.z, az, minf(1.0, rate * delta))
+	_ease_x(elbow, ex, delta, rate)
+	_ease_x(arm_l, lx, delta, rate)
+	arm_l.rotation.z = lerp_angle(arm_l.rotation.z, lz, minf(1.0, rate * delta))
+	_ease_x(elbow_l, lex, delta, rate)
+	head.rotation.x = lerp_angle(head.rotation.x, hx, minf(1.0, 8.0 * delta))
+	head.rotation.y = lerp_angle(head.rotation.y, hy, minf(1.0, 6.0 * delta))
+	rig.rotation.y += twist
+	# the legs: a knee bends as its leg trails; crouching folds hips and knees and lowers the body
+	if mounted_on != null:
+		for kn in knees:
+			_ease_x(kn as Node3D, -1.1, delta)
+		return
+	for i in range(mini(hips.size(), knees.size())):
+		var hip := hips[i] as Node3D
+		var v := hip.rotation.x                    # (set by the walk: forward +, back -)
+		var bend := maxf(-v, 0.0) * 1.3 + absf(v) * 0.2
+		if crouch > 0.0:
+			var lead := 1.0 if i == 0 else 0.55    # one knee forward, one down
+			hip.rotation.x = v + crouch * 1.1 * lead - crouch * 0.5 * (1.0 - lead)
+			bend += crouch * (1.5 if i == 0 else 1.9)
+		_ease_x(knees[i] as Node3D, -bend, delta, 18.0)
+	rig.position.y -= crouch * 0.3

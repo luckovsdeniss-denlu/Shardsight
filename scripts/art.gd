@@ -177,7 +177,8 @@ static func _pivot(parent: Node3D, p: Vector3) -> Node3D:
 static func creature(look: String, style: Dictionary, scale: float) -> Dictionary:
 	var root := Node3D.new()
 	root.scale = Vector3.ONE * scale
-	var model := {"root": root, "legs": [], "arm": null, "spin": null, "meshes": [], "quad": false, "arm_rest": 0.0}
+	var model := {"root": root, "legs": [], "arm": null, "spin": null, "meshes": [], "quad": false, "arm_rest": 0.0,
+		"knees": [], "hips": [], "arm_l": null, "elbow": null, "elbow_l": null, "head": null}
 	match look:
 		"rat", "wolf", "bear", "hind", "horse", "llama", "nightmare", "swamp_dragon", "beetle":
 			_quadruped(model, look)
@@ -196,6 +197,11 @@ static func creature(look: String, style: Dictionary, scale: float) -> Dictionar
 		_:
 			_humanoid(model, look, style)
 	return model
+
+
+const HEAD_FROM := 1.31             # parts at or above this height belong to the head
+const KNEE := 0.32                  # the knee below the hip, and the elbow below the shoulder
+const ELBOW := 0.26
 
 
 static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> void:
@@ -224,7 +230,7 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			skin = Color(0.48, 0.58, 0.42)
 			hair = Color(0.2, 0.22, 0.16)
 			cloth = Color(0.32, 0.3, 0.26)
-			model["arm_rest"] = -1.4
+			model["arm_rest"] = 1.4
 		"skeleton":
 			skin = Color(0.88, 0.86, 0.78)
 			hair = skin
@@ -262,7 +268,7 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			hair = skin
 			cloth = skin
 			pants = skin.darkened(0.08)
-			model["arm_rest"] = -1.4
+			model["arm_rest"] = 1.4
 		"yeti":                                    # a great white ape of the snows
 			skin = Color(0.92, 0.94, 0.97)
 			hair = skin
@@ -298,10 +304,14 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 	var w := 0.7 if bony else build
 	var key := "hum|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [look, skin.to_html(), hair.to_html(), cloth.to_html(),
 		torso_col.to_html(), robe, hat, shield, w, ab, ex, ranged, holy]
-	var body := _cached(key, func() -> Array:
+	var frame_parts := func() -> Array:
 		var p := []
-		# torso, belt, tabard in the identity colour
-		p.append([box(0.46 * w, 0.56, 0.28 * w), at(0, 1.0, 0), torso_col])
+		# a human frame: broad chest tapering to the waist, shoulders, a neck; belt and tabard
+		p.append([box(0.46 * w, 0.32, 0.28 * w), at(0, 1.12, 0), torso_col])
+		p.append([box(0.4 * w, 0.28, 0.25 * w), at(0, 0.86, 0), torso_col])
+		p.append([ball(0.085 * w, 6, 3), at(-0.27 * w, 1.24, 0), torso_col])
+		p.append([ball(0.085 * w, 6, 3), at(0.27 * w, 1.24, 0), torso_col])
+		p.append([box(0.1, 0.1, 0.1), at(0, 1.29, 0), skin.darkened(0.08)])
 		p.append([box(0.48 * w, 0.08, 0.3 * w), at(0, 0.75, 0), belt])
 		if torso_col != cloth:
 			p.append([box(0.2, 0.42, 0.02), at(0, 1.0, -0.15 * w), cloth])
@@ -339,7 +349,13 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			p.append([cone(0.05, 0.2), at(-0.13, 1.6, 0, Vector3(0, 0, 0.5)), Color(0.75, 0.88, 1.0)])
 			p.append([cone(0.05, 0.2), at(0.13, 1.6, 0, Vector3(0, 0, -0.5)), Color(0.75, 0.88, 1.0)])
 		# head, hair, eyes
-		p.append([ball(0.17, 8, 5), at(0, 1.43, 0), skin])
+		p.append([ball(0.165, 8, 5), at(0, 1.44, 0, Vector3.ZERO, Vector3(0.92, 1.08, 0.98)), skin])
+		p.append([box(0.2, 0.09, 0.2), at(0, 1.34, -0.02), skin])                    # the jaw
+		if not bony:
+			p.append([box(0.04, 0.07, 0.05), at(0, 1.41, -0.165), skin.darkened(0.06)])   # nose
+			p.append([box(0.03, 0.07, 0.05), at(-0.155, 1.44, 0), skin.darkened(0.05)])   # ears
+			p.append([box(0.03, 0.07, 0.05), at(0.155, 1.44, 0), skin.darkened(0.05)])
+			p.append([box(0.09, 0.02, 0.02), at(0, 1.355, -0.15), skin.darkened(0.35)])   # mouth
 		if not bony and not hat in ["hood", "plate_helm", "coif"]:
 			p.append([box(0.32, 0.1, 0.32), at(0, 1.57, 0.02), hair])
 			p.append([box(0.32, 0.18, 0.08), at(0, 1.47, 0.14), hair])
@@ -374,18 +390,23 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			"coif":                                      # a mail hood, the face showing
 				p.append([ball(0.215, 8, 5), at(0, 1.47, 0.04), torso_col])
 				p.append([box(0.36, 0.12, 0.34), at(0, 1.25, 0.0), torso_col])
-		# left arm (with the shield) is part of the body; the right arm swings separately
-		p.append([box(0.12 * w, 0.48, 0.14 * w), at(-0.3 * w, 0.98, 0), torso_col])
-		p.append([ball(0.07, 6, 3), at(-0.3 * w, 0.71, 0), hands])
-		if shield != "":
-			_shield_parts(p, shield, cloth, w)
 		# legs: a robe, or the hips the legs hang from
 		if robe:
 			p.append([cone(0.36, 0.78, 0.2, 9), at(0, 0.39, 0), cloth])
 		else:
 			p.append([box(0.4 * w, 0.12, 0.24 * w), at(0, 0.7, 0), pants])
-		return p)
+		return p
+	# The head turns on the neck by itself: everything from the chin up is its own piece.
+	var body := _cached(key, func() -> Array:
+		return (frame_parts.call() as Array).filter(func(e) -> bool: return (e[1] as Transform3D).origin.y < HEAD_FROM))
+	var head_mesh := _cached(key + "|head", func() -> Array:
+		return (frame_parts.call() as Array).filter(func(e) -> bool: return (e[1] as Transform3D).origin.y >= HEAD_FROM))
 	_instance(root, body, vc_mat(), meshes)
+	var neck := Vector3(0, 1.3, 0)
+	var head_piv := _pivot(root, neck)
+	var head_frame := _pivot(head_piv, -neck)          # so the head's parts keep their body coordinates
+	_instance(head_frame, head_mesh, vc_mat(), meshes)
+	model["head"] = head_piv
 	if amulet != "":                                   # a gold chain and a glowing gem on the chest
 		var gem: Color = Jewelry.GEM.get(amulet, Color(0.9, 0.8, 0.4))
 		var chain := _cached("amulet|" + amulet, func() -> Array:
@@ -397,16 +418,17 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 	if holy:                                           # a glowing halo over the hood
 		var halo := _cached("halo", func() -> Array:
 			return [[ring_mesh(0.17, 0.2), at(0, 1.78, 0.02), Color(1.0, 0.86, 0.4)]])
-		_instance(root, halo, glow_mat(Color(1.0, 0.82, 0.35)), meshes)
+		_instance(head_frame, halo, glow_mat(Color(1.0, 0.82, 0.35)), meshes)
 	if look == "lich":
 		var eyes := _cached("lich_eyes", func() -> Array:
 			return [[box(0.05, 0.04, 0.02), at(-0.07, 1.45, -0.19), Color(0.6, 1.0, 0.7)],
 				[box(0.05, 0.04, 0.02), at(0.07, 1.45, -0.19), Color(0.6, 1.0, 0.7)]])
-		_instance(root, eyes, glow_mat(Color(0.5, 1.0, 0.6)), meshes)
-	# legs (pivot at the hip)
+		_instance(head_frame, eyes, glow_mat(Color(0.5, 1.0, 0.6)), meshes)
+	# legs: a thigh from the hip and a shin from the knee
 	if not robe:
-		var leg := _cached("leg|%s|%s|%s|%s" % [pants.to_html(), w, ab, boots.to_html()], func() -> Array:
-			var lp := [[box(0.15 * w, 0.62, 0.17 * w), at(0, -0.31, 0), pants],
+		var leg_parts := func() -> Array:
+			var lp := [[box(0.16 * w, 0.34, 0.18 * w), at(0, -0.16, 0), pants],
+				[box(0.14 * w, 0.3, 0.16 * w), at(0, -0.47, 0), pants.darkened(0.04)],
 				[box(0.17 * w, 0.1, 0.24 * w), at(0, -0.64, -0.03), boots]]
 			match ab:
 				"platemail":                         # knee cop and a tall greave
@@ -414,28 +436,58 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 					lp.append([box(0.17 * w, 0.22, 0.19 * w), at(0, -0.5, 0), boots])
 				"leather_armor", "studded_armor":   # tall boots
 					lp.append([box(0.165 * w, 0.2, 0.185 * w), at(0, -0.52, 0), Color(0.22, 0.15, 0.1)])
-			return lp)
+			return lp
+		var leg_key := "leg|%s|%s|%s|%s" % [pants.to_html(), w, ab, boots.to_html()]
+		var thigh := _cached(leg_key + "|thigh", func() -> Array:
+			return (leg_parts.call() as Array).filter(func(e) -> bool: return (e[1] as Transform3D).origin.y > -KNEE))
+		var shin := _cached(leg_key + "|shin", func() -> Array:
+			return (leg_parts.call() as Array).filter(func(e) -> bool: return (e[1] as Transform3D).origin.y <= -KNEE))
 		for side in [-1.0, 1.0]:
 			var piv := _pivot(root, Vector3(0.11 * w * side, 0.7, 0))
-			_instance(piv, leg, vc_mat(), meshes)
+			_instance(piv, thigh, vc_mat(), meshes)
+			var knee := _pivot(piv, Vector3(0, -KNEE, 0))
+			_instance(_pivot(knee, Vector3(0, KNEE, 0)), shin, vc_mat(), meshes)
 			model["legs"].append(piv)
-	# right arm with the weapon (pivot at the shoulder)
+			model["knees"].append(knee)
+		model["hips"] = (model["legs"] as Array).duplicate()
+	# the left arm: upper arm from the shoulder, forearm (with the hand and the shield) from the elbow
+	var sh_l := Vector3(-0.3 * w, 1.22, 0)
+	var arm_l := _pivot(root, sh_l)
+	var upper_l := _cached("arml|%s|%s" % [torso_col.to_html(), w], func() -> Array:
+		return [[box(0.12 * w, 0.27, 0.14 * w), at(0, -0.13, 0), torso_col]])
+	_instance(arm_l, upper_l, vc_mat(), meshes)
+	var elbow_l := _pivot(arm_l, Vector3(0, -ELBOW, 0))
+	var fore_l := _cached("forel|%s|%s|%s|%s|%s" % [torso_col.to_html(), hands.to_html(), shield, w, cloth.to_html()], func() -> Array:
+		var fp := [[box(0.11 * w, 0.24, 0.13 * w), at(-0.3 * w, 0.85, 0), torso_col], [ball(0.07, 6, 3), at(-0.3 * w, 0.71, 0), hands]]
+		if shield != "":
+			_shield_parts(fp, shield, cloth, w)
+		return fp)
+	_instance(_pivot(elbow_l, -(sh_l + Vector3(0, -ELBOW, 0))), fore_l, vc_mat(), meshes)   # (its parts are in body coordinates)
+	arm_l.rotation.x = float(model["arm_rest"])
+	model["arm_l"] = arm_l
+	model["elbow_l"] = elbow_l
+	# the right arm with the weapon: shoulder, elbow, hand
 	var arm_piv := _pivot(root, Vector3(0.3 * w, 1.22, 0))
-	var arm := _cached("arm|%s|%s|%s|%s|%s" % [torso_col.to_html(), hands.to_html(), weapon, w, ab], func() -> Array:
-		var p := [[box(0.12 * w, 0.48, 0.14 * w), at(0, -0.24, 0), torso_col],
+	var upper := _cached("armu|%s|%s|%s" % [torso_col.to_html(), w, ab], func() -> Array:
+		var up := [[box(0.12 * w, 0.27, 0.14 * w), at(0, -0.13, 0), torso_col]]
+		if ab == "platemail":                        # the right pauldron moves with the arm
+			up.append([ball(0.14, 7, 4), at(0.02, 0.0, 0, Vector3.ZERO, Vector3(1.1, 0.75, 1.1)), torso_col.lightened(0.08)])
+		return up)
+	_instance(arm_piv, upper, vc_mat(), meshes)
+	var elbow := _pivot(arm_piv, Vector3(0, -ELBOW, 0))
+	var hand_frame := _pivot(elbow, Vector3(0, ELBOW, 0))     # the forearm's parts keep the arm's coordinates
+	var fore := _cached("fore|%s|%s|%s|%s|%s" % [torso_col.to_html(), hands.to_html(), weapon, w, ab], func() -> Array:
+		var rp := [[box(0.11 * w, 0.24, 0.13 * w), at(0, -0.37, 0), torso_col],
 			[ball(0.07, 6, 3), at(0, -0.51, 0), hands]]
-		match ab:
-			"platemail":                             # the right pauldron moves with the arm
-				p.append([ball(0.14, 7, 4), at(0.02, 0.0, 0, Vector3.ZERO, Vector3(1.1, 0.75, 1.1)), torso_col.lightened(0.08)])
-			"leather_armor", "studded_armor":         # a bracer
-				p.append([box(0.14 * w, 0.14, 0.16 * w), at(0, -0.38, 0), Color(0.22, 0.15, 0.1)])
-		p.append_array(_weapon_parts(weapon))
-		return p)
-	_instance(arm_piv, arm, vc_mat(), meshes)
+		if ab in ["leather_armor", "studded_armor"]:  # a bracer
+			rp.append([box(0.14 * w, 0.14, 0.16 * w), at(0, -0.38, 0), Color(0.22, 0.15, 0.1)])
+		rp.append_array(_weapon_parts(weapon))
+		return rp)
+	_instance(hand_frame, fore, vc_mat(), meshes)
 	arm_piv.rotation.x = float(model["arm_rest"])
 	model["arm"] = arm_piv
-	_artifact_parts(root, arm_piv, meshes, armor, weapon, shield, hat, w)
-
+	model["elbow"] = elbow
+	_artifact_parts(root, hand_frame, meshes, armor, weapon, shield, hat, w)
 
 ## Artifacts stand out: glowing runes on the blade (or a glowing head, string or prod), a cape in
 ## the artifact's colour with glowing rune bands on the armor and a glowing eye slit or circlet,
@@ -1101,7 +1153,8 @@ static func ghost_mat() -> ShaderMaterial:
 static func ghost(scale: float) -> Dictionary:
 	var root := Node3D.new()
 	root.scale = Vector3.ONE * scale
-	var model := {"root": root, "legs": [], "arm": null, "spin": null, "meshes": [], "quad": false, "arm_rest": 0.0}
+	var model := {"root": root, "legs": [], "arm": null, "spin": null, "meshes": [], "quad": false, "arm_rest": 0.0,
+		"knees": [], "hips": [], "arm_l": null, "elbow": null, "elbow_l": null, "head": null}
 	var meshes: Array = model["meshes"]
 	var shroud := _cached("ghost_shroud", func() -> Array:
 		var c := Color(0.9, 0.94, 1.0)
