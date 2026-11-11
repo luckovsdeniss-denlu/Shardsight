@@ -21,7 +21,7 @@ var guilds := Guilds.new()
 var frontier: Frontier                 # the wider world: depths, biomes, boats, tavern, side quests, arena...
 var music := Music.new()
 var weather := "clear"           # clear, rain, storm or fog
-const CLEAR_HAZE := 0.008        # fog density on a clear day: just a little depth
+const CLEAR_HAZE := 0.011        # fog density on a clear day: just a little depth
 var _weather_timer := 240.0
 var _flash := 0.0
 var _thunder_in := -1.0
@@ -1055,6 +1055,8 @@ func _apply_perf_tier() -> void:
 			if n != null:
 				(n as Node3D).visible = false
 		env.glow_enabled = false
+		if _grade != null:
+			_grade.visible = false
 		get_viewport().msaa_3d = Viewport.MSAA_DISABLED
 		if rain != null:
 			rain.amount = 250
@@ -4426,10 +4428,12 @@ func _build_environment() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	# Filmic tone mapping keeps bright fire and sunlit grass from washing out; a light haze
 	# gives the distance some depth (weather thickens it); glow is set by the graphics level.
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.15
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES     # deeper shadows, highlights that roll off like film
+	env.tonemap_exposure = 1.05
+	env.tonemap_white = 6.0
 	env.fog_enabled = true
 	env.fog_density = CLEAR_HAZE
+	env.fog_sun_scatter = 0.25                         # the haze glows towards the sun
 	env.glow_intensity = 0.6
 	env.glow_bloom = 0.04
 	env.glow_hdr_threshold = 0.9
@@ -4445,6 +4449,45 @@ func _build_environment() -> void:
 	sun.rotation_degrees = Vector3(-55.0, 30.0, 0.0)
 	sun.shadow_enabled = true
 	add_child(sun)
+	_build_grade()
+
+
+## The colour grade: the whole picture, under the buttons and text, passes through one shader
+## that takes it from bright toy colours towards a painting - a little less saturated, a little
+## more contrast, cool blue in the shadows and warm gold in the lights, the corners darkened.
+const GRADE_SHADER := """
+shader_type canvas_item;
+uniform sampler2D screen : hint_screen_texture, filter_linear;
+uniform float saturation = 0.8;
+uniform float contrast = 1.12;
+uniform float vignette = 0.38;
+void fragment() {
+	vec3 c = texture(screen, SCREEN_UV).rgb;
+	float l = dot(c, vec3(0.299, 0.587, 0.114));
+	c = mix(vec3(l), c, saturation);
+	c = (c - 0.5) * contrast + 0.5;
+	c += mix(vec3(-0.015, 0.0, 0.025), vec3(0.035, 0.018, -0.02), smoothstep(0.15, 0.85, l));
+	vec2 d = (SCREEN_UV - 0.5) * vec2(1.2, 1.0);
+	c *= 1.0 - vignette * smoothstep(0.38, 0.95, length(d));
+	COLOR = vec4(clamp(c, 0.0, 1.0), 1.0);
+}
+"""
+var _grade: ColorRect
+
+
+func _build_grade() -> void:
+	var under := CanvasLayer.new()
+	under.layer = 0                                    # over the 3D world, under the interface
+	add_child(under)
+	_grade = ColorRect.new()
+	var sh := Shader.new()
+	sh.code = GRADE_SHADER
+	var gm := ShaderMaterial.new()
+	gm.shader = sh
+	_grade.material = gm
+	_grade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	under.add_child(_grade)
+	_grade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 
 var hero_ring: MeshInstance3D
@@ -5904,13 +5947,16 @@ func _apply_daylight() -> void:
 		light = 1.0                                    # lightning
 	if hero != null and hero.flags.has("night_sight"):
 		light = maxf(light, 0.7)                       # Night Sight: the dark lifts for you
-	sun.light_energy = lerpf(0.25, 1.0, light)
-	sun.light_color = Color(0.6, 0.7, 1.0).lerp(Color(1.0, 0.97, 0.9), light)
+	# Painted light: a strong warm sun against cool, dim shade by day; amber when the sun is low;
+	# blue moonlight at night.
+	var low_sun := clampf(1.0 - absf(sun_height) * 2.5, 0.0, 1.0) * (1.0 if weather == "clear" else 0.3)
+	sun.light_energy = lerpf(0.3, 1.35, light)
+	sun.light_color = Color(0.55, 0.66, 1.0).lerp(Color(1.0, 0.93, 0.8), light).lerp(Color(1.0, 0.66, 0.38), low_sun * 0.7)
 	sun.rotation_degrees = Vector3(-20.0 - 50.0 * maxf(sun_height, 0.0), day_time * 360.0, 0.0)
 	env.background_color = Color("0d1426").lerp(Color("87a8c9"), light)
 	if weather == "clear":
 		env.fog_light_color = env.background_color       # the haze takes the sky's colour
-	env.ambient_light_energy = lerpf(0.45, 0.8, light)
+	env.ambient_light_energy = lerpf(0.42, 0.6, light)
 	_sky_acc += get_process_delta_time()
 	# The sky changes slowly, and each change re-lights the world from it, so it's updated at most
 	# every 3 seconds and only when it has visibly changed (lightning at once).
@@ -6103,6 +6149,8 @@ func _apply_graphics() -> void:
 	vp.scaling_3d_scale = {"low": 0.7, "medium": 0.85, "high": 1.0}[g]
 	vp.msaa_3d = Viewport.MSAA_2X if g == "high" else Viewport.MSAA_DISABLED
 	env.glow_enabled = g == "high"                    # a soft glow round fire and magic (costly on phones)
+	if _grade != null:
+		_grade.visible = g != "low"                   # the colour grade (a full-screen pass) on Medium and High
 	if rain != null:
 		rain.amount = 250 if g == "low" else (800 if weather == "storm" else 500)
 

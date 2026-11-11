@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.65.1
+A new look: from bright toy colours towards a painting.
+- A colour grade over the whole picture (under the buttons and text): a little less saturated,
+  more contrast, cool blue in the shadows and warm gold in the lights, darkened corners. On
+  Medium and High graphics.
+- Painted light: a stronger, warmer sun against dimmer, cooler shade; amber light when the sun
+  is low; film-like tone mapping (deeper shadows, softer highlights); haze that glows towards
+  the sun.
+- An earthier land: olive and moss greens, worn earth, pale sand, more grain, and slopes that
+  fall into shade so the hills have weight.
+- Dark, deep water with soft ripples, the sky's pale light along its far edge and finer glints.
+
 ## 0.65.0
 A square map.
 - The long straight sea along the south is gone. The land now runs on south to make a square:

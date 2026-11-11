@@ -872,8 +872,8 @@ static func _noise_mat(colors: Array, freq: float, cellular: bool, uv_scale: Vec
 
 const WATER_SHADER := """
 shader_type spatial;
-uniform vec4 deep : source_color = vec4(0.12, 0.3, 0.56, 1.0);
-uniform vec4 shallow : source_color = vec4(0.32, 0.58, 0.82, 1.0);
+uniform vec4 deep : source_color = vec4(0.05, 0.15, 0.24, 1.0);
+uniform vec4 shallow : source_color = vec4(0.16, 0.36, 0.42, 1.0);
 varying vec3 wpos;
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -886,9 +886,10 @@ void fragment() {
 	float sparkle = pow(max(sin(wpos.x * 5.0 + wpos.z * 3.0 + TIME * 2.0), 0.0), 12.0)
 		* pow(max(sin(wpos.x * 2.3 - wpos.z * 4.1 - TIME * 1.6), 0.0), 6.0);
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);   // brighter towards the horizon
-	ALBEDO = mix(deep.rgb, shallow.rgb, 0.45 + 0.25 * w + 0.1 * w2) + vec3(sparkle * 0.6) + shallow.rgb * rim * 0.35;
-	ROUGHNESS = 0.15;
-	SPECULAR = 0.75;
+	// dark, deep water with soft ripples; the sky's pale light along the far edge; fewer, finer glints
+	ALBEDO = mix(deep.rgb, shallow.rgb, 0.3 + 0.2 * w + 0.08 * w2) + vec3(sparkle * 0.3) + vec3(0.55, 0.65, 0.72) * rim * 0.4;
+	ROUGHNESS = 0.08;
+	SPECULAR = 0.9;
 }
 """
 
@@ -967,7 +968,8 @@ void fragment() {
 	vec3 base = texture(paint, UV).rgb;
 	float g = texture(grain, UV * grain_scale).r;
 	float cl = texture(clouds, UV * vec2(3.0, 1.5) + TIME * vec2(0.006, 0.0035)).r;
-	vec3 col = base * season_tint * (0.86 + 0.28 * g);
+	vec3 col = base * season_tint * (0.8 + 0.4 * g);
+	col *= mix(0.72, 1.0, smoothstep(0.86, 0.995, up));   // slopes fall into shade: the hills get weight
 	float cover = snow * smoothstep(0.35, 0.75, g * 0.6 + snow * 0.6) * smoothstep(0.8, 0.97, up);
 	col = mix(col, vec3(0.9, 0.93, 0.97) * (0.92 + 0.12 * g), cover);
 	ALBEDO = col * (1.0 - cloud_amount * 0.24 * smoothstep(0.52, 0.74, cl));
@@ -1021,11 +1023,12 @@ func _ground_mat() -> ShaderMaterial:
 	var noise := FastNoiseLite.new()
 	noise.seed = 21
 	noise.frequency = 0.015
-	var grass_a := Color("2c552f")
-	var grass_b := Color("4a7a3c")
-	var dirt := Color("7a6345")
-	var sand_c := Color("b8a57a")
-	var floor_c := Color("2a3a22")
+	# an earthier palette: olive and moss rather than bright green, worn earth, pale dry sand
+	var grass_a := Color("2f4a2a")
+	var grass_b := Color("5c6e3c")
+	var dirt := Color("6e5a42")
+	var sand_c := Color("a89a78")
+	var floor_c := Color("26301f")
 	var snow_c := Color("dfe6ee")
 	var desert_c := Color("c9aa70")
 	var swamp_c := Color("33422a")
