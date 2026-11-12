@@ -1007,10 +1007,11 @@ var _fps_acc := 0.0
 var _fps_frames := 0
 
 
-## Holding 60 frames a second. Measured every two seconds: under 55, the 3D picture is drawn at a
-## slightly lower resolution, a step at a time (down to half at the very most); nothing else is
-## ever turned off. After ten smooth seconds the resolution climbs back a step; if that brings the
-## stutter back, it settles where it was. Buttons and text always stay sharp.
+## Holding 60 frames a second. Measured every second: under 55, the 3D picture is drawn at a
+## slightly lower resolution, a step at a time down to 75%; then the looks go one by one (see
+## _set_quality); then the resolution again, down to half. After eight smooth seconds it all comes
+## back a step at a time in the reverse order; whatever brings the stutter back stays off.
+## Buttons and text always stay sharp.
 const FPS_GOAL := 60
 var _fps_good := 0                    # smooth two-second spells in a row
 var _scale_cap := 1.0                 # the resolution it has learned not to go above
@@ -1031,24 +1032,68 @@ func _adapt_resolution(delta: float) -> void:
 		return                                 # the first seconds stutter while everything loads: don't judge by them
 	_raised_ago += 1
 	var want := _render_scale
+	var floor_scale := SCALE_FLOOR if _q < Q_MAX else 0.5   # the resolution goes below this only once everything else is off
 	if fps < FPS_GOAL * 0.92:
 		_fps_good = 0
-		if _raised_ago <= 2:
-			_scale_cap = maxf(_render_scale - 0.05, 0.5)   # going up again cost too much: stay below
-		if _render_scale > 0.5:
-			want = maxf(_render_scale - (0.1 if fps < FPS_GOAL * 0.8 else 0.05), 0.5)
-		# (below that nothing is turned off: the look stays whole)
+		if _raised_ago <= 2 and _last_raise == "q":
+			_q_floor = mini(_q + 1, Q_MAX)       # bringing that back cost too much: keep it off
+			_set_quality(_q + 1)
+		else:
+			if _raised_ago <= 2:
+				_scale_cap = maxf(_render_scale - 0.05, 0.5)   # going up again cost too much: stay below
+			if _render_scale > floor_scale + 0.001:
+				want = maxf(_render_scale - (0.1 if fps < FPS_GOAL * 0.8 else 0.05), floor_scale)
+			elif _q < Q_MAX:
+				_set_quality(_q + 1)              # the next thing off
 	elif fps > FPS_GOAL * 0.97:
 		_fps_good += 1
-		if _fps_good >= 8 and _render_scale < minf(_render_base, _scale_cap):
+		if _fps_good >= 8:
 			_fps_good = 0
-			_raised_ago = 0
-			want = minf(_render_scale + 0.05, minf(_render_base, _scale_cap))
+			# back up in the reverse order: resolution to its floor, then the looks, then full resolution
+			if _q == Q_MAX and _render_scale < SCALE_FLOOR - 0.001:
+				want = minf(_render_scale + 0.05, SCALE_FLOOR)
+				_raised_ago = 0
+				_last_raise = "scale"
+			elif _q > _q_floor:
+				_set_quality(_q - 1)
+				_raised_ago = 0
+				_last_raise = "q"
+			elif _render_scale < minf(_render_base, _scale_cap):
+				want = minf(_render_scale + 0.05, minf(_render_base, _scale_cap))
+				_raised_ago = 0
+				_last_raise = "scale"
 	else:
 		_fps_good = 0
 	if not is_equal_approx(want, _render_scale):
 		_render_scale = want
 		get_viewport().scaling_3d_scale = _render_scale
+
+
+## What is drawn, by how much has had to go to hold 60 (each level adds to the ones before):
+## 1 no glow or edge smoothing, 2 no sun shadows, 3 no grass and flowers, 4 no butterflies or
+## leaves, 5 the camera sees 70 m (then the resolution may drop as low as half).
+const Q_MAX := 5
+const SCALE_FLOOR := 0.75
+var _q := 0
+var _q_floor := 0                     # learned: the looks that couldn't be afforded stay off
+var _last_raise := ""
+
+
+func _set_quality(level: int) -> void:
+	_q = clampi(level, 0, Q_MAX)
+	env.glow_enabled = _q < 1
+	get_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if _q < 1 else Viewport.SCREEN_SPACE_AA_DISABLED
+	sun.shadow_enabled = _q < 2
+	for n in world.decor:
+		if n != null:
+			(n as Node3D).visible = _q < 3
+	if _q >= 4:
+		_butterflies.emitting = false
+		_leaves.emitting = false
+	if _q >= 5:
+		cam.far = minf(cam.far, 70.0)
+	elif cam.far < 80.0 and not property.first_person:
+		cam.far = 130.0 if movie != null else 4000.0
 
 
 # --- the world in motion: banners, birds, butterflies, leaves, the ankhs ---------------------
@@ -1235,9 +1280,9 @@ func _world_life(delta: float) -> void:
 		(wings[0] as Node3D).rotation.z = flap
 		(wings[1] as Node3D).rotation.z = -flap
 	# butterflies by day in the meadows, leaves in the woods
-	_butterflies.emitting = day and wild and nice and _trees_near < 12
+	_butterflies.emitting = day and wild and nice and _trees_near < 12 and _q < 4
 	_butterflies.global_position = hero.position + Vector3(0.0, 0.8, 0.0)
-	_leaves.emitting = wild and nice and _trees_near >= 6
+	_leaves.emitting = wild and nice and _trees_near >= 6 and _q < 4
 	_leaves.global_position = hero.position + Vector3(0.0, 3.5, 0.0)
 	# the ankhs turn slowly and their light breathes
 	for a in _ankhs:
@@ -5140,7 +5185,7 @@ func _build_fps_counter() -> void:
 
 func _update_fps_counter() -> void:
 	var fps := Engine.get_frames_per_second()
-	_fps_label.text = "%d FPS  ·  %d%%" % [fps, roundi(_render_scale * 100.0)]
+	_fps_label.text = "%d FPS  ·  %d%%" % [fps, roundi(_render_scale * 100.0)] + ("  ·  -%d" % _q if _q > 0 else "")
 	_fps_label.add_theme_color_override("font_color",
 		Color(0.45, 1.0, 0.45) if fps >= 55 else (Color(1.0, 0.85, 0.3) if fps >= 40 else Color(1.0, 0.4, 0.35)))
 
