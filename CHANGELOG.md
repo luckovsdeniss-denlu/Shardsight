@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.68.0
+The Movie.
+- A Movie button on the start screen (after the fly-by, beside Play, Tutorial and Experimental
+  mode): a gameplay showcase about two minutes long, played by the game itself and filmed with
+  moving cameras over letterbox bars, a title and a line for each scene: the land from above;
+  the towns; a fight; magic (fireballs, lightning, flamestrikes, meteors); the dungeon's depths;
+  the Frostmarch and a yeti; scorpions in the Sunscar Wastes; a boat across the lake; the Drunken
+  Shard at dusk; a champion in the arena; Ravenhollow at night; the church at dawn; winter and a
+  storm; a world boss; and the whole land again. The hero fights and casts for real (and can't
+  die), with dips to black between scenes.
+- Skip ends it at any time. Nothing of it is saved: afterwards the game starts afresh at the title.
+
 ## 0.67.3
 Polymorph, changed.
 - Variety: it now turns you into a creature picked at random from those your Magery reaches,

@@ -139,6 +139,7 @@ var _tip_timer := 8.0
 ## The mode this run was started in: "" (first start: the title offers the choice), "classic" or
 ## "experimental". Kept across restarts of the scene (a mode switch reloads it).
 static var start_mode := ""
+var movie: Movie                       # the showcase, while it plays
 var title_up := false                  # the title and fly-by are up: the world waits
 var booted := false                    # the world is built (the loading screen is done)
 
@@ -3980,6 +3981,12 @@ func _open_menu() -> void:
 	_autosave()
 
 
+## After the movie: the game starts again from the title, nothing kept.
+func restart_to_title() -> void:
+	start_mode = ""
+	get_tree().reload_current_scene()
+
+
 func _open_adventures() -> void:
 	if frontier != null:
 		frontier.open_hub()
@@ -4616,7 +4623,7 @@ func world_event(text: String) -> void:
 # --- input -----------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
-	if paused or not booted:
+	if paused or not booted or (movie != null and movie.running):
 		return
 	# Two fingers: pinch to zoom, twist to turn the camera. Taps are ignored meanwhile.
 	if event is InputEventScreenTouch:
@@ -5068,7 +5075,9 @@ func _process(delta: float) -> void:
 	else:
 		marker.visible = true
 		marker.position = hero.path[hero.path.size() - 1] + Vector3(0.0, 0.03, 0.0)
-	if _cine_step(delta):
+	if movie != null and movie.tick(delta):
+		pass                                      # the showcase movie has the camera
+	elif _cine_step(delta):
 		pass                                      # a story scene has the camera
 	elif not _flyby_step(delta):
 		_follow_camera()
@@ -5319,10 +5328,16 @@ func _show_title(layer: CanvasLayer) -> void:
 		close.call()
 		if frontier != null:
 			frontier.start_tutorial())
+	var film := _menu_button("Movie", func() -> void:
+		start_mode = "classic"
+		close.call()
+		movie = Movie.new()                        # the gameplay showcase (then back to this title)
+		movie.start(self))
 	var exp_b := _menu_button("Experimental mode", _switch_mode.bind("experimental"))
 	exp_b.custom_minimum_size = Vector2(320, 80)
 	row.add_child(play)
 	row.add_child(tut)
+	row.add_child(film)
 	row.add_child(exp_b)
 	# Once the camera is down: on a fresh start, the choice of mode (the game waits for it);
 	# after switching modes the choice is already made, so the title simply fades.
