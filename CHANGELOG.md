@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.67.2
+More for the opening fly-by.
+- The sun's glare: when the sun is in the picture it blooms, god rays stream from it, and lens
+  ghosts are strung across the screen towards the middle (fainter under cloud).
+- A fine film grain over the picture.
+- A band of light sweeps slowly across the letters of SHARDSIGHT.
+- The camera breathes a little as it flies, like a hand-held shot.
+- When it lands by your hero, a ring of golden light runs out over the ground, sparks fly up
+  and a chime sounds.
+
 ## 0.67.1
 - The game begins only once the opening fly-by is over and a mode is chosen: until then the world
   holds still (nobody moves, fights, loots or travels; the clock and the weather wait); only the

@@ -5271,6 +5271,8 @@ func _show_title(layer: CanvasLayer) -> void:
 		lab.add_theme_color_override("font_outline_color", Color.BLACK)
 		lab.add_theme_constant_override("outline_size", 10)
 		lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if box.get_child_count() == 0 and _fx_title_mat != null:
+			lab.material = _fx_title_mat           # the name: a band of light sweeps across it
 		box.add_child(lab)
 		hint = lab                                 # the last line: "tap to skip"
 		lab.modulate.a = 0.0                       # each line fades in after the one before
@@ -5385,6 +5387,47 @@ var _fx_bars: Array[ColorRect] = []
 var _fx_caption: Label
 var _fx_motes: CPUParticles3D
 var _fx_done := false
+var _fx_glare: ShaderMaterial
+var _fx_title_mat: ShaderMaterial
+## Over the fly-by: the sun's glare - a bloom round it, god rays streaming from it and lens ghosts
+## strung across the picture - and a fine film grain.
+const GLARE_SHADER := """
+shader_type canvas_item;
+uniform vec2 sun = vec2(0.5, 0.2);
+uniform float strength = 0.0;
+uniform float aspect = 1.78;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+void fragment() {
+	vec2 d = (UV - sun) * vec2(aspect, 1.0);
+	float r = length(d);
+	float bloom = exp(-r * 6.0) * 0.9 + exp(-r * 18.0) * 0.8;
+	float ang = atan(d.y, d.x);
+	float rays = pow(abs(sin(ang * 9.0 + TIME * 0.15)) * abs(sin(ang * 5.0 - TIME * 0.1)), 6.0) * exp(-r * 2.4) * 0.55;
+	vec3 col = vec3(1.0, 0.86, 0.6) * (bloom + rays);
+	vec2 axis = vec2(0.5) - sun;                 // lens ghosts along the line through the middle
+	for (int i = 1; i <= 4; i++) {
+		vec2 gp = sun + axis * (0.55 * float(i));
+		float gr = length((UV - gp) * vec2(aspect, 1.0));
+		float size = 0.025 + 0.018 * float(i);
+		float ring = smoothstep(size, size * 0.6, gr) * 0.22;
+		col += mix(vec3(0.4, 0.7, 1.0), vec3(1.0, 0.5, 0.8), float(i) / 4.0) * ring;
+	}
+	col *= strength;
+	float grain = (hash(UV * 900.0 + vec2(TIME * 37.0, TIME * 61.0)) - 0.5) * 0.06;
+	COLOR = vec4(col + vec3(grain), clamp(max(max(col.r, col.g), col.b), 0.0, 1.0) * 0.85 + abs(grain));
+}
+"""
+## A band of light sweeping slowly across the title's letters.
+const SWEEP_SHADER := """
+shader_type canvas_item;
+void fragment() {
+	vec4 c = texture(TEXTURE, UV) * COLOR;
+	float pos = fract(TIME * 0.22) * 1.8 - 0.4;
+	float band = smoothstep(0.07, 0.0, abs(SCREEN_UV.x - pos - (SCREEN_UV.y - 0.4) * 0.3));
+	c.rgb += vec3(1.0, 0.95, 0.8) * band * 0.85 * c.a;
+	COLOR = c;
+}
+"""
 
 
 ## The fly-by as a film: it fades in from black, black bars frame the picture, the corners are
@@ -5432,6 +5475,20 @@ func _build_flyby_fx(card: Control) -> void:
 	var tw := black.create_tween()
 	tw.tween_property(black, "modulate:a", 0.0, 1.6).set_trans(Tween.TRANS_SINE)
 	tw.tween_callback(black.queue_free)
+	var glare := ColorRect.new()                   # the sun's glare, rays, lens ghosts, grain
+	var gsh := Shader.new()
+	gsh.code = GLARE_SHADER
+	_fx_glare = ShaderMaterial.new()
+	_fx_glare.shader = gsh
+	glare.material = _fx_glare
+	glare.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(glare)
+	card.move_child(glare, 0)
+	glare.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var ssh := Shader.new()
+	ssh.code = SWEEP_SHADER
+	_fx_title_mat = ShaderMaterial.new()
+	_fx_title_mat.shader = ssh
 	_fx_motes = CPUParticles3D.new()
 	_fx_motes.amount = 70
 	_fx_motes.lifetime = 4.0
@@ -5469,6 +5526,21 @@ func _flyby_fx_step(delta: float, pos: Vector3, look: Vector3) -> void:
 		_bank = lerpf(_bank, clampf(turn * 0.12, -0.14, 0.14), minf(1.0, 2.0 * delta))
 	_bank *= 1.0 - smoothstep(0.8, 1.0, k)          # level again as it comes down
 	cam.rotate_object_local(Vector3(0, 0, 1), _bank)
+	# a hand-held drift: the camera breathes a little as it flies
+	var tt := _flyby_t + _skip_t
+	cam.position += Vector3(sin(tt * 1.3) * 0.06, sin(tt * 0.9) * 0.05, cos(tt * 1.1) * 0.06) * (1.0 - smoothstep(0.85, 1.0, k))
+	# where the sun is on the screen, and how much of its glare to show
+	if _fx_glare != null and sun != null:
+		var sp := cam.global_position + sun.global_transform.basis.z * 500.0
+		var vs := get_viewport().get_visible_rect().size
+		var strength := 0.0
+		if not cam.is_position_behind(sp):
+			var uv := cam.unproject_position(sp) / vs
+			_fx_glare.set_shader_parameter("sun", uv)
+			var inside := 1.0 - smoothstep(0.55, 1.1, (uv - Vector2(0.5, 0.5)).length())
+			strength = inside * clampf(sun.light_energy - 0.5, 0.0, 1.0) * (1.0 if weather == "clear" else 0.3)
+		_fx_glare.set_shader_parameter("strength", strength * (1.0 - smoothstep(0.85, 1.0, k)))
+		_fx_glare.set_shader_parameter("aspect", vs.x / maxf(vs.y, 1.0))
 	if _fx_motes != null:
 		_fx_motes.position = pos.lerp(look, 0.35)
 	# name each place as the camera reaches it
@@ -5480,6 +5552,23 @@ func _flyby_fx_step(delta: float, pos: Vector3, look: Vector3) -> void:
 		if seg >= 0 and seg < FLYBY_PLACES.size():
 			tw.tween_callback(func() -> void: _fx_caption.text = String(FLYBY_PLACES[seg]))
 			tw.tween_property(_fx_caption, "modulate:a", 1.0, 0.6)
+
+
+## The camera lands by the hero: a ring of golden light runs out over the ground, sparks fly up,
+## a chime.
+func _arrival_burst() -> void:
+	if hero == null:
+		return
+	var ring := Art.ground_ring(Color(1.0, 0.85, 0.45, 0.9), 0.6)
+	add_child(ring)
+	ring.position = hero.position + Vector3(0, 0.05, 0)
+	var tw := ring.create_tween().set_parallel(true)
+	tw.tween_property(ring, "scale", Vector3.ONE * 9.0, 1.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ring, "transparency", 1.0, 1.4)
+	tw.chain().tween_callback(ring.queue_free)
+	Fx.sparkle(self, hero.position + Vector3(0, 0.6, 0), Color(1.0, 0.85, 0.45), 40)
+	if property.sound_on:
+		sfx.play("gain", 0.8)
 
 
 ## The film ends: the bars slide away, the motes settle, the lens and the horizon come back.
@@ -5495,6 +5584,7 @@ func _flyby_fx_end() -> void:
 			bar.create_tween().tween_property(bar, "offset_bottom" if i == 0 else "offset_top", 0.0, 0.7).set_trans(Tween.TRANS_SINE)
 	if is_instance_valid(_fx_caption):
 		_fx_caption.create_tween().tween_property(_fx_caption, "modulate:a", 0.0, 0.4)
+	_arrival_burst()
 	if _fx_motes != null:
 		_fx_motes.emitting = false
 		get_tree().create_timer(4.5).timeout.connect(_fx_motes.queue_free)
