@@ -5042,6 +5042,7 @@ func _process(delta: float) -> void:
 		if e.shop != null:
 			e.shop.tick(delta)
 	_flush_spawns()
+	_separate_bodies()
 	frontier.tick(delta)
 	_vendor_tick(delta)
 	_gates_tick(delta)
@@ -5086,6 +5087,53 @@ func _process(delta: float) -> void:
 
 var _hud_timer := 0.0
 var _tick_n := 0
+
+
+## Bodies don't pass through each other: any two that overlap are eased apart (each by half the
+## overlap, the bigger moving less), never into a wall. Ghosts, riders' parked mounts and a hero
+## out in a boat are left alone. A grid of one-metre cells keeps it to near neighbours.
+func _separate_bodies() -> void:
+	var cells := {}
+	var list: Array[Entity] = []
+	for e in creatures:
+		if e.dead or e.ghost or e.parked or (e.is_hero and frontier != null and not frontier.sail.is_empty()):
+			continue
+		if not e._near and not e.is_hero and _tick_n % 3 != 0:
+			continue                              # off screen: a third as often
+		var key := Vector2i(floori(e.position.x), floori(e.position.z))
+		if not cells.has(key):
+			cells[key] = []
+		(cells[key] as Array).append(e)
+		list.append(e)
+	for e in list:
+		var ra := 0.28 * maxf(e.visual_scale, 0.5)
+		var key := Vector2i(floori(e.position.x), floori(e.position.z))
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				var bucket: Variant = cells.get(key + Vector2i(dx, dy))
+				if bucket == null:
+					continue
+				for o in bucket:
+					var b := o as Entity
+					if b == e or b.get_instance_id() < e.get_instance_id():
+						continue                  # each pair once
+					var rb := 0.28 * maxf(b.visual_scale, 0.5)
+					var d := Vector2(b.position.x - e.position.x, b.position.z - e.position.z)
+					var dist := d.length()
+					var overlap := ra + rb - dist
+					if overlap <= 0.0:
+						continue
+					var n := d / dist if dist > 0.001 else Vector2(1, 0).rotated(randf() * TAU)
+					var share := rb / (ra + rb)       # the smaller one gives way more
+					_nudge(e, -n * overlap * share)
+					_nudge(b, n * overlap * (1.0 - share))
+
+
+func _nudge(e: Entity, v: Vector2) -> void:
+	var to := e.position + Vector3(v.x, 0.0, v.y)
+	if not world.is_blocked(world.to_tile(to)):
+		e.position.x = to.x
+		e.position.z = to.z
 
 
 func _update_hud() -> void:

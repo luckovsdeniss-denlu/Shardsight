@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.66.1
+- Collision between bodies: people, monsters and animals no longer walk through or stand inside
+  each other. Any two that overlap are eased apart (the smaller gives way more), never into a
+  wall. Ghosts still pass through everything.
+
 ## 0.66.0
 People who move like people.
 - A human frame for every person (players, townsfolk, orcs, skeletons, zombies, liches and the
