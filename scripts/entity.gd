@@ -994,6 +994,8 @@ func end_form() -> void:
 func _try_transform() -> bool:
 	if form != "" or target == null or target.danger < 3.0 or kind != Kind.PLAYER:
 		return false
+	if game.movie != null:
+		return false                          # the movie keeps everyone in their own shape
 	var magery := _skill(Hero.Skill.MAGERY)
 	var fighter := _skill(_weapon_skill()) > magery
 	var picks: Array = ["polymorph", "horrific_beast"] if fighter else ["lich_form", "wraith_form"]

@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.76.1
+- No polymorph in the movie: nobody changes shape (polymorph, beast, lich or wraith form) while it plays.
+
 ## 0.76.0
 Only what the phone can draw at 60 frames a second.
 - When 60 can't be held, the frame-rate keeper first lowers the 3D resolution to 75%, then turns
