@@ -240,7 +240,7 @@ func _make_shots() -> void:
 		{"title": "Ravenhollow", "sub": "Graves, wisps, and a tomb that should stay shut.", "dur": 7.0, "day": 0.02,
 			"at": _tc(Vector2i(87, 34)), "r": 9.0, "h": 7.0, "a0": 5.0, "a1": 6.0, "setup": _stage_fight.bind(Vector2i(87, 34), "Zombie", Bestiary.ZOMBIE, 2)},
 		{"title": "The Church of the Shard", "sub": "Pray at the altar. The bell tolls at dawn.", "dur": 6.0, "day": 0.28,
-			"at": _tc(Vector2i(26, 18)), "r": 6.5, "h": 6.0, "a0": 1.2, "a1": 2.0, "setup": _stage_place.bind(Vector2i(26, 18))},
+			"at": _tc(Vector2i(26, 18)), "r": 6.5, "h": 6.0, "a0": 1.2, "a1": 2.0, "setup": _stage_place.bind(Vector2i(26, 18)), "stay": true},
 		{"title": "Seasons and storms", "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true, "white": true,
 			"at": _tc(Vector2i(30, 30)), "r": 14.0, "h": 11.0, "a0": 3.5, "a1": 4.3},
 		{"title": "World bosses", "sub": "Now and then a giant wakes. The whole land comes to fight it.", "dur": 9.0, "day": 0.55, "weather": "clear", "white": true,
@@ -279,6 +279,10 @@ func _next() -> void:
 	if sh.has("setup"):
 		(sh["setup"] as Callable).call()
 	hero.visible = not bool(sh.get("no_hero", false))
+	hero.ai_enabled = not bool(sh.get("stay", false))   # in the church the hero stands still, inside
+	if not hero.ai_enabled:
+		hero.path.clear()
+		hero.target = null
 	_title.text = " ".join(String(sh["title"]).to_upper().split(""))   # spaced capitals
 	_sub.text = String(sh["sub"])
 	for l in [_title, _sub]:                            # the words slide in and fade up
@@ -291,7 +295,7 @@ func _next() -> void:
 	_rule.create_tween().tween_property(_rule, "custom_minimum_size:x", 360.0, 1.0).set_delay(0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_counter.text = "%02d / %02d" % [i + 1, shots.size()]
 	if "--movie-test" in OS.get_cmdline_user_args():
-		print("MOVIE scene %d: %s" % [i + 1, sh["title"]])
+		print("MOVIE scene %d: %s (hero at %s)" % [i + 1, sh["title"], world.to_tile(hero.position)])
 	_fx.set_shader_parameter("leak", 1.0 if float(sh.get("day", 0.4)) > 0.2 and String(sh.get("weather", "clear")) != "storm" else 0.0)
 	game.cam.fov = 60.0                                 # each scene starts wide and pushes in
 	if bool(sh.get("white", false)):
