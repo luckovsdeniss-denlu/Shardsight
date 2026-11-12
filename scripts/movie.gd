@@ -24,7 +24,6 @@ var _fx: ShaderMaterial            # grain, vignette, a light leak, the flash
 var _rule: ColorRect               # the gold line under the title
 var _counter: Label
 var _progress: ColorRect
-var _shake := 0.0
 var _flash := 0.0
 var _was_casting := false
 var _slow := 0.0                   # real seconds of slow motion left
@@ -79,6 +78,7 @@ func start(p_game) -> void:
 	# names, damage, spell words, loot)
 	if game.ui_layer != null:
 		game.ui_layer.visible = false
+	hero.show_name(false)                               # and nothing over the hero's head
 	for e in game.creatures:
 		e.hp_bar.visible = false
 	# lighter, for a steady 60: the movie has its own vignette (the game's overlay goes), the camera
@@ -264,8 +264,8 @@ func _next() -> void:
 	if i >= shots.size():
 		finish()
 		return
-	if i > 0:                                           # every cut lands on a hit
-		_sound("braam" if bool(shots[i].get("white", false)) or i % 4 == 0 else "impact", 1.0, 0.0)
+	if i > 0 and (bool(shots[i].get("white", false)) or i % 4 == 0):   # the big cuts land on a low swell
+		_sound("braam", 1.0, 0.0)
 	_riser_done = false
 	var sh: Dictionary = shots[i]
 	if sh.has("day"):
@@ -316,17 +316,15 @@ func tick(delta: float) -> bool:
 		if _cast_acc >= 1.6:
 			_cast_acc = 0.0
 			_cast_something()
-	# a spell landing: a flash, a shake and a moment of slow motion
+	# a spell landing: a flash and a moment of slow motion (the camera stays steady)
 	var casting := hero.casting_id != ""
 	if _was_casting and not casting:
 		_flash = maxf(_flash, 0.45)
-		_shake = 0.35
 		_slow = 0.5
 		Engine.time_scale = 0.35
 		Soundscape.slowmo = true                       # the world goes dull and far away...
 		Soundscape.update("wilds", false, false)
 		game.music.player.pitch_scale = 0.8
-		_sound("impact", 0.7, 0.0)
 	_was_casting = casting
 	if _slow > 0.0:
 		_slow -= delta / maxf(Engine.time_scale, 0.05)  # counted in real seconds
@@ -339,7 +337,6 @@ func tick(delta: float) -> bool:
 		_sound("riser", 1.0, -4.0)
 	_flash = maxf(_flash - delta * 2.5, 0.0)
 	_fx.set_shader_parameter("flash", _flash)
-	_shake = maxf(_shake - delta * 1.5, 0.0)
 	var vs := get_viewport().get_visible_rect().size
 	_progress.size.x = vs.x * (float(i) + clampf(t / dur, 0.0, 1.0)) / float(shots.size())
 	var k := smoothstep(0.0, 1.0, clampf(t / dur, 0.0, 1.0))
@@ -352,9 +349,6 @@ func tick(delta: float) -> bool:
 		var a := lerpf(float(sh["a0"]), float(sh["a1"]), k)
 		cam.position = look + Vector3(cos(a) * float(sh["r"]), float(sh["h"]), sin(a) * float(sh["r"]))
 	cam.look_at(look + Vector3(0, 0.8, 0), Vector3.UP)
-	if _shake > 0.0:
-		cam.position += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * _shake * 0.25
-		cam.rotate_object_local(Vector3(0, 0, 1), randf_range(-1, 1) * _shake * 0.03)
 	game.view_planes = cam.get_frustum()
 	if t >= dur:
 		_next()

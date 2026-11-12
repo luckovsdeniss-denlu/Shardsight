@@ -1313,6 +1313,8 @@ func _magic_line() -> String:
 
 ## Floating combat text that drifts up and vanishes.
 func _pop(text: String, color: Color) -> void:
+	if is_hero and game.movie != null:
+		return                                # in the movie nothing rises over the hero (the blows on others still show)
 	var l := Label3D.new()
 	l.text = text
 	l.modulate = color
@@ -1472,6 +1474,8 @@ func _finish_cast() -> void:
 		tgt = self
 	if _near_hero():                          # each kind of magic has its own voice
 		game.sound(_spell_sound(id, spell_kind), tgt.position if tgt != null else position, randf_range(0.9, 1.1), 2.0)
+	if spell_kind == "transform" and game.movie != null:
+		return                                # (the movie: everyone stays in their own shape)
 	if spell_kind == "transform":
 		transform(_form_for(sp), float(sp.get("secs", 120.0)))
 		if kind == Kind.PLAYER:
@@ -5135,7 +5139,7 @@ func _update_cull() -> void:
 func show_name(on: bool) -> void:
 	if label == null:
 		return
-	label.visible = (on or is_hero) and _near and not hide_self   # your own level and HP always show
+	label.visible = (on or is_hero) and _near and not hide_self and not (is_hero and game.movie != null)   # your own level and HP always show (not in the movie)
 	if label.visible:
 		_label_acc = 1.0                      # refresh the label at once
 

@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.76.3
+The movie, calmer:
+- No camera shake when a spell lands (the flash and the slow motion stay).
+- No hit sounds: the cuts and the spells landing no longer thump (the low swell on the big cuts stays).
+- No shape-changing at all: a transformation spell cast during the movie simply does nothing.
+- Nothing over the hero's head: no name, no spell words, no damage numbers (those over the
+  monsters still show).
+
 ## 0.76.2
 - The music comes forward: every sound effect is 9 dB quieter (about a third as loud), and the
   ambience (wind, water, crickets, rain, the tavern) 5 dB quieter. The movie too.
