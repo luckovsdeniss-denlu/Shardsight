@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.68.3
+- A new loading bar: a slim capsule with round ends. Its fill is a soft cyan-to-gold gradient
+  drawn a pixel at a time (no blocks or steps), with a gentle glow beneath, a light gliding
+  along it and a pulsing pearl of light at its head; the per cent sits above it on the right.
+
 ## 0.68.2
 - A smoother loading bar. The land is now built in short slices (about a thirtieth of a second
   each) with the screen redrawn between them, so the bar moves steadily instead of freezing and

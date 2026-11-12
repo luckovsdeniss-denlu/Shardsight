@@ -179,28 +179,40 @@ func _draw_fg() -> void:
 	# the name, spaced out, with a gold glow
 	_spaced(font, "SHARDSIGHT", Vector2(c.x, c.y + 210.0 * u), int(54 * u), 14.0 * u, gold)
 	_spaced(font, "A WORLD OF SWORDS, SPELLS AND SKILL", Vector2(c.x, c.y + 244.0 * u), int(16 * u), 4.0 * u, Color(0.6, 0.75, 0.9))
-	# the bar: a frame, twenty segments, a bright leading edge and the per cent
-	var bw := minf(vs.x * 0.6, 640.0 * u)
-	var bh := 14.0 * u
+	# The bar: a slim capsule. A dark rounded track; the fill a soft gradient from cyan to gold
+	# with rounded ends, drawn a pixel at a time so there are no steps; a gentle glow under it, a
+	# light gliding along it, and a bright pearl at its head. The per cent sits above, at the right.
+	var bw := minf(vs.x * 0.55, 600.0 * u)
+	var bh := 8.0 * u
 	var bx := c.x - bw / 2.0
-	var by := c.y + 280.0 * u
-	_fg.draw_rect(Rect2(bx - 3 * u, by - 3 * u, bw + 6 * u, bh + 6 * u), Color(cyan, 0.5), false, 1.5 * u)
-	# one smooth fill (cyan running to gold), a soft glow over it and a shimmer sliding along it
-	_fg.draw_rect(Rect2(bx, by, bw, bh), Color(cyan, 0.08))
-	var fill := bw * _shown
-	var steps := maxi(int(fill / (4.0 * u)), 1)
-	var sw := fill / steps
-	for i in range(steps):
-		var col := cyan.lerp(gold, (i + 0.5) * sw / bw)
-		_fg.draw_rect(Rect2(bx + i * sw, by, sw + 0.5, bh), Color(col, 0.9))
-	_fg.draw_rect(Rect2(bx, by - 2 * u, fill, bh + 4 * u), Color(gold, 0.08))
-	var shine := fmod(_t * 0.6, 1.0) * fill
-	for k in range(6):
-		_fg.draw_rect(Rect2(bx + shine - k * 6 * u, by, 6 * u, bh), Color(1, 1, 1, 0.22 * (1.0 - k / 6.0)))
-	var edge := bx + bw * _shown
-	_fg.draw_rect(Rect2(edge - 2 * u, by - 5 * u, 4 * u, bh + 10 * u), Color(1, 1, 1, 0.6 + 0.4 * sin(_t * 10.0)))
-	var pct := "%03d%%" % roundi(_shown * 100.0)
-	_fg.draw_string(font, Vector2(bx + bw - 70 * u, by + bh + 26 * u), pct, HORIZONTAL_ALIGNMENT_LEFT, -1, int(18 * u), gold)
+	var by := c.y + 284.0 * u
+	var rad := bh / 2.0
+	var mid_y := by + rad
+	_capsule(bx - 3 * u, mid_y, bw + 6 * u, rad + 3 * u, Color(0.0, 0.02, 0.05, 0.75))   # the track's shadow edge
+	_capsule(bx, mid_y, bw, rad, Color(cyan, 0.1))                                      # the track
+	var fill := maxf(bw * _shown, bh)
+	for k in range(3):                                                                    # the glow under the fill
+		_capsule(bx - k * 2 * u, mid_y, fill + k * 4 * u, rad + (k + 1) * 3 * u, Color(gold.lerp(cyan, 0.4), 0.05))
+	var px := int(fill)
+	for x in range(px):                                                                   # the fill, pixel by pixel
+		var f := float(x) / maxf(bw, 1.0)
+		var col := cyan.lerp(gold, smoothstep(0.0, 1.0, f))
+		var h := rad
+		if x < rad:                                                                       # rounded left end
+			h = sqrt(maxf(rad * rad - (rad - x) * (rad - x), 0.0))
+		elif x > px - rad:                                                                # rounded head
+			var dx := x - (px - rad)
+			h = sqrt(maxf(rad * rad - dx * dx, 0.0))
+		var shine := exp(-pow((x - fmod(_t * 220.0 * u, fill + 120.0 * u) + 60.0 * u) / (28.0 * u), 2.0))
+		_fg.draw_line(Vector2(bx + x, mid_y - h), Vector2(bx + x, mid_y + h), col.lerp(Color.WHITE, 0.55 * shine), 1.0)
+	var head := Vector2(bx + fill - rad, mid_y)                                           # a pearl of light at the head
+	var pulse := 0.85 + 0.15 * sin(_t * 4.0)
+	for k in range(4):
+		_fg.draw_circle(head, (rad + 2.0 * u) * (1.0 + k * 0.6), Color(1.0, 0.95, 0.8, 0.12 * pulse / (k + 1)))
+	_fg.draw_circle(head, rad * 0.7, Color(1, 1, 1, 0.9))
+	var pct := "%d%%" % roundi(_shown * 100.0)
+	var pw := font.get_string_size(pct, HORIZONTAL_ALIGNMENT_LEFT, -1, int(20 * u)).x
+	_fg.draw_string(font, Vector2(bx + bw - pw, by - 10 * u), pct, HORIZONTAL_ALIGNMENT_LEFT, -1, int(20 * u), gold)
 	# the step being loaded, typed out, with a blinking cursor
 	var shown_text := _status.substr(0, int(_typed))
 	if int(_t * 2.0) % 2 == 0:
@@ -221,6 +233,16 @@ func _draw_fg() -> void:
 		_fg.draw_line(corner, corner + Vector2(0, l * sy), Color(cyan, 0.6), 2.0 * u)
 	_fg.draw_string(font, Vector2(vs.x - 220 * u, vs.y - 24 * u), "v" + String(ProjectSettings.get_setting("application/config/version", "")),
 		HORIZONTAL_ALIGNMENT_RIGHT, 196 * u, int(14 * u), Color(0.5, 0.6, 0.75))
+
+
+## A capsule: a bar with round ends, centred on `y`, `r` the half-height.
+func _capsule(x: float, y: float, w: float, r: float, col: Color) -> void:
+	if w <= 2.0 * r:
+		_fg.draw_circle(Vector2(x + w / 2.0, y), w / 2.0, col)
+		return
+	_fg.draw_rect(Rect2(x + r, y - r, w - 2.0 * r, 2.0 * r), col)
+	_fg.draw_circle(Vector2(x + r, y), r, col)
+	_fg.draw_circle(Vector2(x + w - r, y), r, col)
 
 
 ## A ring of `n` arcs with gaps between, turned by `turn`.
