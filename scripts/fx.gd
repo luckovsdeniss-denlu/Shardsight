@@ -40,7 +40,7 @@ static func _quad(size: float, c: Color) -> QuadMesh:
 ## A steady flame (campfires, braziers, the forge, fire fields): `width` across, licking up.
 static func flame(width: float, amount := 24, height := 1.0) -> CPUParticles3D:
 	var p := CPUParticles3D.new()
-	p.amount = amount
+	p.amount = maxi(int(amount * 0.7), 4)          # (lighter on the phone, much the same to the eye)
 	p.lifetime = 0.7 * height
 	p.mesh = _quad(0.28 * maxf(width, 0.6), Color.WHITE)
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
@@ -64,7 +64,7 @@ static func flame(width: float, amount := 24, height := 1.0) -> CPUParticles3D:
 ## Sparks drifting up (fire elementals, a burst's afterglow).
 static func embers(radius: float, amount := 14) -> CPUParticles3D:
 	var p := CPUParticles3D.new()
-	p.amount = amount
+	p.amount = maxi(int(amount * 0.7), 4)          # (lighter on the phone, much the same to the eye)
 	p.lifetime = 1.2
 	p.mesh = _quad(0.08, Color.WHITE)
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
@@ -202,7 +202,7 @@ static func sparkle(parent: Node, at: Vector3, c: Color, amount := 20) -> void:
 	var p := CPUParticles3D.new()
 	p.one_shot = true
 	p.explosiveness = 0.7
-	p.amount = amount
+	p.amount = maxi(int(amount * 0.7), 4)          # (lighter on the phone, much the same to the eye)
 	p.lifetime = 0.9
 	p.mesh = _quad(0.14, Color.WHITE)
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
@@ -314,7 +314,7 @@ static func smoke(amount := 8, size := 1.0) -> CPUParticles3D:
 		_smoke_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 		_smoke_mat.billboard_keep_scale = true
 	var p := CPUParticles3D.new()
-	p.amount = amount
+	p.amount = maxi(int(amount * 0.7), 4)          # (lighter on the phone, much the same to the eye)
 	p.lifetime = 3.0
 	var q := QuadMesh.new()
 	q.size = Vector2(0.4, 0.4) * size

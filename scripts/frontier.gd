@@ -2021,7 +2021,7 @@ func _page_towers() -> void:
 
 func _build_snow() -> void:
 	_snow = CPUParticles3D.new()
-	_snow.amount = 220
+	_snow.amount = 150
 	_snow.lifetime = 4.0
 	_snow.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 	_snow.emission_box_extents = Vector3(10, 0.5, 10)

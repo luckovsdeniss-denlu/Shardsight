@@ -1018,13 +1018,13 @@ var _raised_ago := 99                 # two-second spells since the resolution l
 func _adapt_resolution(delta: float) -> void:
 	_fps_acc += delta
 	_fps_frames += 1
-	if _fps_acc < 2.0:
+	if _fps_acc < 1.0:
 		return
 	var fps := _fps_frames / _fps_acc
 	_fps_acc = 0.0
 	_fps_frames = 0
 	_fps_windows += 1
-	if _fps_windows <= 4:
+	if _fps_windows <= 6:
 		return                                 # the first seconds stutter while everything loads: don't judge by them
 	_raised_ago += 1
 	var want := _render_scale
@@ -1033,11 +1033,11 @@ func _adapt_resolution(delta: float) -> void:
 		if _raised_ago <= 2:
 			_scale_cap = maxf(_render_scale - 0.05, 0.5)   # going up again cost too much: stay below
 		if _render_scale > 0.5:
-			want = maxf(_render_scale - (0.1 if fps < FPS_GOAL * 0.6 else 0.05), 0.5)
+			want = maxf(_render_scale - (0.1 if fps < FPS_GOAL * 0.8 else 0.05), 0.5)
 		# (below that nothing is turned off: the look stays whole)
 	elif fps > FPS_GOAL * 0.97:
 		_fps_good += 1
-		if _fps_good >= 5 and _render_scale < minf(_render_base, _scale_cap):
+		if _fps_good >= 8 and _render_scale < minf(_render_base, _scale_cap):
 			_fps_good = 0
 			_raised_ago = 0
 			want = minf(_render_scale + 0.05, minf(_render_base, _scale_cap))
@@ -1461,7 +1461,7 @@ func _raise_night_dead() -> void:
 	var kinds := [["Skeleton", Bestiary.SKELETON, Color("d8d2c0")], ["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")],
 		["Skeleton Archer", Bestiary.SKELETON_ARCHER, Color("d8d2c0")]]
 	_night_dead.clear()
-	for i in range(12):                        # (the land is wide: a dozen of them)
+	for i in range(8):                         # (the land is wide: eight of them)
 		var k: Array = kinds[i % kinds.size()]
 		_night_dead.append(pool_spawn(String(k[0]), k[1], k[2], _wild_spot()))
 	event_about("Night falls, and the restless dead rise in the wilds.", true)
@@ -4214,7 +4214,7 @@ func _even_out_monsters(rng: RandomNumberGenerator) -> void:
 			for i in range(world.zone_count()):
 				if world.zone_rect(i).has_point(world.to_tile(e.home)):
 					counts[i] += 1
-	var goal: int = clampi(counts.max(), 5, 7)       # every region alike, north and south, west and east
+	var goal: int = clampi(counts.max(), 5, 6)       # every region alike, north and south, west and east
 	if Experiments.on("crowded"):
 		goal = ceili(goal * 1.5)
 	var red := Color("c0392b")
@@ -4441,6 +4441,9 @@ func _build_environment() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES     # deeper shadows, highlights that roll off like film
 	env.tonemap_exposure = 1.05
 	env.tonemap_white = 6.0
+	env.adjustment_enabled = true                      # the grade: a little less colour, a little more punch
+	env.adjustment_saturation = 0.85
+	env.adjustment_contrast = 1.1
 	env.fog_enabled = false                            # no fog or haze, ever: the land is seen clear to the horizon
 	env.glow_intensity = 0.6
 	env.glow_bloom = 0.04
@@ -4466,19 +4469,12 @@ func _build_environment() -> void:
 ## more contrast, cool blue in the shadows and warm gold in the lights, the corners darkened.
 const GRADE_SHADER := """
 shader_type canvas_item;
-uniform sampler2D screen : hint_screen_texture, filter_linear;
-uniform float saturation = 0.8;
-uniform float contrast = 1.12;
 uniform float vignette = 0.38;
+// Only the vignette, laid over the picture (it never reads the screen back: a full-screen copy
+// every frame cost more than it gave). The colour itself is graded by the environment.
 void fragment() {
-	vec3 c = texture(screen, SCREEN_UV).rgb;
-	float l = dot(c, vec3(0.299, 0.587, 0.114));
-	c = mix(vec3(l), c, saturation);
-	c = (c - 0.5) * contrast + 0.5;
-	c += mix(vec3(-0.015, 0.0, 0.025), vec3(0.035, 0.018, -0.02), smoothstep(0.15, 0.85, l));
 	vec2 d = (SCREEN_UV - 0.5) * vec2(1.2, 1.0);
-	c *= 1.0 - vignette * smoothstep(0.38, 0.95, length(d));
-	COLOR = vec4(clamp(c, 0.0, 1.0), 1.0);
+	COLOR = vec4(0.0, 0.0, 0.0, vignette * smoothstep(0.38, 0.95, length(d)));
 }
 """
 var _grade: ColorRect
@@ -5044,7 +5040,7 @@ func _process(delta: float) -> void:
 		save_timer = 0.0
 		_autosave()
 	# Everyone on screen (and the hero, and whoever is after the hero) lives every frame; the rest
-	# of the world every third frame, a third of them at a time, with the time they missed.
+	# of the world every fourth frame, a quarter of them at a time, with the time they missed.
 	_tick_n += 1
 	for i in range(creatures.size()):
 		var e := creatures[i]
@@ -5053,7 +5049,7 @@ func _process(delta: float) -> void:
 			e.tick_debt = 0.0
 		else:
 			e.tick_debt += delta
-			if (i + _tick_n) % 3 == 0:
+			if (i + _tick_n) % 4 == 0:
 				e.tick(e.tick_debt)
 				e.tick_debt = 0.0
 		if e.shop != null:
@@ -5117,8 +5113,8 @@ func _separate_bodies() -> void:
 	for e in creatures:
 		if e.dead or e.ghost or e.parked or (e.is_hero and frontier != null and not frontier.sail.is_empty()):
 			continue
-		if not e._near and not e.is_hero and _tick_n % 3 != 0:
-			continue                              # off screen: a third as often
+		if not e._near and not e.is_hero:
+			continue                              # off screen nobody sees them overlap: only those in view
 		var key := Vector2i(floori(e.position.x), floori(e.position.z))
 		if not cells.has(key):
 			cells[key] = []
@@ -6321,12 +6317,12 @@ func _toggle_ruleset() -> void:
 func _apply_graphics() -> void:
 	property.graphics = "high"
 	sun.shadow_enabled = true
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.directional_shadow_max_distance = 40.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL   # one shadow pass, not two
+	sun.directional_shadow_max_distance = 32.0
 	sun.directional_shadow_fade_start = 0.85
 	world.set_ground_detail(true)
-	_render_base = 1.0
-	_render_scale = 1.0
+	_render_base = 0.85 if OS.has_feature("mobile") else 1.0   # phone screens are dense: 85% looks the same
+	_render_scale = _render_base
 	_scale_cap = 1.0
 	_fps_good = 0
 	RenderingServer.directional_shadow_atlas_set_size(2048, true)
@@ -6334,16 +6330,16 @@ func _apply_graphics() -> void:
 		if n != null:
 			(n as Node3D).visible = true
 	var vp := get_viewport()
-	vp.scaling_3d_scale = 1.0
+	vp.scaling_3d_scale = _render_scale
 	vp.msaa_3d = Viewport.MSAA_DISABLED
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	env.glow_enabled = true                           # a soft glow round fire and magic
 	for lv in range(7):
-		env.set_glow_level(lv, lv in [1, 2])         # two levels only: most of the look, little of the cost
+		env.set_glow_level(lv, lv == 2)              # one level (a quarter-size pass): the look, little of the cost
 	if _grade != null:
 		_grade.visible = true
 	if rain != null:
-		rain.amount = 800 if weather == "storm" else 500
+		rain.amount = 450 if weather == "storm" else 280
 
 
 func _toggle_music() -> void:

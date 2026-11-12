@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.72.0
+Smooth at 60 frames a second.
+- The colour grade no longer copies the whole screen every frame: the colour is graded by the
+  scene itself, and the vignette is a light overlay.
+- The sun's shadows take one pass instead of two (out to 32 m).
+- The glow uses one small pass instead of two.
+- On phones the 3D draws at 85% of the screen's resolution, and the frame-rate keeper reacts
+  every second (not every two) and lowers it sooner when frames drop.
+- Creatures off screen think a quarter as often, and bodies are only pushed apart where you can see them.
+- Up to 6 monsters a region (was 7) and 8 night dead (was 12).
+- Lighter particles: spell and hit effects, rain and snow use about a third fewer.
+
 ## 0.71.0
 The whole land is alive, not just the north-west.
 - Monsters in every one of the 36 regions, about the same number in each; the far east and the
