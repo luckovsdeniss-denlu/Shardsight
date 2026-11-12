@@ -285,6 +285,18 @@ func _next() -> void:
 		hero.path.clear()
 		hero.target = null
 	_title.text = " ".join(String(sh["title"]).to_upper().split(""))   # spaced capitals
+	if _open_title != null and is_instance_valid(_open_title):
+		_open_title.fade_out(0.5)
+		_open_title = null
+	if i == 0:                                          # the opening shot: the name in 3D, in the middle
+		_title.text = ""
+		var cc := CenterContainer.new()
+		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(cc)
+		move_child(cc, _fade.get_index())               # under the fade
+		cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_open_title = Title3D.make("SHARDSIGHT", minf(get_viewport().get_visible_rect().size.x * 0.8, 1150.0), 1.4)
+		cc.add_child(_open_title)
 	_sub.text = String(sh["sub"])
 	for l in [_title, _sub]:                            # the words slide in and fade up
 		l.modulate.a = 0.0
@@ -384,6 +396,7 @@ func finish(skipped := false) -> void:
 
 
 var _music_fade: Tween
+var _open_title: Title3D
 
 
 # --- leaving the movie without reloading the game -----------------------------------------------
@@ -483,16 +496,8 @@ func _end_logo() -> void:
 	add_child(_end_card)
 	move_child(_end_card, get_child_count() - 2)
 	_end_card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var logo := _label(110, Color(0.95, 0.8, 0.4))
-	logo.text = "S H A R D S I G H T"
-	var sweep := Shader.new()
-	sweep.code = SWEEP_SHADER
-	var sm := ShaderMaterial.new()
-	sm.shader = sweep
-	logo.material = sm
-	_end_card.add_child(logo)
-	logo.modulate.a = 0.0
-	logo.create_tween().tween_property(logo, "modulate:a", 1.0, 1.0)
+	var logo := Title3D.make("SHARDSIGHT", minf(get_viewport().get_visible_rect().size.x * 0.85, 1250.0), 1.2)
+	_end_card.add_child(logo)                           # the name in 3D: gold, glowing, the light sweeping across
 	var sparks := CPUParticles2D.new()
 	sparks.amount = 60
 	sparks.lifetime = 2.5

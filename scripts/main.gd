@@ -5413,6 +5413,11 @@ func _show_title(layer: CanvasLayer) -> void:
 		["tap to skip", 24, Color(0.85, 0.85, 0.85)]]
 	var hint: Label = null
 	for l in lines:
+		if box.get_child_count() == 0:             # the name: in 3D, raised gold with light sweeping across it
+			var t3 := Title3D.make(String(l[0]), minf(get_viewport().get_visible_rect().size.x * 0.8, 1150.0), 1.6)
+			t3.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			box.add_child(t3)
+			continue
 		var lab := Label.new()
 		lab.text = String(l[0])
 		lab.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

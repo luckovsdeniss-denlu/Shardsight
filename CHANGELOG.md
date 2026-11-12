@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.80.0
+The name in 3D.
+- SHARDSIGHT on the title screen, at the start of the movie and on its closing card is now real
+  3D lettering: raised, polished gold with deep sides, lit warm from above with a cool rim behind,
+  a bright light sweeping across it, a soft gold glow, sparks rising round it and a slow sway that
+  shows the depth. It grows and fades in, and fades out at the cut.
+
 ## 0.79.0
 - After the movie (or Skip) the game no longer reloads: everything the movie changed is put back
   as it was (the hero's skills, spells, gear, gold, bag and place, the time of day, the weather,
