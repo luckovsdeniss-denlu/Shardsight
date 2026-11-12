@@ -4610,7 +4610,13 @@ func _build_rings() -> void:
 
 
 func _update_rings() -> void:
-	hero_ring.visible = not hero.dead and not property.first_person and hero.visible
+	hero_ring.visible = not hero.dead and not property.first_person and hero.visible and movie == null
+	if movie != null:                                  # the movie: no rings, markers or pointers in the picture
+		target_ring.visible = false
+		marker.visible = false
+		if select_ring != null:
+			select_ring.visible = false
+		return
 	if select_ring != null and select_ring.visible and selected_player != null and is_instance_valid(selected_player):
 		select_ring.position = selected_player.position + Vector3(0.0, 0.04, 0.0)
 	hero_ring.position = hero.position + Vector3(0.0, 0.04, 0.0)
@@ -5174,6 +5180,7 @@ func _process(delta: float) -> void:
 		property.refresh()             # the owner or a co-owner nearby keeps it from decaying
 	for c in corpses.duplicate():
 		c.tick(delta)
+		c.label.visible = movie == null and c.life >= 2.5   # (no loot labels over the bodies in the movie)
 		if c.life <= 0.0:
 			corpses.erase(c)
 			c.queue_free()

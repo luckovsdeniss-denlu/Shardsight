@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.80.1
+- The movie shows nothing to tap or point at: no ring under the hero, no red ring round the
+  target, no walk-to marker, no selection ring and no loot labels over the bodies. (Skip stays.)
+
 ## 0.80.0
 The name in 3D.
 - SHARDSIGHT on the title screen, at the start of the movie and on its closing card is now real
