@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.73.1
+- The movie keeps the words over heads: names, health bars, damage numbers, spell words and loot
+  (the buttons, log, stats and menus stay hidden).
+
 ## 0.73.0
 The movie at 60 frames a second.
 - Off camera, the world holds still while the movie plays (only what's filmed lives and moves).

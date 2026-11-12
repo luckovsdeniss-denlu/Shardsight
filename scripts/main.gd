@@ -4770,7 +4770,6 @@ func show_loot(from_pos: Vector3, looter: Entity, got: Dictionary, what: String)
 		icon.scale = Vector3.ONE * 1.6
 		node.add_child(icon)
 		var lab := Label3D.new()
-		lab.visible = movie == null             # (no words over heads in the movie)
 		lab.text = String(entries[i][1])
 		lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		lab.no_depth_test = true

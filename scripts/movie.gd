@@ -75,7 +75,7 @@ func start(p_game) -> void:
 	hero = game.hero
 	layer = 50
 	game.add_child(self)
-	# a clean picture: no buttons, log, stats or menus, and nothing over anyone's head
+	# a clean screen: no buttons, log, stats or menus (the words over heads stay: names, damage, spell words, loot)
 	if game.ui_layer != null:
 		game.ui_layer.visible = false
 	# lighter, for a steady 60: the movie has its own vignette (the game's overlay goes), the camera
@@ -89,9 +89,6 @@ func start(p_game) -> void:
 		game._render_scale = 0.8
 		game._scale_cap = 0.8
 		get_viewport().scaling_3d_scale = 0.8
-	for e in game.creatures:
-		e.show_name(false)
-		e.hp_bar.visible = false
 	_build_ui()
 	# the hero, for the cameras: a master of arms and magic (nothing of it is kept)
 	for s in [Hero.Skill.MAGERY, Hero.Skill.EVALUATING_INTELLECT, Hero.Skill.SWORDSMANSHIP, Hero.Skill.TACTICS, Hero.Skill.ANATOMY]:
