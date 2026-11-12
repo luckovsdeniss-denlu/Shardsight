@@ -29,6 +29,8 @@ const DOCKS := [
 	{"name": "Isle Landing", "tile": Vector2i(48, 64), "to": 6},
 	{"name": "Mirrormere West", "tile": Vector2i(110, 34), "to": 9},       # the lake of the eastern lands
 	{"name": "Mirrormere East", "tile": Vector2i(126, 34), "to": 8},
+	{"name": "Reedmere West", "tile": Vector2i(12, 116), "to": 11},        # the lake of the south-west
+	{"name": "Reedmere East", "tile": Vector2i(28, 116), "to": 10},
 ]
 const LAKE_DOCKS := 6                       # the first six are on the lakes
 const ISLE_SHRINE := Vector2i(47, 66)
@@ -61,6 +63,7 @@ const VILLAGERS := [
 	{"name": "Zahir the Nomad", "work": Vector2i(72, 38), "color": Color("d8b878")},
 	{"name": "Old Garret the Miner", "work": Vector2i(13, 42), "color": Color("8a8a7a")},
 	{"name": "Smith Orla", "work": Vector2i(113, 13), "color": Color("b8643a")},
+	{"name": "Warden Sela", "work": Vector2i(103, 106), "color": Color("4a7a5a")},
 ]
 
 # --- side quests: dialogue with choices -----------------------------------------------------
@@ -205,6 +208,19 @@ const SIDE_QUESTS := {
 			{"text": "\"Keep the stones. Rebuild with them.\"", "mult": 0.0, "karma": 250, "fame": 150, "say": "Orla stares, then laughs. \"They'll name a street for you.\""},
 		],
 	},
+	"sela_bears": {
+		"giver": "Warden Sela", "title": "The Southern Wilds",
+		"intro": "\"Highmoor is the last town before the wild south, and the wild is pushing back - bears on the roads, orcs in the hills. Thin out the bears, and the farms can breathe again.\"",
+		"choices": [
+			{"text": "\"I'll clear the roads.\"", "go": "accept", "say": "\"Five bears. They range all over the south - follow the roads out of Highmoor.\""},
+			{"text": "\"Not now.\"", "go": "decline", "say": "\"The south will still be here.\""},
+		],
+		"goal": {"kind": "kill", "target": "Brown Bear", "count": 5},
+		"gold": 260, "fame": 90, "karma": 60, "items": {"emerald": 1},
+		"remind": "\"Five bears, friend. The farms are waiting.\"",
+		"done_text": "\"The roads are quiet. Highmoor owes you.\"",
+		"turn_in": [{"text": "Take the reward.", "say": "Sela hands over a purse and an emerald from the warden's chest."}],
+	},
 	"rosa_rats": {
 		"giver": "Rosa the Barkeep", "title": "Rats in the Cellar",
 		"intro": "\"The rats are in the grain again, and in the ale - don't ask. Kill six of the vermin anywhere you find them and drinks are on the house.\"",
@@ -229,6 +245,8 @@ const ELITE_KINDS := [
 	["Wolf", Rect2i(52, 10, 20, 10)], ["Orc", Rect2i(10, 16, 22, 6)], ["Brown Bear", Rect2i(60, 14, 15, 8)],
 	["Frost Wolf", Rect2i(61, 1, 20, 7)], ["Sand Scorpion", Rect2i(70, 40, 12, 6)], ["Bog Troll", Rect2i(24, 41, 8, 5)],
 	["Skeleton", Rect2i(80, 28, 10, 10)], ["Giant Spider", Rect2i(2, 20, 15, 5)],
+	["Brown Bear", Rect2i(30, 85, 30, 20)], ["Orc", Rect2i(90, 110, 30, 20)], ["Giant Spider", Rect2i(10, 120, 25, 15)],
+	["Wolf", Rect2i(110, 70, 25, 20)], ["Skeleton", Rect2i(60, 125, 30, 15)],
 ]
 const HUNTS := [["Orc", 5, 140], ["Skeleton", 4, 180], ["Frost Wolf", 4, 170], ["Sand Scorpion", 4, 170],
 	["Bog Leech", 6, 110], ["Goblin", 5, 150], ["Mummy", 3, 220], ["Zombie", 4, 160], ["Giant Spider", 4, 120]]
@@ -301,6 +319,9 @@ const TOWERS := [
 	{"name": "Eastwatch Tower", "start": "oss"},
 	{"name": "Southfold Tower", "start": "wos"},
 	{"name": "Westmere Tower", "start": "shd"},
+	{"name": "Southwatch Tower", "start": "wos"},
+	{"name": "Eastmarch Tower", "start": "oss"},
+	{"name": "Farhold Tower", "start": "shd"},
 ]
 const CAPTURE_SECS := 20.0
 const TOWER_RANGE := 3.5

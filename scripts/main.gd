@@ -1461,7 +1461,7 @@ func _raise_night_dead() -> void:
 	var kinds := [["Skeleton", Bestiary.SKELETON, Color("d8d2c0")], ["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")],
 		["Skeleton Archer", Bestiary.SKELETON_ARCHER, Color("d8d2c0")]]
 	_night_dead.clear()
-	for i in range(6):
+	for i in range(12):                        # (the land is wide: a dozen of them)
 		var k: Array = kinds[i % kinds.size()]
 		_night_dead.append(pool_spawn(String(k[0]), k[1], k[2], _wild_spot()))
 	event_about("Night falls, and the restless dead rise in the wilds.", true)
@@ -4085,11 +4085,16 @@ func _spawn_all() -> void:
 		["Thorne", Bestiary.FIGHTER], ["Brina", Bestiary.ARCHER], ["Dorian", Bestiary.WARRIOR],
 		["Sly", Bestiary.THIEF], ["Morg", Bestiary.PKILLER], ["Pip", Bestiary.THIEF],
 		["Fenn", Bestiary.CROSSBOWMAN],
+		# more of them, for the whole land: each keeps to a region of their own, spread far and wide
+		["Rowan", Bestiary.WARRIOR], ["Isla", Bestiary.MAGE], ["Brom", Bestiary.FIGHTER], ["Kestrel", Bestiary.ARCHER],
+		["Hale", Bestiary.CROSSBOWMAN], ["Nyx", Bestiary.THIEF], ["Garrick", Bestiary.PKILLER], ["Elda", Bestiary.MAGE],
+		["Torin", Bestiary.WARRIOR], ["Faye", Bestiary.FIGHTER],
 	]
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 777                           # the same layout every game
 	for i in range(others.size()):
-		var zone := world.zone_rect(i % world.zone_count())
+		# spread evenly over all the regions (every third or so), not packed into the first few
+		var zone := world.zone_rect(int(float(i) * world.zone_count() / others.size() + 0.5) % world.zone_count())
 		var cfg: Dictionary = others[i][1]
 		var p := _spawn(Entity.Kind.PLAYER, String(others[i][0]), cfg, blue, world.open_tile_in(zone, rng))
 		p.roam = zone
@@ -4209,7 +4214,7 @@ func _even_out_monsters(rng: RandomNumberGenerator) -> void:
 			for i in range(world.zone_count()):
 				if world.zone_rect(i).has_point(world.to_tile(e.home)):
 					counts[i] += 1
-	var goal: int = counts.max()
+	var goal: int = clampi(counts.max(), 5, 7)       # every region alike, north and south, west and east
 	if Experiments.on("crowded"):
 		goal = ceili(goal * 1.5)
 	var red := Color("c0392b")
@@ -4220,14 +4225,16 @@ func _even_out_monsters(rng: RandomNumberGenerator) -> void:
 		["Wolf", Bestiary.WOLF, red], ["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")], ["Orc", Bestiary.ORC, red],
 		["Skeleton", Bestiary.SKELETON, Color("d8d2c0")], ["Wolf", Bestiary.WOLF, red], ["Orc", Bestiary.ORC, red],
 	]
-	# The far south (beyond the old coast) is wilder and emptier: a handful to a region.
+	# The rest of the land (the far east and the south): its own mix, tougher further from the start.
 	var south := [["Wolf", Bestiary.WOLF, red], ["Orc", Bestiary.ORC, red], ["Brown Bear", Bestiary.BROWN_BEAR, Color("6b4a2a")],
 		["Giant Spider", Bestiary.GIANT_SPIDER, Color("3a3a2a")], ["Skeleton", Bestiary.SKELETON, Color("d8d2c0")],
-		["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")], ["Hind", Bestiary.HIND, Color("b08a5a")]]
+		["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")], ["Hind", Bestiary.HIND, Color("b08a5a")],
+		["Ogre", Bestiary.OGRE, Color("8a6a4a")], ["Evil Mage", Bestiary.EVIL_MAGE, red], ["Orc Archer", Bestiary.ORC_ARCHER, red]]
 	for i in range(world.zone_count()):
-		var far := i >= picks.size()
-		for _k in range((6 if far else goal) - counts[i]):
-			var pick: Array = south[(i + _k) % south.size()] if far else picks[i]
+		var far := i % World.ZONE_COLS >= 4 or i / World.ZONE_COLS >= 2      # beyond the old lands
+		var near_pick: Array = picks[mini((i / World.ZONE_COLS) * 4 + i % World.ZONE_COLS, picks.size() - 1)]
+		for _k in range(goal - counts[i]):
+			var pick: Array = south[(i * 3 + _k) % south.size()] if far else near_pick
 			var cfg: Dictionary = pick[1]
 			_spawn(Entity.Kind.MONSTER, String(pick[0]), cfg, pick[2], world.open_tile_in(world.zone_rect(i), rng))
 

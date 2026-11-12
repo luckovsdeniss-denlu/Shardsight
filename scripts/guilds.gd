@@ -9,9 +9,9 @@ const INVITE_COOLDOWN := 120.0    # a player who said no won't be asked again fo
 
 ## The guilds of the computer players: id -> name, abbreviation, starting members.
 const STARTING := {
-	"oss": {"name": "Order of the Silver Serpent", "abbr": "OSS", "members": ["Aldric", "Mira", "Gareth"]},
-	"wos": {"name": "Wardens of Southmoor", "abbr": "WOS", "members": ["Dorian", "Lyra"]},
-	"shd": {"name": "Shadowclan", "abbr": "SHD", "members": ["Vex", "Morg"]},
+	"oss": {"name": "Order of the Silver Serpent", "abbr": "OSS", "members": ["Aldric", "Mira", "Gareth", "Rowan", "Torin"]},
+	"wos": {"name": "Wardens of Southmoor", "abbr": "WOS", "members": ["Dorian", "Lyra", "Isla", "Faye"]},
+	"shd": {"name": "Shadowclan", "abbr": "SHD", "members": ["Vex", "Morg", "Garrick"]},
 }
 const STARTING_WARS := [["oss", "shd"], ["wos", "shd"]]
 const STARTING_ALLIES := [["oss", "wos"]]

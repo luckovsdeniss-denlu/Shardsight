@@ -29,7 +29,7 @@ const CEMETERY_NAME := "Ravenhollow Cemetery"
 ## The church, just south of the main town: stone walls, a door to the north, the altar within.
 const CHURCH := Rect2i(24, 15, 6, 7)
 const CHURCH_DOORS := [Vector2i(26, 15), Vector2i(27, 15)]
-const TOWER_TILES := [Vector2i(60, 22), Vector2i(35, 28), Vector2i(10, 26)]
+const TOWER_TILES := [Vector2i(60, 22), Vector2i(35, 28), Vector2i(10, 26), Vector2i(30, 100), Vector2i(110, 60), Vector2i(120, 128)]
 
 const LAYOUT := [
 	"################################################################################################################################################",

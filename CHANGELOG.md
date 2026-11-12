@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.71.0
+The whole land is alive, not just the north-west.
+- Monsters in every one of the 36 regions, about the same number in each; the far east and the
+  south get their own, tougher mix (bears, spiders, ogres, evil mages, orc archers and more).
+- Ten more adventurers (Rowan, Isla, Brom, Kestrel, Hale, Nyx, Garrick, Elda, Torin, Faye), and all
+  of them now spread out over the whole map instead of crowding the first regions; several join the guilds.
+- Three new guild towers in the south and east: Southwatch, Eastmarch and Farhold.
+- A pair of landings on Reedmere, the lake of the south-west.
+- Bounties for the southern and eastern wilds.
+- Warden Sela at Highmoor has a quest: The Southern Wilds.
+- Twice as many dead rise at night, scattered across the land.
+
 ## 0.70.1
 - Fix: the game wouldn't start in 0.68.1-0.70.0 (a type the movie's title animation left unclear).
 
