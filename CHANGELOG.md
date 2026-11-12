@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.70.0
+One look, at 60 frames a second.
+- The Graphics setting is gone: everything is always on, at its best - shadows in two cascades,
+  grass and flowers, fine ground, the glow, the colour grade, smooth edges, full resolution.
+- What High costs is kept down where it doesn't show: edges smoothed by FXAA instead of MSAA (a
+  fraction of the cost on phones), the glow on two levels only, shadows to 40 m on a 2048 map
+  that fade out at their edge.
+- The frame-rate keeper no longer turns anything off. If a phone can't hold 60, it only lowers the
+  3D resolution a little, a step at a time, and raises it again when it can; buttons and text
+  always stay sharp.
+
 ## 0.69.1
 The Movie gets a soundtrack.
 - Its own score, written for it: driving drums and bass, brass and a choir (the game's other

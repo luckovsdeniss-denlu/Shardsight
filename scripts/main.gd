@@ -998,19 +998,17 @@ func _quest_text() -> String:
 ## Called by Entity._die for every death.
 # --- keeping the frame rate up --------------------------------------------------------------
 
-var _render_base := 0.85              # the 3D resolution the graphics setting asks for
-var _render_scale := 0.85             # what it is right now
+var _render_base := 1.0               # the 3D resolution aimed for (full)
+var _render_scale := 1.0              # what it is right now
 var _fps_acc := 0.0
 var _fps_frames := 0
 
 
-## Aiming at 60 frames a second. Measured every two seconds: under 54, the 3D picture is drawn
-## at a lower resolution, a step at a time, down to half; if that isn't enough, the sun's shadows
-## go, then the grass, flowers and fine ground (these stay off until the graphics setting is
-## changed, so nothing flickers on and off). After ten smooth seconds the resolution climbs back a
-## step; if that brings the stutter back, it settles where it was. Buttons and text stay sharp.
+## Holding 60 frames a second. Measured every two seconds: under 55, the 3D picture is drawn at a
+## slightly lower resolution, a step at a time (down to half at the very most); nothing else is
+## ever turned off. After ten smooth seconds the resolution climbs back a step; if that brings the
+## stutter back, it settles where it was. Buttons and text always stay sharp.
 const FPS_GOAL := 60
-var _perf_tier := 0                   # 0 as set, 1 no shadows, 2 no decor or fine ground either
 var _fps_good := 0                    # smooth two-second spells in a row
 var _scale_cap := 1.0                 # the resolution it has learned not to go above
 var _fps_windows := 0
@@ -1030,15 +1028,13 @@ func _adapt_resolution(delta: float) -> void:
 		return                                 # the first seconds stutter while everything loads: don't judge by them
 	_raised_ago += 1
 	var want := _render_scale
-	if fps < FPS_GOAL * 0.9:
+	if fps < FPS_GOAL * 0.92:
 		_fps_good = 0
 		if _raised_ago <= 2:
 			_scale_cap = maxf(_render_scale - 0.05, 0.5)   # going up again cost too much: stay below
 		if _render_scale > 0.5:
 			want = maxf(_render_scale - (0.1 if fps < FPS_GOAL * 0.6 else 0.05), 0.5)
-		elif _perf_tier < 2:
-			_perf_tier += 1
-			_apply_perf_tier()
+		# (below that nothing is turned off: the look stays whole)
 	elif fps > FPS_GOAL * 0.97:
 		_fps_good += 1
 		if _fps_good >= 5 and _render_scale < minf(_render_base, _scale_cap):
@@ -1050,23 +1046,6 @@ func _adapt_resolution(delta: float) -> void:
 	if not is_equal_approx(want, _render_scale):
 		_render_scale = want
 		get_viewport().scaling_3d_scale = _render_scale
-
-
-## What is given up when a lower resolution alone can't hold the frame rate.
-func _apply_perf_tier() -> void:
-	if _perf_tier >= 1:
-		sun.shadow_enabled = false
-	if _perf_tier >= 2:
-		world.set_ground_detail(false)
-		for n in world.decor:
-			if n != null:
-				(n as Node3D).visible = false
-		env.glow_enabled = false
-		if _grade != null:
-			_grade.visible = false
-		get_viewport().msaa_3d = Viewport.MSAA_DISABLED
-		if rain != null:
-			rain.amount = 250
 
 
 # --- the world in motion: banners, birds, butterflies, leaves, the ankhs ---------------------
@@ -6309,8 +6288,6 @@ func _refresh_settings() -> void:
 	settings_box.add_child(title)
 	settings_box.add_child(_menu_button("Sound: " + ("On" if property.sound_on else "Off"), _toggle_sound))
 	settings_box.add_child(_menu_button("Music: " + ("On" if property.music_on else "Off"), _toggle_music))
-	settings_box.add_child(_menu_button("Graphics: " + property.graphics.capitalize(), _cycle_graphics))
-	settings_box.add_child(_info("Graphics: Low turns off shadows and grass details and renders at 70% (smoothest on older phones); Medium keeps shadows at 85%; High renders at full resolution with smoother edges."))
 	settings_box.add_child(_menu_button("Weather: " + ("On" if property.weather_on else "Off (always clear)"), _toggle_weather))
 	settings_box.add_child(_menu_button("Ruleset: " + ("Trammel (no player killing)" if property.ruleset == "trammel" else "Felucca (open player-vs-player)"), _toggle_ruleset))
 	settings_box.add_child(_info("Felucca: players may attack each other outside town (never inside a town: towns are safe). Trammel: players can't hurt each other at all, except guilds at war."))
@@ -6329,40 +6306,37 @@ func _toggle_ruleset() -> void:
 	_refresh_settings()
 
 
-func _cycle_graphics() -> void:
-	var order := ["low", "medium", "high"]
-	property.graphics = order[(order.find(property.graphics) + 1) % order.size()]
-	_apply_graphics()
-	_refresh_settings()
-
-
-## Quality settings for slower phones: shadows, grass details, render scale, edge smoothing.
+## One look for everyone: everything on, at its best - with the cost of each kept down where it
+## doesn't show. Shadows in two cascades to 40 m on a 2048 map, grass and flowers, fine ground,
+## the glow (a light one), the colour grade, smooth edges by FXAA (a fraction of the cost of
+## MSAA on phones). The only thing that ever gives is the 3D resolution, quietly, if a phone
+## can't hold 60 frames a second.
 func _apply_graphics() -> void:
-	var g := property.graphics
-	sun.shadow_enabled = g != "low"
-	# shadows only as far as the camera sees, in one cascade (two on High): far cheaper than the
-	# default four cascades out to 100 m
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if g == "high" else DirectionalLight3D.SHADOW_ORTHOGONAL
-	sun.directional_shadow_max_distance = 45.0 if g == "high" else 30.0
-	world.set_ground_detail(g != "low")
-	_render_base = {"low": 0.7, "medium": 0.85, "high": 1.0}[g]
-	_render_scale = _render_base
-	_perf_tier = 0                                    # a fresh start for the frame-rate keeper
+	property.graphics = "high"
+	sun.shadow_enabled = true
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_max_distance = 40.0
+	sun.directional_shadow_fade_start = 0.85
+	world.set_ground_detail(true)
+	_render_base = 1.0
+	_render_scale = 1.0
 	_scale_cap = 1.0
 	_fps_good = 0
-	# a smaller shadow map is plenty for shadows that reach 30 m (45 m on High)
-	RenderingServer.directional_shadow_atlas_set_size(2048 if g == "high" else 1024, true)
+	RenderingServer.directional_shadow_atlas_set_size(2048, true)
 	for n in world.decor:
 		if n != null:
-			(n as Node3D).visible = g != "low"
+			(n as Node3D).visible = true
 	var vp := get_viewport()
-	vp.scaling_3d_scale = {"low": 0.7, "medium": 0.85, "high": 1.0}[g]
-	vp.msaa_3d = Viewport.MSAA_2X if g == "high" else Viewport.MSAA_DISABLED
-	env.glow_enabled = g == "high"                    # a soft glow round fire and magic (costly on phones)
+	vp.scaling_3d_scale = 1.0
+	vp.msaa_3d = Viewport.MSAA_DISABLED
+	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+	env.glow_enabled = true                           # a soft glow round fire and magic
+	for lv in range(7):
+		env.set_glow_level(lv, lv in [1, 2])         # two levels only: most of the look, little of the cost
 	if _grade != null:
-		_grade.visible = g != "low"                   # the colour grade (a full-screen pass) on Medium and High
+		_grade.visible = true
 	if rain != null:
-		rain.amount = 250 if g == "low" else (800 if weather == "storm" else 500)
+		rain.amount = 800 if weather == "storm" else 500
 
 
 func _toggle_music() -> void:
