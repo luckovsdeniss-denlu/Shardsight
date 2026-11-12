@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.75.1
+- A frame counter at the top middle of the screen, over everything (the title and the movie too):
+  frames a second and the 3D resolution in use; green at 55 and over, yellow from 40, red below.
+
 ## 0.75.0
 The south and the east filled in: the whole map has places worth going to.
 - Four new wild regions, each with its own look, name and creatures:

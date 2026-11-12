@@ -184,6 +184,7 @@ func _ready() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	ui_layer = layer
+	_build_fps_counter()
 	# Upper left: a button that shows or hides the stats text under it.
 	stats_button = _menu_button("", _toggle_stats)
 	stats_button.custom_minimum_size = Vector2(180, 60)
@@ -5108,6 +5109,40 @@ func _process(delta: float) -> void:
 
 var _hud_timer := 0.0
 var _tick_n := 0
+
+
+## The frame counter: top middle, over everything (the movie too), green at 55+, yellow, red under 40,
+## with the 3D resolution the frame-rate keeper has settled on.
+var _fps_label: Label
+
+
+func _build_fps_counter() -> void:
+	var top := CanvasLayer.new()
+	top.layer = 100
+	add_child(top)
+	_fps_label = Label.new()
+	_fps_label.add_theme_font_size_override("font_size", 22)
+	_fps_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_fps_label.add_theme_constant_override("outline_size", 8)
+	_fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(_fps_label)
+	_fps_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_fps_label.offset_left = -110.0
+	_fps_label.offset_right = 110.0
+	_fps_label.offset_top = 6.0
+	var t := Timer.new()
+	t.wait_time = 0.5
+	t.autostart = true
+	t.timeout.connect(_update_fps_counter)
+	add_child(t)
+
+
+func _update_fps_counter() -> void:
+	var fps := Engine.get_frames_per_second()
+	_fps_label.text = "%d FPS  ·  %d%%" % [fps, roundi(_render_scale * 100.0)]
+	_fps_label.add_theme_color_override("font_color",
+		Color(0.45, 1.0, 0.45) if fps >= 55 else (Color(1.0, 0.85, 0.3) if fps >= 40 else Color(1.0, 0.4, 0.35)))
 
 
 ## Bodies don't pass through each other: any two that overlap are eased apart (each by half the
