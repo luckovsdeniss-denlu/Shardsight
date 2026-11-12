@@ -258,7 +258,7 @@ func _next() -> void:
 	for l in [_title, _sub]:                            # the words slide in and fade up
 		l.modulate.a = 0.0
 		l.position.x = -40.0
-		var tw := l.create_tween().set_parallel(true)
+		var tw: Tween = l.create_tween().set_parallel(true)
 		tw.tween_property(l, "modulate:a", 1.0, 0.7).set_delay(0.4 if l == _title else 0.75)
 		tw.tween_property(l, "position:x", 0.0, 0.9).set_delay(0.4 if l == _title else 0.75).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_rule.custom_minimum_size.x = 0.0

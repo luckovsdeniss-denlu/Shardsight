@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.70.1
+- Fix: the game wouldn't start in 0.68.1-0.70.0 (a type the movie's title animation left unclear).
+
 ## 0.70.0
 One look, at 60 frames a second.
 - The Graphics setting is gone: everything is always on, at its best - shadows in two cascades,
