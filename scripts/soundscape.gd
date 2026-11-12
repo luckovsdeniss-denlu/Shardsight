@@ -17,6 +17,7 @@ const SPACES := {
 ## Builds the buses once (they last through scene reloads).
 static func setup() -> void:
 	if AudioServer.get_bus_index("SFX") >= 0:
+		_levels()
 		return
 	for b in BUSES:
 		AudioServer.add_bus()
@@ -59,6 +60,18 @@ static func setup() -> void:
 	comp.attack_us = 20.0
 	comp.release_ms = 200.0
 	AudioServer.add_bus_effect(0, comp)
+	_levels()
+
+
+## The balance: the music up front, the sound effects and the ambience under it.
+const SFX_DB := -9.0
+const AMBIENCE_DB := -5.0
+
+
+static func _levels() -> void:
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("SFX"), SFX_DB)
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Ambience"), AMBIENCE_DB)
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Music"), 0.0)
 
 
 ## Each half second: the echo of the place, and the muffling of a ghost or someone near death.

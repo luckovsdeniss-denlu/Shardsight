@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.76.2
+- The music comes forward: every sound effect is 9 dB quieter (about a third as loud), and the
+  ambience (wind, water, crickets, rain, the tavern) 5 dB quieter. The movie too.
+
 ## 0.76.1
 - No polymorph in the movie: nobody changes shape (polymorph, beast, lich or wraith form) while it plays.
 
