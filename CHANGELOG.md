@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.77.0
+Half the monsters, and a town in every part of the land.
+- Monsters halved: of every kind the land has more than one of, half are gone (about 118 in all,
+  was about 226). The one-of-a-kind ones (chiefs, bosses, the Lich) and the beasts you can ride
+  all stay. 3 dead rise at night (were 6).
+- Four new towns, each with a healer, a merchant, a banker and a bounty board: Westford in the
+  west, Reedwick by the Reedmarsh, Midmark in the middle of the land and Stormhold in the east.
+  There are nine towns now, spread over the whole map.
+- Roads join the new towns to their neighbours, the towers and the caves.
+
 ## 0.76.3
 The movie, calmer:
 - No camera shake when a spell lands (the flash and the slow motion stay).

@@ -341,6 +341,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	frontier = Frontier.new()
 	frontier.setup(self, layer)
+	_halve_monsters()
 	for e in creatures:
 		e.show_name(property.names_on)
 	if property.rune.x < 0 or property.runes.is_empty():
@@ -1509,7 +1510,7 @@ func _raise_night_dead() -> void:
 	var kinds := [["Skeleton", Bestiary.SKELETON, Color("d8d2c0")], ["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")],
 		["Skeleton Archer", Bestiary.SKELETON_ARCHER, Color("d8d2c0")]]
 	_night_dead.clear()
-	for i in range(6):
+	for i in range(3):
 		var k: Array = kinds[i % kinds.size()]
 		_night_dead.append(pool_spawn(String(k[0]), k[1], k[2], _wild_spot()))
 	event_about("Night falls, and the restless dead rise in the wilds.", true)
@@ -4182,6 +4183,17 @@ func _spawn_all() -> void:
 	var wyn := _spawn(Entity.Kind.NPC, "Wyn", Bestiary.MERCHANT, cream, Vector2i(104, 102))
 	wyn.shop = Shop.new("Highmoor", 1.25, 1.2)
 	_spawn(Entity.Kind.NPC, "Osric", Bestiary.BANKER, cream, Vector2i(100, 106))
+	# Four more towns, so that every part of the land has one: Westford in the west, Reedwick by
+	# the Reedmarsh, Midmark in the middle of the land, Stormhold in the east.
+	for t in [["Westford", Vector2i(7, 90), "Sister Wenna", "Dob", "Hesk", 1.2],
+			["Reedwick", Vector2i(39, 102), "Brother Aldo", "Fen", "Garra", 1.2],
+			["Midmark", Vector2i(80, 75), "Sister Mael", "Corwin", "Lise", 1.1],
+			["Stormhold", Vector2i(124, 44), "Brother Kord", "Yara", "Thane", 1.3]]:
+		var o: Vector2i = t[1]
+		_spawn(Entity.Kind.NPC, String(t[2]), Bestiary.HEALER, cream, o + Vector2i(2, 2))
+		var shopkeep := _spawn(Entity.Kind.NPC, String(t[3]), Bestiary.MERCHANT, cream, o + Vector2i(8, 2))
+		shopkeep.shop = Shop.new(String(t[0]), float(t[5]), float(t[5]) - 0.05)
+		_spawn(Entity.Kind.NPC, String(t[4]), Bestiary.BANKER, cream, o + Vector2i(5, 6))
 
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(12, 8))
 	_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, Vector2i(6, 11))
@@ -4285,6 +4297,26 @@ func _even_out_monsters(rng: RandomNumberGenerator) -> void:
 			var pick: Array = south[(i * 3 + _k) % south.size()] if far else near_pick
 			var cfg: Dictionary = pick[1]
 			_spawn(Entity.Kind.MONSTER, String(pick[0]), cfg, pick[2], world.open_tile_in(world.zone_rect(i), rng))
+
+
+## Half the wild: of each kind of monster that the land has more than one of, every second one is
+## taken away (the one-of-a-kind ones - chiefs, bosses, the Lich - and the beasts you can ride all stay).
+func _halve_monsters() -> void:
+	var counts := {}
+	for e in creatures:
+		if e.kind == Entity.Kind.MONSTER:
+			counts[e.display_name] = int(counts.get(e.display_name, 0)) + 1
+	var seen := {}
+	for e in creatures.duplicate():
+		if e.kind != Entity.Kind.MONSTER or int(counts[e.display_name]) < 2 or e.display_name in MOUNTS:
+			continue
+		seen[e.display_name] = int(seen.get(e.display_name, 0)) + 1
+		if int(seen[e.display_name]) % 2 == 1:     # (the first, third, ...: of three, two go)
+			creatures.erase(e)
+			e.queue_free()
+
+
+const MOUNTS := ["Horse", "Llama", "Forest Ostard", "Swamp Dragon", "Nightmare", "Giant Beetle"]
 
 
 func _spawn(kind: int, label_text: String, cfg: Dictionary, color: Color, tile: Vector2i) -> Entity:

@@ -17,7 +17,8 @@ const ARENA_RADIUS := 3.5
 const STAIRS := Vector2i(47, 21)            # the stairs down, in the dungeon's deepest hall
 const DUNGEON_DOOR := Vector2i(38, 16)      # where you arrive on a new level
 const DEPTH_BOSS_AT := Vector2i(39, 13)
-const BOARDS := [Vector2i(28, 11), Vector2i(40, 6), Vector2i(45, 34), Vector2i(109, 15), Vector2i(101, 107)]   # a bounty board in each town
+const BOARDS := [Vector2i(28, 11), Vector2i(40, 6), Vector2i(45, 34), Vector2i(109, 15), Vector2i(101, 107),
+	Vector2i(12, 97), Vector2i(44, 109), Vector2i(85, 82), Vector2i(129, 51)]   # a bounty board in each town
 const DOCKS := [
 	{"name": "Westmere Landing", "tile": Vector2i(5, 15), "to": 1},
 	{"name": "Eastmere Landing", "tile": Vector2i(13, 15), "to": 0},
@@ -515,7 +516,7 @@ func _spawn_wildlife() -> void:
 			Color("ff7a2a"), [Vector2i(137, 4)]],
 		["Wolf", Bestiary.WOLF, Color("c0392b"), [Vector2i(100, 20), Vector2i(120, 22)]],
 		["Brown Bear", Bestiary.BROWN_BEAR, Color("6b4a2a"), [Vector2i(135, 25), Vector2i(130, 40)]],
-		["Orc", Bestiary.ORC, Color("c0392b"), [Vector2i(140, 30), Vector2i(125, 44), Vector2i(98, 4)]],
+		["Orc", Bestiary.ORC, Color("c0392b"), [Vector2i(140, 30), Vector2i(138, 44), Vector2i(98, 4)]],
 		["Hind", Bestiary.HIND, Color("b08a5a"), [Vector2i(102, 30), Vector2i(105, 40)]],
 		["Horse", Bestiary.HORSE, Color("7a5232"), [Vector2i(118, 26), Vector2i(100, 36)]],
 		# the south and the far east: the Whitepeaks, the Dunes of Kesh, the Reedmarsh, the Cinderfields
