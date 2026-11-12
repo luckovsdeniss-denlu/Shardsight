@@ -144,9 +144,6 @@ func _build_ui() -> void:
 	skip.custom_minimum_size = Vector2(150, 56)
 	skip.add_theme_font_size_override("font_size", 24)
 	skip.pressed.connect(finish)
-	add_child(skip)
-	skip.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
-	skip.offset_top += vs.y * 0.12 * 0.15
 	# the grain, the dark corners, the light leak and the flash, under the titles
 	var fxr := ColorRect.new()
 	var sh := Shader.new()
@@ -190,6 +187,17 @@ func _build_ui() -> void:
 	_fade.modulate.a = 0.0
 	add_child(_fade)
 	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Skip: over everything (even the dips to black), well in from the corner (rounded corners and
+	# camera cut-outs), in the middle of the top bar
+	add_child(skip)
+	skip.anchor_left = 1.0
+	skip.anchor_right = 1.0
+	skip.anchor_top = 0.0
+	skip.anchor_bottom = 0.0
+	skip.offset_right = -64.0
+	skip.offset_left = -64.0 - 150.0
+	skip.offset_top = maxf((vs.y * 0.12 - 56.0) / 2.0, 8.0)
+	skip.offset_bottom = skip.offset_top + 56.0
 
 
 func _label(px: int, col: Color) -> Label:
@@ -209,7 +217,7 @@ func _label(px: int, col: Color) -> Label:
 ## "to", looking at "at").
 func _make_shots() -> void:
 	shots = [
-		{"title": "SHARDSIGHT", "sub": "A world of swords, spells and skill.", "dur": 6.0, "day": 0.35, "weather": "clear",
+		{"title": "SHARDSIGHT", "sub": "A world of swords, spells and skill.", "dur": 6.0, "no_hero": true, "day": 0.35, "weather": "clear",
 			"at": _tc(Vector2i(24, 9)), "r": 20.0, "h": 17.0, "a0": 0.4, "a1": 1.3},
 		{"title": "Living towns", "sub": "Healers, priests, merchants, bankers - and folk who keep their own days.", "dur": 6.0,
 			"at": _tc(Vector2i(24, 10)), "r": 9.0, "h": 6.0, "a0": 2.4, "a1": 3.4, "setup": _stage_town},
@@ -270,6 +278,7 @@ func _next() -> void:
 		gm.set_shader_parameter("snow", 0.8 if bool(sh.get("winter", false)) else 0.0)
 	if sh.has("setup"):
 		(sh["setup"] as Callable).call()
+	hero.visible = not bool(sh.get("no_hero", false))
 	_title.text = " ".join(String(sh["title"]).to_upper().split(""))   # spaced capitals
 	_sub.text = String(sh["sub"])
 	for l in [_title, _sub]:                            # the words slide in and fade up

@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.74.0
+- The movie opens on the land alone: no hero in the first shot.
+- The movie's Skip button sits in the middle of the top bar, well in from the corner, and stays
+  on top of everything (it no longer vanishes in the dips to black).
+- Fewer monsters: the regions that had none get 3 each (were topped up to 6), about 140 in the
+  whole land instead of about 220; 6 dead rise at night (were 8).
+
 ## 0.73.3
 - Fix: the movie froze on its first scene. On a fresh game the story's first chapter opened
   half a second in and paused everything, and with the movie's interface hidden it couldn't be

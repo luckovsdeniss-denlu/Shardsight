@@ -1463,7 +1463,7 @@ func _raise_night_dead() -> void:
 	var kinds := [["Skeleton", Bestiary.SKELETON, Color("d8d2c0")], ["Zombie", Bestiary.ZOMBIE, Color("6f8f5a")],
 		["Skeleton Archer", Bestiary.SKELETON_ARCHER, Color("d8d2c0")]]
 	_night_dead.clear()
-	for i in range(8):                         # (the land is wide: eight of them)
+	for i in range(6):
 		var k: Array = kinds[i % kinds.size()]
 		_night_dead.append(pool_spawn(String(k[0]), k[1], k[2], _wild_spot()))
 	event_about("Night falls, and the restless dead rise in the wilds.", true)
@@ -4205,7 +4205,7 @@ func _spawn_all() -> void:
 	_even_out_monsters(rng)
 
 
-## Tops up the thinner regions so every one has about as many monsters as the busiest, picking
+## Tops up the empty regions to a few monsters each, picking
 ## a creature that suits the area (the start area stays gentle).
 func _even_out_monsters(rng: RandomNumberGenerator) -> void:
 	var counts: Array[int] = []
@@ -4216,7 +4216,7 @@ func _even_out_monsters(rng: RandomNumberGenerator) -> void:
 			for i in range(world.zone_count()):
 				if world.zone_rect(i).has_point(world.to_tile(e.home)):
 					counts[i] += 1
-	var goal: int = clampi(counts.max(), 5, 6)       # every region alike, north and south, west and east
+	var goal := 3                                    # the empty regions: a few each (the land is wide, not crowded)
 	if Experiments.on("crowded"):
 		goal = ceili(goal * 1.5)
 	var red := Color("c0392b")
@@ -4511,7 +4511,7 @@ func _build_rings() -> void:
 
 
 func _update_rings() -> void:
-	hero_ring.visible = not hero.dead and not property.first_person
+	hero_ring.visible = not hero.dead and not property.first_person and hero.visible
 	if select_ring != null and select_ring.visible and selected_player != null and is_instance_valid(selected_player):
 		select_ring.position = selected_player.position + Vector3(0.0, 0.04, 0.0)
 	hero_ring.position = hero.position + Vector3(0.0, 0.04, 0.0)
