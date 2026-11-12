@@ -74,6 +74,7 @@ func start(p_game) -> void:
 	hero = game.hero
 	layer = 50
 	game.add_child(self)
+	_snapshot()
 	# a clean screen: no buttons, log, stats or menus, no health bars (the words over heads stay:
 	# names, damage, spell words, loot)
 	if game.ui_layer != null:
@@ -143,7 +144,7 @@ func _build_ui() -> void:
 	skip.text = "Skip"
 	skip.custom_minimum_size = Vector2(150, 56)
 	skip.add_theme_font_size_override("font_size", 24)
-	skip.pressed.connect(finish)
+	skip.pressed.connect(finish.bind(true))
 	# the grain, the dark corners, the light leak and the flash, under the titles
 	var fxr := ColorRect.new()
 	var sh := Shader.new()
@@ -359,22 +360,114 @@ func tick(delta: float) -> bool:
 	return running
 
 
-func finish() -> void:
+func finish(skipped := false) -> void:
 	if not running:
 		return
 	running = false
 	Engine.time_scale = 1.0
 	Soundscape.slowmo = false
 	game.music.player.pitch_scale = 1.0
-	_sound("braam", 0.85, 2.0)                          # the last hit, and the score fades under the logo
-	game.create_tween().tween_property(game.music.player, "volume_db", -50.0, 4.0)
 	game.skip_save = true
 	_title.get_parent().visible = false
-	_end_logo()
 	var tw := _fade.create_tween()
+	if skipped:                                         # Skip: straight back, a quick dip to black
+		tw.tween_property(_fade, "modulate:a", 1.0, 0.35)
+		tw.tween_callback(_back_to_title)
+		return
+	_sound("braam", 0.85, 2.0)                          # the last hit, and the score fades under the logo
+	_music_fade = game.create_tween()
+	_music_fade.tween_property(game.music.player, "volume_db", -50.0, 4.0)
+	_end_logo()
 	tw.tween_interval(3.2)
 	tw.tween_property(_fade, "modulate:a", 1.0, 0.9)
-	tw.tween_callback(game.restart_to_title)           # back to the title, to choose how to play
+	tw.tween_callback(_back_to_title)                   # back to the title, to choose how to play (no reload)
+
+
+var _music_fade: Tween
+
+
+# --- leaving the movie without reloading the game -----------------------------------------------
+
+var _snap := {}
+
+
+## Everything the movie changes, as it was before (the hero, the clock, the weather, the records).
+func _snapshot() -> void:
+	_snap = {
+		"skills": hero.stats.skills.duplicate(), "str": hero.stats.strength, "dex": hero.stats.dexterity, "int": hero.stats.intelligence,
+		"spellbook": hero.spellbook.duplicate(), "weapon": hero.weapon, "armor": hero.armor_id, "shield": hero.shield_id,
+		"gold": hero.gold, "inventory": hero.inventory.duplicate(true), "reagents": hero.reagents, "bandages": hero.bandages,
+		"hp": hero.hp, "mana": hero.mana, "pos": hero.position, "fame": hero.fame, "karma": hero.karma,
+		"ai": hero.ai_enabled, "roam": hero.roam_timer, "day": game.day_time, "weather": game.weather,
+		"skip_save": game.skip_save, "auto_wait": game.frontier._auto_wait, "boat": game.frontier.data.get("boat", false),
+		"property": game.property.to_dict(), "counters": game.counters.duplicate(true),
+		"snow": (world.ground_material.get_shader_parameter("snow") if world.ground_material != null else 0.0),
+	}
+
+
+func _restore() -> void:
+	var f = game.frontier
+	if not f.sail.is_empty():                           # skipped out on the lake: back to the shore
+		f.sail = {}
+		f._sail_node.visible = false
+	for a in _actors:
+		if is_instance_valid(a) and not a.dead:
+			a.vanish()
+	_actors.clear()
+	if hero.form != "":
+		hero.form_timer = 0.0
+	hero.stats.skills = _snap["skills"]
+	hero.stats.strength = _snap["str"]
+	hero.stats.dexterity = _snap["dex"]
+	hero.stats.intelligence = _snap["int"]
+	hero.spellbook = _snap["spellbook"]
+	hero.weapon = _snap["weapon"]
+	hero.armor_id = _snap["armor"]
+	hero.shield_id = _snap["shield"]
+	hero.gold = _snap["gold"]
+	hero.inventory = _snap["inventory"]
+	hero.reagents = _snap["reagents"]
+	hero.bandages = _snap["bandages"]
+	hero.fame = _snap["fame"]
+	hero.karma = _snap["karma"]
+	hero.casting_id = ""
+	hero.target = null
+	hero.path.clear()
+	hero.position = _snap["pos"]
+	hero.hp = minf(float(_snap["hp"]), float(hero.stats.max_hp()))
+	hero.mana = minf(float(_snap["mana"]), float(hero.stats.max_mana()))
+	hero.ai_enabled = _snap["ai"]
+	hero.roam_timer = _snap["roam"]
+	hero.visible = true
+	hero.refresh_look()
+	game.day_time = _snap["day"]
+	game._set_weather(String(_snap["weather"]))
+	game.skip_save = _snap["skip_save"]
+	f._auto_wait = _snap["auto_wait"]
+	f.data["boat"] = _snap["boat"]
+	f._snow.emitting = false
+	if world.ground_material != null:
+		world.ground_material.set_shader_parameter("snow", _snap["snow"])
+	game.property.load_dict(_snap["property"])
+	game.counters = _snap["counters"]
+	Engine.time_scale = 1.0
+	Soundscape.slowmo = false
+	game.music.player.pitch_scale = 1.0
+
+
+## The end, or Skip: everything put back as it was, and the title with its mode buttons again -
+## the world stays loaded.
+func _back_to_title() -> void:
+	running = false
+	if _music_fade != null and _music_fade.is_valid():
+		_music_fade.kill()
+	if _end_card != null:
+		_end_card.visible = false
+	_restore()
+	game.movie_ended()
+	var tw := create_tween()
+	tw.tween_property(_fade, "modulate:a", 0.0, 0.6)
+	tw.tween_callback(queue_free)
 
 
 ## The last card: SHARDSIGHT in gold, a band of light sweeping across it, sparks rising.

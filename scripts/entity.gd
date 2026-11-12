@@ -913,8 +913,12 @@ func _fight() -> void:
 						target._fizzle("disrupted")
 		if special == "double":
 			swing_cd *= 0.25                   # the second strike follows at once
+		if target == null:
+			return                            # (the blow's after-effects ended it)
 		if target.flags.has("reactive_armor") and not dead:
 			_reflect_blow(dealt * 0.25, target)   # Reactive Armor sends part of a blow back
+		if target == null:
+			return
 		if poison_cfg.size() == 2 and not target.dead and randf() < float(poison_cfg[1]):
 			target.apply_poison(int(poison_cfg[0]), self)
 		if blade_poison_hits > 0 and not target.dead and (wielded == "" or not Gear.is_ranged(wielded)):

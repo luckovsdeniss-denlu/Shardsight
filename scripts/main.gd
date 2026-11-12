@@ -4029,6 +4029,24 @@ func _open_menu() -> void:
 
 
 ## After the movie: the game starts again from the title, nothing kept.
+## The movie is over (or skipped) and has put the hero back as they were: the interface returns
+## and so does the title with its mode buttons - the world stays as it is, nothing reloads.
+func movie_ended() -> void:
+	movie = null
+	start_mode = ""
+	paused = false
+	if ui_layer != null:
+		ui_layer.visible = true
+	_apply_graphics()
+	_set_quality(_q)
+	for e in creatures:
+		e.show_name(property.names_on)
+	music.set_enabled(property.music_on)
+	music.player.volume_db = Music.VOLUME_DB
+	_show_title(ui_layer)
+	_skip_flyby()                                  # (no second fly-by: the camera glides down to the hero)
+
+
 func restart_to_title() -> void:
 	start_mode = ""
 	get_tree().reload_current_scene()

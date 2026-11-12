@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.79.0
+- After the movie (or Skip) the game no longer reloads: everything the movie changed is put back
+  as it was (the hero's skills, spells, gear, gold, bag and place, the time of day, the weather,
+  the records), the interface returns and the title's mode buttons appear again at once.
+- Skip goes straight back (a quick dip to black); the full ending keeps its logo.
+- Fix: a script error when a blow's after-effects ended the fight mid-swing.
+
 ## 0.78.0
 Nothing over your hero's head, and your hero keeps their own shape - in the game and the movie.
 - No name, level or health bar over the hero, no casting bar, no damage numbers, spell words or
