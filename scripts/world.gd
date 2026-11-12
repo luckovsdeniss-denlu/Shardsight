@@ -1039,6 +1039,7 @@ func _ground_mat() -> ShaderMaterial:
 	var swamp_c := Color("33422a")
 	var ash_c := Color("3f3a38")
 	for py in range(h):
+		await _breathe(0.2 + 0.5 * float(py) / h)        # painting the land: the longest part
 		var fy := (py + 0.5) / PAINT_PX - 0.5
 		for px in range(w):
 			var fx := (px + 0.5) / PAINT_PX - 0.5
@@ -1182,15 +1183,43 @@ static func _flower() -> ArrayMesh:
 ## Builds the 3D scenery as children of `parent`: noise-textured ground and paving, then every
 ## wall, tree, rock and pool in batches (one MultiMesh per kind, each instance a little turned,
 ## sized and tinted), plus grass tufts and flowers for detail.
-func build(parent: Node3D) -> void:
+## Builds the land, a slice at a time: between slices it hands back a frame (so the loading
+## screen keeps moving) and reports how far it has got (0..1) through `progress`.
+var _progress := Callable()
+var _tree: SceneTree
+
+
+func _report(frac: float) -> void:
+	if _progress.is_valid():
+		_progress.call(frac)
+
+
+## Hands back a frame if this slice has run long enough (about 1/30 s), so nothing stalls.
+var _slice_from := 0
+
+
+func _breathe(frac: float) -> void:
+	if _tree == null or Time.get_ticks_msec() - _slice_from < 33:
+		return
+	_report(frac)
+	await _tree.process_frame
+	_slice_from = Time.get_ticks_msec()
+
+
+func build(parent: Node3D, progress := Callable()) -> void:
+	_progress = progress
+	_tree = parent.get_tree()
+	_slice_from = Time.get_ticks_msec()
 	var rnd := RandomNumberGenerator.new()
 	rnd.seed = 4242                        # the same forest every time
 	_build_heights()
+	await _breathe(0.15)
 	ground_mesh = PlaneMesh.new()
 	ground_mesh.size = Vector2(cols, rows) * TILE
 	ground_mesh.subdivide_width = cols - 1            # a quad a tile, to carry the hills
 	ground_mesh.subdivide_depth = rows - 1
-	_add(parent, ground_mesh, _ground_mat(), Vector3(cols, 0.0, rows) * TILE / 2.0)
+	var gm: ShaderMaterial = await _ground_mat()
+	_add(parent, ground_mesh, gm, Vector3(cols, 0.0, rows) * TILE / 2.0)
 	for r in TOWNS:
 		_add_floor(parent, r, Color("8a7f5a"),
 			_noise_mat([Color("a49678"), Color("8c7f63"), Color("5a5142")], 0.04, true, Vector2(r.size) / 3.0))
@@ -1229,6 +1258,7 @@ func build(parent: Node3D) -> void:
 	var flower_tints: Array[Color] = []
 	var petals := [Color(0.95, 0.9, 0.3), Color(0.95, 0.95, 0.95), Color(0.85, 0.35, 0.6), Color(0.55, 0.6, 1.0)]
 	for y in range(rows):
+		await _breathe(0.72 + 0.2 * float(y) / rows)     # trees, rocks, water and walls
 		for x in range(cols):
 			var t := Vector2i(x, y)
 			var c := tile_center(t)

@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.68.2
+- A smoother loading bar. The land is now built in short slices (about a thirtieth of a second
+  each) with the screen redrawn between them, so the bar moves steadily instead of freezing and
+  jumping; painting the land and growing the forests report their progress as they go. The bar
+  glides to each new point, creeps on a little while a step runs, and is one smooth fill from
+  cyan to gold with a soft glow and a shimmer running along it.
+
 ## 0.68.1
 The Movie, with more style.
 - Film grain and a soft flicker, darkened corners, and a warm light leak drifting along the left

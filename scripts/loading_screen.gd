@@ -74,6 +74,7 @@ var _bg_mat: ShaderMaterial
 var _fg: Control
 var _target := 0.0                 # where the bar is going
 var _shown := 0.0                  # where it is (eased)
+var _creep := 0.0                  # a slow drift past the target while a step runs
 var _status := ""
 var _typed := 0.0                  # characters of the status shown so far
 var _log: Array[String] = []
@@ -131,7 +132,11 @@ func finish() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
-	_shown = move_toward(_shown, _target, delta * 1.6)
+	# The bar glides: it eases towards where it's been told to go, and while it waits there it keeps
+	# creeping on a little (never past the next few per cent), so it never sits dead still.
+	_creep = minf(maxf(_creep, _target) + delta * 0.012, minf(_target + 0.06, 0.995))
+	var goal := maxf(_target, _creep)
+	_shown = lerpf(_shown, goal, 1.0 - exp(-delta * 4.0))
 	_typed += delta * 40.0
 	var vs := _root.get_viewport_rect().size
 	_bg_mat.set_shader_parameter("aspect", vs.x / maxf(vs.y, 1.0))
@@ -180,16 +185,18 @@ func _draw_fg() -> void:
 	var bx := c.x - bw / 2.0
 	var by := c.y + 280.0 * u
 	_fg.draw_rect(Rect2(bx - 3 * u, by - 3 * u, bw + 6 * u, bh + 6 * u), Color(cyan, 0.5), false, 1.5 * u)
-	var segs := 20
-	var gap := 3.0 * u
-	var sw := (bw - gap * (segs - 1)) / segs
-	for i in range(segs):
-		var f := clampf(_shown * segs - i, 0.0, 1.0)
-		if f <= 0.0:
-			_fg.draw_rect(Rect2(bx + i * (sw + gap), by, sw, bh), Color(cyan, 0.08))
-			continue
-		var col := cyan.lerp(gold, float(i) / segs)
-		_fg.draw_rect(Rect2(bx + i * (sw + gap), by, sw * f, bh), Color(col, 0.9))
+	# one smooth fill (cyan running to gold), a soft glow over it and a shimmer sliding along it
+	_fg.draw_rect(Rect2(bx, by, bw, bh), Color(cyan, 0.08))
+	var fill := bw * _shown
+	var steps := maxi(int(fill / (4.0 * u)), 1)
+	var sw := fill / steps
+	for i in range(steps):
+		var col := cyan.lerp(gold, (i + 0.5) * sw / bw)
+		_fg.draw_rect(Rect2(bx + i * sw, by, sw + 0.5, bh), Color(col, 0.9))
+	_fg.draw_rect(Rect2(bx, by - 2 * u, fill, bh + 4 * u), Color(gold, 0.08))
+	var shine := fmod(_t * 0.6, 1.0) * fill
+	for k in range(6):
+		_fg.draw_rect(Rect2(bx + shine - k * 6 * u, by, 6 * u, bh), Color(1, 1, 1, 0.22 * (1.0 - k / 6.0)))
 	var edge := bx + bw * _shown
 	_fg.draw_rect(Rect2(edge - 2 * u, by - 5 * u, 4 * u, bh + 10 * u), Color(1, 1, 1, 0.6 + 0.4 * sin(_t * 10.0)))
 	var pct := "%03d%%" % roundi(_shown * 100.0)

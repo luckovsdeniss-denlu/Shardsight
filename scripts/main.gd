@@ -157,20 +157,21 @@ func _ready() -> void:
 	set_process(false)
 	var loading := LoadingScreen.new()
 	add_child(loading)
-	loading.step(0.05, "Waking the shard")
+	loading.step(0.04, "Waking the shard")
 	await get_tree().process_frame
-	loading.step(0.3, "Raising the land")
+	loading.step(0.08, "Raising the land")
 	await get_tree().process_frame
-	world.build(self)
-	loading.step(0.5, "Lighting the sky")
+	await world.build(self, func(f: float) -> void:
+		loading.step(0.08 + 0.5 * f, "Painting the land" if f < 0.72 else "Growing the forests"))
+	loading.step(0.6, "Lighting the sky")
 	await get_tree().process_frame
 	_build_environment()
 	_build_marker()
-	loading.step(0.65, "Calling the creatures")
+	loading.step(0.68, "Calling the creatures")
 	await get_tree().process_frame
 	_spawn_all()
 	_build_rings()
-	loading.step(0.78, "Building the towns")
+	loading.step(0.8, "Building the towns")
 	await get_tree().process_frame
 
 	cam.fov = 50.0
