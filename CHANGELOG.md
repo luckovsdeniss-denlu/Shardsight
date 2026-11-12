@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.68.1
+The Movie, with more style.
+- Film grain and a soft flicker, darkened corners, and a warm light leak drifting along the left
+  edge in daylight scenes.
+- The black bars close in at the start; a thin gold thread along the bottom shows how far the
+  movie has run, and each scene is numbered ("03 / 15").
+- Titles in spaced capitals slide in and fade up, with a gold rule drawing itself under them.
+- Each scene starts wide and the camera slowly pushes in.
+- When a spell lands: a flash, a camera shake and a moment of slow motion.
+- Some scenes cut through white instead of black (magic, the storm, the world boss).
+- The end: SHARDSIGHT in gold, a band of light sweeping across it and golden sparks rising,
+  before it fades back to the title.
+
 ## 0.68.0
 The Movie.
 - A Movie button on the start screen (after the fly-by, beside Play, Tutorial and Experimental

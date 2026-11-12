@@ -20,6 +20,47 @@ var _bars: Array[ColorRect] = []
 var _actors: Array[Entity] = []
 var _fade: ColorRect
 var _cast_acc := 0.0
+var _fx: ShaderMaterial            # grain, vignette, a light leak, the flash
+var _rule: ColorRect               # the gold line under the title
+var _counter: Label
+var _progress: ColorRect
+var _shake := 0.0
+var _flash := 0.0
+var _was_casting := false
+var _slow := 0.0                   # real seconds of slow motion left
+var _end_card: Control
+const SWEEP_SHADER := """
+shader_type canvas_item;
+void fragment() {
+	vec4 c = texture(TEXTURE, UV) * COLOR;
+	float pos = fract(TIME * 0.3) * 1.8 - 0.4;
+	float band = smoothstep(0.07, 0.0, abs(SCREEN_UV.x - pos - (SCREEN_UV.y - 0.4) * 0.3));
+	c.rgb += vec3(1.0, 0.95, 0.8) * band * 0.85 * c.a;
+	COLOR = c;
+}
+"""
+const FX_SHADER := """
+shader_type canvas_item;
+uniform float flash = 0.0;
+uniform float leak = 0.0;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+void fragment() {
+	vec2 uv = UV;
+	// film grain and a soft flicker
+	float g = (hash(uv * 800.0 + vec2(TIME * 41.0, TIME * 73.0)) - 0.5) * 0.08;
+	float flick = sin(TIME * 23.0) * 0.012;
+	// the corners in shadow
+	float v = smoothstep(0.42, 0.95, length((uv - 0.5) * vec2(1.25, 1.0))) * 0.55;
+	// a warm light leak drifting across the left edge
+	float lk = leak * smoothstep(0.55, 0.0, uv.x + 0.15 * sin(TIME * 0.4 + uv.y * 3.0)) * 0.35;
+	vec3 col = vec3(1.0, 0.6, 0.3) * lk + vec3(g + flick);
+	float a = clamp(v + abs(g) + lk, 0.0, 1.0);
+	// a white flash on a big blow or a cut
+	col = mix(col, vec3(1.0, 0.97, 0.9), flash);
+	a = max(a, flash);
+	COLOR = vec4(mix(col, vec3(0.0), v / max(a, 0.001) * (1.0 - flash)), a);
+}
+"""
 
 
 func start(p_game) -> void:
@@ -79,6 +120,43 @@ func _build_ui() -> void:
 	add_child(skip)
 	skip.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
 	skip.offset_top += vs.y * 0.12 * 0.15
+	# the grain, the dark corners, the light leak and the flash, under the titles
+	var fxr := ColorRect.new()
+	var sh := Shader.new()
+	sh.code = FX_SHADER
+	_fx = ShaderMaterial.new()
+	_fx.shader = sh
+	fxr.material = _fx
+	fxr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(fxr)
+	move_child(fxr, 0)
+	fxr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# a gold rule that draws itself under each title, the scene's number, and a thread of progress
+	_rule = ColorRect.new()
+	_rule.color = Color(0.95, 0.78, 0.35)
+	_rule.custom_minimum_size = Vector2(0, 3)
+	_rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_title.get_parent().add_child(_rule)
+	_title.get_parent().move_child(_rule, 1)
+	_counter = _label(18, Color(0.95, 0.78, 0.35, 0.8))
+	add_child(_counter)
+	_counter.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_MINSIZE, 24)
+	_counter.offset_top += vs.y * 0.12 * 0.25
+	_progress = ColorRect.new()
+	_progress.color = Color(0.95, 0.78, 0.35, 0.8)
+	_progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_progress)
+	_progress.position = Vector2(0, vs.y - 3)
+	_progress.size = Vector2(0, 3)
+	# the bars close in at the start
+	for b in _bars:
+		var full := b.offset_bottom - b.offset_top
+		if b.offset_top == 0.0:
+			b.offset_bottom = 0.0
+			b.create_tween().tween_property(b, "offset_bottom", full, 1.0).set_trans(Tween.TRANS_SINE)
+		else:
+			b.offset_top = 0.0
+			b.create_tween().tween_property(b, "offset_top", -full, 1.0).set_trans(Tween.TRANS_SINE)
 	_fade = ColorRect.new()
 	_fade.color = Color.BLACK
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -110,7 +188,7 @@ func _make_shots() -> void:
 			"at": _tc(Vector2i(24, 10)), "r": 9.0, "h": 6.0, "a0": 2.4, "a1": 3.4, "setup": _stage_town},
 		{"title": "Fight", "sub": "Swords, axes, maces, spears, bows - and a different blow for each.", "dur": 8.0,
 			"at": _tc(Vector2i(14, 19)), "r": 4.5, "h": 2.6, "a0": 0.0, "a1": 1.4, "setup": _stage_fight.bind(Vector2i(14, 19), "Orc", Bestiary.ORC, 2)},
-		{"title": "Magic", "sub": "Sixty-seven spells in eight circles. Speak the old words.", "dur": 9.0,
+		{"title": "Magic", "sub": "Sixty-seven spells in eight circles. Speak the old words.", "dur": 9.0, "white": true,
 			"at": _tc(Vector2i(14, 19)), "r": 6.0, "h": 4.0, "a0": 1.4, "a1": 2.8, "setup": _stage_magic},
 		{"title": "The dungeon's depths", "sub": "Five levels down, each darker than the last.", "dur": 7.0,
 			"at": _tc(Vector2i(44, 16)), "r": 7.0, "h": 6.5, "a0": 3.0, "a1": 4.2, "setup": _stage_fight.bind(Vector2i(45, 19), "Skeleton", Bestiary.SKELETON, 2)},
@@ -128,9 +206,9 @@ func _make_shots() -> void:
 			"at": _tc(Vector2i(87, 34)), "r": 9.0, "h": 7.0, "a0": 5.0, "a1": 6.0, "setup": _stage_fight.bind(Vector2i(87, 34), "Zombie", Bestiary.ZOMBIE, 2)},
 		{"title": "The Church of the Shard", "sub": "Pray at the altar. The bell tolls at dawn.", "dur": 6.0, "day": 0.28,
 			"at": _tc(Vector2i(26, 18)), "r": 6.5, "h": 6.0, "a0": 1.2, "a1": 2.0, "setup": _stage_place.bind(Vector2i(26, 18))},
-		{"title": "Seasons and storms", "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true,
+		{"title": "Seasons and storms", "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true, "white": true,
 			"at": _tc(Vector2i(30, 30)), "r": 18.0, "h": 13.0, "a0": 3.5, "a1": 4.3},
-		{"title": "World bosses", "sub": "Now and then a giant wakes. The whole land comes to fight it.", "dur": 9.0, "day": 0.55, "weather": "clear",
+		{"title": "World bosses", "sub": "Now and then a giant wakes. The whole land comes to fight it.", "dur": 9.0, "day": 0.55, "weather": "clear", "white": true,
 			"at": _tc(Vector2i(60, 26)), "r": 8.0, "h": 5.0, "a0": 0.2, "a1": 1.5, "setup": _stage_boss},
 		{"title": "Your story", "sub": "Quests, bounties, guilds, a house, a horse, a boat. Begin.", "dur": 6.0,
 			"at": _tc(Vector2i(24, 9)), "r": 30.0, "h": 26.0, "a0": 1.3, "a1": 1.9},
@@ -162,15 +240,24 @@ func _next() -> void:
 		gm.set_shader_parameter("snow", 0.8 if bool(sh.get("winter", false)) else 0.0)
 	if sh.has("setup"):
 		(sh["setup"] as Callable).call()
-	_title.text = String(sh["title"])
+	_title.text = " ".join(String(sh["title"]).to_upper().split(""))   # spaced capitals
 	_sub.text = String(sh["sub"])
-	for l in [_title, _sub]:
+	for l in [_title, _sub]:                            # the words slide in and fade up
 		l.modulate.a = 0.0
-		var tw := l.create_tween()
-		tw.tween_interval(0.4)
-		tw.tween_property(l, "modulate:a", 1.0, 0.7)
-	_fade.modulate.a = 1.0                              # a dip to black between scenes
-	_fade.create_tween().tween_property(_fade, "modulate:a", 0.0, 0.6)
+		l.position.x = -40.0
+		var tw := l.create_tween().set_parallel(true)
+		tw.tween_property(l, "modulate:a", 1.0, 0.7).set_delay(0.4 if l == _title else 0.75)
+		tw.tween_property(l, "position:x", 0.0, 0.9).set_delay(0.4 if l == _title else 0.75).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_rule.custom_minimum_size.x = 0.0
+	_rule.create_tween().tween_property(_rule, "custom_minimum_size:x", 360.0, 1.0).set_delay(0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_counter.text = "%02d / %02d" % [i + 1, shots.size()]
+	_fx.set_shader_parameter("leak", 1.0 if float(sh.get("day", 0.4)) > 0.2 and String(sh.get("weather", "clear")) != "storm" else 0.0)
+	game.cam.fov = 60.0                                 # each scene starts wide and pushes in
+	if bool(sh.get("white", false)):
+		_flash = 1.0                                    # a cut through white
+	else:
+		_fade.modulate.a = 1.0                          # a dip to black between scenes
+		_fade.create_tween().tween_property(_fade, "modulate:a", 0.0, 0.6)
 
 
 ## Runs the scene: films it and keeps the hero going. Returns false once the movie is over.
@@ -188,8 +275,26 @@ func tick(delta: float) -> bool:
 		if _cast_acc >= 1.6:
 			_cast_acc = 0.0
 			_cast_something()
+	# a spell landing: a flash, a shake and a moment of slow motion
+	var casting := hero.casting_id != ""
+	if _was_casting and not casting:
+		_flash = maxf(_flash, 0.45)
+		_shake = 0.35
+		_slow = 0.5
+		Engine.time_scale = 0.35
+	_was_casting = casting
+	if _slow > 0.0:
+		_slow -= delta / maxf(Engine.time_scale, 0.05)  # counted in real seconds
+		if _slow <= 0.0:
+			Engine.time_scale = 1.0
+	_flash = maxf(_flash - delta * 2.5, 0.0)
+	_fx.set_shader_parameter("flash", _flash)
+	_shake = maxf(_shake - delta * 1.5, 0.0)
+	var vs := get_viewport().get_visible_rect().size
+	_progress.size.x = vs.x * (float(i) + clampf(t / dur, 0.0, 1.0)) / float(shots.size())
 	var k := smoothstep(0.0, 1.0, clampf(t / dur, 0.0, 1.0))
 	var cam: Camera3D = game.cam
+	cam.fov = lerpf(60.0, 48.0, k)                      # a slow push in
 	var look: Vector3 = sh["at"]
 	if sh.has("from"):
 		cam.position = (sh["from"] as Vector3).lerp(sh["to"], k)
@@ -197,6 +302,9 @@ func tick(delta: float) -> bool:
 		var a := lerpf(float(sh["a0"]), float(sh["a1"]), k)
 		cam.position = look + Vector3(cos(a) * float(sh["r"]), float(sh["h"]), sin(a) * float(sh["r"]))
 	cam.look_at(look + Vector3(0, 0.8, 0), Vector3.UP)
+	if _shake > 0.0:
+		cam.position += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * _shake * 0.25
+		cam.rotate_object_local(Vector3(0, 0, 1), randf_range(-1, 1) * _shake * 0.03)
 	game.view_planes = cam.get_frustum()
 	if t >= dur:
 		_next()
@@ -207,10 +315,58 @@ func finish() -> void:
 	if not running:
 		return
 	running = false
+	Engine.time_scale = 1.0
 	game.skip_save = true
+	_title.get_parent().visible = false
+	_end_logo()
 	var tw := _fade.create_tween()
-	tw.tween_property(_fade, "modulate:a", 1.0, 0.8)
+	tw.tween_interval(3.2)
+	tw.tween_property(_fade, "modulate:a", 1.0, 0.9)
 	tw.tween_callback(game.restart_to_title)           # back to the title, to choose how to play
+
+
+## The last card: SHARDSIGHT in gold, a band of light sweeping across it, sparks rising.
+func _end_logo() -> void:
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(dim)
+	move_child(dim, get_child_count() - 2)              # under the fade
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_end_card = CenterContainer.new()
+	_end_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_end_card)
+	move_child(_end_card, get_child_count() - 2)
+	_end_card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var logo := _label(110, Color(0.95, 0.8, 0.4))
+	logo.text = "S H A R D S I G H T"
+	var sweep := Shader.new()
+	sweep.code = SWEEP_SHADER
+	var sm := ShaderMaterial.new()
+	sm.shader = sweep
+	logo.material = sm
+	_end_card.add_child(logo)
+	logo.modulate.a = 0.0
+	logo.create_tween().tween_property(logo, "modulate:a", 1.0, 1.0)
+	var sparks := CPUParticles2D.new()
+	sparks.amount = 60
+	sparks.lifetime = 2.5
+	sparks.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	sparks.emission_rect_extents = Vector2(get_viewport().get_visible_rect().size.x / 2.0, 10)
+	sparks.direction = Vector2(0, -1)
+	sparks.spread = 25.0
+	sparks.initial_velocity_min = 60.0
+	sparks.initial_velocity_max = 160.0
+	sparks.gravity = Vector2.ZERO
+	sparks.scale_amount_min = 2.0
+	sparks.scale_amount_max = 4.0
+	sparks.color = Color(1.0, 0.82, 0.4, 0.9)
+	var vs := get_viewport().get_visible_rect().size
+	sparks.position = Vector2(vs.x / 2.0, vs.y * 0.85)
+	add_child(sparks)
+	move_child(sparks, get_child_count() - 2)
+	_flash = 0.0
+	game.sound("gain", hero.position, 0.7, 2.0)
 
 
 # --- staging -------------------------------------------------------------------------------------
