@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.77.2
+- The old walls beside the church are gone: the one along its east side and the one just south
+  of it. The church stands in the open, reachable from every side.
+
 ## 0.77.1
 The movie's speed-ups, in the game itself:
 - Creatures more than 48 m from the camera aren't drawn or animated.
