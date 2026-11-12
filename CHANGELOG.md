@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.67.0
+Ravenhollow Cemetery.
+- The old walled graveyard of the south-east is a cemetery now: rows of headstones, crosses,
+  stone tombs and broken stones (old ones leaning) over earth mounds, an obelisk, bare dead
+  trees, lanterns burning with a cold green light, and an iron gate standing ajar on the west.
+  It is named on the map and the minimap, and in the opening fly-by.
+- At night, pale wisps drift among the graves.
+- The Tomb of the Old Kings, a marble tomb with columns, in the north of the cemetery. Once a
+  night you may break its seal - and wake the Barrow King, a great armoured skeleton who keeps
+  the old kings' gold (gems, a crown of bones, a heavy purse).
+- A few graves lie beside the church, under its east wall.
+
 ## 0.66.2
 - No fog at all: the foggy weather is gone (its share of the days is rain now), and so is the
   light haze on clear days and the mist in rain and storms. The land is seen clear to the horizon.

@@ -391,6 +391,7 @@ func setup(p_game, layer: CanvasLayer) -> void:
 	_build_arena()
 	_build_boards()
 	_build_church()
+	_build_cemetery()
 	_build_stairs()
 	_build_towers()
 	_build_snow()
@@ -2053,7 +2054,7 @@ func _env_tick(delta: float) -> void:
 const VOICES := {"Yeti": ["roar", 0.8], "Bog Troll": ["roar", 1.0], "Frost Giant": ["roar", 0.7], "Brown Bear": ["roar", 1.15],
 	"Goblin Chief": ["roar", 1.3], "Goblin": ["roar", 1.7], "Ogre": ["roar", 0.9], "Sand Scorpion": ["hiss", 1.1],
 	"Scorpion Queen": ["hiss", 0.8], "Bog Leech": ["hiss", 1.4], "Cave Spider": ["hiss", 1.2], "Giant Spider": ["hiss", 1.1],
-	"Mummy": ["rattle", 0.9], "Skeleton": ["rattle", 1.2], "Skeleton Archer": ["rattle", 1.25]}
+	"Mummy": ["rattle", 0.9], "Skeleton": ["rattle", 1.2], "Skeleton Archer": ["rattle", 1.25], "The Barrow King": ["rattle", 0.6]}
 
 
 ## The loops of the wider world (each second): the wind in the snow, the tavern's hum and lute,
@@ -2105,6 +2106,8 @@ func _find_act() -> Dictionary:
 			return {"label": "Talk: %s%s" % [e.display_name, _talk_mark(e.display_name)], "page": "talk", "who": e.display_name}
 	if world.in_church(world.to_tile(hero.position)):
 		return {"label": "Church", "page": "church"}
+	if _near(TOMB_DOOR, 2.4):
+		return {"label": "The Tomb of the Old Kings", "page": "tomb"}
 	if _at_board():
 		return {"label": "Bounty board", "page": "board"}
 	var d := _at_dock()
@@ -2158,6 +2161,7 @@ func tick(delta: float) -> void:
 		_season_tick(_season_acc)
 		_farm_tick(_season_acc)
 		_bell_tick()
+		_cemetery_tick()
 		_world_boss_tick(_season_acc)
 		_season_acc = 0.0
 	if Engine.get_process_frames() % 30 == 0:
@@ -2320,6 +2324,8 @@ func _refresh() -> void:
 			_page_auto()
 		"church":
 			_page_church()
+		"tomb":
+			_page_tomb()
 	if page != "hub":
 		_b("Adventures", _open.bind("hub"))
 	_b("Close", _close)
@@ -3737,3 +3743,156 @@ func _see_priest() -> void:
 		game._open_priest(priest)
 	else:
 		game._resume()
+
+
+# --- Ravenhollow Cemetery ----------------------------------------------------------------------
+## The walled graveyard of the south-east, dressed as a cemetery: rows of headstones, crosses,
+## stone tombs and a tall obelisk over fresh and sunken mounds, bare dead trees, lanterns that
+## burn with a cold green light, an iron gate on the west side, and in the north the Tomb of the
+## Old Kings. Wisps drift among the graves at night. Once a night you may open the tomb - and
+## wake the Barrow King, who keeps the old kings' gold. A few graves lie beside the church too.
+const TOMB_DOOR := Vector2i(88, 31)
+var _wisps: CPUParticles3D
+var tomb_king: Entity
+
+
+func _build_cemetery() -> void:
+	var r: Rect2i = World.CEMETERY
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1313
+	var stone := Color(0.55, 0.55, 0.58)
+	var soil := Color(0.24, 0.2, 0.16)
+	var parts := []
+	for y in range(r.position.y + 2, r.end.y - 1):
+		if y == 34:
+			continue                                   # the path through from the gate
+		for x in range(r.position.x + 2, r.end.x - 1):
+			var t := Vector2i(x, y)
+			if world.is_blocked(t) or (x - r.position.x) % 2 == 1 or (absi(x - TOMB_DOOR.x) <= 1 and y <= TOMB_DOOR.y + 1):
+				continue
+			var at := Vector3(x + 0.5, 0.0, y + 0.5) - Vector3(r.position.x, 0, r.position.y)
+			var tone := stone.darkened(rng.randf_range(0.0, 0.3))
+			var lean := Vector3(rng.randf_range(-0.12, 0.12), 0, rng.randf_range(-0.15, 0.15))   # old stones lean
+			parts.append([Art.box(0.5, 0.06, 0.8), Art.at(at.x, 0.03, at.z + 0.1), soil.darkened(rng.randf_range(0.0, 0.2))])   # the mound
+			match rng.randi() % 5:
+				0, 1:                                   # a round-topped headstone
+					parts.append([Art.box(0.36, 0.42, 0.08), Art.at(at.x, 0.21, at.z - 0.3, lean), tone])
+					parts.append([Art.cone(0.18, 0.08, 0.18, 8), Art.at(at.x, 0.42, at.z - 0.3, lean + Vector3(PI / 2.0, 0, 0)), tone])
+				2:                                      # a cross
+					parts.append([Art.box(0.08, 0.6, 0.08), Art.at(at.x, 0.3, at.z - 0.3, lean), tone])
+					parts.append([Art.box(0.34, 0.08, 0.08), Art.at(at.x, 0.44, at.z - 0.3, lean), tone])
+				3:                                      # a stone tomb
+					parts.append([Art.box(0.55, 0.3, 0.85), Art.at(at.x, 0.15, at.z), tone])
+					parts.append([Art.box(0.62, 0.06, 0.92), Art.at(at.x, 0.32, at.z), tone.lightened(0.1)])
+				_:                                      # a broken stone, half sunk
+					parts.append([Art.box(0.3, 0.22, 0.08), Art.at(at.x, 0.1, at.z - 0.3, lean * 2.0), tone.darkened(0.15)])
+	parts.append([Art.cone(0.22, 1.8, 0.04, 4), Art.at(5.5, 0.9, 10.5, Vector3(0, PI / 4.0, 0)), stone.lightened(0.05)])    # an obelisk
+	parts.append([Art.box(0.6, 0.2, 0.6), Art.at(5.5, 0.1, 10.5), stone])
+	_mesh(parts, Vector3(r.position.x, world.tile_center(r.get_center()).y, r.position.y))
+	# the Tomb of the Old Kings: columns, a pediment and a dark door
+	var tomb := world.tile_center(TOMB_DOOR) + Vector3(0, 0, -0.6)
+	var marble := Color(0.7, 0.7, 0.72)
+	_mesh([[Art.box(2.6, 2.0, 1.6), Art.at(0, 1.0, -0.4), marble.darkened(0.15)], [Art.box(2.9, 0.18, 2.0), Art.at(0, 2.08, -0.3), marble],
+		[Art.cone(1.6, 0.7, 0.0, 4), Art.at(0, 2.5, -0.3, Vector3(0, PI / 4.0, 0), Vector3(1.0, 1.0, 0.7)), marble.darkened(0.05)],
+		[Art.box(0.2, 1.9, 0.2), Art.at(-1.1, 0.95, 0.5), marble], [Art.box(0.2, 1.9, 0.2), Art.at(1.1, 0.95, 0.5), marble],
+		[Art.box(0.2, 1.9, 0.2), Art.at(-0.55, 0.95, 0.5), marble], [Art.box(0.2, 1.9, 0.2), Art.at(0.55, 0.95, 0.5), marble],
+		[Art.box(0.8, 1.3, 0.05), Art.at(0, 0.65, 0.42), Color(0.04, 0.03, 0.03)], [Art.box(3.0, 0.15, 1.4), Art.at(0, 0.075, 0.2), marble.darkened(0.25)],
+		[Art.ring_mesh(0.12, 0.2), Art.at(0, 1.7, 0.45, Vector3(PI / 2.0, 0, 0)), Color(0.75, 0.65, 0.4)]], tomb)
+	# bare dead trees
+	for tt in [Vector2i(84, 30), Vector2i(92, 38), Vector2i(84, 38)]:
+		var bark := Color(0.2, 0.18, 0.16)
+		_mesh([[Art.cone(0.12, 1.8, 0.05, 5), Art.at(0, 0.9, 0), bark], [Art.box(0.06, 0.7, 0.06), Art.at(0.2, 1.4, 0, Vector3(0, 0, -0.8)), bark],
+			[Art.box(0.05, 0.6, 0.05), Art.at(-0.2, 1.55, 0.05, Vector3(0.2, 0, 0.9)), bark], [Art.box(0.04, 0.5, 0.04), Art.at(0.05, 1.75, -0.15, Vector3(-0.7, 0, 0)), bark],
+			[Art.box(0.04, 0.35, 0.04), Art.at(0.42, 1.65, 0, Vector3(0, 0, -0.3)), bark]], world.tile_center(tt) + Vector3(0.3, 0, 0.2))
+	# lanterns with a cold green flame, and an iron gate at the west opening
+	for lt in [Vector2i(83, 33), Vector2i(83, 35), Vector2i(91, 32)]:
+		var lp := world.tile_center(lt)
+		_mesh([[Art.box(0.06, 1.3, 0.06), Art.at(0, 0.65, 0), Color(0.12, 0.12, 0.13)], [Art.box(0.18, 0.22, 0.18), Art.at(0, 1.4, 0), Color(0.5, 0.95, 0.6)]], lp)
+		var gl := OmniLight3D.new()
+		gl.light_color = Color(0.45, 1.0, 0.6)
+		gl.omni_range = 3.5
+		gl.light_energy = 0.9
+		gl.position = lp + Vector3(0, 1.45, 0)
+		add_child(gl)
+	var iron := Color(0.1, 0.1, 0.11)
+	var gate := []
+	for k in range(7):
+		gate.append([Art.box(0.04, 1.3, 0.04), Art.at(0, 0.65, -1.2 + k * 0.4), iron])
+		gate.append([Art.cone(0.04, 0.12, 0.0, 4), Art.at(0, 1.36, -1.2 + k * 0.4), iron])
+	gate.append([Art.box(0.05, 0.05, 2.5), Art.at(0, 1.1, 0), iron])
+	gate.append([Art.box(0.05, 0.05, 2.5), Art.at(0, 0.35, 0), iron])
+	var gate_mesh := _mesh(gate, world.tile_center(Vector2i(82, 34)) + Vector3(-0.35, 0, 0))
+	gate_mesh.rotation.y = 0.25                         # left standing ajar
+	# wisps that drift among the graves at night
+	_wisps = CPUParticles3D.new()
+	_wisps.amount = 18
+	_wisps.lifetime = 5.0
+	_wisps.mesh = Fx._quad(0.14, Color(0.6, 1.0, 0.75))
+	_wisps.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_wisps.emission_box_extents = Vector3(r.size.x / 2.0 - 1.0, 0.4, r.size.y / 2.0 - 1.0)
+	_wisps.direction = Vector3(0, 1, 0)
+	_wisps.spread = 70.0
+	_wisps.initial_velocity_min = 0.05
+	_wisps.initial_velocity_max = 0.25
+	_wisps.gravity = Vector3(0, 0.03, 0)
+	var ramp := Gradient.new()
+	ramp.colors = PackedColorArray([Color(0.6, 1.0, 0.75, 0.0), Color(0.6, 1.0, 0.75, 0.9)])
+	ramp.offsets = PackedFloat32Array([0.0, 0.5])
+	ramp.add_point(1.0, Color(0.6, 1.0, 0.75, 0.0))
+	_wisps.color_ramp = ramp
+	_wisps.position = world.tile_center(r.get_center()) + Vector3(0, 0.6, 0)
+	_wisps.emitting = false
+	add_child(_wisps)
+	_wisps.add_to_group("view_fx")
+	# a few graves beside the church, under its east wall
+	var yard := []
+	for k in range(4):
+		var gz := float(World.CHURCH.position.y) + 1.5 + k * 1.3
+		yard.append([Art.box(0.45, 0.05, 0.7), Art.at(0, 0.03, gz + 0.1), soil])
+		if k % 2 == 0:
+			yard.append([Art.box(0.07, 0.55, 0.07), Art.at(0, 0.27, gz - 0.25), stone])
+			yard.append([Art.box(0.3, 0.07, 0.07), Art.at(0, 0.4, gz - 0.25), stone])
+		else:
+			yard.append([Art.box(0.32, 0.38, 0.07), Art.at(0, 0.19, gz - 0.25), stone.darkened(0.1)])
+	var yx := float(World.CHURCH.end.x) + 0.5
+	_mesh(yard, Vector3(yx, world.tile_center(Vector2i(int(yx), World.CHURCH.position.y + 3)).y, 0))
+
+
+func _cemetery_tick() -> void:
+	if _wisps != null:
+		_wisps.emitting = game.is_night()
+
+
+func _page_tomb() -> void:
+	_h("The Tomb of the Old Kings")
+	_t("A marble tomb in the heart of Ravenhollow, its door black and cold. The old kings were buried with their gold - and with the one who swore to keep it. The seal can be broken once a night.")
+	if tomb_king != null and is_instance_valid(tomb_king) and not tomb_king.dead:
+		_t("The Barrow King is awake!")
+		return
+	if not _near(TOMB_DOOR, 2.6):
+		_b("Walk to the tomb", _walk_to.bind(TOMB_DOOR + Vector2i(0, 1)))
+		return
+	var opened := _now() - float(data.get("tomb_at", -1.0e9)) < DAY
+	if not game.is_night():
+		_small_text("By day the seal holds fast. Come back after dark.")
+	_b("Break the seal" if not opened else "The seal is broken for tonight", _open_tomb, game.is_night() and not opened)
+
+
+func _open_tomb() -> void:
+	data["tomb_at"] = _now()
+	var cfg := Bestiary.LICH.duplicate(true)
+	cfg["look"] = "skeleton"
+	cfg["scale"] = 1.5
+	cfg["str"] = 160
+	cfg["armor"] = 5.0
+	cfg["danger"] = 8
+	cfg["boss"] = true
+	cfg["weapon"] = "broadsword"
+	cfg["wear"] = "platemail"
+	cfg["loot"] = {"gold_min": 600, "gold_max": 1100, "reagents": 20,
+		"drops": [["diamond", 0.4], ["sapphire", 0.7], ["ruby", 0.5], ["crown_of_bones", 0.5], ["platemail", 0.3]]}
+	tomb_king = game.pool_spawn("The Barrow King", cfg, Color(0.75, 0.7, 0.55), world.tile_center(TOMB_DOOR + Vector2i(0, 2)))
+	tomb_king.target = hero
+	game.log_event("The seal cracks. Cold air pours out - and the Barrow King rises to defend his gold!")
+	game.sound("roar", world.tile_center(TOMB_DOOR), 0.6, 4.0)
+	_close()

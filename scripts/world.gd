@@ -23,6 +23,9 @@ const CAVES := [
 	{"name": "Goblin Warren", "rect": Rect2i(3, 39, 9, 7), "door": Vector2i(11, 42), "out": Vector2i(12, 42)},
 ]
 ## The guild towers out in the wilds (each stands on one solid tile).
+## Ravenhollow Cemetery, the walled graveyard in the south-east where the restless dead walk.
+const CEMETERY := Rect2i(82, 28, 12, 13)
+const CEMETERY_NAME := "Ravenhollow Cemetery"
 ## The church, just south of the main town: stone walls, a door to the north, the altar within.
 const CHURCH := Rect2i(24, 15, 6, 7)
 const CHURCH_DOORS := [Vector2i(26, 15), Vector2i(27, 15)]
@@ -337,6 +340,8 @@ func place_name(c: Vector2i) -> String:
 		return "the dungeon"
 	if on_island(c):
 		return ISLAND_NAME
+	if CEMETERY.has_point(c):
+		return CEMETERY_NAME
 	return "the wilds"
 
 

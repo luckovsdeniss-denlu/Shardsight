@@ -5357,7 +5357,7 @@ var _skip_from_look := Vector3.ZERO
 var _cam_look := Vector3.ZERO          # where the camera looks during the fly-by
 var _title_close: Callable
 # the fly-by's effects
-const FLYBY_PLACES := ["The Southern Woods", "The Town", "The Dungeon", "The Eastern Wilds", "The Old Graveyard", "Southmoor"]
+const FLYBY_PLACES := ["The Southern Woods", "The Town", "The Dungeon", "The Eastern Wilds", "Ravenhollow Cemetery", "Southmoor"]
 const VIGNETTE_SHADER := """
 shader_type canvas_item;
 uniform float strength = 0.75;

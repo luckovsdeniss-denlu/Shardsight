@@ -192,6 +192,7 @@ func _draw() -> void:
 		var r: Rect2i = World.TOWNS[i]
 		_label(font, String(World.TOWN_NAMES[i]).capitalize(), (Vector2(r.position) + Vector2(r.size) / 2.0) * px)
 	_label(font, "Dungeon", (Vector2(World.DUNGEON.position) + Vector2(World.DUNGEON.size) / 2.0) * px)
+	_label(font, "Cemetery", (Vector2(World.CEMETERY.position) + Vector2(World.CEMETERY.size) / 2.0) * px)
 	# north
 	draw_string_outline(font, Vector2(4, 13), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color.BLACK)
 	draw_string(font, Vector2(4, 13), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, GOLD)
