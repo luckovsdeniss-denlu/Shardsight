@@ -59,7 +59,7 @@ const VILLAGERS := [
 	{"name": "Old Tam the Minstrel", "work": Vector2i(24, 9), "tavern": Vector2i(52, 35), "home": Vector2i(28, 12), "color": Color("a86ab8")},
 	{"name": "Rosa the Barkeep", "work": Vector2i(53, 35), "color": Color("c86a5a")},
 	{"name": "Kael the Arena Master", "work": Vector2i(23, 18), "color": Color("c8a040")},
-	{"name": "Hunter Bram", "work": Vector2i(58, 12), "color": Color("8a7a6a")},
+	{"name": "Hunter Bram", "work": Vector2i(59, 10), "color": Color("8a7a6a")},
 	{"name": "Wren the Herbwife", "work": Vector2i(28, 34), "color": Color("6aa86a")},
 	{"name": "Zahir the Nomad", "work": Vector2i(72, 38), "color": Color("d8b878")},
 	{"name": "Old Garret the Miner", "work": Vector2i(13, 42), "color": Color("8a8a7a")},
@@ -3666,7 +3666,7 @@ func while_paused() -> void:
 
 
 # --- the church ------------------------------------------------------------------------------
-## The Church of the Shard, just south of the main town: a stone nave with a paved floor and a red
+## The Church of the Shard, out east past the dungeon: a stone nave with a paved floor and a red
 ## runner from the doors to the altar, pews, candles, windows of coloured glass glowing in the
 ## south wall, and a bell tower that tolls morning, noon and dusk. Father Corwin keeps it. Pray at
 ## the altar once a day (healing, poison drawn out, a little karma, a blessing of the mind), or
@@ -3748,9 +3748,9 @@ func _bell_tick() -> void:
 func _page_church() -> void:
 	_h("The Church of the Shard")
 	var inside := world.in_church(world.to_tile(hero.position))
-	_t("Stone walls, coloured glass and candlelight, just south of the main town. Father Corwin keeps it; the bell tolls morning, noon and dusk. Karma %d." % hero.karma)
+	_t("Stone walls, coloured glass and candlelight, out east past the dungeon at the edge of the Frostmarch. Father Corwin keeps it; the bell tolls morning, noon and dusk. Karma %d." % hero.karma)
 	if not inside:
-		_b("Walk to the church", _walk_to.bind(Vector2i(26, 17)))
+		_b("Walk to the church", _walk_to.bind(Vector2i(56, 14)))
 		return
 	var prayed := _now() - float(data.get("pray_at", -1.0e9)) < DAY
 	_b("Pray at the altar (once a day)" if not prayed else "You have prayed today", _pray, not prayed)

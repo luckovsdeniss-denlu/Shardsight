@@ -14,8 +14,8 @@ const SITE := Vector2i(66, 24)          # the Broken Circle
 const STEPS := [
 	{
 		"title": "I. The Wanderer Wakes",
-		"text": "You wake on the road with no memory of the night, only a cold ache behind your eyes, as if something you once saw has been taken away. In the church by the town nearby, they say Father Corwin listens to strangers.",
-		"goal": "Speak with Father Corwin in the church just south of the main town (stand beside him).",
+		"text": "You wake on the road with no memory of the night, only a cold ache behind your eyes, as if something you once saw has been taken away. In the church out east past the dungeon, they say Father Corwin listens to strangers.",
+		"goal": "Speak with Father Corwin in the church out east, past the dungeon at the edge of the Frostmarch (stand beside him).",
 		"kind": "talk", "who": "Father Corwin", "gold": 30, "fame": 20,
 	},
 	{
@@ -57,7 +57,7 @@ const STEPS := [
 	{
 		"title": "VIII. Sight Restored",
 		"text": "Malgrath falls, and the dark seam burns out of the Shard. Light pours from your hands across the land: for a moment you see everything at once, every road and river, every hidden thing. Then the Shard settles, whole, and the ache behind your eyes is gone. Return to Father Corwin.",
-		"goal": "Return to Father Corwin in his church, south of the main town.",
+		"goal": "Return to Father Corwin in his church, east past the dungeon.",
 		"kind": "talk", "who": "Father Corwin", "gold": 500, "fame": 300, "title_reward": "the Shardbearer",
 	},
 ]

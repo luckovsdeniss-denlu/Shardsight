@@ -35,9 +35,10 @@ const CAVES := [
 ## Ravenhollow Cemetery, the walled graveyard in the south-east where the restless dead walk.
 const CEMETERY := Rect2i(82, 28, 12, 13)
 const CEMETERY_NAME := "Ravenhollow Cemetery"
-## The church, just south of the main town: stone walls, a door to the north, the altar within.
-const CHURCH := Rect2i(24, 15, 6, 7)
-const CHURCH_DOORS := [Vector2i(26, 15), Vector2i(27, 15)]
+## The church, out east past the dungeon at the edge of the Frostmarch: stone walls, a door to
+## the north, the altar within.
+const CHURCH := Rect2i(54, 12, 6, 7)
+const CHURCH_DOORS := [Vector2i(56, 12), Vector2i(57, 12)]
 const TOWER_TILES := [Vector2i(60, 22), Vector2i(35, 28), Vector2i(10, 26), Vector2i(30, 100), Vector2i(110, 60), Vector2i(120, 128)]
 
 const LAYOUT := [
@@ -52,7 +53,7 @@ const LAYOUT := [
 	"#.R.................#.......#..#...................#.............R......~......T..#.........#.................................R...........R....#",
 	"#.RR................####.####..#...................#.................~~~~~~~......####...####..........................................R.......#",
 	"#..............................#....################..............T.~~~~~~~~~.....T.................T................................RT.T......#",
-	"#..............................#....#.....#.......##....T.....TT...~~~~~~~~~~~.............T........................................R...R......#",
+	"#..............................#....#.....#.......##..........TT...~~~~~~~~~~~.............T........................................R...R......#",
 	"#...............TT...............T..#.....#.......##................~~~~~~~~~.T..........................................T.......R.............#",
 	"#................................T..#.....#.......##..........T......~~~~~~~......T.......R..........................T............R.T.RR.......#",
 	"#......~~~~~R.......................#.....#...#...##.............R......~.R.............R...........T.R..............................TTT......T#",
@@ -1010,11 +1011,11 @@ const PAINT_PX := 3                     # painted pixels a tile (the grain adds 
 const ROAD_STOPS := [Vector2i(24, 11), Vector2i(36, 5), Vector2i(48, 33), Vector2i(35, 16),
 	Vector2i(87, 34), Vector2i(87, 10), Vector2i(8, 30), Vector2i(109, 12), Vector2i(101, 104),
 	Vector2i(31, 102), Vector2i(110, 62), Vector2i(120, 126), Vector2i(20, 110), Vector2i(132, 90), Vector2i(67, 100),
-	Vector2i(12, 94), Vector2i(44, 106), Vector2i(85, 79), Vector2i(129, 48)]
+	Vector2i(12, 94), Vector2i(44, 106), Vector2i(85, 79), Vector2i(129, 48), Vector2i(56, 10)]
 ## pairs of ROAD_STOPS: the old lands, and out to the towers, lakes and caves of the south and east
 const ROADS := [[0, 1], [0, 2], [0, 3], [2, 4], [1, 5], [0, 6], [5, 7], [2, 8],
 	[8, 9], [9, 12], [7, 10], [10, 8], [8, 11], [10, 13], [8, 14],
-	[15, 6], [15, 12], [16, 9], [16, 14], [17, 2], [17, 8], [17, 10], [18, 7], [18, 10]]   # and the four new towns
+	[15, 6], [15, 12], [16, 9], [16, 14], [17, 2], [17, 8], [17, 10], [18, 7], [18, 10], [0, 19]]   # and the four new towns
 
 
 func _ground_mat() -> ShaderMaterial:

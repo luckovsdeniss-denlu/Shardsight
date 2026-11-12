@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.81.0
+- The church has moved out of town: it now stands east, past the dungeon, at the edge of the
+  Frostmarch (about 34 tiles from the starting town), with a road to its door. Father Corwin went
+  with it; the story, the church page, the movie and the tips all point there.
+- Hunter Bram's camp and a few wolves moved over to make room.
+
 ## 0.80.3
 - The wall in front of the church on the left (north-west of its door) is gone too.
 

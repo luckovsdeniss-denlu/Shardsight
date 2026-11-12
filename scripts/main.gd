@@ -2371,7 +2371,7 @@ func _open_help() -> void:
 		"Die and you become a ghost in a grey world: walk (tap the ground, or let Auto do it) to a resurrection spot to be raised for free: a glowing ankh shrine (one in every part of the map, pale blue crosses on the minimap) or a healer or priest (not for murderers). The top of the screen shows the nearest. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
 		"The world is bigger now: Southmoor, a third town, lies south. Wolf packs and an orc fort roam the far east, spiders the southern forest, and the restless dead an old graveyard in the south-east. The hills south-east are rich in ore.",
-		"Priests (Father Corwin by the healer, Brother Anselm at the outpost, Mother Isolde in Southmoor) cure poison, lift curses, restore mana and raise the dead for free, bless you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lift a murder count for 50 gold. Stand near one, or tap them.",
+		"Priests (Father Corwin in his church east of the dungeon, Brother Anselm at the outpost, Mother Isolde in Southmoor) cure poison, lift curses, restore mana and raise the dead for free, bless you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lift a murder count for 50 gold. Stand near one, or tap them.",
 		"Menu also has Craft, Bank & House (deeds, lock-downs, co-owners), Travel & Spellbook (a runebook of up to 8 runes for Recall and Gate Travel, and the spells you know) and Settings (sound, camera).",
 		"Spells must be in your spellbook. You start with circles 1-4; scrolls for more drop from monsters (tougher ones carry higher circles) or are sold by merchants (circles 1-6), and are copied in as soon as you pick them up.",
 	]:
@@ -3148,7 +3148,7 @@ func _refresh_priest() -> void:
 		_on_priest_bless, ok and hero.bless_timer <= 0.0 and hero.gold >= Entity.BLESS_PRICE))
 	priest_box.add_child(_action("Confession: lift one murder count (%d gold)" % Entity.CONFESS_PRICE,
 		_on_priest_confess, near and hero.murder_counts > 0 and hero.gold >= Entity.CONFESS_PRICE))
-	priest_box.add_child(_info("Priests: Father Corwin in the main town, Brother Anselm at the outpost and Mother Isolde, the abbess of Southmoor."))
+	priest_box.add_child(_info("Priests: Father Corwin in his church east of the dungeon, Brother Anselm at the outpost and Mother Isolde, the abbess of Southmoor."))
 	priest_box.add_child(_menu_button("Close", _close_priest))
 
 
@@ -4176,7 +4176,7 @@ func _spawn_all() -> void:
 	_build_banners()
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Hal the Stablemaster", Bestiary.STABLEMASTER, cream, Vector2i(21, 11))
-	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(26, 19))   # in his church
+	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(56, 16))   # in his church
 	var bran := _spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
 	bran.shop = Shop.new("town", 1.0, 1.0)
 	# The outpost is remote: its merchant pays more for goods and charges more for supplies.
@@ -4235,7 +4235,7 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.MONSTER, "The Bone King", Bestiary.BONE_KING, Color("3a2a4a"), Vector2i(48, 20))   # the deepest hall
 
 	# The eastern wilds: wolf packs, deer, the bear wood and the orc fort.
-	for t in [Vector2i(58, 10), Vector2i(60, 12), Vector2i(57, 13)]:
+	for t in [Vector2i(58, 10), Vector2i(63, 13), Vector2i(62, 16)]:
 		_spawn(Entity.Kind.MONSTER, "Wolf", Bestiary.WOLF, red, t)
 	for t in [Vector2i(75, 18), Vector2i(88, 15)]:
 		_spawn(Entity.Kind.MONSTER, "Hind", Bestiary.HIND, Color("b08a5a"), t)
