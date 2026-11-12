@@ -1440,6 +1440,7 @@ func _use_brew(id: String) -> void:
 			hero.blade_poison_hits = 8
 			game.log_event("You coat your blade with a deadly poison.")
 	game.count("potions_drunk")
+	game.sound("gulp", hero.position, 1.0, -4.0)
 	_refresh()
 
 

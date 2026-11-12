@@ -145,6 +145,7 @@ var booted := false                    # the world is built (the loading screen 
 
 
 func _ready() -> void:
+	Soundscape.setup()                       # the mix: music, effects and ambience buses, reverb, compressor
 	# experimental mode: its own save, and the experiments' switches
 	Experiments.active = start_mode == "experimental" and not autotest
 	SaveGame.slot = "_experimental" if Experiments.active else ""
@@ -367,6 +368,9 @@ func _menu_button(text: String, callback: Callable) -> Button:
 	b.custom_minimum_size = Vector2(240, 80)
 	b.add_theme_font_size_override("font_size", 28)
 	b.pressed.connect(callback)
+	b.pressed.connect(func() -> void:
+		if property.sound_on:
+			sfx.play("click", 1.0, -14.0))           # a soft click under every button
 	return b
 
 
@@ -1265,6 +1269,7 @@ func _world_life(delta: float) -> void:
 
 var _amb_players := {}                   # "crickets", "water", "fire" -> AudioStreamPlayer
 var _amb_acc := 0.0
+var _heart_acc := 0.0
 var _step_acc := 0.0
 var _bird_in := 5.0
 var _last_hero_pos := Vector3.ZERO
@@ -1274,6 +1279,7 @@ func _amb_player(sound_name: String) -> AudioStreamPlayer:
 	if not _amb_players.has(sound_name):
 		var p := AudioStreamPlayer.new()
 		p.volume_db = -80.0
+		p.bus = "Ambience"
 		add_child(p)
 		_amb_players[sound_name] = p
 	return _amb_players[sound_name]
@@ -1315,6 +1321,15 @@ func _ambience_tick(delta: float) -> void:
 	if _amb_acc < 0.5:
 		return
 	_amb_acc = 0.0
+	var tile := world.to_tile(hero.position)
+	var space := "dungeon" if world.is_dungeon(tile) else ("cave" if world.is_cave(tile) else ("church" if world.in_church(tile) else ("town" if world.is_town(tile) else "wilds")))
+	var near_death := not hero.dead and hero.hp < float(hero.stats.max_hp()) * 0.25
+	Soundscape.update(space, hero.dead and hero.ghost, near_death)
+	if near_death and on:
+		_heart_acc += 0.5
+		if _heart_acc >= 1.0:
+			_heart_acc = 0.0
+			sfx.play("heartbeat", 1.0, -6.0)
 	if not on:
 		for k in ["crickets", "water", "fire"]:
 			_amb_set(k, -80.0)
@@ -4451,6 +4466,7 @@ func _build_environment() -> void:
 	add_child(music)
 	add_child(rain_sound)
 	rain_sound.volume_db = -14.0
+	rain_sound.bus = "Ambience"
 	_build_rain()
 	sun = DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-55.0, 30.0, 0.0)
@@ -6061,7 +6077,40 @@ func _music_tick(delta: float) -> void:
 	_music_timer = 1.0
 	var t := world.to_tile(hero.position)
 	music.enabled = property.music_on
-	music.play_area("dungeon" if world.is_dungeon(t) else ("town" if world.is_town(t) else "wilds"))
+	music.play_area(_music_piece(t))
+
+
+## Which piece suits the moment: a fight (a boss fight darker), then the place - the dungeon or
+## a cave, the church, the cemetery, a town, the snow, the desert or the ash - then night or day.
+var _battle_hold := 0.0
+
+
+func _music_piece(t: Vector2i) -> String:
+	var foe := hero.target
+	var fighting := foe != null and is_instance_valid(foe) and not foe.dead and foe.kind != Entity.Kind.NPC \
+		and foe.position.distance_to(hero.position) < 12.0
+	if fighting:
+		_battle_hold = 8.0                      # the fight music lingers a little after the last blow
+		if foe.is_boss or foe.danger >= 8.0:
+			return "boss"
+		return "battle"
+	if _battle_hold > 0.0:
+		_battle_hold -= 1.0
+		return music._area if music._area in ["battle", "boss"] else "battle"
+	if world.is_dungeon(t) or world.is_cave(t):
+		return "dungeon"
+	if world.in_church(t):
+		return "church"
+	if World.CEMETERY.has_point(t):
+		return "cemetery"
+	if world.is_town(t):
+		return "town"
+	match world.biome_at(t):
+		"snow":
+			return "frost"
+		"desert", "ash":
+			return "desert"
+	return "night" if is_night() else "wilds"
 
 
 func _campfire_tick(delta: float) -> void:
@@ -6080,7 +6129,9 @@ const SOUND_ZONE := 0.75
 
 func sound(sound_name: String, at: Vector3, pitch := 1.0, volume_db := 0.0) -> void:
 	if property.sound_on and hero != null and _in_sound_zone(at + Vector3(0.0, 0.5, 0.0)):
-		sfx.play(sound_name, pitch, volume_db)
+		# farther from the hero, quieter (up to 12 dB at the edge of the screen)
+		var d := Vector2(at.x - hero.position.x, at.z - hero.position.z).length()
+		sfx.play(sound_name, pitch, volume_db - clampf(d * 0.7, 0.0, 12.0))
 
 
 func _in_sound_zone(p: Vector3) -> bool:

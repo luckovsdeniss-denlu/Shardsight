@@ -3,6 +3,27 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.69.0
+Sound and music.
+- The mix: music, sound effects and ambience each on their own bus - music in a wide hall with a
+  touch of chorus, effects with a room's reverb - and a compressor holding it all together, so a
+  big fight never clips.
+- Where you stand changes how it sounds: a long echo in the dungeon and the caves, a hall in the
+  church, a little room in town, open air in the wilds. As a ghost the world goes muffled; near
+  death too, and your heart pounds.
+- Sounds fade with distance from your hero.
+- New effects: fire spells roar, lightning and energy crack, healing and blessings chime, the
+  great blasts (explosion, meteors, earthquake, flamestrike) boom; a fanfare when you level up;
+  coins when gold comes your way; a soft click under every button; a gulp when you drink or eat;
+  a whoosh for a missed blow. Twelve voices at once (from eight).
+- New music, with new instruments built from formulas: a warm detuned pad, a plucked lute, a
+  breathy flute with vibrato, brass, a choir, bells, and drums (a deep drum, a hand drum, a
+  shaker). Pieces are twice as long (sixteen bars, in two halves, with phrases that come home).
+- Music for each place and moment: the town (lute and flute), the wilds, the night (bells), the
+  dungeon, battle (drums, driving bass, brass), boss fights (darker, with choir), the Frostmarch
+  (high bells), the desert and ash (oud and hand drums), the church (choir), the cemetery.
+  Pieces cross-fade; a fight starts its music at once and the calm returns slowly.
+
 ## 0.68.3
 - A new loading bar: a slim capsule with round ends. Its fill is a soft cyan-to-gold gradient
   drawn a pixel at a time (no blocks or steps), with a gentle glow beneath, a light gliding

@@ -924,7 +924,7 @@ func _fight() -> void:
 	else:
 		if is_hero:
 			game.count("hero_misses")
-		game.sound("swing", position)
+		game.sound("whoosh" if randf() < 0.5 else "swing", position)
 		target._pop("miss", Color(0.8, 0.8, 0.8))
 
 
@@ -1428,6 +1428,20 @@ func _fizzle(reason: String) -> void:
 	_pop(reason, Color(0.75, 0.75, 0.75))
 
 
+## The sound a spell makes as it lands: fire roars, lightning cracks, healing chimes, the great
+## blasts boom; the rest keep the plain casting sound.
+static func _spell_sound(id: String, spell_kind: String) -> String:
+	if id in ["explosion", "meteor_swarm", "earthquake", "flamestrike"]:
+		return "spell_boom"
+	if id.contains("fire") or id == "fireball" or id == "summon_fire":
+		return "spell_fire"
+	if id.contains("lightning") or id.contains("energy") or id == "mind_blast" or id == "magic_arrow" or id == "harm":
+		return "spell_zap"
+	if spell_kind in ["heal", "cure", "buff", "resurrect"]:
+		return "spell_heal"
+	return "cast"
+
+
 func _finish_cast() -> void:
 	_end_cast_fx()
 	var id := casting_id
@@ -1452,6 +1466,8 @@ func _finish_cast() -> void:
 		tgt._end_flag("magic_reflection")
 		tgt._pop("reflected", Color(0.9, 0.9, 1.0))
 		tgt = self
+	if _near_hero():                          # each kind of magic has its own voice
+		game.sound(_spell_sound(id, spell_kind), tgt.position if tgt != null else position, randf_range(0.9, 1.1), 2.0)
 	if spell_kind == "transform":
 		transform(_form_for(sp), float(sp.get("secs", 120.0)))
 		if kind == Kind.PLAYER:
@@ -3020,6 +3036,7 @@ func _try_potion() -> bool:
 	if is_hero:
 		game.count("food_eaten" if eaten else "potions_drunk")
 		game.log_event(("You eat a %s." if eaten else "You drink a %s.") % Items.item_name(drink))
+		game.sound("gulp", position, 1.0 if not eaten else 0.7, -4.0)
 	return false                         # drinking is instant: carry on with the turn
 
 
@@ -3049,6 +3066,8 @@ func _earn(n: int) -> void:
 	gold += n
 	if is_hero:
 		game.count("gold_earned", n)
+		if n >= 5:
+			game.sound("coins", position, randf_range(0.95, 1.1), -6.0)
 
 
 func _spend(n: int) -> void:
@@ -4970,7 +4989,7 @@ func _on_level_up(lv: int) -> void:
 	_pop("Level %d!" % lv, Color(1.0, 0.85, 0.3))
 	if is_hero:
 		game.log_event("You reach level %d!" % lv)
-		game.sound("gain", position)
+		game.sound("fanfare", position, 1.0, 2.0)
 
 
 # --- fire -------------------------------------------------------------------

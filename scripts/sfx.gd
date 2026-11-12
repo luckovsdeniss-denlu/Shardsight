@@ -3,7 +3,7 @@ extends Node
 ## Tiny synthesized sound effects: no audio files, each sound is built from a formula at start-up.
 
 const RATE := 22050
-const VOICES := 8
+const VOICES := 12
 
 var _streams := {}
 var _variants := {}                  # sound -> several takes; one is picked at random each time
@@ -53,6 +53,7 @@ func _ready() -> void:
 		return float(rumble[0]) * 9.0 * exp(-t * 2.2) * (1.0 + 0.5 * sin(TAU * 3.0 * t)))
 	for i in range(VOICES):
 		var p := AudioStreamPlayer.new()
+		p.bus = "SFX"
 		add_child(p)
 		_players.append(p)
 
@@ -270,6 +271,7 @@ func _build_ambience() -> void:
 	fire.loop_end = int(2.0 * RATE)
 	_pending["fire"] = [fire]
 	_build_wider_world()
+	_build_flourishes()
 
 
 ## The wider world's sounds: oars and waves, beasts' voices, the wind of the Frostmarch, the hum
@@ -336,6 +338,85 @@ func _build_wider_world() -> void:
 	crowd.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	crowd.loop_end = int(4.0 * RATE)
 	_pending["crowd"] = [crowd]
+
+
+## The richer effects: the roar of fire spells, the crack of lightning, the bright chime of a heal,
+## the deep boom of explosions, a fanfare for a level, coins, a soft click for buttons, a potion's
+## gulp, the whoosh of a missed blow.
+func _build_flourishes() -> void:
+	var fire := []
+	for k: float in [0.9, 1.1]:
+		var flp := [0.0]
+		fire.append(_make(0.7, func(t: float) -> float:
+			flp[0] = float(flp[0]) * 0.85 + randf_range(-1.0, 1.0) * 0.15
+			var env := minf(t / 0.05, 1.0) * exp(-t * 3.5)
+			return (float(flp[0]) * 3.2 + sin(TAU * (90.0 * k + 60.0 * t) * t) * 0.35) * env))
+	_pending["spell_fire"] = fire
+	var zap := []
+	for f: float in [1800.0, 2400.0]:
+		zap.append(_make(0.45, func(t: float) -> float:
+			var crack := randf_range(-1.0, 1.0) * exp(-t * 18.0)
+			var buzz := signf(sin(TAU * (f - 2600.0 * t) * t)) * exp(-t * 7.0) * 0.35
+			return crack * 0.8 + buzz))
+	_pending["spell_zap"] = zap
+	var heal := []
+	for base: float in [880.0, 990.0]:
+		heal.append(_make(0.9, func(t: float) -> float:
+			var v := 0.0
+			for i in range(4):                          # an arpeggio rising, shimmering
+				var lt := t - 0.08 * i
+				if lt > 0.0:
+					v += sin(TAU * base * pow(1.26, i) * lt) * exp(-lt * 4.0) * 0.22
+			return v * (1.0 + 0.2 * sin(TAU * 7.0 * t))))
+	_pending["spell_heal"] = heal
+	var boom := []
+	for d: float in [1.1, 1.4]:
+		var blp := [0.0]
+		boom.append(_make(d, func(t: float) -> float:
+			blp[0] = float(blp[0]) * 0.97 + randf_range(-1.0, 1.0) * 0.03
+			return (float(blp[0]) * 7.0 + sin(TAU * (60.0 - 25.0 * t) * t) * 0.7) * exp(-t * (4.0 / d))))
+	_pending["spell_boom"] = boom
+	var notes := [523.25, 659.25, 783.99, 1046.5]
+	_pending["fanfare"] = [_make(1.3, func(t: float) -> float:
+		var v := 0.0
+		for i in range(notes.size()):
+			var lt := t - 0.11 * i
+			if lt > 0.0:
+				var hold := 0.6 if i == notes.size() - 1 else 0.12
+				var env := minf(lt / 0.01, 1.0) * (1.0 if lt < hold else exp(-(lt - hold) * 6.0))
+				var f: float = notes[i]
+				v += (sin(TAU * f * lt) + 0.3 * sin(TAU * 2.0 * f * lt) + 0.15 * sin(TAU * 3.0 * f * lt)) * env * 0.22
+		return v)]
+	var coins := []
+	for n: int in [3, 4]:
+		coins.append(_make(0.35, func(t: float) -> float:
+			var v := 0.0
+			for i in range(n):
+				var lt := t - 0.06 * i
+				if lt > 0.0:
+					var f := 2400.0 + 450.0 * i
+					v += (sin(TAU * f * lt) + 0.6 * sin(TAU * f * 2.76 * lt)) * exp(-lt * 30.0) * 0.25
+			return v))
+	_pending["coins"] = coins
+	_pending["click"] = [_make(0.05, func(t: float) -> float:
+		return sin(TAU * 1500.0 * t) * exp(-t * 120.0) * 0.5)]
+	_pending["gulp"] = [_make(0.4, func(t: float) -> float:
+		var g := fmod(t, 0.13)
+		return sin(TAU * (240.0 + 300.0 * g) * g) * exp(-g * 25.0) * 0.6 * (1.0 if t < 0.39 else 0.0))]
+	var whoosh := []
+	for d: float in [0.18, 0.24]:
+		var wlp := [0.0]
+		whoosh.append(_make(d, func(t: float) -> float:
+			wlp[0] = float(wlp[0]) * 0.7 + randf_range(-1.0, 1.0) * 0.3
+			return float(wlp[0]) * 1.6 * sin(PI * t / d)))
+	_pending["whoosh"] = whoosh
+	_pending["heartbeat"] = [_make(1.0, func(t: float) -> float:
+		var v := 0.0
+		for o: float in [0.0, 0.22]:
+			var lt := t - o
+			if lt > 0.0:
+				v += sin(TAU * 55.0 * lt) * exp(-lt * 22.0) * (0.9 if o == 0.0 else 0.6)
+		return v)]
 
 
 ## A looping ambience ("crickets", "water", "fire") once built, else null.
