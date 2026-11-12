@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.73.2
+- No health bars in the movie (names, damage numbers, spell words and loot still show).
+
 ## 0.73.1
 - The movie keeps the words over heads: names, health bars, damage numbers, spell words and loot
   (the buttons, log, stats and menus stay hidden).

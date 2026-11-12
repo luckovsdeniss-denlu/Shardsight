@@ -75,9 +75,12 @@ func start(p_game) -> void:
 	hero = game.hero
 	layer = 50
 	game.add_child(self)
-	# a clean screen: no buttons, log, stats or menus (the words over heads stay: names, damage, spell words, loot)
+	# a clean screen: no buttons, log, stats or menus, no health bars (the words over heads stay:
+	# names, damage, spell words, loot)
 	if game.ui_layer != null:
 		game.ui_layer.visible = false
+	for e in game.creatures:
+		e.hp_bar.visible = false
 	# lighter, for a steady 60: the movie has its own vignette (the game's overlay goes), the camera
 	# sees no further than the land, the 3D starts a little under full resolution on a phone
 	if game._grade != null:

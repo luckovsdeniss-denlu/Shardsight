@@ -5105,7 +5105,7 @@ func _maybe_label(delta: float) -> void:
 ## The health bar shows over anyone hurt or fighting (and always over the hero), not townsfolk.
 func _update_hp_bar() -> void:
 	var max_hp := float(stats.max_hp())
-	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self \
+	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self and game.movie == null \
 		and (is_hero or hp < max_hp - 0.5 or target != null)
 	hp_bar.visible = show
 	if show:
