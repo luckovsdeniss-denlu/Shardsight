@@ -992,8 +992,8 @@ func end_form() -> void:
 ## AI: against a tough foe, take a fighting form: fighters (weapon skill above Magery) become a
 ## beast, mages a wraith or a lich.
 func _try_transform() -> bool:
-	if form != "" or target == null or target.danger < 3.0 or kind != Kind.PLAYER:
-		return false
+	if form != "" or target == null or target.danger < 3.0 or kind != Kind.PLAYER or is_hero:
+		return false                          # (your hero never changes shape by itself)
 	if game.movie != null:
 		return false                          # the movie keeps everyone in their own shape
 	var magery := _skill(Hero.Skill.MAGERY)
@@ -1313,8 +1313,8 @@ func _magic_line() -> String:
 
 ## Floating combat text that drifts up and vanishes.
 func _pop(text: String, color: Color) -> void:
-	if is_hero and game.movie != null:
-		return                                # in the movie nothing rises over the hero (the blows on others still show)
+	if is_hero:
+		return                                # nothing rises over the hero (the blows on others still show; the log tells you the rest)
 	var l := Label3D.new()
 	l.text = text
 	l.modulate = color
@@ -5031,15 +5031,7 @@ func _start_cast_fx(c: Color) -> void:
 		add_child(_cast_fx)
 		_cast_fx.position = Vector3(0.0, 0.15, 0.0)
 		_cast_fx.emitting = true
-	if is_hero:
-		if cast_bar == null:
-			cast_bar = Art.hp_bar()
-			(cast_bar.material_override as ShaderMaterial).set_shader_parameter("tint", Color(0.45, 0.65, 1.0, 1.0))
-			cast_bar.scale = Vector3(1.0, 0.7, 1.0)
-			add_child(cast_bar)
-			cast_bar.position = hp_bar.position - Vector3(0.0, 0.14, 0.0)
-		(cast_bar.material_override as ShaderMaterial).set_shader_parameter("fill", 0.0)
-		cast_bar.visible = true
+	# (no casting bar over the hero's head: nothing shows there)
 
 
 func _end_cast_fx() -> void:
@@ -5113,7 +5105,7 @@ func _maybe_label(delta: float) -> void:
 ## The health bar shows over anyone hurt or fighting (and always over the hero), not townsfolk.
 func _update_hp_bar() -> void:
 	var max_hp := float(stats.max_hp())
-	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self and game.movie == null \
+	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self and game.movie == null and not is_hero \
 		and (is_hero or hp < max_hp - 0.5 or target != null)
 	hp_bar.visible = show
 	if show:
@@ -5139,7 +5131,7 @@ func _update_cull() -> void:
 func show_name(on: bool) -> void:
 	if label == null:
 		return
-	label.visible = (on or is_hero) and _near and not hide_self and not (is_hero and game.movie != null)   # your own level and HP always show (not in the movie)
+	label.visible = on and _near and not hide_self and not is_hero   # nothing over the hero's head (your HP is in the corner)
 	if label.visible:
 		_label_acc = 1.0                      # refresh the label at once
 

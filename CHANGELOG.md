@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.78.0
+Nothing over your hero's head, and your hero keeps their own shape - in the game and the movie.
+- No name, level or health bar over the hero, no casting bar, no damage numbers, spell words or
+  "+gold" (the corner shows your health; the log says what happened). Over everyone else, names,
+  bars and damage still show.
+- The hero never takes a fighting form by itself (polymorph, beast, lich or wraith): Auto keeps
+  them as they are. (You can still cast those spells yourself from the spellbook.)
+
 ## 0.77.5
 - In the movie's church scene the hero stays inside the church, standing still (no wandering out
   after a monster or loot).
