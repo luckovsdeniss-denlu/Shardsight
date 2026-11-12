@@ -53,7 +53,7 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.545
 void fragment() {
 	vec2 uv = UV;
 	// film grain and a soft flicker
-	float g = (hash(uv * 800.0 + vec2(TIME * 41.0, TIME * 73.0)) - 0.5) * 0.08;
+	float g = (hash(floor(uv * vec2(480.0, 270.0)) + floor(TIME * 24.0) * vec2(0.37, 0.71)) - 0.5) * 0.08;   // grain 24 times a second, as on film
 	float flick = sin(TIME * 23.0) * 0.012;
 	// the corners in shadow
 	float v = smoothstep(0.42, 0.95, length((uv - 0.5) * vec2(1.25, 1.0))) * 0.55;
@@ -78,6 +78,17 @@ func start(p_game) -> void:
 	# a clean picture: no buttons, log, stats or menus, and nothing over anyone's head
 	if game.ui_layer != null:
 		game.ui_layer.visible = false
+	# lighter, for a steady 60: the movie has its own vignette (the game's overlay goes), the camera
+	# sees no further than the land, the 3D starts a little under full resolution on a phone
+	if game._grade != null:
+		game._grade.visible = false
+	game.cam.far = 130.0
+	game.sun.directional_shadow_max_distance = 28.0
+	if OS.has_feature("mobile"):
+		game._render_base = 0.8
+		game._render_scale = 0.8
+		game._scale_cap = 0.8
+		get_viewport().scaling_3d_scale = 0.8
 	for e in game.creatures:
 		e.show_name(false)
 		e.hp_bar.visible = false
@@ -199,7 +210,7 @@ func _label(px: int, col: Color) -> Label:
 func _make_shots() -> void:
 	shots = [
 		{"title": "SHARDSIGHT", "sub": "A world of swords, spells and skill.", "dur": 6.0, "day": 0.35, "weather": "clear",
-			"at": _tc(Vector2i(24, 9)), "r": 26.0, "h": 22.0, "a0": 0.4, "a1": 1.3},
+			"at": _tc(Vector2i(24, 9)), "r": 20.0, "h": 17.0, "a0": 0.4, "a1": 1.3},
 		{"title": "Living towns", "sub": "Healers, priests, merchants, bankers - and folk who keep their own days.", "dur": 6.0,
 			"at": _tc(Vector2i(24, 10)), "r": 9.0, "h": 6.0, "a0": 2.4, "a1": 3.4, "setup": _stage_town},
 		{"title": "Fight", "sub": "Swords, axes, maces, spears, bows - and a different blow for each.", "dur": 8.0,
@@ -223,11 +234,11 @@ func _make_shots() -> void:
 		{"title": "The Church of the Shard", "sub": "Pray at the altar. The bell tolls at dawn.", "dur": 6.0, "day": 0.28,
 			"at": _tc(Vector2i(26, 18)), "r": 6.5, "h": 6.0, "a0": 1.2, "a1": 2.0, "setup": _stage_place.bind(Vector2i(26, 18))},
 		{"title": "Seasons and storms", "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true, "white": true,
-			"at": _tc(Vector2i(30, 30)), "r": 18.0, "h": 13.0, "a0": 3.5, "a1": 4.3},
+			"at": _tc(Vector2i(30, 30)), "r": 14.0, "h": 11.0, "a0": 3.5, "a1": 4.3},
 		{"title": "World bosses", "sub": "Now and then a giant wakes. The whole land comes to fight it.", "dur": 9.0, "day": 0.55, "weather": "clear", "white": true,
 			"at": _tc(Vector2i(60, 26)), "r": 8.0, "h": 5.0, "a0": 0.2, "a1": 1.5, "setup": _stage_boss},
 		{"title": "Your story", "sub": "Quests, bounties, guilds, a house, a horse, a boat. Begin.", "dur": 6.0,
-			"at": _tc(Vector2i(24, 9)), "r": 30.0, "h": 26.0, "a0": 1.3, "a1": 1.9},
+			"at": _tc(Vector2i(24, 9)), "r": 22.0, "h": 19.0, "a0": 1.3, "a1": 1.9},
 	]
 
 

@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.73.0
+The movie at 60 frames a second.
+- Off camera, the world holds still while the movie plays (only what's filmed lives and moves).
+- Creatures more than 48 m from the camera aren't drawn or animated in the movie (in the low, wide
+  shots they were specks, but each one cost as much as the hero).
+- The camera sees out to 130 m, not 4 km; the sun's shadows reach 28 m.
+- The three widest shots come in a little lower and closer.
+- The game's own vignette overlay steps aside (the movie has its own), and the film grain is cheaper.
+- On phones the movie starts at 80% resolution, and the frame-rate keeper takes it from there.
+- Rain: the lighter amount of 0.72.0 now holds after the weather changes too.
+
 ## 0.72.1
 - The movie plays clean: no buttons, menus, log or stats on screen, and no names, health bars,
   damage numbers or loot words over anyone's head.

@@ -5050,6 +5050,8 @@ func _process(delta: float) -> void:
 		if e._near or e.is_hero or e.parked or e.target == hero:
 			e.tick(delta + e.tick_debt)
 			e.tick_debt = 0.0
+		elif movie != null:
+			pass                                  # the movie: the world off camera holds still (nothing of it is kept)
 		else:
 			e.tick_debt += delta
 			if (i + _tick_n) % 4 == 0:
@@ -5972,7 +5974,7 @@ func _build_braziers() -> void:
 ## Rain: streaks falling round the camera (a CPU particle box, cheap on phones).
 func _build_rain() -> void:
 	rain = CPUParticles3D.new()
-	rain.amount = 500
+	rain.amount = 280
 	rain.lifetime = 0.7
 	rain.emitting = false
 	rain.local_coords = false
@@ -6000,7 +6002,7 @@ func _set_weather(w: String) -> void:
 	var was := weather
 	weather = w
 	var wet := w == "rain" or w == "storm"
-	rain.amount = (800 if w == "storm" else 500) / (2 if property.graphics == "low" else 1)
+	rain.amount = 450 if w == "storm" else 280
 	rain.emitting = wet
 	if wet and property.sound_on:
 		if rain_sound.stream == null:
@@ -6394,11 +6396,14 @@ func _follow_camera() -> void:
 
 
 var view_planes: Array[Plane] = []      # the camera's view, refreshed every frame
+const MOVIE_VIEW := 48.0                  # in the movie, creatures further than this aren't drawn or animated
 var _fx_cull_timer := 0.0
 
 
 ## Whether `p` is inside the camera's view, or within `margin` of its edges.
 func in_view(p: Vector3, margin := 2.0) -> bool:
+	if movie != null and p.distance_squared_to(cam.position) > MOVIE_VIEW * MOVIE_VIEW:
+		return false                              # (in the movie's low, wide shots: the far ones are specks)
 	for pl in view_planes:
 		if pl.distance_to(p) > margin:          # the planes face outwards
 			return false
