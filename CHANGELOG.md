@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.67.1
+- The game begins only once the opening fly-by is over and a mode is chosen: until then the world
+  holds still (nobody moves, fights, loots or travels; the clock and the weather wait); only the
+  camera flies. After switching modes from the menu, it begins as the title fades.
+
 ## 0.67.0
 Ravenhollow Cemetery.
 - The old walled graveyard of the south-east is a cemetery now: rows of headstones, crosses,

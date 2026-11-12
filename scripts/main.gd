@@ -139,6 +139,7 @@ var _tip_timer := 8.0
 ## The mode this run was started in: "" (first start: the title offers the choice), "classic" or
 ## "experimental". Kept across restarts of the scene (a mode switch reloads it).
 static var start_mode := ""
+var title_up := false                  # the title and fly-by are up: the world waits
 var booted := false                    # the world is built (the loading screen is done)
 
 
@@ -5007,6 +5008,14 @@ func _process(delta: float) -> void:
 			frontier.act_button.visible = false   # no action button over a menu or panel
 			frontier.while_paused()
 		return
+	if title_up:
+		# The title and the opening fly-by: the world holds still - nobody moves, fights or ticks -
+		# until the camera is down and a mode is chosen. Only the camera flies.
+		if frontier != null:
+			frontier.act_button.visible = false
+		_flyby_step(delta)
+		_cull_fx(delta)
+		return
 	if autotest:
 		_autotest_tick(delta)
 	_update_retreat_button()
@@ -5296,6 +5305,7 @@ func _show_title(layer: CanvasLayer) -> void:
 			return
 		card.set_meta("closing", true)
 		paused = false
+		title_up = false                           # and now the world begins
 		var tw := card.create_tween()
 		tw.tween_property(card, "modulate:a", 0.0, 0.6)
 		tw.tween_callback(card.queue_free)
@@ -5331,6 +5341,7 @@ func _show_title(layer: CanvasLayer) -> void:
 		if (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed) or (ev is InputEventScreenTouch and (ev as InputEventScreenTouch).pressed):
 			_skip_flyby())                         # a tap glides the camera down to the hero
 	_title_close = flyby_done
+	title_up = true
 	_flyby_t = 0.0                                 # start the fly-by over the world
 	_fov_rest = cam.fov
 	get_tree().create_timer(FLYBY_SEG * FLYBY.size() + 3.0).timeout.connect(flyby_done)   # just in case
