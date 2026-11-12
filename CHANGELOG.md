@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.77.3
+- The graves beside the church are gone (Ravenhollow Cemetery keeps all of its own).
+
 ## 0.77.2
 - The old walls beside the church are gone: the one along its east side and the one just south
   of it. The church stands in the open, reachable from every side.

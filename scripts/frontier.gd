@@ -3796,7 +3796,7 @@ func _see_priest() -> void:
 ## stone tombs and a tall obelisk over fresh and sunken mounds, bare dead trees, lanterns that
 ## burn with a cold green light, an iron gate on the west side, and in the north the Tomb of the
 ## Old Kings. Wisps drift among the graves at night. Once a night you may open the tomb - and
-## wake the Barrow King, who keeps the old kings' gold. A few graves lie beside the church too.
+## wake the Barrow King, who keeps the old kings' gold.
 const TOMB_DOOR := Vector2i(88, 31)
 var _wisps: CPUParticles3D
 var tomb_king: Entity
@@ -3890,18 +3890,6 @@ func _build_cemetery() -> void:
 	_wisps.emitting = false
 	add_child(_wisps)
 	_wisps.add_to_group("view_fx")
-	# a few graves beside the church, under its east wall
-	var yard := []
-	for k in range(4):
-		var gz := float(World.CHURCH.position.y) + 1.5 + k * 1.3
-		yard.append([Art.box(0.45, 0.05, 0.7), Art.at(0, 0.03, gz + 0.1), soil])
-		if k % 2 == 0:
-			yard.append([Art.box(0.07, 0.55, 0.07), Art.at(0, 0.27, gz - 0.25), stone])
-			yard.append([Art.box(0.3, 0.07, 0.07), Art.at(0, 0.4, gz - 0.25), stone])
-		else:
-			yard.append([Art.box(0.32, 0.38, 0.07), Art.at(0, 0.19, gz - 0.25), stone.darkened(0.1)])
-	var yx := float(World.CHURCH.end.x) + 0.5
-	_mesh(yard, Vector3(yx, world.tile_center(Vector2i(int(yx), World.CHURCH.position.y + 3)).y, 0))
 
 
 func _cemetery_tick() -> void:
