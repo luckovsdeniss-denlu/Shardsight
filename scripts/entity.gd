@@ -145,6 +145,8 @@ var _stride_k := 0.0            # how far into a walk the legs and arms are (0 s
 var walk_phase := 0.0           # where in the stride the legs are
 var form := ""                  # a transformation (Spells.FORMS id), "" as yourself
 var form_timer := 0.0
+var form_size := 1.0             # a polymorphed body's own size (each one a little different)
+var _last_poly := ""             # (the next Polymorph won't pick it again)
 var hit_anim := 0.0             # a flinch when struck
 var bleed_timer := 0.0          # a bleeding wound (seconds left), its damage a second, who dealt it
 var bleed_dmg := 0.0
@@ -406,7 +408,10 @@ func tick(delta: float) -> void:
 		hp = minf(hp + jewel("regen") * delta, float(stats.max_hp()))   # a Ring of Life
 	if form != "":
 		hp = minf(hp + form_value("regen", 0.0) * delta, float(stats.max_hp()))
+		var was := form_timer
 		form_timer -= delta
+		if was > 5.0 and form_timer <= 5.0:
+			_pop("the shape is fading...", Color(0.85, 0.65, 1.0))
 		if form_timer <= 0.0:
 			end_form()
 	repath_timer -= delta
@@ -937,7 +942,15 @@ func _form_for(sp: Dictionary) -> String:
 	var f := String(sp.get("form", ""))
 	if f == "beast":
 		var magery := _skill(Hero.Skill.MAGERY)
-		return "ogre" if magery >= 90.0 else ("bear" if magery >= 75.0 else "wolf")
+		var pool: Array[String] = []
+		for k in Spells.FORMS:
+			var fd: Dictionary = Spells.FORMS[k]
+			if bool(fd.get("poly", false)) and float(fd.get("min", 0.0)) <= magery and String(k) != _last_poly:
+				pool.append(String(k))
+		if pool.is_empty():
+			return "wolf"
+		_last_poly = pool[randi() % pool.size()]
+		return _last_poly
 	return f
 
 
@@ -949,6 +962,7 @@ func transform(f: String, secs: float) -> void:
 		dismount()                             # no riding in another body
 	form = f
 	form_timer = secs
+	form_size = randf_range(0.85, 1.18) if bool(Spells.FORMS[f].get("poly", false)) else 1.0   # each beast a little different
 	_recompute_effects()
 	refresh_look()
 	_pop(String(Spells.FORMS[f]["name"]) + "!", Color(0.9, 0.7, 1.0))
@@ -1095,6 +1109,8 @@ func take_damage(amount: float, from: Entity) -> void:
 	hp -= amount
 	hurt_timer = HURT_NO_REGEN
 	hit_anim = 0.18
+	if form != "" and bool(Spells.FORMS[form].get("poly", false)):
+		form_timer -= 2.0                    # a borrowed body frays fast under blows
 	if paralyzed_timer > 0.0:
 		paralyzed_timer = 0.0               # a blow breaks Paralyze
 	if peaced_timer > 0.0 or (enticed_timer > 0.0 and from == enticer):
@@ -2253,7 +2269,7 @@ func refresh_look() -> void:
 		(model["mount_root"] as Node3D).queue_free()
 	if form != "" and not ghost:                  # transformed: the form's body instead of your own
 		var f: Dictionary = Spells.FORMS[form]
-		var fs := visual_scale * float(f.get("scale", 1.0))
+		var fs := visual_scale * float(f.get("scale", 1.0)) * form_size
 		model = Art.ghost(fs) if String(f["look"]) == "ghost" else Art.creature(String(f["look"]), {}, fs)
 		rig.add_child(model["root"])
 		var aura := Fx.cast_glow(Color(0.8, 0.6, 1.0) if form in ["wraith", "lich"] else Color(0.9, 0.4, 0.25))

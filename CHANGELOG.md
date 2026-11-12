@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.67.3
+Polymorph, changed.
+- Variety: it now turns you into a creature picked at random from those your Magery reaches,
+  never the same one twice running - a wolf, a goblin or a spider from the start; an orc (Magery
+  70), a scorpion (72), a bear (75), a yeti (82), an ogre (88), a drake (95). Each has its own
+  strengths, and each body comes out a little bigger or smaller than the last.
+- Faster decay: it lasts 60 seconds (from 150), every blow you take wears 2 seconds off it, and
+  you're warned five seconds before the shape fades.
+
 ## 0.67.2
 More for the opening fly-by.
 - The sun's glare: when the sun is in the picture it blooms, god rays stream from it, and lens

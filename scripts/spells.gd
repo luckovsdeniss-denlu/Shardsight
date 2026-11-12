@@ -44,11 +44,18 @@ const AREA_RADIUS := 5.0
 ## the model ("ghost" for the wraith's shroud); "mods" are stat changes; "speed", "melee" (damage
 ## of your blows), "taken" (damage you take), "mana_regen" and "regen" (health a second) and
 ## "armor" change how you fight; beasts ("cast": false) can't cast spells until they change back.
-## Polymorph picks its beast by Magery: a wolf, a bear, then an ogre.
+## Polymorph ("poly") turns you into a creature picked at random from those your Magery reaches
+## ("min"), never the same twice running, a little bigger or smaller each time.
 const FORMS := {
-	"wolf": {"name": "Wolf Form", "look": "wolf", "scale": 1.15, "mods": {"dex": 15}, "speed": 1.35, "melee": 1.15, "cast": false},
-	"bear": {"name": "Bear Form", "look": "bear", "scale": 1.1, "mods": {"str": 20}, "armor": 3.0, "melee": 1.3, "cast": false},
-	"ogre": {"name": "Ogre Form", "look": "ogre", "scale": 0.8, "mods": {"str": 30}, "armor": 2.0, "melee": 1.45, "speed": 0.9, "cast": false},
+	"wolf": {"name": "Wolf Form", "look": "wolf", "scale": 1.15, "mods": {"dex": 15}, "speed": 1.35, "melee": 1.15, "cast": false, "poly": true, "min": 0.0},
+	"goblin": {"name": "Goblin Form", "look": "goblin", "scale": 1.0, "mods": {"dex": 12}, "speed": 1.25, "melee": 1.08, "cast": false, "poly": true, "min": 0.0},
+	"spider": {"name": "Spider Form", "look": "spider", "scale": 1.2, "mods": {"dex": 14}, "speed": 1.3, "melee": 1.12, "cast": false, "poly": true, "min": 0.0},
+	"orc": {"name": "Orc Form", "look": "orc", "scale": 1.05, "mods": {"str": 14, "dex": 6}, "melee": 1.2, "armor": 1.0, "cast": false, "poly": true, "min": 70.0},
+	"scorpion": {"name": "Scorpion Form", "look": "scorpion", "scale": 1.1, "mods": {"str": 10, "dex": 6}, "armor": 2.5, "melee": 1.22, "cast": false, "poly": true, "min": 72.0},
+	"bear": {"name": "Bear Form", "look": "bear", "scale": 1.1, "mods": {"str": 20}, "armor": 3.0, "melee": 1.3, "cast": false, "poly": true, "min": 75.0},
+	"yeti": {"name": "Yeti Form", "look": "yeti", "scale": 0.85, "mods": {"str": 25}, "armor": 2.5, "melee": 1.35, "cast": false, "poly": true, "min": 82.0},
+	"ogre": {"name": "Ogre Form", "look": "ogre", "scale": 0.8, "mods": {"str": 30}, "armor": 2.0, "melee": 1.45, "speed": 0.9, "cast": false, "poly": true, "min": 88.0},
+	"dragon": {"name": "Drake Form", "look": "swamp_dragon", "scale": 1.0, "mods": {"str": 22, "dex": 10}, "armor": 3.5, "melee": 1.4, "speed": 1.15, "cast": false, "poly": true, "min": 95.0},
 	"horrific_beast": {"name": "Horrific Beast", "look": "daemon", "scale": 0.85, "mods": {"str": 10}, "melee": 1.25, "regen": 1.0, "cast": false},
 	"wraith": {"name": "Wraith Form", "look": "ghost", "mods": {}, "taken": 0.75, "mana_regen": 1.5, "cast": true},
 	"lich": {"name": "Lich Form", "look": "lich", "scale": 1.0, "mods": {"int": 20}, "mana_regen": 3.0, "taken": 1.1, "cast": true},
@@ -349,7 +356,7 @@ const LIST := {
 	"polymorph": {
 		"name": "Polymorph", "words": "Vaas Ylaem Rhel", "circle": 7, "mana": 40, "min": 67.0,
 		"reagents": 3, "kind": "transform", "min_dmg": 0.0, "max_dmg": 0.0,
-		"color": Color(0.9, 0.6, 0.4), "form": "beast", "secs": 150.0,
+		"color": Color(0.9, 0.6, 0.4), "form": "beast", "secs": 60.0,
 	},
 	"horrific_beast": {
 		"name": "Horrific Beast", "words": "Rhel Zhen Vaas Bhal", "circle": 5, "mana": 14, "min": 38.1,
