@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.77.1
+The movie's speed-ups, in the game itself:
+- Creatures more than 48 m from the camera aren't drawn or animated.
+- Off screen and more than 50 m from you, creatures think every eighth frame (every fourth nearer).
+- The camera sees 170 m (across the whole land), not 4 km; the sun's shadows reach 28 m.
+- On phones the 3D starts at 80% resolution.
+- The vignette overlay is the first thing to go (with the glow) when 60 can't be held.
+
 ## 0.77.0
 Half the monsters, and a town in every part of the land.
 - Monsters halved: of every kind the land has more than one of, half are gone (about 118 in all,

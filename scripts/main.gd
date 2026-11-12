@@ -1071,9 +1071,10 @@ func _adapt_resolution(delta: float) -> void:
 
 
 ## What is drawn, by how much has had to go to hold 60 (each level adds to the ones before):
-## 1 no glow or edge smoothing, 2 no sun shadows, 3 no grass and flowers, 4 no butterflies or
+## 1 no glow, vignette or edge smoothing, 2 no sun shadows, 3 no grass and flowers, 4 no butterflies or
 ## leaves, 5 the camera sees 70 m (then the resolution may drop as low as half).
 const Q_MAX := 5
+const VIEW_FAR := 170.0               # the camera sees across the whole land (from the fly-by's height too), not 4 km
 const SCALE_FLOOR := 0.75
 var _q := 0
 var _q_floor := 0                     # learned: the looks that couldn't be afforded stay off
@@ -1083,6 +1084,8 @@ var _last_raise := ""
 func _set_quality(level: int) -> void:
 	_q = clampi(level, 0, Q_MAX)
 	env.glow_enabled = _q < 1
+	if _grade != null:
+		_grade.visible = _q < 1 and movie == null      # the vignette overlay (a full-screen layer) goes first
 	get_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if _q < 1 else Viewport.SCREEN_SPACE_AA_DISABLED
 	sun.shadow_enabled = _q < 2
 	for n in world.decor:
@@ -1094,7 +1097,7 @@ func _set_quality(level: int) -> void:
 	if _q >= 5:
 		cam.far = minf(cam.far, 70.0)
 	elif cam.far < 80.0 and not property.first_person:
-		cam.far = 130.0 if movie != null else 4000.0
+		cam.far = 130.0 if movie != null else VIEW_FAR
 
 
 # --- the world in motion: banners, birds, butterflies, leaves, the ankhs ---------------------
@@ -5133,7 +5136,9 @@ func _process(delta: float) -> void:
 			pass                                  # the movie: the world off camera holds still (nothing of it is kept)
 		else:
 			e.tick_debt += delta
-			if (i + _tick_n) % 4 == 0:
+			# off screen: every fourth frame; far away (more than 50 m from you) every eighth
+			var every := 8 if e.position.distance_squared_to(hero.position) > 2500.0 else 4
+			if (i + _tick_n) % every == 0:
 				e.tick(e.tick_debt)
 				e.tick_debt = 0.0
 		if e.shop != null:
@@ -5838,7 +5843,7 @@ func _apply_view() -> void:
 	else:
 		_fp_step(0.0)                                     # hides the crosshair and the weapon
 	cam.fov = 75.0 if fp else 50.0
-	cam.far = 80.0 if fp else 4000.0
+	cam.far = 80.0 if fp else VIEW_FAR
 	hero.hide_self = fp
 	if hero.rig != null:
 		hero.rig.visible = not fp
@@ -6438,10 +6443,11 @@ func _apply_graphics() -> void:
 	property.graphics = "high"
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL   # one shadow pass, not two
-	sun.directional_shadow_max_distance = 32.0
+	sun.directional_shadow_max_distance = 28.0
 	sun.directional_shadow_fade_start = 0.85
 	world.set_ground_detail(true)
-	_render_base = 0.85 if OS.has_feature("mobile") else 1.0   # phone screens are dense: 85% looks the same
+	_render_base = 0.8 if OS.has_feature("mobile") else 1.0    # phone screens are dense: 80% looks the same
+	cam.far = 80.0 if property.first_person else VIEW_FAR
 	_render_scale = _render_base
 	_scale_cap = 1.0
 	_fps_good = 0
@@ -6511,14 +6517,14 @@ func _follow_camera() -> void:
 
 
 var view_planes: Array[Plane] = []      # the camera's view, refreshed every frame
-const MOVIE_VIEW := 48.0                  # in the movie, creatures further than this aren't drawn or animated
+const MOVIE_VIEW := 48.0                  # creatures further than this from the camera aren't drawn or animated
 var _fx_cull_timer := 0.0
 
 
 ## Whether `p` is inside the camera's view, or within `margin` of its edges.
 func in_view(p: Vector3, margin := 2.0) -> bool:
-	if movie != null and p.distance_squared_to(cam.position) > MOVIE_VIEW * MOVIE_VIEW:
-		return false                              # (in the movie's low, wide shots: the far ones are specks)
+	if p.distance_squared_to(cam.position) > MOVIE_VIEW * MOVIE_VIEW:
+		return false                              # (far off, creatures are specks: not drawn or animated)
 	for pl in view_planes:
 		if pl.distance_to(p) > margin:          # the planes face outwards
 			return false
