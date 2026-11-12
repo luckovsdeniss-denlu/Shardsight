@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.81.1
+- Fix: the "A" in the 3D title was missing its front (only a sliver showed); every letter is whole now.
+
 ## 0.81.0
 - The church has moved out of town: it now stands east, past the dungeon, at the edge of the
   Frostmarch (about 34 tiles from the starting town), with a road to its door. Father Corwin went

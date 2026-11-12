@@ -48,10 +48,9 @@ func _build(text: String, width: float, intro: float) -> void:
 	cam.fov = 28.0
 	cam.position = Vector3(0, 0, 4.2)
 	vp.add_child(cam)
-	# the letters: a bold face, extruded, in polished gold
+	# the letters: extruded, in polished gold (no emboldening: it broke the A when made solid)
 	var font := FontVariation.new()
 	font.base_font = ThemeDB.fallback_font
-	font.variation_embolden = 0.9
 	font.spacing_glyph = 8
 	var tm := TextMesh.new()
 	tm.text = text
