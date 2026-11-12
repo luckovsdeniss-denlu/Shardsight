@@ -140,6 +140,7 @@ var _tip_timer := 8.0
 ## "experimental". Kept across restarts of the scene (a mode switch reloads it).
 static var start_mode := ""
 var movie: Movie                       # the showcase, while it plays
+var ui_layer: CanvasLayer              # the whole interface: buttons, log, stats, menus (hidden for the movie)
 var title_up := false                  # the title and fly-by are up: the world waits
 var booted := false                    # the world is built (the loading screen is done)
 
@@ -182,6 +183,7 @@ func _ready() -> void:
 	_make_ui_solid(ThemeDB.get_default_theme())   # buttons and panels with solid backgrounds
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	ui_layer = layer
 	# Upper left: a button that shows or hides the stats text under it.
 	stats_button = _menu_button("", _toggle_stats)
 	stats_button.custom_minimum_size = Vector2(180, 60)
@@ -4768,6 +4770,7 @@ func show_loot(from_pos: Vector3, looter: Entity, got: Dictionary, what: String)
 		icon.scale = Vector3.ONE * 1.6
 		node.add_child(icon)
 		var lab := Label3D.new()
+		lab.visible = movie == null             # (no words over heads in the movie)
 		lab.text = String(entries[i][1])
 		lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		lab.no_depth_test = true

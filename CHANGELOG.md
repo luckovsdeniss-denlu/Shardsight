@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.72.1
+- The movie plays clean: no buttons, menus, log or stats on screen, and no names, health bars,
+  damage numbers or loot words over anyone's head.
+
 ## 0.72.0
 Smooth at 60 frames a second.
 - The colour grade no longer copies the whole screen every frame: the colour is graded by the

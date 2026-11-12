@@ -363,7 +363,7 @@ func _build_visual(color: Color, s: float) -> void:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM   # extra lines grow upward, clear of the bar
 	label.line_spacing = 10.0                # a little air between the lines
 	add_child(label)
-	label.visible = bool(game.property.names_on)
+	label.visible = bool(game.property.names_on) and game.movie == null
 	hp_bar = Art.hp_bar()
 	hp_bar.position = Vector3(0.0, 1.5 * s + 0.18, 0.0)
 	add_child(hp_bar)
@@ -1309,6 +1309,8 @@ func _magic_line() -> String:
 
 ## Floating combat text that drifts up and vanishes.
 func _pop(text: String, color: Color) -> void:
+	if game.movie != null:
+		return                                # the movie shows the blows, not the numbers
 	var l := Label3D.new()
 	l.text = text
 	l.modulate = color
@@ -5105,7 +5107,7 @@ func _maybe_label(delta: float) -> void:
 ## The health bar shows over anyone hurt or fighting (and always over the hero), not townsfolk.
 func _update_hp_bar() -> void:
 	var max_hp := float(stats.max_hp())
-	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self \
+	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self and game.movie == null \
 		and (is_hero or hp < max_hp - 0.5 or target != null)
 	hp_bar.visible = show
 	if show:
@@ -5131,7 +5133,7 @@ func _update_cull() -> void:
 func show_name(on: bool) -> void:
 	if label == null:
 		return
-	label.visible = (on or is_hero) and _near and not hide_self   # your own level and HP always show
+	label.visible = (on or is_hero) and _near and not hide_self and game.movie == null   # your own level and HP always show (not in the movie)
 	if label.visible:
 		_label_acc = 1.0                      # refresh the label at once
 

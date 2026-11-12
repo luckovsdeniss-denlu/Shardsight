@@ -75,6 +75,12 @@ func start(p_game) -> void:
 	hero = game.hero
 	layer = 50
 	game.add_child(self)
+	# a clean picture: no buttons, log, stats or menus, and nothing over anyone's head
+	if game.ui_layer != null:
+		game.ui_layer.visible = false
+	for e in game.creatures:
+		e.show_name(false)
+		e.hp_bar.visible = false
 	_build_ui()
 	# the hero, for the cameras: a master of arms and magic (nothing of it is kept)
 	for s in [Hero.Skill.MAGERY, Hero.Skill.EVALUATING_INTELLECT, Hero.Skill.SWORDSMANSHIP, Hero.Skill.TACTICS, Hero.Skill.ANATOMY]:
