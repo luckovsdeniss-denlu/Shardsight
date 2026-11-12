@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.73.3
+- Fix: the movie froze on its first scene. On a fresh game the story's first chapter opened
+  half a second in and paused everything, and with the movie's interface hidden it couldn't be
+  seen or closed. The story now waits for the real game, and nothing can pause the movie.
+- Fix: a crash when the game reloaded or quit while a piece of music was still being written.
+- Fix: a script error when a blow killed its target and the target was cleared mid-swing.
+- The build now also plays the whole movie headless and fails if it stops early or errors.
+
 ## 0.73.2
 - No health bars in the movie (names, damage numbers, spell words and loot still show).
 

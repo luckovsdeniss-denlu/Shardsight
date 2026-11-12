@@ -281,6 +281,8 @@ func _next() -> void:
 	_rule.custom_minimum_size.x = 0.0
 	_rule.create_tween().tween_property(_rule, "custom_minimum_size:x", 360.0, 1.0).set_delay(0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_counter.text = "%02d / %02d" % [i + 1, shots.size()]
+	if "--movie-test" in OS.get_cmdline_user_args():
+		print("MOVIE scene %d: %s" % [i + 1, sh["title"]])
 	_fx.set_shader_parameter("leak", 1.0 if float(sh.get("day", 0.4)) > 0.2 and String(sh.get("weather", "clear")) != "storm" else 0.0)
 	game.cam.fov = 60.0                                 # each scene starts wide and pushes in
 	if bool(sh.get("white", false)):

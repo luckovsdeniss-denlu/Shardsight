@@ -897,6 +897,8 @@ func _fight() -> void:
 			game.count("hero_dmg_taken_melee", roundi(dealt))
 		target.take_damage(dealt, self)
 		_wear_out("weapon", 0.3)              # every blow wears the weapon a little
+		if target == null:
+			return                            # (the blow ended it, and the target went with it)
 		if not target.dead:
 			match special:
 				"bleed":

@@ -54,7 +54,15 @@ var player_b := AudioStreamPlayer.new()
 var player: AudioStreamPlayer          # the one playing now
 var enabled := true
 var _tracks := {}                 # piece -> AudioStreamWAV, once written
-var _building := {}               # piece -> true while its worker task runs
+var _building := {}               # piece -> its worker task's id while it runs
+
+
+## Leaving (the scene reloads, or the game quits): let any piece still being written finish first,
+## or its thread would write into memory that is gone.
+func _exit_tree() -> void:
+	for id in _building.values():
+		WorkerThreadPool.wait_for_task_completion(int(id))
+	_building.clear()
 var _area := ""
 var _wanted := ""
 
@@ -81,8 +89,7 @@ func play_area(area: String) -> void:
 		return
 	if not _tracks.has(area):
 		if not _building.has(area):
-			_building[area] = true
-			WorkerThreadPool.add_task(_build.bind(area))
+			_building[area] = WorkerThreadPool.add_task(_build.bind(area))
 		return
 	_area = area
 	# a cross-fade: the new piece rises as the old one sinks

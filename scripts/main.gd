@@ -1699,7 +1699,7 @@ func _story_goal_pos() -> bool:
 
 
 func _story_tick(delta: float) -> void:
-	if autotest or hero == null or property.story_done:
+	if autotest or hero == null or property.story_done or movie != null:   # (the story waits for the real game)
 		if story_hint != null:
 			story_hint.visible = false
 		return
@@ -5010,6 +5010,8 @@ func _toggle_map() -> void:
 # --- frame -----------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	if paused and movie != null and movie.running:
+		paused = false                            # nothing stops the movie (its interface is hidden: a panel would freeze it)
 	if paused:
 		_update_hud()
 		if frontier != null:
@@ -5357,6 +5359,8 @@ func _show_title(layer: CanvasLayer) -> void:
 		row.visible = true
 		var tw := row.create_tween()
 		tw.tween_property(row, "modulate:a", 1.0, 0.5)
+		if "--movie-test" in OS.get_cmdline_user_args():
+			film.pressed.emit()                    # (CI: play the movie by itself)
 	card.gui_input.connect(func(ev: InputEvent) -> void:
 		if (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed) or (ev is InputEventScreenTouch and (ev as InputEventScreenTouch).pressed):
 			_skip_flyby())                         # a tap glides the camera down to the hero
