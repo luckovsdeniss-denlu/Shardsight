@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.66.2
+- No fog at all: the foggy weather is gone (its share of the days is rain now), and so is the
+  light haze on clear days and the mist in rain and storms. The land is seen clear to the horizon.
+
 ## 0.66.1
 - Collision between bodies: people, monsters and animals no longer walk through or stand inside
   each other. Any two that overlap are eased apart (the smaller gives way more), never into a

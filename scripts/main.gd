@@ -20,7 +20,7 @@ var hero: Entity
 var guilds := Guilds.new()
 var frontier: Frontier                 # the wider world: depths, biomes, boats, tavern, side quests, arena...
 var music := Music.new()
-var weather := "clear"           # clear, rain, storm or fog
+var weather := "clear"           # clear, rain or storm
 const CLEAR_HAZE := 0.011        # fog density on a clear day: just a little depth
 var _weather_timer := 240.0
 var _flash := 0.0
@@ -4431,9 +4431,7 @@ func _build_environment() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES     # deeper shadows, highlights that roll off like film
 	env.tonemap_exposure = 1.05
 	env.tonemap_white = 6.0
-	env.fog_enabled = true
-	env.fog_density = CLEAR_HAZE
-	env.fog_sun_scatter = 0.25                         # the haze glows towards the sun
+	env.fog_enabled = false                            # no fog or haze, ever: the land is seen clear to the horizon
 	env.glow_intensity = 0.6
 	env.glow_bloom = 0.04
 	env.glow_hdr_threshold = 0.9
@@ -5893,9 +5891,7 @@ func _set_weather(w: String) -> void:
 		rain_sound.play()
 	else:
 		rain_sound.stop()
-	env.fog_enabled = true
-	env.fog_light_color = Color(0.5, 0.54, 0.6)        # a grey mist, not a white-out
-	env.fog_density = {"fog": 0.028, "storm": 0.02, "rain": 0.01}.get(w, CLEAR_HAZE)
+	env.fog_enabled = false
 	if world.ground_material != null:            # an overcast sky casts no cloud shadows
 		world.ground_material.set_shader_parameter("cloud_amount", 1.0 if w == "clear" else 0.0)
 	match w:
@@ -5903,8 +5899,6 @@ func _set_weather(w: String) -> void:
 			event_about("It starts to rain.", true)
 		"storm":
 			event_about("A storm rolls in!", true)
-		"fog":
-			event_about("A thick fog creeps in.", true)
 		_:
 			if was != "clear":
 				event_about("The sky clears.", true)
@@ -5930,7 +5924,7 @@ func _weather_tick(delta: float) -> void:
 		var sn := frontier.season() if frontier != null else "spring"
 		var clear_p: float = {"spring": 0.5, "summer": 0.68, "autumn": 0.38, "winter": 0.42}[sn]
 		var rain_p: float = clear_p + {"spring": 0.27, "summer": 0.16, "autumn": 0.32, "winter": 0.33}[sn]
-		_set_weather("clear" if roll < clear_p else ("rain" if roll < rain_p else ("fog" if roll < rain_p + 0.13 else "storm")))
+		_set_weather("clear" if roll < clear_p else ("rain" if roll < rain_p + 0.13 else "storm"))   # (no fog: its share is rain)
 	if weather == "storm":
 		if _thunder_in < 0.0 and randf() < delta / 9.0:
 			_flash = 0.15
@@ -5989,8 +5983,6 @@ func _apply_daylight() -> void:
 			light *= 0.7
 		"storm":
 			light *= 0.5
-		"fog":
-			light *= 0.85
 	if _flash > 0.0:
 		light = 1.0                                    # lightning
 	if hero != null and hero.flags.has("night_sight"):
