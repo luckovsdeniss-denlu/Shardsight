@@ -64,6 +64,9 @@ const VILLAGERS := [
 	{"name": "Old Garret the Miner", "work": Vector2i(13, 42), "color": Color("8a8a7a")},
 	{"name": "Smith Orla", "work": Vector2i(113, 13), "color": Color("b8643a")},
 	{"name": "Warden Sela", "work": Vector2i(103, 106), "color": Color("4a7a5a")},
+	{"name": "Bryn the Fisher", "work": Vector2i(109, 34), "home": Vector2i(106, 15), "color": Color("6a8ab8")},     # Mirrormere, home in Dawnport
+	{"name": "Ada the Shepherd", "work": Vector2i(94, 96), "home": Vector2i(99, 104), "color": Color("b89a6a")},     # the fields by Highmoor
+	{"name": "Old Cole the Hermit", "work": Vector2i(52, 118), "color": Color("8a7a6a")},                            # out on the southern plain
 ]
 
 # --- side quests: dialogue with choices -----------------------------------------------------
@@ -515,6 +518,25 @@ func _spawn_wildlife() -> void:
 		["Orc", Bestiary.ORC, Color("c0392b"), [Vector2i(140, 30), Vector2i(125, 44), Vector2i(98, 4)]],
 		["Hind", Bestiary.HIND, Color("b08a5a"), [Vector2i(102, 30), Vector2i(105, 40)]],
 		["Horse", Bestiary.HORSE, Color("7a5232"), [Vector2i(118, 26), Vector2i(100, 36)]],
+		# the south and the far east: the Whitepeaks, the Dunes of Kesh, the Reedmarsh, the Cinderfields
+		["Frost Wolf", Bestiary.FROST_WOLF, Color("c8d8e8"), [Vector2i(122, 76), Vector2i(136, 78), Vector2i(124, 90)]],
+		["Yeti", Bestiary.YETI, Color("e8eef4"), [Vector2i(138, 90)]],
+		["Cave Spider", Bestiary.CAVE_SPIDER, Color("3a3a4a"), [Vector2i(130, 84), Vector2i(134, 86)]],
+		["Icejaw", r.call(Bestiary.CAVE_CHIEF, "yeti", 1.6, {}), Color("b8d8f0"), [Vector2i(132, 85)]],
+		["Sand Scorpion", Bestiary.SAND_SCORPION, Color("b08a40"), [Vector2i(114, 114), Vector2i(120, 130), Vector2i(138, 128)]],
+		["Mummy", Bestiary.MUMMY, Color("c8b890"), [Vector2i(116, 124), Vector2i(128, 119), Vector2i(132, 121)]],
+		["The Dune Pharaoh", r.call(Bestiary.CAVE_CHIEF, "mummy", 1.6, {"poison": [3, 0.2]}), Color("e0c060"), [Vector2i(130, 120)]],
+		["Bog Leech", Bestiary.BOG_LEECH, Color("4a3a2a"), [Vector2i(6, 108), Vector2i(34, 110), Vector2i(10, 122), Vector2i(32, 122)]],
+		["Bog Troll", Bestiary.BOG_TROLL, Color("4a6a3a"), [Vector2i(22, 124)]],
+		["Ash Hound", r.call(Bestiary.FROST_WOLF, "wolf", 1.0, {"str": 50, "danger": 4,
+			"loot": {"gold_min": 15, "gold_max": 30, "drops": [["raw_meat", 0.5], ["ruby", 0.03]]}}), Color("6a3a2a"),
+			[Vector2i(44, 128), Vector2i(56, 134), Vector2i(64, 140)]],
+		["Cinder Imp", r.call(Bestiary.EVIL_MAGE, "daemon", 0.65, {"danger": 5, "int": 55,
+			"loot": {"gold_min": 30, "gold_max": 60, "reagents": 6, "drops": [["cave_crystal", 0.15], ["ruby", 0.06]]}}), Color("c8502a"),
+			[Vector2i(50, 138)]],
+		["Skeleton", Bestiary.SKELETON, Color("d8d2c0"), [Vector2i(64, 94), Vector2i(68, 96)]],
+		["Skeleton Archer", Bestiary.SKELETON_ARCHER, Color("d8d2c0"), [Vector2i(65, 95)]],
+		["The Bone Warden", r.call(Bestiary.CAVE_CHIEF, "lich", 1.5, {}), Color("8a7aa8"), [Vector2i(67, 94)]],
 		# the Isle of Tides
 		["Giant Crab", r.call(Bestiary.SAND_SCORPION, "scorpion", 1.25, {"poison": [], "armor": 3.5, "str": 55,
 			"loot": {"gold_min": 20, "gold_max": 45, "drops": [["pearl", 0.2], ["raw_meat", 0.6]]}}), Color("c05a3a"),
@@ -2051,13 +2073,14 @@ func _env_tick(delta: float) -> void:
 		return
 	_env_acc = 0.0
 	var t := world.to_tile(hero.position)
-	var b := world.biome_at(t)
-	if b != _biome:
-		if b != "":
-			game.log_event("You enter %s." % World.BIOME_NAMES[b])
+	var bk := world.biome_key_at(t)                  # (the region: its own name)
+	if bk != _biome:
+		if bk != "":
+			game.log_event("You enter %s." % World.BIOME_NAMES[bk])
 		elif _biome != "":
 			game.log_event("You leave %s." % World.BIOME_NAMES[_biome])
-		_biome = b
+		_biome = bk
+	var b := world.biome_at(t)
 	_snow.emitting = (b == "snow" or snowing()) and game.property.weather_on and not world.is_dungeon(t)
 	_sound_tick(b)
 	var isle := world.on_island(t)

@@ -14,13 +14,21 @@ const TOWNS := [Rect2i(19, 2, 11, 12), Rect2i(33, 2, 9, 6), Rect2i(44, 30, 12, 9
 const DUNGEON := Rect2i(37, 11, 13, 11)
 ## Biomes: the frozen north, the desert of the south-east and the swamp round the southern lake.
 ## Each tints the land and has its own creatures (see Frontier).
-const BIOMES := {"snow": Rect2i(52, 1, 30, 9), "desert": Rect2i(56, 37, 39, 10), "swamp": Rect2i(24, 33, 19, 14), "ash": Rect2i(122, 1, 21, 16)}
-const BIOME_NAMES := {"snow": "the Frostmarch", "desert": "the Sunscar Wastes", "swamp": "the Blackwater Fen", "ash": "the Ashlands"}
+## A biome can have more than one region: "snow_east" is snow, named on its own (the part before
+## the "_" is the kind).
+const BIOMES := {"snow": Rect2i(52, 1, 30, 9), "desert": Rect2i(56, 37, 39, 10), "swamp": Rect2i(24, 33, 19, 14), "ash": Rect2i(122, 1, 21, 16),
+	"snow_east": Rect2i(118, 72, 24, 22), "desert_south": Rect2i(110, 110, 32, 24), "swamp_south": Rect2i(2, 104, 36, 22),
+	"ash_south": Rect2i(40, 124, 30, 18)}
+const BIOME_NAMES := {"snow": "the Frostmarch", "desert": "the Sunscar Wastes", "swamp": "the Blackwater Fen", "ash": "the Ashlands",
+	"snow_east": "the Whitepeaks", "desert_south": "the Dunes of Kesh", "swamp_south": "the Reedmarsh", "ash_south": "the Cinderfields"}
 ## Caves: walled hollows with one way in, dark floors, rich ore and their own dwellers.
 const CAVES := [
 	{"name": "Frostfang Cavern", "rect": Rect2i(52, 3, 9, 7), "door": Vector2i(56, 9), "out": Vector2i(56, 10)},
 	{"name": "Scorpion Hollow", "rect": Rect2i(60, 38, 9, 7), "door": Vector2i(64, 38), "out": Vector2i(64, 37)},
 	{"name": "Goblin Warren", "rect": Rect2i(3, 39, 9, 7), "door": Vector2i(11, 42), "out": Vector2i(12, 42)},
+	{"name": "Icejaw Grotto", "rect": Rect2i(128, 82, 9, 7), "door": Vector2i(132, 88), "out": Vector2i(132, 89)},     # the Whitepeaks
+	{"name": "Tomb of Kesh", "rect": Rect2i(126, 117, 9, 7), "door": Vector2i(130, 123), "out": Vector2i(130, 124)},  # the Dunes
+	{"name": "Bonedeep Hollow", "rect": Rect2i(62, 92, 9, 7), "door": Vector2i(66, 98), "out": Vector2i(66, 99)},     # the middle south
 ]
 ## The guild towers out in the wilds (each stands on one solid tile).
 ## Ravenhollow Cemetery, the walled graveyard in the south-east where the restless dead walk.
@@ -287,6 +295,11 @@ func cave_at(c: Vector2i) -> int:
 
 ## The biome a tile lies in ("snow", "desert", "swamp"), or "" for the green lands.
 func biome_at(c: Vector2i) -> String:
+	return biome_key_at(c).get_slice("_", 0)
+
+
+## Which biome region a tile lies in ("snow", "snow_east", ...), or "".
+func biome_key_at(c: Vector2i) -> String:
 	if is_town(c) or is_dungeon(c):
 		return ""
 	for k in BIOMES:
@@ -299,10 +312,15 @@ func biome_at(c: Vector2i) -> String:
 func biome_weight(c: Vector2i, k: String) -> float:
 	if is_town(c):
 		return 0.0
-	var r: Rect2i = BIOMES[k]
-	var dx := maxi(maxi(r.position.x - c.x, c.x - (r.end.x - 1)), 0)
-	var dy := maxi(maxi(r.position.y - c.y, c.y - (r.end.y - 1)), 0)
-	return clampf(1.0 - Vector2(dx, dy).length() / 3.0, 0.0, 1.0)
+	var best := 0.0
+	for key in BIOMES:
+		if String(key).get_slice("_", 0) != k:
+			continue
+		var r: Rect2i = BIOMES[key]
+		var dx := maxi(maxi(r.position.x - c.x, c.x - (r.end.x - 1)), 0)
+		var dy := maxi(maxi(r.position.y - c.y, c.y - (r.end.y - 1)), 0)
+		best = maxf(best, clampf(1.0 - Vector2(dx, dy).length() / 3.0, 0.0, 1.0))
+	return best
 
 
 static func _parse(ch: String) -> int:
@@ -342,6 +360,12 @@ func place_name(c: Vector2i) -> String:
 		return ISLAND_NAME
 	if CEMETERY.has_point(c):
 		return CEMETERY_NAME
+	var cv := cave_at(c)
+	if cv >= 0:
+		return String(CAVES[cv]["name"])
+	var bk := biome_key_at(c)
+	if bk != "":
+		return String(BIOME_NAMES[bk])
 	return "the wilds"
 
 
@@ -983,8 +1007,11 @@ void fragment() {
 """
 const PAINT_PX := 3                     # painted pixels a tile (the grain adds the fine detail)
 const ROAD_STOPS := [Vector2i(24, 11), Vector2i(36, 5), Vector2i(48, 33), Vector2i(35, 16),
-	Vector2i(87, 34), Vector2i(87, 10), Vector2i(8, 30), Vector2i(109, 12), Vector2i(101, 104)]
-const ROADS := [[0, 1], [0, 2], [0, 3], [2, 4], [1, 5], [0, 6], [5, 7], [2, 8]]   # pairs of ROAD_STOPS
+	Vector2i(87, 34), Vector2i(87, 10), Vector2i(8, 30), Vector2i(109, 12), Vector2i(101, 104),
+	Vector2i(31, 102), Vector2i(110, 62), Vector2i(120, 126), Vector2i(20, 110), Vector2i(132, 90), Vector2i(67, 100)]
+## pairs of ROAD_STOPS: the old lands, and out to the towers, lakes and caves of the south and east
+const ROADS := [[0, 1], [0, 2], [0, 3], [2, 4], [1, 5], [0, 6], [5, 7], [2, 8],
+	[8, 9], [9, 12], [7, 10], [10, 8], [8, 11], [10, 13], [8, 14]]
 
 
 func _ground_mat() -> ShaderMaterial:

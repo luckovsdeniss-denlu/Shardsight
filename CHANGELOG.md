@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.75.0
+The south and the east filled in: the whole map has places worth going to.
+- Four new wild regions, each with its own look, name and creatures:
+  the Whitepeaks (snow, far east: frost wolves, a yeti), the Dunes of Kesh (desert, south-east:
+  scorpions, mummies), the Reedmarsh (swamp round the south-western lake: leeches, a bog troll) and
+  the Cinderfields (ash, far south: ash hounds, a cinder imp).
+- Three new caves, each with a chief: Icejaw Grotto in the Whitepeaks, the Tomb of Kesh in the
+  Dunes (the Dune Pharaoh), and Bonedeep Hollow in the middle south (the Bone Warden).
+- New roads to the southern and eastern towers, Reedmere, the new caves, and between Dawnport and Highmoor.
+- New townsfolk: Bryn the Fisher (Mirrormere, home in Dawnport), Ada the Shepherd (by Highmoor),
+  and Old Cole the Hermit out on the southern plain.
+- The map's place names now include the caves and wild regions; Auto explores the new ones too.
+
 ## 0.74.0
 - The movie opens on the land alone: no hero in the first shot.
 - The movie's Skip button sits in the middle of the top bar, well in from the corner, and stays
