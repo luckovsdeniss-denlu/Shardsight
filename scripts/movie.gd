@@ -29,6 +29,12 @@ var _flash := 0.0
 var _was_casting := false
 var _slow := 0.0                   # real seconds of slow motion left
 var _end_card: Control
+var _riser_done := false
+
+
+func _sound(sound_name: String, pitch: float, db: float) -> void:
+	if game.property.sound_on:
+		game.sfx.play(sound_name, pitch, db)
 const SWEEP_SHADER := """
 shader_type canvas_item;
 void fragment() {
@@ -83,6 +89,10 @@ func start(p_game) -> void:
 	hero.roam_timer = 1.0e9                             # no wandering off between scenes
 	game.frontier._auto_wait = 1.0e9                     # and no errands
 	game.skip_save = true                               # nothing of the movie is kept
+	game.music.set_enabled(game.property.music_on)
+	game.music.play_area("trailer")                     # its own score: drums, brass, choir
+	for k in ["crickets", "water", "fire", "wind", "tavern", "crowd"]:
+		game._amb_set(k, -80.0)                         # the ambience steps back
 	_make_shots()
 	running = true
 	_next()
@@ -229,6 +239,9 @@ func _next() -> void:
 	if i >= shots.size():
 		finish()
 		return
+	if i > 0:                                           # every cut lands on a hit
+		_sound("braam" if bool(shots[i].get("white", false)) or i % 4 == 0 else "impact", 1.0, 0.0)
+	_riser_done = false
 	var sh: Dictionary = shots[i]
 	if sh.has("day"):
 		game.day_time = float(sh["day"])
@@ -282,11 +295,20 @@ func tick(delta: float) -> bool:
 		_shake = 0.35
 		_slow = 0.5
 		Engine.time_scale = 0.35
+		Soundscape.slowmo = true                       # the world goes dull and far away...
+		Soundscape.update("wilds", false, false)
+		game.music.player.pitch_scale = 0.8
+		_sound("impact", 0.7, 0.0)
 	_was_casting = casting
 	if _slow > 0.0:
 		_slow -= delta / maxf(Engine.time_scale, 0.05)  # counted in real seconds
 		if _slow <= 0.0:
 			Engine.time_scale = 1.0
+			Soundscape.slowmo = false                  # ...and snaps back
+			game.music.player.pitch_scale = 1.0
+	if not _riser_done and t >= dur - 1.2 and i < shots.size() - 1:
+		_riser_done = true                              # a riser sweeps up into the next cut
+		_sound("riser", 1.0, -4.0)
 	_flash = maxf(_flash - delta * 2.5, 0.0)
 	_fx.set_shader_parameter("flash", _flash)
 	_shake = maxf(_shake - delta * 1.5, 0.0)
@@ -316,6 +338,10 @@ func finish() -> void:
 		return
 	running = false
 	Engine.time_scale = 1.0
+	Soundscape.slowmo = false
+	game.music.player.pitch_scale = 1.0
+	_sound("braam", 0.85, 2.0)                          # the last hit, and the score fades under the logo
+	game.create_tween().tween_property(game.music.player, "volume_db", -50.0, 4.0)
 	game.skip_save = true
 	_title.get_parent().visible = false
 	_end_logo()

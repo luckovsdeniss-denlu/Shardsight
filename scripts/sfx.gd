@@ -272,6 +272,7 @@ func _build_ambience() -> void:
 	_pending["fire"] = [fire]
 	_build_wider_world()
 	_build_flourishes()
+	_build_trailer()
 
 
 ## The wider world's sounds: oars and waves, beasts' voices, the wind of the Frostmarch, the hum
@@ -417,6 +418,31 @@ func _build_flourishes() -> void:
 			if lt > 0.0:
 				v += sin(TAU * 55.0 * lt) * exp(-lt * 22.0) * (0.9 if o == 0.0 else 0.6)
 		return v)]
+
+
+## Trailer sounds: a riser (noise sweeping up into a cut), a deep brass "braam" with a drum hit
+## under it, and a short heavy impact.
+func _build_trailer() -> void:
+	var rlp := [0.0]
+	_pending["riser"] = [_make(1.2, func(t: float) -> float:
+		var k := t / 1.2
+		rlp[0] = lerpf(float(rlp[0]), randf_range(-1.0, 1.0), 0.05 + 0.6 * k * k)   # the noise brightens as it rises
+		var tone := sin(TAU * (200.0 + 900.0 * k * k) * t) * 0.25
+		return (float(rlp[0]) * 1.4 + tone) * k * k)]
+	var blp := [0.0]
+	_pending["braam"] = [_make(2.4, func(t: float) -> float:
+		var env := minf(t / 0.06, 1.0) * exp(-t * 1.1)
+		var v := 0.0
+		for k in range(1, 9):                                  # a low brass chord, buzzing
+			v += sin(TAU * 55.0 * k * t + 0.3 * sin(TAU * 3.0 * t)) / k
+			v += sin(TAU * 82.4 * k * t) / (k * 1.6)
+		blp[0] = float(blp[0]) * 0.96 + randf_range(-1.0, 1.0) * 0.04
+		var thump := sin(TAU * (40.0 + 80.0 * exp(-t * 20.0)) * t) * exp(-t * 5.0) * 1.2
+		return clampf((v * 0.35 + float(blp[0]) * 3.0) * env * 1.6, -1.0, 1.0) + thump)]
+	var ilp := [0.0]
+	_pending["impact"] = [_make(0.9, func(t: float) -> float:
+		ilp[0] = float(ilp[0]) * 0.9 + randf_range(-1.0, 1.0) * 0.1
+		return (sin(TAU * (35.0 + 120.0 * exp(-t * 30.0)) * t) * 1.1 + float(ilp[0]) * 4.0) * exp(-t * 5.5))]
 
 
 ## A looping ambience ("crickets", "water", "fire") once built, else null.

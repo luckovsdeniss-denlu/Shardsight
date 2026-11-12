@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.69.1
+The Movie gets a soundtrack.
+- Its own score, written for it: driving drums and bass, brass and a choir (the game's other
+  music waits while it plays; the ambience steps back).
+- Trailer sound: every cut lands on a hit - a deep impact, or a huge brass "braam" on the big
+  scenes - and a riser sweeps up into each cut.
+- When a spell lands in slow motion, the sound slows too: the world goes dull and far away, the
+  music drops in pitch, a heavy impact - then it all snaps back.
+- At the end a last braam under the logo, and the score fades away.
+
 ## 0.69.0
 Sound and music.
 - The mix: music, sound effects and ambience each on their own bus - music in a wide hall with a

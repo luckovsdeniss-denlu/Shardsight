@@ -6,6 +6,7 @@ class_name Soundscape
 ## And your state: as a ghost, or near death, the world goes muffled (and your heart pounds).
 
 const BUSES := ["Music", "SFX", "Ambience"]
+static var slowmo := false             # the movie's slow motion: the world dull and far away
 ## SFX reverb per kind of place: [room size, wet, damping].
 const SPACES := {
 	"dungeon": [0.88, 0.42, 0.25], "cave": [0.8, 0.38, 0.3], "church": [0.75, 0.32, 0.45],
@@ -71,6 +72,6 @@ static func update(space: String, ghost: bool, near_death: bool) -> void:
 	rv.wet = lerpf(rv.wet, float(want[1]), 0.35)
 	rv.damping = lerpf(rv.damping, float(want[2]), 0.35)
 	var lp := AudioServer.get_bus_effect(0, 0) as AudioEffectLowPassFilter
-	var cutoff := 900.0 if ghost else (1800.0 if near_death else 20000.0)
-	lp.cutoff_hz = lerpf(lp.cutoff_hz, cutoff, 0.4)
+	var cutoff := 700.0 if slowmo else (900.0 if ghost else (1800.0 if near_death else 20000.0))
+	lp.cutoff_hz = cutoff if slowmo else lerpf(lp.cutoff_hz, cutoff, 0.4)
 	AudioServer.set_bus_effect_enabled(0, 0, lp.cutoff_hz < 15000.0)

@@ -6075,6 +6075,8 @@ func _music_tick(delta: float) -> void:
 	if _music_timer > 0.0 or autotest:
 		return
 	_music_timer = 1.0
+	if movie != null and movie.running:
+		return                                    # the movie plays its own score
 	var t := world.to_tile(hero.position)
 	music.enabled = property.music_on
 	music.play_area(_music_piece(t))
