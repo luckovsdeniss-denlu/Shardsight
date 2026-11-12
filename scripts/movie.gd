@@ -194,8 +194,8 @@ func _build_ui() -> void:
 	skip.anchor_right = 1.0
 	skip.anchor_top = 0.0
 	skip.anchor_bottom = 0.0
-	skip.offset_right = -64.0
-	skip.offset_left = -64.0 - 150.0
+	skip.offset_right = -170.0                          # well clear of the screen's edge and corner
+	skip.offset_left = -170.0 - 150.0
 	skip.offset_top = maxf((vs.y * 0.12 - 56.0) / 2.0, 8.0)
 	skip.offset_bottom = skip.offset_top + 56.0
 

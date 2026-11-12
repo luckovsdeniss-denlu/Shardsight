@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.77.4
+- The movie's Skip button moves further in from the right edge (170 px), so it reads in full.
+
 ## 0.77.3
 - The graves beside the church are gone (Ravenhollow Cemetery keeps all of its own).
 
