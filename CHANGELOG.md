@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.82.0
+The great buildings spread over the whole land (they were all in the north):
+- Ravenhollow Cemetery moves to the far south, below Highmoor - walls, graves, the Tomb of the
+  Old Kings, its dead and its skeleton bounty all with it.
+- The church moves to the far south-west, below the Reedmarsh, with Father Corwin (the story,
+  the church page and the tips point there).
+- The arena moves to the middle of the land, just south of Midmark, with Kael the Arena Master
+  and the horse-race course round it.
+- Roads lead to all three; the movie films each in its new place. The dungeon, the tavern and the
+  northern towns stay where they were.
+
 ## 0.81.1
 - Fix: the "A" in the 3D title was missing its front (only a sliver showed); every letter is whole now.
 

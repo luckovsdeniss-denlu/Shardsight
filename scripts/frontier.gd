@@ -12,7 +12,7 @@ extends Node3D
 const TAVERN := Vector2i(53, 36)            # the Drunken Shard, in Southmoor (its bar)
 const TAVERN_NAME := "the Drunken Shard"
 const HEARTH := Vector2i(55, 35)            # the tavern's hearth: you can cook at it
-const ARENA := Vector2i(19, 19)             # the arena ring, south of the main town
+const ARENA := Vector2i(89, 91)             # the arena ring, by Midmark in the middle of the land
 const ARENA_RADIUS := 3.5
 const STAIRS := Vector2i(47, 21)            # the stairs down, in the dungeon's deepest hall
 const DUNGEON_DOOR := Vector2i(38, 16)      # where you arrive on a new level
@@ -58,7 +58,7 @@ const VILLAGERS := [
 	{"name": "Nell the Fisher", "work": Vector2i(5, 14), "tavern": Vector2i(54, 37), "home": Vector2i(27, 10), "color": Color("6a8ab8")},
 	{"name": "Old Tam the Minstrel", "work": Vector2i(24, 9), "tavern": Vector2i(52, 35), "home": Vector2i(28, 12), "color": Color("a86ab8")},
 	{"name": "Rosa the Barkeep", "work": Vector2i(53, 35), "color": Color("c86a5a")},
-	{"name": "Kael the Arena Master", "work": Vector2i(23, 18), "color": Color("c8a040")},
+	{"name": "Kael the Arena Master", "work": Vector2i(93, 90), "color": Color("c8a040")},
 	{"name": "Hunter Bram", "work": Vector2i(59, 10), "color": Color("8a7a6a")},
 	{"name": "Wren the Herbwife", "work": Vector2i(28, 34), "color": Color("6aa86a")},
 	{"name": "Zahir the Nomad", "work": Vector2i(72, 38), "color": Color("d8b878")},
@@ -248,7 +248,7 @@ const EPITHETS := ["Grimfang", "Old Scar", "Bloodmaw", "Ironhide", "Ashtooth", "
 const ELITE_KINDS := [
 	["Wolf", Rect2i(52, 10, 20, 10)], ["Orc", Rect2i(10, 16, 22, 6)], ["Brown Bear", Rect2i(60, 14, 15, 8)],
 	["Frost Wolf", Rect2i(61, 1, 20, 7)], ["Sand Scorpion", Rect2i(70, 40, 12, 6)], ["Bog Troll", Rect2i(24, 41, 8, 5)],
-	["Skeleton", Rect2i(80, 28, 10, 10)], ["Giant Spider", Rect2i(2, 20, 15, 5)],
+	["Skeleton", Rect2i(96, 127, 10, 10)], ["Giant Spider", Rect2i(2, 20, 15, 5)],
 	["Brown Bear", Rect2i(30, 85, 30, 20)], ["Orc", Rect2i(90, 110, 30, 20)], ["Giant Spider", Rect2i(10, 120, 25, 15)],
 	["Wolf", Rect2i(110, 70, 25, 20)], ["Skeleton", Rect2i(60, 125, 30, 15)],
 ]
@@ -3376,7 +3376,7 @@ func _toggle_auto_kind(kind: String) -> void:
 # --- horse races -----------------------------------------------------------------------------
 ## A lap from the arena round a course of posts and back, on your own mount, against three riders
 ## whose times are drawn from their horses' pace.
-const RACE_COURSE := [Vector2i(23, 14), Vector2i(30, 16), Vector2i(30, 22), Vector2i(23, 22), Vector2i(19, 19)]
+const RACE_COURSE := [Vector2i(93, 86), Vector2i(100, 88), Vector2i(100, 94), Vector2i(93, 94), Vector2i(89, 91)]
 const RACERS := ["Swift Marigold", "Old Thunder", "Ser Aldous on Nightwind", "The Stable Boy", "Red Fenna", "Hal's Grey"]
 var race := {}
 var _race_posts: Array[MeshInstance3D] = []
@@ -3666,7 +3666,7 @@ func while_paused() -> void:
 
 
 # --- the church ------------------------------------------------------------------------------
-## The Church of the Shard, out east past the dungeon: a stone nave with a paved floor and a red
+## The Church of the Shard, far in the south-west below the Reedmarsh: a stone nave with a paved floor and a red
 ## runner from the doors to the altar, pews, candles, windows of coloured glass glowing in the
 ## south wall, and a bell tower that tolls morning, noon and dusk. Father Corwin keeps it. Pray at
 ## the altar once a day (healing, poison drawn out, a little karma, a blessing of the mind), or
@@ -3748,9 +3748,9 @@ func _bell_tick() -> void:
 func _page_church() -> void:
 	_h("The Church of the Shard")
 	var inside := world.in_church(world.to_tile(hero.position))
-	_t("Stone walls, coloured glass and candlelight, out east past the dungeon at the edge of the Frostmarch. Father Corwin keeps it; the bell tolls morning, noon and dusk. Karma %d." % hero.karma)
+	_t("Stone walls, coloured glass and candlelight, far in the south-west below the Reedmarsh. Father Corwin keeps it; the bell tolls morning, noon and dusk. Karma %d." % hero.karma)
 	if not inside:
-		_b("Walk to the church", _walk_to.bind(Vector2i(56, 14)))
+		_b("Walk to the church", _walk_to.bind(Vector2i(12, 128)))
 		return
 	var prayed := _now() - float(data.get("pray_at", -1.0e9)) < DAY
 	_b("Pray at the altar (once a day)" if not prayed else "You have prayed today", _pray, not prayed)
@@ -3797,7 +3797,7 @@ func _see_priest() -> void:
 ## burn with a cold green light, an iron gate on the west side, and in the north the Tomb of the
 ## Old Kings. Wisps drift among the graves at night. Once a night you may open the tomb - and
 ## wake the Barrow King, who keeps the old kings' gold.
-const TOMB_DOOR := Vector2i(88, 31)
+const TOMB_DOOR := Vector2i(104, 130)
 var _wisps: CPUParticles3D
 var tomb_king: Entity
 

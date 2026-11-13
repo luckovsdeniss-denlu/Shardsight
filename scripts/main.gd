@@ -2371,7 +2371,7 @@ func _open_help() -> void:
 		"Die and you become a ghost in a grey world: walk (tap the ground, or let Auto do it) to a resurrection spot to be raised for free: a glowing ankh shrine (one in every part of the map, pale blue crosses on the minimap) or a healer or priest (not for murderers). The top of the screen shows the nearest. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
 		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
 		"The world is bigger now: Southmoor, a third town, lies south. Wolf packs and an orc fort roam the far east, spiders the southern forest, and the restless dead an old graveyard in the south-east. The hills south-east are rich in ore.",
-		"Priests (Father Corwin in his church east of the dungeon, Brother Anselm at the outpost, Mother Isolde in Southmoor) cure poison, lift curses, restore mana and raise the dead for free, bless you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lift a murder count for 50 gold. Stand near one, or tap them.",
+		"Priests (Father Corwin in his church in the far south-west, Brother Anselm at the outpost, Mother Isolde in Southmoor) cure poison, lift curses, restore mana and raise the dead for free, bless you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lift a murder count for 50 gold. Stand near one, or tap them.",
 		"Menu also has Craft, Bank & House (deeds, lock-downs, co-owners), Travel & Spellbook (a runebook of up to 8 runes for Recall and Gate Travel, and the spells you know) and Settings (sound, camera).",
 		"Spells must be in your spellbook. You start with circles 1-4; scrolls for more drop from monsters (tougher ones carry higher circles) or are sold by merchants (circles 1-6), and are copied in as soon as you pick them up.",
 	]:
@@ -3148,7 +3148,7 @@ func _refresh_priest() -> void:
 		_on_priest_bless, ok and hero.bless_timer <= 0.0 and hero.gold >= Entity.BLESS_PRICE))
 	priest_box.add_child(_action("Confession: lift one murder count (%d gold)" % Entity.CONFESS_PRICE,
 		_on_priest_confess, near and hero.murder_counts > 0 and hero.gold >= Entity.CONFESS_PRICE))
-	priest_box.add_child(_info("Priests: Father Corwin in his church east of the dungeon, Brother Anselm at the outpost and Mother Isolde, the abbess of Southmoor."))
+	priest_box.add_child(_info("Priests: Father Corwin in his church in the far south-west, Brother Anselm at the outpost and Mother Isolde, the abbess of Southmoor."))
 	priest_box.add_child(_menu_button("Close", _close_priest))
 
 
@@ -4176,7 +4176,7 @@ func _spawn_all() -> void:
 	_build_banners()
 	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
 	_spawn(Entity.Kind.NPC, "Hal the Stablemaster", Bestiary.STABLEMASTER, cream, Vector2i(21, 11))
-	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(56, 16))   # in his church
+	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(12, 130))   # in his church
 	var bran := _spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
 	bran.shop = Shop.new("town", 1.0, 1.0)
 	# The outpost is remote: its merchant pays more for goods and charges more for supplies.
@@ -4272,14 +4272,14 @@ func _spawn_all() -> void:
 	for t in [Vector2i(40, 30), Vector2i(58, 36), Vector2i(45, 26), Vector2i(62, 28)]:
 		_spawn(Entity.Kind.MONSTER, "Rat", Bestiary.RAT, red, t)
 	# The old graveyard in the south-east: the restless dead.
-	for t in [Vector2i(85, 30), Vector2i(90, 34), Vector2i(86, 38)]:
+	for t in [Vector2i(101, 129), Vector2i(106, 133), Vector2i(102, 137)]:
 		_spawn(Entity.Kind.MONSTER, "Skeleton", Bestiary.SKELETON, Color("d8d2c0"), t)
-	_spawn(Entity.Kind.MONSTER, "Zombie", Bestiary.ZOMBIE, Color("6f8f5a"), Vector2i(89, 30))
-	_spawn(Entity.Kind.MONSTER, "Lich", Bestiary.LICH, Color("6a4a8a"), Vector2i(91, 35))
+	_spawn(Entity.Kind.MONSTER, "Zombie", Bestiary.ZOMBIE, Color("6f8f5a"), Vector2i(105, 129))
+	_spawn(Entity.Kind.MONSTER, "Lich", Bestiary.LICH, Color("6a4a8a"), Vector2i(107, 134))
 	# Monsters that shoot: crossbow orcs in the fort, skeleton archers in the graveyard and dungeon.
 	for t in [Vector2i(84, 4), Vector2i(90, 7)]:
 		_spawn(Entity.Kind.MONSTER, "Orc Archer", Bestiary.ORC_ARCHER, red, t)
-	for t in [Vector2i(88, 29), Vector2i(84, 35), Vector2i(41, 17)]:
+	for t in [Vector2i(104, 128), Vector2i(100, 134), Vector2i(41, 17)]:
 		_spawn(Entity.Kind.MONSTER, "Skeleton Archer", Bestiary.SKELETON_ARCHER, Color("d8d2c0"), t)
 	_even_out_monsters(rng)
 
@@ -5528,7 +5528,7 @@ const FLYBY := [
 	[Vector2i(22, 20), 15.0, Vector2i(24, 9)],
 	[Vector2i(42, 26), 13.0, Vector2i(43, 16)],
 	[Vector2i(66, 20), 17.0, Vector2i(76, 10)],
-	[Vector2i(82, 44), 15.0, Vector2i(88, 33)],
+	[Vector2i(70, 30), 15.0, Vector2i(60, 22)],
 	[Vector2i(58, 46), 13.0, Vector2i(50, 34)],
 ]
 const FLYBY_SEG := 2.2                 # seconds from one point to the next
@@ -5540,7 +5540,7 @@ var _skip_from_look := Vector3.ZERO
 var _cam_look := Vector3.ZERO          # where the camera looks during the fly-by
 var _title_close: Callable
 # the fly-by's effects
-const FLYBY_PLACES := ["The Southern Woods", "The Town", "The Dungeon", "The Eastern Wilds", "Ravenhollow Cemetery", "Southmoor"]
+const FLYBY_PLACES := ["The Southern Woods", "The Town", "The Dungeon", "The Eastern Wilds", "Eastwatch Tower", "Southmoor"]
 const VIGNETTE_SHADER := """
 shader_type canvas_item;
 uniform float strength = 0.75;
