@@ -233,7 +233,7 @@ func _make_shots() -> void:
 		{"title": "Magic", "sub": "Sixty-seven spells in eight circles. Speak the old words.", "dur": 9.0, "white": true,
 			"at": _tc(Vector2i(14, 19)), "r": 6.0, "h": 4.0, "a0": 1.4, "a1": 2.8, "setup": _stage_magic},
 		{"title": "The dungeon's depths", "sub": "Five levels down, each darker than the last.", "dur": 7.0,
-			"at": _tc(Vector2i(44, 16)), "r": 7.0, "h": 6.5, "a0": 3.0, "a1": 4.2, "setup": _stage_fight.bind(Vector2i(45, 19), "Skeleton", Bestiary.SKELETON, 2)},
+			"at": _tc(Vector2i(11, 72)), "r": 7.0, "h": 6.5, "a0": 3.0, "a1": 4.2, "setup": _stage_fight.bind(Vector2i(12, 75), "Skeleton", Bestiary.SKELETON, 2)},
 		{"title": "The Frostmarch", "sub": "Biomes: snow, desert, swamp and ash - each with its own beasts.", "dur": 7.0, "snow": true,
 			"at": _tc(Vector2i(70, 5)), "r": 8.0, "h": 5.0, "a0": 0.5, "a1": 1.6, "setup": _stage_fight.bind(Vector2i(70, 5), "Yeti", Bestiary.YETI, 1)},
 		{"title": "Caves and deserts", "sub": "Scorpions in the Sunscar Wastes; crystals deep in the caves.", "dur": 7.0,

@@ -14,10 +14,10 @@ const TAVERN_NAME := "the Drunken Shard"
 const HEARTH := Vector2i(55, 35)            # the tavern's hearth: you can cook at it
 const ARENA := Vector2i(89, 91)             # the arena ring, by Midmark in the middle of the land
 const ARENA_RADIUS := 3.5
-const STAIRS := Vector2i(47, 21)            # the stairs down, in the dungeon's deepest hall
-const DUNGEON_DOOR := Vector2i(38, 16)      # where you arrive on a new level
-const DEPTH_BOSS_AT := Vector2i(39, 13)
-const BOARDS := [Vector2i(28, 11), Vector2i(40, 6), Vector2i(45, 34), Vector2i(109, 15), Vector2i(101, 107),
+const STAIRS := Vector2i(14, 77)            # the stairs down, in the dungeon's deepest hall
+const DUNGEON_DOOR := Vector2i(5, 72)      # where you arrive on a new level
+const DEPTH_BOSS_AT := Vector2i(6, 69)
+const BOARDS := [Vector2i(28, 11), Vector2i(113, 50), Vector2i(45, 34), Vector2i(109, 15), Vector2i(101, 107),
 	Vector2i(12, 97), Vector2i(44, 109), Vector2i(85, 82), Vector2i(129, 51)]   # a bounty board in each town
 const DOCKS := [
 	{"name": "Westmere Landing", "tile": Vector2i(5, 15), "to": 1},

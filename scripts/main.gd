@@ -2369,7 +2369,7 @@ func _open_help() -> void:
 		"Fishing: carry a fishing pole and tap the water. Fish feed you; skill brings big fish, and sometimes a pearl or a map in a bottle. Rings and amulets (Bag > Wear) add strength, spell power, faster casting, resistance, armour or healing.",
 		"World events: the restless dead walk the wilds at night; orc warbands march on the towns (help drive them off for a reward); champions rise in the wilds (orange dots on the map) and always leave treasure. Statistics shows your achievements, and the titles they earn.",
 		"Die and you become a ghost in a grey world: walk (tap the ground, or let Auto do it) to a resurrection spot to be raised for free: a glowing ankh shrine (one in every part of the map, pale blue crosses on the minimap) or a healer or priest (not for murderers). The top of the screen shows the nearest. Your corpse keeps your bag; go back for it. Bank gold to keep it safe.",
-		"Captain Marcus in town gives kill quests. The dungeon is east, past the outpost.",
+		"Captain Marcus in town gives kill quests. The dungeon lies far to the south-west, by the great lake; the outpost is far out east.",
 		"The world is bigger now: Southmoor, a third town, lies south. Wolf packs and an orc fort roam the far east, spiders the southern forest, and the restless dead an old graveyard in the south-east. The hills south-east are rich in ore.",
 		"Priests (Father Corwin in his church in the far south-west, Brother Anselm at the outpost, Mother Isolde in Southmoor) cure poison, lift curses, restore mana and raise the dead for free, bless you for 25 gold (+10% damage dealt, -10% taken, 5 minutes) and lift a murder count for 50 gold. Stand near one, or tap them.",
 		"Menu also has Craft, Bank & House (deeds, lock-downs, co-owners), Travel & Spellbook (a runebook of up to 8 runes for Recall and Gate Travel, and the spells you know) and Settings (sound, camera).",
@@ -4180,13 +4180,13 @@ func _spawn_all() -> void:
 	var bran := _spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
 	bran.shop = Shop.new("town", 1.0, 1.0)
 	# The outpost is remote: its merchant pays more for goods and charges more for supplies.
-	var mara := _spawn(Entity.Kind.NPC, "Mara", Bestiary.MERCHANT, cream, Vector2i(37, 3))
+	var mara := _spawn(Entity.Kind.NPC, "Mara", Bestiary.MERCHANT, cream, Vector2i(110, 47))
 	mara.shop = Shop.new("the outpost", 1.3, 1.25)
 	_spawn(Entity.Kind.NPC, "Oswin", Bestiary.BANKER, cream, Vector2i(26, 12))
 	_spawn(Entity.Kind.NPC, Quests.GIVER, Bestiary.QUESTGIVER, Color("c9a86a"), Vector2i(22, 13))
-	# The outpost, east of the main town, near the dungeon.
-	_spawn(Entity.Kind.NPC, "Brother Aldo", Bestiary.HEALER, cream, Vector2i(35, 4))
-	_spawn(Entity.Kind.NPC, "Brother Anselm", Bestiary.PRIEST, Color("c8d0e8"), Vector2i(39, 5))
+	# The outpost, far out east between Dawnport and Midmark.
+	_spawn(Entity.Kind.NPC, "Brother Aldo", Bestiary.HEALER, cream, Vector2i(108, 48))
+	_spawn(Entity.Kind.NPC, "Brother Anselm", Bestiary.PRIEST, Color("c8d0e8"), Vector2i(112, 49))
 	# Southmoor, the southern town: its merchant pays a little more and charges a little more.
 	_spawn(Entity.Kind.NPC, "Sister Maeve", Bestiary.HEALER, cream, Vector2i(46, 31))
 	_spawn(Entity.Kind.NPC, "Mother Isolde", Bestiary.PRIEST, Color("eef2fa"), Vector2i(48, 32))   # the abbess
@@ -4207,7 +4207,7 @@ func _spawn_all() -> void:
 	# Four more towns, so that every part of the land has one: Westford in the west, Reedwick by
 	# the Reedmarsh, Midmark in the middle of the land, Stormhold in the east.
 	for t in [["Westford", Vector2i(7, 90), "Sister Wenna", "Dob", "Hesk", 1.2],
-			["Reedwick", Vector2i(39, 102), "Brother Aldo", "Fen", "Garra", 1.2],
+			["Reedwick", Vector2i(39, 102), "Brother Osk", "Fen", "Garra", 1.2],
 			["Midmark", Vector2i(80, 75), "Sister Mael", "Corwin", "Lise", 1.1],
 			["Stormhold", Vector2i(124, 44), "Brother Kord", "Yara", "Thane", 1.3]]:
 		var o: Vector2i = t[1]
@@ -4227,12 +4227,12 @@ func _spawn_all() -> void:
 	_spawn(Entity.Kind.MONSTER, "Orc", Bestiary.ORC, red, Vector2i(16, 20))
 	_spawn(Entity.Kind.MONSTER, "Evil Mage", Bestiary.EVIL_MAGE, red, Vector2i(14, 22))
 	# The dungeon.
-	_spawn(Entity.Kind.MONSTER, "Skeleton", Bestiary.SKELETON, Color("d8d2c0"), Vector2i(39, 13))
-	_spawn(Entity.Kind.MONSTER, "Skeleton", Bestiary.SKELETON, Color("d8d2c0"), Vector2i(40, 20))
-	_spawn(Entity.Kind.MONSTER, "Zombie", Bestiary.ZOMBIE, Color("6f8f5a"), Vector2i(44, 12))
-	_spawn(Entity.Kind.MONSTER, "Ogre", Bestiary.OGRE, Color("8a6a4a"), Vector2i(44, 20))
-	_spawn(Entity.Kind.MONSTER, "Lich", Bestiary.LICH, Color("6a4a8a"), Vector2i(48, 12))
-	_spawn(Entity.Kind.MONSTER, "The Bone King", Bestiary.BONE_KING, Color("3a2a4a"), Vector2i(48, 20))   # the deepest hall
+	_spawn(Entity.Kind.MONSTER, "Skeleton", Bestiary.SKELETON, Color("d8d2c0"), Vector2i(6, 69))
+	_spawn(Entity.Kind.MONSTER, "Skeleton", Bestiary.SKELETON, Color("d8d2c0"), Vector2i(7, 76))
+	_spawn(Entity.Kind.MONSTER, "Zombie", Bestiary.ZOMBIE, Color("6f8f5a"), Vector2i(11, 68))
+	_spawn(Entity.Kind.MONSTER, "Ogre", Bestiary.OGRE, Color("8a6a4a"), Vector2i(11, 76))
+	_spawn(Entity.Kind.MONSTER, "Lich", Bestiary.LICH, Color("6a4a8a"), Vector2i(15, 68))
+	_spawn(Entity.Kind.MONSTER, "The Bone King", Bestiary.BONE_KING, Color("3a2a4a"), Vector2i(15, 76))   # the deepest hall
 
 	# The eastern wilds: wolf packs, deer, the bear wood and the orc fort.
 	for t in [Vector2i(58, 10), Vector2i(63, 13), Vector2i(62, 16)]:
@@ -4255,7 +4255,7 @@ func _spawn_all() -> void:
 	for t in [Vector2i(62, 28), Vector2i(70, 44)]:
 		_spawn(Entity.Kind.MONSTER, "Giant Beetle", Bestiary.BEETLE, Color("283040"), t)
 	_spawn(Entity.Kind.MONSTER, "Swamp Dragon", Bestiary.SWAMP_DRAGON, Color("4a6a3a"), Vector2i(40, 43))
-	_spawn(Entity.Kind.MONSTER, "Nightmare", Bestiary.NIGHTMARE, Color("1a1418"), Vector2i(44, 16))
+	_spawn(Entity.Kind.MONSTER, "Nightmare", Bestiary.NIGHTMARE, Color("1a1418"), Vector2i(11, 72))
 	# The southern forest: spiders, wolves, deer.
 	for t in [Vector2i(10, 34), Vector2i(22, 38)]:
 		_spawn(Entity.Kind.MONSTER, "Giant Spider", Bestiary.GIANT_SPIDER, Color("3a3a2a"), t)
@@ -4279,7 +4279,7 @@ func _spawn_all() -> void:
 	# Monsters that shoot: crossbow orcs in the fort, skeleton archers in the graveyard and dungeon.
 	for t in [Vector2i(84, 4), Vector2i(90, 7)]:
 		_spawn(Entity.Kind.MONSTER, "Orc Archer", Bestiary.ORC_ARCHER, red, t)
-	for t in [Vector2i(104, 128), Vector2i(100, 134), Vector2i(41, 17)]:
+	for t in [Vector2i(104, 128), Vector2i(100, 134), Vector2i(8, 73)]:
 		_spawn(Entity.Kind.MONSTER, "Skeleton Archer", Bestiary.SKELETON_ARCHER, Color("d8d2c0"), t)
 	_even_out_monsters(rng)
 
@@ -5526,7 +5526,7 @@ func _show_title(layer: CanvasLayer) -> void:
 const FLYBY := [
 	[Vector2i(8, 44), 20.0, Vector2i(18, 32)],
 	[Vector2i(22, 20), 15.0, Vector2i(24, 9)],
-	[Vector2i(42, 26), 13.0, Vector2i(43, 16)],
+	[Vector2i(9, 82), 13.0, Vector2i(10, 72)],
 	[Vector2i(66, 20), 17.0, Vector2i(76, 10)],
 	[Vector2i(70, 30), 15.0, Vector2i(60, 22)],
 	[Vector2i(58, 46), 13.0, Vector2i(50, 34)],
@@ -6086,7 +6086,7 @@ func _update_ghost_view() -> void:
 # --- braziers: fire in the towns, glowing at night ----------------------------
 
 const BRAZIERS := [Vector2i(19, 10), Vector2i(29, 10), Vector2i(19, 13), Vector2i(29, 13),
-	Vector2i(34, 3), Vector2i(41, 7), Vector2i(44, 30), Vector2i(55, 30), Vector2i(44, 38), Vector2i(55, 38)]
+	Vector2i(107, 47), Vector2i(114, 51), Vector2i(44, 30), Vector2i(55, 30), Vector2i(44, 38), Vector2i(55, 38)]
 var brazier_lights: Array[OmniLight3D] = []
 
 

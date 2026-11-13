@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.83.0
+The dungeon and the outpost move apart, and away from the town:
+- The dungeon now stands on the western shore of the great lake, about 64 tiles south of the
+  town - its halls, its dead, the Bone King, the stairs to the depths and its road all with it.
+- The outpost (Mara, Brother Aldo, Brother Anselm, its bounty board and braziers) moves far out
+  east, between Dawnport and Midmark.
+- The tips, the quest text, the fly-by and the movie follow them. (Reedwick's healer is now
+  Brother Osk, so there's only one Brother Aldo.)
+
 ## 0.82.1
 - The build no longer runs any tests: no smoke test, no movie test, no Auto play-test. It exports
   the APK and publishes it to Releases straight away (a quicker build).

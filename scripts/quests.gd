@@ -16,7 +16,7 @@ const LIST := [
 	{"type": "fetch", "item": "ingot_iron", "count": 5, "reward": 180, "text": "The armoury is short of metal. Bring me 5 iron ingots."},
 	{"type": "kill", "target": "Evil Mage", "count": 1, "reward": 200, "text": "An evil mage lurks by the southern rocks. End him."},
 	{"type": "fetch", "item": "orc_ear", "count": 3, "reward": 170, "text": "Proof, or it didn't happen: bring me 3 orc ears."},
-	{"type": "kill", "target": "Skeleton", "count": 4, "reward": 260, "text": "The dead walk in the eastern dungeon. Put 4 skeletons to rest."},
+	{"type": "kill", "target": "Skeleton", "count": 4, "reward": 260, "text": "The dead walk in the dungeon by the great lake. Put 4 skeletons to rest."},
 	{"type": "escort", "escort": "Sister Ada", "to": [36, 5], "place": "the outpost", "reward": 220,
 		"text": "Sister Ada is needed at the outpost's healer. See her safely there."},
 	{"type": "kill", "target": "Ogre", "count": 1, "reward": 350, "text": "An ogre guards the dungeon's middle hall. Fell it."},
