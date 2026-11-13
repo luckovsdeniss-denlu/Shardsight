@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.81.2
+- The stone walls everywhere (the towns, the dungeon, the forts) stand a quarter lower, all
+  alike, so the land and the people inside show over them.
+
 ## 0.81.1
 - Fix: the "A" in the 3D title was missing its front (only a sliver showed); every letter is whole now.
 

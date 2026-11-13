@@ -1142,6 +1142,11 @@ func _sample(grid: PackedFloat32Array, fx: float, fy: float) -> float:
 	return lerpf(top, bottom, ty)
 
 
+## The stone walls (the towns, the dungeon, the forts) all stand this much of their full height:
+## a little lower, so the land and the people inside show over them.
+const WALL_SCALE := 0.75
+
+
 ## The low-poly scenery pieces (flat-shaded, vertex-coloured, shared by every instance).
 static func _wall_piece() -> ArrayMesh:
 	var stone := Color(0.46, 0.47, 0.5)
@@ -1297,7 +1302,7 @@ func build(parent: Node3D, progress := Callable()) -> void:
 			var v := rnd.randf_range(0.88, 1.1)
 			match tiles[y * cols + x]:
 				Tile.WALL:
-					walls.append(Transform3D(Basis(), c))
+					walls.append(Transform3D(Basis().scaled(Vector3(1.0, WALL_SCALE, 1.0)), c))
 					var k := v * (0.62 if is_dungeon(t) else 1.0)   # the dungeon's stone is darker
 					wall_tints.append(Color(k, k, k))
 				Tile.WATER:
