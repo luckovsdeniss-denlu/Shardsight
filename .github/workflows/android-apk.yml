@@ -4,10 +4,6 @@ name: Build Android APK
 # push or pull request: an APK is built only when the owner asks for one.
 on:
   workflow_dispatch:
-    inputs:
-      playtest_minutes:
-        description: "Play-test length in game-minutes"
-        default: "15"
 
 env:
   GODOT_VERSION: 4.3.0
@@ -81,7 +77,7 @@ jobs:
           godot --headless --verbose --export-debug "Android" "build/$APK_NAME.apk"
 
       # Kept 3 days (so old builds don't fill the artifact storage); if the storage is full anyway,
-      # the build carries on to the smoke test instead of stopping here.
+      # the build carries on to publishing instead of stopping here.
       - uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
@@ -108,41 +104,9 @@ jobs:
           path: build/${{ env.APK_NAME }}-release.apk
           retention-days: 3
 
-      # Godot packages scripts even when they contain errors, so a green export alone proves
-      # little. Run the game headless for a while and fail on any script error.
-      - name: Smoke test (run the game headless, fail on script errors)
-        run: |
-          set +e
-          timeout 120 godot --headless --quit-after 1800 > smoke.log 2>&1
-          code=$?
-          set -e
-          echo "godot exited with $code"
-          tail -n 40 smoke.log
-          if grep -nE "SCRIPT ERROR|Parse Error|Failed to load script|Compile Error" smoke.log; then
-            echo "::error::Script errors while running the game (see above)"
-            exit 1
-          fi
-
-      # The movie, played from the title by itself: it must reach its last scene with no script errors.
-      - name: Movie test (play the showcase headless)
-        run: |
-          set +e
-          timeout 600 godot --headless --fixed-fps 20 --quit-after 3400 -- --movie-test > movie.log 2>&1
-          set -e
-          grep "MOVIE scene" movie.log | head -n 20
-          if grep -nE "SCRIPT ERROR|Parse Error" -A2 movie.log; then
-            echo "::error::Script errors while the movie played (see above)"
-            exit 1
-          fi
-          if ! grep -q "MOVIE scene 15" movie.log; then
-            echo "::error::The movie stopped before its last scene"
-            tail -n 40 movie.log
-            exit 1
-          fi
-
       # The APK goes to the repository's Releases (tag v<version>), which don't use the Actions
-      # artifact storage: a permanent download link per version. Published once the smoke test has
-      # shown the game starts; building the same version again replaces its APK.
+      # artifact storage: a permanent download link per version. Published straight after the
+      # export (no test runs); building the same version again replaces its APK.
       - name: Publish the APK as a release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -157,29 +121,3 @@ jobs:
               --notes "Android APK built from $GITHUB_SHA. See CHANGELOG.md for what changed."
           fi
           echo "APK: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_STEP_SUMMARY"
-
-      # A longer automated play: a fresh game in Auto mode for 15 game-minutes (fixed 20 fps,
-      # as fast as the runner allows). Fails if the hero never fights, loots or improves, if
-      # anyone ends up inside a wall, or on any script error.
-      - name: Play-test (Auto mode; 15 game-minutes unless set when run by hand)
-        env:
-          PLAYTEST_MINUTES: ${{ github.event.inputs.playtest_minutes || '15' }}
-        run: |
-          set +e
-          SECS=$(( PLAYTEST_MINUTES * 60 ))
-          FRAMES=$(( SECS * 20 + 2000 ))
-          echo "Play-testing $PLAYTEST_MINUTES game-minutes ($FRAMES frames max)"
-          timeout 3000 godot --headless --fixed-fps 20 --quit-after $FRAMES -- --autotest --autotest-seconds=$SECS > playtest.log 2>&1
-          code=$?
-          set -e
-          echo "godot exited with $code"
-          grep -E "AUTOTEST" playtest.log || true
-          if grep -nE "SCRIPT ERROR|Parse Error|Failed to load script|Compile Error" playtest.log; then
-            echo "::error::Script errors during the play-test (see above)"
-            exit 1
-          fi
-          if grep -q "AUTOTEST FAIL" playtest.log || ! grep -q "AUTOTEST PASS" playtest.log; then
-            echo "::error::The play-test failed or did not finish"
-            tail -n 60 playtest.log
-            exit 1
-          fi

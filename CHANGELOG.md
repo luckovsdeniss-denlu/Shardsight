@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.82.1
+- The build no longer runs any tests: no smoke test, no movie test, no Auto play-test. It exports
+  the APK and publishes it to Releases straight away (a quicker build).
+
 ## 0.82.0
 The great buildings spread over the whole land (they were all in the north):
 - Ravenhollow Cemetery moves to the far south, below Highmoor - walls, graves, the Tomb of the
