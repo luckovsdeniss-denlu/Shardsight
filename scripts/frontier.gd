@@ -17,7 +17,7 @@ const ARENA_RADIUS := 3.5
 const STAIRS := Vector2i(14, 77)            # the stairs down, in the dungeon's deepest hall
 const DUNGEON_DOOR := Vector2i(5, 72)      # where you arrive on a new level
 const DEPTH_BOSS_AT := Vector2i(6, 69)
-const BOARDS := [Vector2i(28, 11), Vector2i(113, 50), Vector2i(45, 34), Vector2i(109, 15), Vector2i(101, 107),
+const BOARDS := [Vector2i(36, 11), Vector2i(113, 50), Vector2i(45, 34), Vector2i(109, 15), Vector2i(101, 107),
 	Vector2i(12, 97), Vector2i(44, 109), Vector2i(85, 82), Vector2i(129, 51)]   # a bounty board in each town
 const DOCKS := [
 	{"name": "Westmere Landing", "tile": Vector2i(5, 15), "to": 1},
@@ -54,9 +54,9 @@ const DEPTHS := [
 ## work: where they spend the day; tavern: the evening; home: the night ("" for those who never
 ## leave their post or camp).
 const VILLAGERS := [
-	{"name": "Farmer Tobin", "work": Vector2i(14, 9), "tavern": Vector2i(52, 37), "home": Vector2i(20, 10), "color": Color("b89a6a")},
-	{"name": "Nell the Fisher", "work": Vector2i(5, 14), "tavern": Vector2i(54, 37), "home": Vector2i(27, 10), "color": Color("6a8ab8")},
-	{"name": "Old Tam the Minstrel", "work": Vector2i(24, 9), "tavern": Vector2i(52, 35), "home": Vector2i(28, 12), "color": Color("a86ab8")},
+	{"name": "Farmer Tobin", "work": Vector2i(14, 9), "tavern": Vector2i(52, 37), "home": Vector2i(28, 10), "color": Color("b89a6a")},
+	{"name": "Nell the Fisher", "work": Vector2i(5, 14), "tavern": Vector2i(54, 37), "home": Vector2i(35, 10), "color": Color("6a8ab8")},
+	{"name": "Old Tam the Minstrel", "work": Vector2i(32, 9), "tavern": Vector2i(52, 35), "home": Vector2i(36, 12), "color": Color("a86ab8")},
 	{"name": "Rosa the Barkeep", "work": Vector2i(53, 35), "color": Color("c86a5a")},
 	{"name": "Kael the Arena Master", "work": Vector2i(93, 90), "color": Color("c8a040")},
 	{"name": "Hunter Bram", "work": Vector2i(59, 10), "color": Color("8a7a6a")},

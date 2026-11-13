@@ -225,9 +225,9 @@ func _label(px: int, col: Color) -> Label:
 func _make_shots() -> void:
 	shots = [
 		{"title": "SHARDSIGHT", "sub": "A world of swords, spells and skill.", "dur": 6.0, "no_hero": true, "day": 0.35, "weather": "clear",
-			"at": _tc(Vector2i(24, 9)), "r": 20.0, "h": 17.0, "a0": 0.4, "a1": 1.3},
+			"at": _tc(Vector2i(32, 9)), "r": 20.0, "h": 17.0, "a0": 0.4, "a1": 1.3},
 		{"title": "Living towns", "sub": "Healers, priests, merchants, bankers - and folk who keep their own days.", "dur": 6.0,
-			"at": _tc(Vector2i(24, 10)), "r": 9.0, "h": 6.0, "a0": 2.4, "a1": 3.4, "setup": _stage_town},
+			"at": _tc(Vector2i(32, 10)), "r": 9.0, "h": 6.0, "a0": 2.4, "a1": 3.4, "setup": _stage_town},
 		{"title": "Fight", "sub": "Swords, axes, maces, spears, bows - and a different blow for each.", "dur": 8.0,
 			"at": _tc(Vector2i(14, 19)), "r": 4.5, "h": 2.6, "a0": 0.0, "a1": 1.4, "setup": _stage_fight.bind(Vector2i(14, 19), "Orc", Bestiary.ORC, 2)},
 		{"title": "Magic", "sub": "Sixty-seven spells in eight circles. Speak the old words.", "dur": 9.0, "white": true,
@@ -253,7 +253,7 @@ func _make_shots() -> void:
 		{"title": "World bosses", "sub": "Now and then a giant wakes. The whole land comes to fight it.", "dur": 9.0, "day": 0.55, "weather": "clear", "white": true,
 			"at": _tc(Vector2i(60, 26)), "r": 8.0, "h": 5.0, "a0": 0.2, "a1": 1.5, "setup": _stage_boss},
 		{"title": "Your story", "sub": "Quests, bounties, guilds, a house, a horse, a boat. Begin.", "dur": 6.0,
-			"at": _tc(Vector2i(24, 9)), "r": 22.0, "h": 19.0, "a0": 1.3, "a1": 1.9},
+			"at": _tc(Vector2i(32, 9)), "r": 22.0, "h": 19.0, "a0": 1.3, "a1": 1.9},
 	]
 
 
@@ -543,7 +543,7 @@ func _stage_place(tile: Vector2i) -> void:
 
 
 func _stage_town() -> void:
-	_put_hero(Vector2i(24, 12))
+	_put_hero(Vector2i(32, 12))
 
 
 func _stage_fight(tile: Vector2i, foe_name: String, cfg: Dictionary, n: int) -> void:

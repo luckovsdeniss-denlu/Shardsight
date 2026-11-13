@@ -6,7 +6,7 @@ extends Node3D
 const CAM_OFFSET := Vector3(0.0, 9.0, 7.0)
 const MANUAL_PAUSE := 4.0      # seconds auto mode waits after a tap
 const LOG_LINES := 6
-const DEFAULT_RUNE := Vector2i(25, 13)
+const DEFAULT_RUNE := Vector2i(33, 13)
 const GATE_SECONDS := 20.0
 const VENDOR_HIRE_COST := 100
 const VENDOR_SALES_PER_HOUR := 3     # while you are away (capped at two days)
@@ -4174,16 +4174,16 @@ func _spawn_all() -> void:
 	_build_shrines()
 	_build_broken_circle()
 	_build_banners()
-	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(24, 11))
-	_spawn(Entity.Kind.NPC, "Hal the Stablemaster", Bestiary.STABLEMASTER, cream, Vector2i(21, 11))
+	_spawn(Entity.Kind.NPC, "Elara", Bestiary.HEALER, cream, Vector2i(32, 11))
+	_spawn(Entity.Kind.NPC, "Hal the Stablemaster", Bestiary.STABLEMASTER, cream, Vector2i(29, 11))
 	_spawn(Entity.Kind.NPC, "Father Corwin", Bestiary.PRIEST, Color("d9c7f0"), Vector2i(12, 130))   # in his church
-	var bran := _spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(23, 6))
+	var bran := _spawn(Entity.Kind.NPC, "Bran", Bestiary.MERCHANT, cream, Vector2i(31, 6))
 	bran.shop = Shop.new("town", 1.0, 1.0)
 	# The outpost is remote: its merchant pays more for goods and charges more for supplies.
 	var mara := _spawn(Entity.Kind.NPC, "Mara", Bestiary.MERCHANT, cream, Vector2i(110, 47))
 	mara.shop = Shop.new("the outpost", 1.3, 1.25)
-	_spawn(Entity.Kind.NPC, "Oswin", Bestiary.BANKER, cream, Vector2i(26, 12))
-	_spawn(Entity.Kind.NPC, Quests.GIVER, Bestiary.QUESTGIVER, Color("c9a86a"), Vector2i(22, 13))
+	_spawn(Entity.Kind.NPC, "Oswin", Bestiary.BANKER, cream, Vector2i(34, 12))
+	_spawn(Entity.Kind.NPC, Quests.GIVER, Bestiary.QUESTGIVER, Color("c9a86a"), Vector2i(30, 13))
 	# The outpost, far out east between Dawnport and Midmark.
 	_spawn(Entity.Kind.NPC, "Brother Aldo", Bestiary.HEALER, cream, Vector2i(108, 48))
 	_spawn(Entity.Kind.NPC, "Brother Anselm", Bestiary.PRIEST, Color("c8d0e8"), Vector2i(112, 49))
@@ -5525,7 +5525,7 @@ func _show_title(layer: CanvasLayer) -> void:
 ## Southmoor, then down to the hero: [tile to fly over, height, tile to look at].
 const FLYBY := [
 	[Vector2i(8, 44), 20.0, Vector2i(18, 32)],
-	[Vector2i(22, 20), 15.0, Vector2i(24, 9)],
+	[Vector2i(30, 20), 15.0, Vector2i(32, 9)],
 	[Vector2i(9, 82), 13.0, Vector2i(10, 72)],
 	[Vector2i(66, 20), 17.0, Vector2i(76, 10)],
 	[Vector2i(70, 30), 15.0, Vector2i(60, 22)],
@@ -6085,7 +6085,7 @@ func _update_ghost_view() -> void:
 
 # --- braziers: fire in the towns, glowing at night ----------------------------
 
-const BRAZIERS := [Vector2i(19, 10), Vector2i(29, 10), Vector2i(19, 13), Vector2i(29, 13),
+const BRAZIERS := [Vector2i(27, 10), Vector2i(37, 10), Vector2i(27, 13), Vector2i(37, 13),
 	Vector2i(107, 47), Vector2i(114, 51), Vector2i(44, 30), Vector2i(55, 30), Vector2i(44, 38), Vector2i(55, 38)]
 var brazier_lights: Array[OmniLight3D] = []
 

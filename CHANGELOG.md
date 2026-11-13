@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.83.1
+- The main town moves 8 tiles to the right (east), away from the corner: its keep and walls, the
+  forge, Elara, Hal, Bran, Oswin, Captain Marcus, the bounty board, the braziers, the townsfolk's
+  homes, the starting Recall rune and its roads all with it. The movie and the fly-by follow.
+
 ## 0.83.0
 The dungeon and the outpost move apart, and away from the town:
 - The dungeon now stands on the western shore of the great lake, about 64 tiles south of the
