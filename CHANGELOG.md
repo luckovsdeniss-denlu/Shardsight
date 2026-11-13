@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.84.0
+- A Performance button in the corner menu opens the game's optimisation settings:
+  - Auto-optimize (on by default): the game holds 60 frames a second by itself, lowering the
+    resolution and turning looks off when it must and bringing them back when it can.
+  - With it off, you choose: glow, vignette and smooth edges; sun shadows; grass and flowers;
+    butterflies and falling leaves; the far view; and the 3D resolution (50% to 100%).
+  - Show or hide the frame counter.
+  - A live line shows the frames a second, the resolution and how many looks Auto has turned off.
+
 ## 0.83.1
 - The main town moves 8 tiles to the right (east), away from the corner: its keep and walls, the
   forge, Elara, Hal, Bran, Oswin, Captain Marcus, the bounty board, the braziers, the townsfolk's

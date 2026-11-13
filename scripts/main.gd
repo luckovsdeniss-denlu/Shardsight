@@ -85,6 +85,7 @@ var property_box: VBoxContainer
 var travel_panel: Control
 var travel_box: VBoxContainer
 var settings_panel: Control
+var perf_panel: Control
 var settings_box: VBoxContainer
 var sfx := Sfx.new()
 var minimap := Minimap.new()
@@ -264,6 +265,7 @@ func _ready() -> void:
 	magic_button = _menu_button("", _toggle_magic_label)
 	_corner_add(magic_button)
 	_corner_add(_menu_button("Statistics", _open_stats))
+	_corner_add(_menu_button("Performance", _open_perf))
 	minimap.setup(self, world)
 	minimap.size_flags_horizontal = Control.SIZE_SHRINK_END
 	corner.add_child(minimap)
@@ -285,6 +287,7 @@ func _ready() -> void:
 	travel_panel = _make_overlay(layer)
 	travel_box = travel_panel.get_meta("box")
 	settings_panel = _make_overlay(layer)
+	perf_panel = _make_overlay(layer)
 	animals_panel = _make_overlay(layer)
 	bard_panel = _make_overlay(layer)
 	prices_panel = _make_overlay(layer)
@@ -1029,8 +1032,8 @@ func _adapt_resolution(delta: float) -> void:
 	_fps_acc = 0.0
 	_fps_frames = 0
 	_fps_windows += 1
-	if _fps_windows <= 6:
-		return                                 # the first seconds stutter while everything loads: don't judge by them
+	if _fps_windows <= 6 or not _auto_opt:
+		return                                 # the first seconds stutter while everything loads (and with Auto-optimize off, the player decides)
 	_raised_ago += 1
 	var want := _render_scale
 	var floor_scale := SCALE_FLOOR if _q < Q_MAX else 0.5   # the resolution goes below this only once everything else is off
@@ -1083,21 +1086,116 @@ var _last_raise := ""
 
 func _set_quality(level: int) -> void:
 	_q = clampi(level, 0, Q_MAX)
-	env.glow_enabled = _q < 1
+	_apply_features()
+
+
+## Whether a look is on: chosen by the frame-rate keeper (Auto-optimize), or by the player
+## in the Performance panel.
+func _feat(id: String) -> bool:
+	if not _auto_opt:
+		return bool(_perf.get(id, true))
+	return _q < int(FEATURE_LEVEL[id])
+
+
+const FEATURE_LEVEL := {"glow": 1, "shadows": 2, "grass": 3, "ambient": 4, "far": 5}
+const FEATURE_NAMES := {"glow": "Glow, vignette and smooth edges", "shadows": "Sun shadows", "grass": "Grass and flowers",
+	"ambient": "Butterflies and falling leaves", "far": "Far view (170 m; off: 70 m)"}
+var _auto_opt := true                 # the frame-rate keeper decides (on), or the player does (off)
+var _perf := {"glow": true, "shadows": true, "grass": true, "ambient": true, "far": true}
+
+
+func _apply_features() -> void:
+	env.glow_enabled = _feat("glow")
 	if _grade != null:
-		_grade.visible = _q < 1 and movie == null      # the vignette overlay (a full-screen layer) goes first
-	get_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if _q < 1 else Viewport.SCREEN_SPACE_AA_DISABLED
-	sun.shadow_enabled = _q < 2
+		_grade.visible = _feat("glow") and movie == null   # the vignette overlay (a full-screen layer) goes first
+	get_viewport().screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if _feat("glow") else Viewport.SCREEN_SPACE_AA_DISABLED
+	sun.shadow_enabled = _feat("shadows")
 	for n in world.decor:
 		if n != null:
-			(n as Node3D).visible = _q < 3
-	if _q >= 4:
+			(n as Node3D).visible = _feat("grass")
+	if not _feat("ambient"):
 		_butterflies.emitting = false
 		_leaves.emitting = false
-	if _q >= 5:
+	if not _feat("far"):
 		cam.far = minf(cam.far, 70.0)
 	elif cam.far < 80.0 and not property.first_person:
 		cam.far = 130.0 if movie != null else VIEW_FAR
+
+
+# --- the Performance panel ---------------------------------------------------------------------
+
+func _open_perf() -> void:
+	paused = true
+	menu.visible = false
+	perf_panel.visible = true
+	_refresh_perf()
+
+
+func _close_perf() -> void:
+	perf_panel.visible = false
+	_resume()
+
+
+var _perf_live: Label
+
+
+func _refresh_perf() -> void:
+	var box: VBoxContainer = perf_panel.get_meta("box")
+	for c in box.get_children():
+		box.remove_child(c)
+		c.queue_free()
+	var title := _info("Performance")
+	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_color_override("font_color", Color(0.95, 0.8, 0.42))
+	box.add_child(title)
+	_perf_live = _info("")
+	box.add_child(_perf_live)
+	_update_perf_live()
+	box.add_child(_menu_button("Auto-optimize: %s" % ("On" if _auto_opt else "Off"), func() -> void:
+		_auto_opt = not _auto_opt
+		if _auto_opt:
+			_fps_good = 0
+			_scale_cap = _render_base                  # it learns afresh
+			_q_floor = 0
+		else:
+			for id in FEATURE_LEVEL:                   # off: start from what the keeper had on
+				_perf[id] = _q < int(FEATURE_LEVEL[id])
+		_apply_features()
+		_refresh_perf()))
+	box.add_child(_info("On: to hold 60 frames a second the game lowers the resolution and turns looks off by itself, and brings them back when it can. Off: you choose below." if _auto_opt
+		else "Your own choices (the game no longer changes them):"))
+	for id in FEATURE_LEVEL:
+		var b := _menu_button("%s: %s" % [FEATURE_NAMES[id], "On" if _feat(id) else "Off"], func() -> void:
+			_perf[id] = not bool(_perf.get(id, true))
+			_apply_features()
+			_refresh_perf())
+		b.disabled = _auto_opt
+		box.add_child(b)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	var rl := _info("Resolution:")
+	row.add_child(rl)
+	for pct in [50, 60, 70, 80, 90, 100]:
+		var rb := _menu_button("%d%%" % pct, func() -> void:
+			_render_scale = pct / 100.0
+			get_viewport().scaling_3d_scale = _render_scale
+			_refresh_perf())
+		rb.custom_minimum_size = Vector2(84, 52)
+		rb.disabled = _auto_opt or roundi(_render_scale * 100.0) == pct
+		row.add_child(rb)
+	box.add_child(row)
+	box.add_child(_menu_button("Frame counter: %s" % ("Shown" if _fps_label.get_parent().visible else "Hidden"), func() -> void:
+		var l := _fps_label.get_parent() as CanvasLayer
+		l.visible = not l.visible
+		_refresh_perf()))
+	box.add_child(_menu_button("Close", _close_perf))
+
+
+func _update_perf_live() -> void:
+	if _perf_live == null or not is_instance_valid(_perf_live):
+		return
+	_perf_live.text = "Now: %d FPS, 3D at %d%% resolution%s." % [Engine.get_frames_per_second(), roundi(_render_scale * 100.0),
+		(", %d look%s off by Auto" % [_q, "" if _q == 1 else "s"]) if _auto_opt and _q > 0 else ""]
 
 
 # --- the world in motion: banners, birds, butterflies, leaves, the ankhs ---------------------
@@ -1284,9 +1382,9 @@ func _world_life(delta: float) -> void:
 		(wings[0] as Node3D).rotation.z = flap
 		(wings[1] as Node3D).rotation.z = -flap
 	# butterflies by day in the meadows, leaves in the woods
-	_butterflies.emitting = day and wild and nice and _trees_near < 12 and _q < 4
+	_butterflies.emitting = day and wild and nice and _trees_near < 12 and _feat("ambient")
 	_butterflies.global_position = hero.position + Vector3(0.0, 0.8, 0.0)
-	_leaves.emitting = wild and nice and _trees_near >= 6 and _q < 4
+	_leaves.emitting = wild and nice and _trees_near >= 6 and _feat("ambient")
 	_leaves.global_position = hero.position + Vector3(0.0, 3.5, 0.0)
 	# the ankhs turn slowly and their light breathes
 	for a in _ankhs:
@@ -5039,7 +5137,7 @@ func _dress_overlay(overlay: Control, box: Node) -> void:
 
 
 const BUTTON_ICONS := {"Main Menu": "scroll", "Bag": "chest", "Spells": "magic", "Retreat": "alert", "Ride": "travel",
-	"Bow": "weapon", "Statistics": "star"}
+	"Bow": "weapon", "Statistics": "star", "Performance": "star"}
 
 
 func _corner_add(b: Button) -> void:
@@ -5247,6 +5345,8 @@ func _build_fps_counter() -> void:
 
 
 func _update_fps_counter() -> void:
+	if perf_panel != null and perf_panel.visible:
+		_update_perf_live()
 	var fps := Engine.get_frames_per_second()
 	_fps_label.text = "%d FPS  ·  %d%%" % [fps, roundi(_render_scale * 100.0)] + ("  ·  -%d" % _q if _q > 0 else "")
 	_fps_label.add_theme_color_override("font_color",
