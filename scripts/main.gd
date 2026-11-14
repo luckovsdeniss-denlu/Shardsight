@@ -357,6 +357,7 @@ func _ready() -> void:
 		property.runes.clear()
 		property.runes.append(DEFAULT_RUNE)
 	_apply_graphics()                        # now that the sun and the rain exist
+	_load_graphics()                         # and the player's own kept performance settings, if any
 	_follow_camera()
 	booted = true
 	set_process(true)
@@ -1193,6 +1194,8 @@ func _refresh_perf() -> void:
 		var l := _fps_label.get_parent() as CanvasLayer
 		l.visible = not l.visible
 		_refresh_perf()))
+	box.add_child(_info("Current settings: " + _graphics_summary()))
+	box.add_child(_menu_button("Keep current settings", _keep_graphics))
 	box.add_child(_menu_button("Reset all graphics settings", _reset_graphics))
 	box.add_child(_menu_button("Close", _close_perf))
 
@@ -1212,8 +1215,53 @@ func _reset_graphics() -> void:
 	_apply_graphics()
 	_apply_features()
 	(_fps_label.get_parent() as CanvasLayer).visible = true
+	DirAccess.remove_absolute(GRAPHICS_PATH)           # (nothing kept any more)
 	log_event("Graphics settings reset: Auto-optimize on, every look on, the starting resolution.")
 	_refresh_perf()
+
+
+## The settings in force now, in a line: Auto or the player's own choices, each look, the
+## resolution and the counter.
+func _graphics_summary() -> String:
+	var parts: Array[String] = ["Auto-optimize " + ("on" if _auto_opt else "off")]
+	for id in FEATURE_LEVEL:
+		parts.append("%s %s" % [String(FEATURE_NAMES[id]).get_slice(" (", 0).to_lower(), "on" if _feat(id) else "off"])
+	parts.append("resolution %d%%" % roundi(_render_scale * 100.0))
+	parts.append("frame counter " + ("shown" if (_fps_label.get_parent() as CanvasLayer).visible else "hidden"))
+	return ", ".join(parts) + "."
+
+
+const GRAPHICS_PATH := "user://shardsight_graphics.cfg"
+
+
+## Keeps the settings as they are now, for every later start (until reset).
+func _keep_graphics() -> void:
+	var cf := ConfigFile.new()
+	cf.set_value("graphics", "auto", _auto_opt)
+	cf.set_value("graphics", "features", _perf if not _auto_opt else {})
+	cf.set_value("graphics", "scale", _render_scale)
+	cf.set_value("graphics", "counter", (_fps_label.get_parent() as CanvasLayer).visible)
+	cf.save(GRAPHICS_PATH)
+	log_event("Performance settings kept: " + _graphics_summary())
+	_refresh_perf()
+
+
+func _load_graphics() -> void:
+	var cf := ConfigFile.new()
+	if cf.load(GRAPHICS_PATH) != OK:
+		return
+	_auto_opt = bool(cf.get_value("graphics", "auto", true))
+	var f: Variant = cf.get_value("graphics", "features", {})
+	if typeof(f) == TYPE_DICTIONARY:
+		for id in f:
+			if _perf.has(id):
+				_perf[id] = bool(f[id])
+	if not _auto_opt:
+		_render_scale = clampf(float(cf.get_value("graphics", "scale", _render_scale)), 0.5, 1.0)
+		get_viewport().scaling_3d_scale = _render_scale
+	if _fps_label != null:
+		(_fps_label.get_parent() as CanvasLayer).visible = bool(cf.get_value("graphics", "counter", true))
+	_apply_features()
 
 
 func _update_perf_live() -> void:
