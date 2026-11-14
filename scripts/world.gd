@@ -630,12 +630,20 @@ func is_blocked(c: Vector2i) -> bool:
 ## Line of sight: no wall (or house wall) on the straight line between two points.
 func line_clear(a: Vector3, b: Vector3) -> bool:
 	var d := Vector2(b.x - a.x, b.z - a.z)
-	var steps := int(d.length() / 0.4) + 1
+	var steps := int(d.length() / 0.2) + 1
+	var last := Vector2i(-1, -1)
 	for i in range(1, steps):
 		var p := a.lerp(b, float(i) / steps)
-		var t := tiles[clampi(floori(p.z / TILE), 0, rows - 1) * cols + clampi(floori(p.x / TILE), 0, cols - 1)]
+		var c := Vector2i(clampi(floori(p.x / TILE), 0, cols - 1), clampi(floori(p.z / TILE), 0, rows - 1))
+		var t := tiles[c.y * cols + c.x]
 		if t == Tile.WALL or t == Tile.HOUSE:
 			return false
+		if last.x >= 0 and c.x != last.x and c.y != last.y:   # a diagonal step: both corner tiles count
+			var t1 := tiles[last.y * cols + c.x]
+			var t2 := tiles[c.y * cols + last.x]
+			if (t1 == Tile.WALL or t1 == Tile.HOUSE) and (t2 == Tile.WALL or t2 == Tile.HOUSE):
+				return false
+		last = c
 	return true
 
 

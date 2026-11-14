@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.86.0
+Nobody sees through walls or through each other:
+- Characters and monsters only notice someone they can actually see: no wall between, and no
+  other body standing in the way.
+- Archers and casters step round whoever blocks their line before they shoot or cast; a spell
+  can't be aimed through someone else ("You can't see that from here.").
+- The wall check is tighter: sight no longer slips through the gap where two wall corners meet
+  on a diagonal.
+
 ## 0.85.2
 - The hero no longer casts Night Sight during the trailer (its night scenes stay dark).
 

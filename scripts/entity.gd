@@ -641,7 +641,8 @@ func _chase() -> void:
 	var reach := attack_range()
 	if (kind != Kind.PLAYER or ai_enabled) and _best_spell("attack") != "":
 		reach = maxf(reach, SPELL_RANGE)   # casters keep their distance
-	if position.distance_to(target.position) > reach or not world.line_clear(position, target.position):
+	if position.distance_to(target.position) > reach or not world.line_clear(position, target.position) \
+			or (reach > 2.0 and _body_between(target)):
 		if repath_timer <= 0.0 or path.is_empty():
 			repath_timer = 0.4
 			var p: Array[Vector3] = world.find_path(position, target.position, _avoids_town())
@@ -1379,10 +1380,10 @@ func start_cast(id: String, tgt: Entity) -> bool:
 		if is_hero:
 			game.log_event("That is too far away.")
 		return false
-	if tgt != self and not world.line_clear(position, tgt.position):
+	if tgt != self and not can_see(tgt):
 		if is_hero:
 			game.log_event("You can't see that from here.")
-		return false                          # no casting through walls
+		return false                          # no casting through walls, nor through someone in the way
 	if tgt != self and String(Spells.LIST[id]["kind"]) in HARMFUL_KINDS and tgt.town_protects(self):
 		_town_notice()
 		return false
@@ -2273,10 +2274,39 @@ func _pick_target() -> Entity:
 		if e == self or e.dead:
 			continue
 		var d := position.distance_to(e.position)
-		if d <= best_d and _is_fair_target(e) and _worth_fighting(e) and world.line_clear(position, e.position):
+		if d <= best_d and _is_fair_target(e) and _worth_fighting(e) and can_see(e):
 			best = e
 			best_d = d
 	return best
+
+
+## Sight: no wall between us, and nobody standing in the way (a body hides what's behind it).
+func can_see(e: Entity) -> bool:
+	return world.line_clear(position, e.position) and not _body_between(e)
+
+
+## Whether another living body stands on the line from here to `e` (not right beside either end).
+func _body_between(e: Entity) -> bool:
+	var a := Vector2(position.x, position.z)
+	var b := Vector2(e.position.x, e.position.z)
+	var ab := b - a
+	var len2 := ab.length_squared()
+	if len2 < 2.25:
+		return false                          # face to face: nothing fits between
+	var lo := Vector2(minf(a.x, b.x) - 0.5, minf(a.y, b.y) - 0.5)
+	var hi := Vector2(maxf(a.x, b.x) + 0.5, maxf(a.y, b.y) + 0.5)
+	for item in game.creatures:
+		var o := item as Entity
+		if o == self or o == e or o.dead or o.ghost or o.parked or o.flags.has("invisible"):
+			continue
+		var p := Vector2(o.position.x, o.position.z)
+		if p.x < lo.x or p.y < lo.y or p.x > hi.x or p.y > hi.y:
+			continue
+		var t := clampf((p - a).dot(ab) / len2, 0.0, 1.0)
+		if (a + ab * t).distance_to(p) < 0.3 * maxf(o.visual_scale, 0.6) \
+				and p.distance_to(a) > 0.7 and p.distance_to(b) > 0.7:
+			return true
+	return false
 
 
 # --- ghosts ----------------------------------------------------------------
