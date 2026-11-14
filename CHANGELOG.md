@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.84.2
+- "Reset all graphics settings" in the Performance panel: Auto-optimize back on, every look on,
+  the starting resolution, the frame counter shown, and the frame-rate keeper starts learning afresh.
+
 ## 0.84.1
 - The Performance button sits right beside the Menu button in the upper right (always shown, not
   inside the menu any more).

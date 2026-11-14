@@ -1193,7 +1193,27 @@ func _refresh_perf() -> void:
 		var l := _fps_label.get_parent() as CanvasLayer
 		l.visible = not l.visible
 		_refresh_perf()))
+	box.add_child(_menu_button("Reset all graphics settings", _reset_graphics))
 	box.add_child(_menu_button("Close", _close_perf))
+
+
+## Everything back as it comes: Auto-optimize on, every look on, the starting resolution, the
+## frame counter shown - and the keeper forgets what it had learned.
+func _reset_graphics() -> void:
+	_auto_opt = true
+	for id in _perf:
+		_perf[id] = true
+	_q = 0
+	_q_floor = 0
+	_fps_good = 0
+	_raised_ago = 99
+	_last_raise = ""
+	_scale_cap = 1.0
+	_apply_graphics()
+	_apply_features()
+	(_fps_label.get_parent() as CanvasLayer).visible = true
+	log_event("Graphics settings reset: Auto-optimize on, every look on, the starting resolution.")
+	_refresh_perf()
 
 
 func _update_perf_live() -> void:
