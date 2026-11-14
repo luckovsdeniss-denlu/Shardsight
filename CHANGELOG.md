@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.91.2
+- In the trailer the hero runs from the monsters before casting: when one is close enough to
+  strike, the hero dashes out of reach (round walls and water), then turns and casts. If they
+  keep catching up, after two dashes the hero stands and casts anyway.
+
 ## 0.91.1
 - The trailer starts without a flash: from its first frame it's black, and the opening shot rises
   gently out of the dark (no blink, no light leak, no white flash at the start).

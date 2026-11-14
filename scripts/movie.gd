@@ -24,7 +24,8 @@ const TRAILER_MUSIC_DB := 4.0          # the score a little louder than in the g
 const CAST_EVERY := 1.1                # a spell this often in every fight
 var _fight := []
 const CAM_MOVES := ["orbit", "crane", "track", "spiral", "dolly", "orbit", "track", "crane"]
-var _punch := 0.0                      # a quick zoom on a heavy blow (fades)
+var _punch := 0.0
+var _runs := 0                         # runs from a blade in a row before a spell                      # a quick zoom on a heavy blow (fades)
 
 
 ## A heavy blow or a K.O.: the camera punches in for an instant.
@@ -677,6 +678,24 @@ func _cast_something() -> void:
 			foe = a
 	if foe == null:
 		return
+	# a monster close enough to strike? run out of reach first (a blow would break the spell),
+	# and cast when clear
+	var threat: Entity = hero._melee_threat()
+	if threat != null and _runs < 2:                   # (twice at most, then stand and cast anyway)
+		_runs += 1
+		var away := hero.position - threat.position
+		away.y = 0.0
+		if away.length() < 0.01:
+			away = Vector3(1, 0, 0)
+		for turn in [0.0, 0.6, -0.6, 1.2, -1.2]:
+			var dest: Vector3 = hero.position + away.normalized().rotated(Vector3.UP, turn) * 4.5
+			if not world.is_blocked(world.to_tile(dest)) and hero.go_to(dest):
+				hero.casting_id = ""
+				hero.kite_timer = 1.1               # the run plays out before the hero turns to fight
+				break
+		_cast_acc = CAST_EVERY - 1.15                   # and the spell right after it
+		return
+	_runs = 0
 	hero.casting_id = ""
 	hero.cast_cd = 0.0
 	var pick: String = ["fireball", "lightning", "flamestrike", "energy_bolt", "meteor_swarm", "chain_lightning"][randi() % 6]
