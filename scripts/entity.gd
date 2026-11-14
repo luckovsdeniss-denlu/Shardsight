@@ -3013,6 +3013,8 @@ func _animate(delta: float) -> void:
 	anim_t += delta
 	swing_anim = maxf(swing_anim - delta, 0.0)
 	var moving := position.distance_to(_last_pos) > 0.001
+	if is_hero and game.frontier != null and not game.frontier.sail.is_empty():
+		moving = false                         # in the boat: sitting still while it glides, no running
 	_last_pos = position
 	rotation.y = lerp_angle(rotation.y, _face_yaw, minf(1.0, 12.0 * delta))   # turn smoothly
 	_stride_k = move_toward(_stride_k, 1.0 if moving else 0.0, delta * 6.0)

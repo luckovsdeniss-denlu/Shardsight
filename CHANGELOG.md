@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.91.3
+- No running in the boat: while the boat glides, the hero sits still in it instead of playing the
+  running steps (in the game and the trailer), and in the trailer's boat scene the hero just rides.
+
 ## 0.91.2
 - In the trailer the hero runs from the monsters before casting: when one is close enough to
   strike, the hero dashes out of reach (round walls and water), then turns and casts. If they
