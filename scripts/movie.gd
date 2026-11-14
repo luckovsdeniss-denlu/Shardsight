@@ -263,7 +263,7 @@ func _make_shots() -> void:
 		{"title": "The Arena", "words": ["CHALLENGE CHAMPIONS", "BET ON YOURSELF"], "sub": "Fight champions for the purse. Bet on yourself.", "dur": 8.0, "day": 0.45,
 			"at": _tc(Vector2i(89, 91)), "r": 5.5, "h": 3.5, "a0": 2.0, "a1": 3.3, "setup": _stage_fight.bind(Vector2i(89, 91), "Valka the Undefeated", Bestiary.WARRIOR, 1)},
 		{"title": "Ravenhollow", "words": ["FACE THE DEAD"], "sub": "Graves, wisps, and a tomb that should stay shut.", "dur": 7.0, "day": 0.02,
-			"at": _tc(Vector2i(103, 133)), "r": 9.0, "h": 7.0, "a0": 5.0, "a1": 6.0, "setup": _stage_fight.bind(Vector2i(103, 133), "Zombie", Bestiary.ZOMBIE, 2)},
+			"at": _tc(Vector2i(103, 133)), "r": 9.0, "h": 10.5, "cam": "orbit", "a0": 5.0, "a1": 6.0, "setup": _stage_fight.bind(Vector2i(103, 133), "Zombie", Bestiary.ZOMBIE, 2)},
 		{"title": "The Church of the Shard", "words": ["SEEK A BLESSING"], "sub": "Pray at the altar. The bell tolls at dawn.", "dur": 6.0, "day": 0.28,
 			"at": _tc(Vector2i(12, 129)), "r": 6.5, "h": 6.0, "a0": 1.2, "a1": 2.0, "setup": _stage_place.bind(Vector2i(12, 129)), "stay": true},
 		{"title": "Seasons and storms", "words": ["THE SEASONS TURN"], "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true, "white": true,

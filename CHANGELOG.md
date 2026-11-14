@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.91.5
+- Trailer scene 11 (Ravenhollow): the camera films from higher up, circling over the graveyard's
+  walls, so the fighters are in plain view (it had been a low tracking shot behind the walls).
+
 ## 0.91.4
 - Trailer scene 6 (the Frostmarch): the camera keeps away from the piers and their flag, filming
   the fight from the north over the open snow.
