@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.91.9
+- New sounds for the trailer's words coming and going: as a word flies in, a reverse-cymbal
+  swell with a tone sweeping up (and a shimmer of fifths) that rises right into its landing hit;
+  as it leaves, a jet-like fly-by - a hum falling in pitch as it passes, air swelling and fading,
+  and a trail of tinkling sparks.
+
 ## 0.91.8
 - A new sound as each 3D word lands in the trailer, instead of the plain shimmer: the gold words
   hit with a deep boom under a ringing struck-steel "shing", a burst of air and a falling sparkle;

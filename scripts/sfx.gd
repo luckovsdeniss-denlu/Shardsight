@@ -476,6 +476,31 @@ func _build_trailer() -> void:
 		var thud := sin(TAU * (60.0 + 50.0 * exp(-t * 20.0)) * t) * exp(-t * 6.0) * 0.6
 		var shiver := 0.6 + 0.4 * sin(TAU * 13.0 * t)
 		return clampf(v * 0.16 * shiver + crack + thud, -1.0, 1.0))]
+	# a word coming in: a reverse-cymbal swell (bright noise growing faster and faster) with a
+	# tone sweeping up and a shimmer of fifths - cut off just as the word lands on its hit
+	var ilo := [0.0]
+	_pending["word_in"] = [_make(0.6, func(t: float) -> float:
+		var k := t / 0.6
+		var n := randf_range(-1.0, 1.0)
+		var hp := n - float(ilo[0])                    # bright: the noise minus its low part
+		ilo[0] = lerpf(float(ilo[0]), n, 0.3)
+		var sweep := sin(TAU * (180.0 * t + 900.0 * t * t * 1.6)) * 0.35
+		var fifth := sin(TAU * (270.0 * t + 1350.0 * t * t * 1.6)) * 0.2
+		var env := k * k * k * (1.0 if k < 0.97 else (1.0 - k) / 0.03)
+		return clampf((hp * 0.9 + sweep + fifth) * env * 1.3, -1.0, 1.0))]
+	# a word leaving: a jet fly-by - a hum that drops in pitch as it passes (the Doppler fall), air
+	# swelling then fading behind it, and a trail of tinkling sparks
+	var olp := [0.0]
+	_pending["word_out"] = [_make(0.9, func(t: float) -> float:
+		var k := t / 0.9
+		var f := 860.0 - 540.0 * smoothstep(0.25, 0.6, k)           # the pitch falls as it goes by
+		var hum := (sin(TAU * f * t) + 0.5 * sin(TAU * f * 1.5 * t)) * 0.18
+		olp[0] = lerpf(float(olp[0]), randf_range(-1.0, 1.0), 0.25 + 0.4 * (1.0 - k))
+		var air := float(olp[0]) * 1.4
+		var env := pow(sin(PI * minf(k * 1.4, 1.0)), 2.0) * (1.0 - k * 0.6)
+		var tk := fmod(t, 0.06)
+		var sparks := sin(TAU * (4200.0 - 2000.0 * k) * t) * exp(-tk * 70.0) * 0.12 * (1.0 - k)
+		return clampf((hum + air) * env + sparks, -1.0, 1.0))]
 	var plp := [0.0]
 	_pending["rush"] = [_make(0.5, func(t: float) -> float:
 		var k := t / 0.5

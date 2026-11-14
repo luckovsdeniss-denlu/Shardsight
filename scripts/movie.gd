@@ -378,10 +378,10 @@ func tick(delta: float) -> bool:
 			word.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			# its sounds, in step with the flight: the swoop in, the shimmer as it hangs, the rush past
 			var hi := 1.0 if _word_n % 2 == 1 else 1.12
-			_sound("swoop", hi, 3.0)
+			_sound("word_in", hi, 3.0)                  # a reverse swell rising into the landing
 			get_tree().create_timer(Title3D.FLY_LIFE * 0.22).timeout.connect(
 				_sound.bind("word_gold" if _word_n % 2 == 1 else "word_ice", 1.0, 4.0))   # as the word lands: a cinematic hit
-			get_tree().create_timer(Title3D.FLY_LIFE * 0.8).timeout.connect(_sound.bind("rush", hi * 0.95, 3.0))
+			get_tree().create_timer(Title3D.FLY_LIFE * 0.8).timeout.connect(_sound.bind("word_out", hi, 3.0))   # a fly-by
 	if not _fight.is_empty() and t < dur - 2.0:
 		var standing := false
 		for a in _actors:
