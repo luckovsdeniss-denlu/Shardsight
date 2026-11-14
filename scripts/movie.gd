@@ -202,7 +202,7 @@ func _build_ui() -> void:
 	_fade = ColorRect.new()
 	_fade.color = Color.BLACK
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_fade.modulate.a = 0.0
+	_fade.modulate.a = 1.0                              # black from the first frame (no flash of the title)
 	add_child(_fade)
 	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# Skip: over everything (even the dips to black), well in from the corner (rounded corners and
@@ -339,7 +339,14 @@ func _next() -> void:
 		print("MOVIE scene %d: %s (hero at %s)" % [i + 1, sh["title"], world.to_tile(hero.position)])
 	_fx.set_shader_parameter("leak", 1.0 if float(sh.get("day", 0.4)) > 0.2 and String(sh.get("weather", "clear")) != "storm" else 0.0)
 	game.cam.fov = 60.0                                 # each scene starts wide and pushes in
-	if bool(sh.get("white", false)):
+	if i == 0:
+		# the very start: no flash and no blink - the picture simply rises out of black
+		_flash = 0.0
+		_fx.set_shader_parameter("flash", 0.0)
+		_fx.set_shader_parameter("leak", 0.0)
+		_fade.modulate.a = 1.0
+		_fade.create_tween().tween_property(_fade, "modulate:a", 0.0, 1.4).set_trans(Tween.TRANS_SINE)
+	elif bool(sh.get("white", false)):
 		_flash = 1.0                                    # a cut through white
 	else:
 		_fade.modulate.a = 1.0                          # a dip to black between scenes

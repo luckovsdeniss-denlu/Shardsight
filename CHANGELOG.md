@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.91.1
+- The trailer starts without a flash: from its first frame it's black, and the opening shot rises
+  gently out of the dark (no blink, no light leak, no white flash at the start).
+
 ## 0.91.0
 The trailer: more camera, more animation.
 - Every scene has its own camera move, in turn: a slow orbit, a crane that starts low among the
