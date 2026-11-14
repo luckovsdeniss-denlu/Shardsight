@@ -3557,6 +3557,7 @@ func _spawn_world_boss() -> void:
 	_wb_hero_fought = false
 	game.log_event("The earth shakes: %s has woken, %s! The strong are gathering." % [d["name"], _where(at)])
 	game.sound("thunder", hero.position)
+	game.sound_here("braam", 0.8, 2.0)                   # and a great brass blast: a giant wakes
 
 
 func _world_boss_slain(killer: Entity) -> void:
@@ -3740,7 +3741,7 @@ func _bell_tick() -> void:
 	_bell_hour = hour
 	if hour in [6, 12, 20] and not game.autotest:
 		var at := world.tile_center(World.CHURCH.position)
-		game.sound("parry", at, 0.45, 2.0)
+		game.sound("toll", at, 1.0, 4.0)               # a deep bronze bell
 		if at.distance_to(hero.position) < 25.0:
 			game.world_event("The church bell tolls %s." % {6: "the morning", 12: "noon", 20: "the evening"}[hour])
 

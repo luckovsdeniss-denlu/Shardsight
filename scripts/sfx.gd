@@ -458,6 +458,45 @@ func _build_trailer() -> void:
 		var k := t / 0.5
 		plp[0] = lerpf(float(plp[0]), randf_range(-1.0, 1.0), 0.15 + 0.6 * k)   # brightening as it passes
 		return float(plp[0]) * 1.8 * pow(sin(PI * k), 2.0) * (1.2 - k * 0.5))]
+	# moments: a level gained (a quick rising arpeggio and sparkle), an achievement (a brass
+	# chord swelling up), a quest done (two bright chords), the church bell (deep bronze, with
+	# its hum), and the dead rising (a ghostly wail sliding down over wind)
+	_pending["levelup"] = [_make(1.1, func(t: float) -> float:
+		var v := 0.0
+		var notes := [523.25, 659.25, 783.99, 1046.5, 1318.5]
+		for k in range(notes.size()):
+			var lt := t - k * 0.07
+			if lt > 0.0:
+				v += sin(TAU * float(notes[k]) * lt) * exp(-lt * 4.0) * (0.3 + 0.1 * k / 4.0)
+		var sp := sin(TAU * 2637.0 * t) * exp(-fmod(t, 0.09) * 50.0) * exp(-t * 3.0) * 0.25
+		return v * 0.6 + sp)]
+	_pending["achieve"] = [_make(1.6, func(t: float) -> float:
+		var env := minf(t / 0.12, 1.0) * exp(-t * 1.6)
+		var v := 0.0
+		for f: float in [261.63, 329.63, 392.0, 523.25]:
+			for h in range(1, 5):                              # brassy: rich in partials
+				v += sin(TAU * f * h * t + 0.2 * sin(TAU * 5.0 * t)) / (h * 1.3)
+		var snare := randf_range(-1.0, 1.0) * exp(-t * 18.0) * 0.4
+		return clampf(v * 0.12 * env + snare, -1.0, 1.0))]
+	_pending["quest"] = [_make(1.0, func(t: float) -> float:
+		var chord: Array = [392.0, 493.88, 587.33] if t < 0.22 else [523.25, 659.25, 783.99]
+		var lt := t if t < 0.22 else t - 0.22
+		var v := 0.0
+		for f in chord:
+			v += sin(TAU * float(f) * lt) + 0.3 * sin(TAU * float(f) * 2.0 * lt)
+		return v * 0.16 * exp(-lt * (6.0 if t < 0.22 else 2.6)))]
+	_pending["toll"] = [_make(3.2, func(t: float) -> float:
+		var v := 0.0
+		for p: Array in [[110.0, 1.0, 0.5], [220.0, 0.7, 0.9], [264.0, 0.5, 1.4], [330.0, 0.35, 1.8], [440.0, 0.3, 2.4], [587.0, 0.2, 3.2]]:
+			v += sin(TAU * float(p[0]) * t) * float(p[1]) * exp(-t * float(p[2]))
+		return v * 0.35 * minf(t / 0.004, 1.0))]
+	var wlp2 := [0.0]
+	_pending["wail"] = [_make(2.2, func(t: float) -> float:
+		var k := t / 2.2
+		wlp2[0] = float(wlp2[0]) * 0.97 + randf_range(-1.0, 1.0) * 0.03
+		var f := 620.0 - 260.0 * k + 18.0 * sin(TAU * 5.5 * t)       # a slide down, trembling
+		var voice := (sin(TAU * f * t) + 0.4 * sin(TAU * f * 1.5 * t)) * sin(PI * k) * 0.25
+		return voice + float(wlp2[0]) * 5.0 * sin(PI * k))]
 	var ilp := [0.0]
 	_pending["impact"] = [_make(0.9, func(t: float) -> float:
 		ilp[0] = float(ilp[0]) * 0.9 + randf_range(-1.0, 1.0) * 0.1

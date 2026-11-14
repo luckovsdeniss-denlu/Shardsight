@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.89.0
+More music and sound.
+- Six new pieces of music: the swamp (murky and low: the Blackwater Fen and the Reedmarsh), the
+  ash (ominous brass and embers: the Ashlands and the Cinderfields), the tavern (a quick jig in
+  the Drunken Shard), the arena (a fanfare over drums while a bout or duel is on), the caves
+  (sparse, cold, distant bells) and the sea (a gentle rocking lute and flute out in a boat).
+- New sounds for the big moments: a rising chime when your hero gains a level, a swelling brass
+  chord for an achievement, two bright chords when a quest is done, a deep bronze bell from the
+  church at morning, noon and evening, a ghostly wail when the dead rise at night, and a great
+  brass blast when a world boss wakes.
+
 ## 0.88.5
 - "Reset all graphics settings to default" now resets everything about how the game looks, not
   only the performance settings: Auto-optimize on, every look on, the starting resolution, the

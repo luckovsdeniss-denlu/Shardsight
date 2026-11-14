@@ -5031,6 +5031,8 @@ func _on_level_up(lv: int) -> void:
 	if is_hero:
 		game.log_event("You reach level %d!" % lv)
 		game.sound("fanfare", position, 1.0, 2.0)
+		if is_hero:
+			game.sound_here("levelup", 1.0, 3.0)        # and a bright rising chime
 
 
 # --- fire -------------------------------------------------------------------

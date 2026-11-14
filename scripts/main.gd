@@ -1606,7 +1606,7 @@ func _check_achievements() -> void:
 		hero.gold += reward
 		log_event("Achievement: %s! %s. +%d gold, and the title \"%s\" (Statistics > Titles)." % [
 			a["name"], a["desc"], reward, a["title"]])
-		sound("gain", hero.position)
+		sound_here("achieve", 1.0, 3.0)
 		if hero.position.distance_to(cam.position) < 40.0:
 			Fx.sparkle(self, hero.position + Vector3(0.0, 1.0, 0.0), Color(1.0, 0.85, 0.4), 30)
 
@@ -1701,6 +1701,7 @@ func _raise_night_dead() -> void:
 		var k: Array = kinds[i % kinds.size()]
 		_night_dead.append(pool_spawn(String(k[0]), k[1], k[2], _wild_spot()))
 	event_about("Night falls, and the restless dead rise in the wilds.", true)
+	sound_here("wail", 1.0, 2.0)
 
 
 func _lay_night_dead() -> void:
@@ -2164,6 +2165,7 @@ func on_kill(killer: Entity, victim: Entity) -> void:
 	log_event("Quest: %d/%d %s slain." % [property.quest_kills, int(q["count"]), q["target"]])
 	if property.quest_kills >= int(q["count"]):
 		log_event("Quest complete! Return to %s for your reward." % Quests.GIVER)
+		sound_here("quest", 1.0, 3.0)
 
 
 ## Standing near the captain hands in a finished quest and takes the next one.
@@ -6475,19 +6477,32 @@ func _music_piece(t: Vector2i) -> String:
 	if _battle_hold > 0.0:
 		_battle_hold -= 1.0
 		return music._area if music._area in ["battle", "boss"] else "battle"
-	if world.is_dungeon(t) or world.is_cave(t):
+	if frontier != null and not frontier.sail.is_empty():
+		return "sea"                            # out on the water
+	if frontier != null and (not frontier.duel.is_empty() or not frontier.bout.is_empty()) \
+			and hero.position.distance_to(world.tile_center(Frontier.ARENA)) < 14.0:
+		return "arena"                          # the crowd, the fight in the ring
+	if world.is_cave(t):
+		return "cave"
+	if world.is_dungeon(t):
 		return "dungeon"
 	if world.in_church(t):
 		return "church"
 	if World.CEMETERY.has_point(t):
 		return "cemetery"
+	if hero.position.distance_to(world.tile_center(Frontier.TAVERN)) < 7.0:
+		return "tavern"                         # inside the Drunken Shard
 	if world.is_town(t):
 		return "town"
 	match world.biome_at(t):
 		"snow":
 			return "frost"
-		"desert", "ash":
+		"desert":
 			return "desert"
+		"swamp":
+			return "swamp"
+		"ash":
+			return "ash"
 	return "night" if is_night() else "wilds"
 
 
@@ -6503,6 +6518,12 @@ func _campfire_tick(delta: float) -> void:
 ## Sound effects are heard only from the middle of the screen: a box SOUND_ZONE (75%) of the
 ## screen's width and height, centred, i.e. round the hero. Weather, music and thunder are global.
 const SOUND_ZONE := 0.75
+
+
+## A sound heard wherever you are (a level, a quest done, the dead rising) - not placed in the world.
+func sound_here(sound_name: String, pitch := 1.0, volume_db := 0.0) -> void:
+	if property.sound_on and movie == null:
+		sfx.play(sound_name, pitch, volume_db)
 
 
 func sound(sound_name: String, at: Vector3, pitch := 1.0, volume_db := 0.0) -> void:

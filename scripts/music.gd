@@ -5,7 +5,8 @@ extends Node
 ## needed, then cross-faded in over the last one. The instruments are built from formulas too:
 ## a warm detuned pad, a plucked lute, a breathy flute, a bass, a choir, bells, and drums (a deep
 ## drum, a hand drum, a shaker).
-## Pieces: town, wilds, night, dungeon, battle, boss, frost, desert, church, cemetery.
+## Pieces: town, wilds, night, dungeon, battle, boss, frost, desert, church, cemetery, swamp,
+## ash, tavern, arena, cave, sea (and the trailer's).
 
 const RATE := 16000
 const BARS := 16
@@ -44,6 +45,30 @@ const PLANS := {
 	"trailer": {"beat": 0.42, "chords": [[50, "min"], [50, "min"], [46, "maj"], [46, "maj"], [43, "min"], [43, "min"], [45, "maj"], [45, "maj"],
 			[50, "min"], [46, "maj"], [48, "maj"], [45, "maj"], [50, "min"], [46, "maj"], [45, "maj"], [50, "min"]],
 		"scale": [62, 64, 65, 67, 69, 70, 72, 74, 76], "melody": 0.5, "lead": "brass", "drums": true, "ostinato": true, "choir": true},
+	# the murky fen: low and slow, a breathy flute over deep water
+	"swamp": {"beat": 0.7, "chords": [[40, "min"], [40, "min"], [43, "maj"], [41, "maj"], [40, "min"], [38, "min"], [41, "maj"], [40, "min"],
+			[45, "min"], [43, "maj"], [41, "maj"], [40, "min"], [38, "min"], [41, "maj"], [43, "maj"], [40, "min"]],
+		"scale": [52, 55, 57, 58, 59, 62, 64], "melody": 0.22, "lead": "flute", "deep": true},
+	# the ash lands: ominous brass, a far-off drum, a hand drum like embers
+	"ash": {"beat": 0.55, "chords": [[45, "min"], [46, "maj"], [45, "min"], [44, "dim"], [45, "min"], [41, "maj"], [46, "maj"], [45, "min"],
+			[43, "min"], [44, "dim"], [45, "min"], [46, "maj"], [41, "maj"], [40, "maj"], [44, "dim"], [45, "min"]],
+		"scale": [57, 58, 61, 62, 64, 65, 68, 69], "melody": 0.32, "lead": "brass", "deep": true, "hand": true},
+	# the tavern: a quick jig, lute and flute and a hand drum
+	"tavern": {"beat": 0.32, "chords": [[55, "maj"], [55, "maj"], [60, "maj"], [62, "maj"], [55, "maj"], [52, "min"], [60, "maj"], [62, "maj"],
+			[55, "maj"], [60, "maj"], [55, "maj"], [62, "maj"], [64, "min"], [60, "maj"], [62, "maj"], [55, "maj"]],
+		"scale": [67, 69, 71, 72, 74, 76, 78, 79], "melody": 0.78, "lead": "flute", "lute": true, "hand": true},
+	# the arena: a fanfare over drums for the crowd
+	"arena": {"beat": 0.38, "chords": [[48, "maj"], [48, "maj"], [53, "maj"], [55, "maj"], [48, "maj"], [57, "min"], [53, "maj"], [55, "maj"],
+			[53, "maj"], [55, "maj"], [48, "maj"], [57, "min"], [53, "maj"], [50, "min"], [55, "maj"], [48, "maj"]],
+		"scale": [60, 62, 64, 67, 69, 72, 74, 76], "melody": 0.6, "lead": "brass", "drums": true, "ostinato": true},
+	# the caves: sparse, cold, dripping bells far away
+	"cave": {"beat": 0.95, "chords": [[40, "min"], [40, "min"], [41, "maj"], [40, "min"], [38, "min"], [40, "min"], [36, "maj"], [40, "min"],
+			[40, "min"], [43, "maj"], [41, "maj"], [40, "min"], [38, "min"], [36, "maj"], [41, "maj"], [40, "min"]],
+		"scale": [64, 67, 69, 71, 72, 76], "melody": 0.1, "lead": "bell", "deep": true, "bells": true},
+	# out on the water: a gentle rocking lute and a flute, wide and open
+	"sea": {"beat": 0.55, "chords": [[50, "maj"], [47, "min"], [55, "maj"], [57, "maj"], [50, "maj"], [54, "min"], [55, "maj"], [57, "maj"],
+			[55, "maj"], [57, "maj"], [50, "maj"], [47, "min"], [55, "maj"], [52, "min"], [57, "maj"], [50, "maj"]],
+		"scale": [62, 64, 66, 69, 71, 74, 76, 78], "melody": 0.42, "lead": "flute", "lute": true},
 	"cemetery": {"beat": 0.85, "chords": [[44, "min"], [44, "min"], [40, "maj"], [43, "maj"], [44, "min"], [41, "dim"], [40, "maj"], [44, "min"],
 			[44, "min"], [47, "maj"], [40, "maj"], [43, "maj"], [44, "min"], [41, "dim"], [43, "maj"], [44, "min"]],
 		"scale": [56, 59, 61, 63, 64, 66], "melody": 0.14, "lead": "choir", "choir": true, "bells": true},
