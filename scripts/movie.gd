@@ -253,7 +253,7 @@ func _make_shots() -> void:
 		{"title": "The dungeon's depths", "words": ["FIVE LEVELS DEEP", "EACH DARKER THAN THE LAST"], "sub": "Five levels down, each darker than the last.", "dur": 7.0,
 			"at": _tc(Vector2i(11, 72)), "r": 7.0, "h": 6.5, "a0": 3.0, "a1": 4.2, "setup": _stage_fight.bind(Vector2i(12, 75), "Skeleton", Bestiary.SKELETON, 2)},
 		{"title": "The Frostmarch", "words": ["EXPLORE EVERY LAND", "SNOW · SAND · SWAMP · ASH"], "sub": "Biomes: snow, desert, swamp and ash - each with its own beasts.", "dur": 7.0, "snow": true,
-			"at": _tc(Vector2i(70, 5)), "r": 8.0, "h": 5.0, "a0": 0.5, "a1": 1.6, "setup": _stage_fight.bind(Vector2i(70, 5), "Yeti", Bestiary.YETI, 1)},
+			"at": _tc(Vector2i(71, 4)), "r": 7.0, "h": 5.0, "a0": 3.6, "a1": 4.6, "setup": _stage_fight.bind(Vector2i(71, 4), "Yeti", Bestiary.YETI, 1)},   # (filmed from the north: clear of the piers and their flags)
 		{"title": "Caves and deserts", "words": ["DIG FOR TREASURE"], "sub": "Scorpions in the Sunscar Wastes; crystals deep in the caves.", "dur": 7.0,
 			"at": _tc(Vector2i(74, 42)), "r": 6.0, "h": 4.0, "a0": 4.0, "a1": 5.0, "setup": _stage_fight.bind(Vector2i(74, 42), "Sand Scorpion", Bestiary.SAND_SCORPION, 2)},
 		{"title": "Boats", "words": ["SAIL THE LAKES", "FISH THE DEEP"], "sub": "Cross the lakes, fish the deep water, sail to the Isle of Tides.", "dur": 8.0,

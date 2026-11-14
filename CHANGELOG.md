@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.91.4
+- Trailer scene 6 (the Frostmarch): the camera keeps away from the piers and their flag, filming
+  the fight from the north over the open snow.
+
 ## 0.91.3
 - No running in the boat: while the boat glides, the hero sits still in it instead of playing the
   running steps (in the game and the trailer), and in the trailer's boat scene the hero just rides.
