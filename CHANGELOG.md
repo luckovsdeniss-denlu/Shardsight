@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.91.6
+- Trailer scene 13 (Seasons and storms) has no flashes: it no longer cuts in through white, and
+  the storm's lightning doesn't flash the screen during the trailer (the thunder still rolls).
+
 ## 0.91.5
 - Trailer scene 11 (Ravenhollow): the camera films from higher up, circling over the graveyard's
   walls, so the fighters are in plain view (it had been a low tracking shot behind the walls).

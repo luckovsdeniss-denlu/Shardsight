@@ -6550,8 +6550,8 @@ func _apply_daylight() -> void:
 			light *= 0.7
 		"storm":
 			light *= 0.5
-	if _flash > 0.0:
-		light = 1.0                                    # lightning
+	if _flash > 0.0 and movie == null:
+		light = 1.0                                    # lightning (not in the trailer: its storm rolls without flashes)
 	if hero != null and hero.flags.has("night_sight"):
 		light = maxf(light, 0.7)                       # Night Sight: the dark lifts for you
 	# Painted light: a strong warm sun against cool, dim shade by day; amber when the sun is low;
