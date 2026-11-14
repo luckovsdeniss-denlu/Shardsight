@@ -316,7 +316,7 @@ func _next() -> void:
 		add_child(cc)
 		move_child(cc, _fade.get_index())               # under the fade
 		cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		_open_title = Title3D.make("SHARDSIGHT", minf(get_viewport().get_visible_rect().size.x * 0.8, 1150.0), 1.4)
+		_open_title = Title3D.make("SHARDSIGHT", minf(get_viewport().get_visible_rect().size.x * 0.98, 1900.0), 1.4)
 		cc.add_child(_open_title)
 	_sub.text = String(sh["sub"])
 	for l in [_title, _sub]:                            # the words slide in and fade up
@@ -545,7 +545,7 @@ func _end_logo() -> void:
 	add_child(_end_card)
 	move_child(_end_card, get_child_count() - 2)
 	_end_card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var logo := Title3D.make("SHARDSIGHT", minf(get_viewport().get_visible_rect().size.x * 0.85, 1250.0), 1.2)
+	var logo := Title3D.make("SHARDSIGHT", minf(get_viewport().get_visible_rect().size.x * 0.98, 1900.0), 1.2)
 	_end_card.add_child(logo)                           # the name in 3D: gold, glowing, the light sweeping across
 	var sparks := CPUParticles2D.new()
 	sparks.amount = 60

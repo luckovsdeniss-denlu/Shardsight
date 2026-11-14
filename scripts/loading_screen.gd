@@ -10,6 +10,7 @@ const BG_SHADER := """
 shader_type canvas_item;
 uniform float aspect = 1.78;
 uniform float progress = 0.0;
+uniform float ring_r = 0.18;          // the glow ring's radius (screen heights): set to sit on the gold ring
 
 vec2 hex_cell(vec2 p) {
 	vec2 r = vec2(1.0, 1.7320508);
@@ -30,7 +31,7 @@ float hash(vec2 p) {
 
 void fragment() {
 	vec2 uv = UV;
-	vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+	vec2 p = (uv - 0.5) * vec2(aspect, 1.0);         // centred: the same middle as the rings and the Shard
 	float r = length(p);
 	// a deep blue field, lighter at the heart
 	vec3 col = mix(vec3(0.03, 0.07, 0.14), vec3(0.005, 0.01, 0.03), smoothstep(0.0, 0.9, r));
@@ -46,7 +47,7 @@ void fragment() {
 	col += cyan * line * (0.08 + 0.35 * pulse) * (1.0 - smoothstep(0.3, 1.0, r));
 	col += cyan * flick * smoothstep(0.25, 0.0, hex_dist(gv)) * 0.25;
 	// a glow ring that grows with the loading
-	float ring = smoothstep(0.012, 0.0, abs(r - (0.18 + progress * 0.04)));
+	float ring = smoothstep(0.012, 0.0, abs(r - (ring_r + progress * 0.008)));
 	col += vec3(0.95, 0.75, 0.3) * ring * 0.25;
 	// a scan line sweeping down, and the fine lines of a screen
 	float scan = smoothstep(0.06, 0.0, abs(uv.y - fract(TIME * 0.25)));
@@ -141,12 +142,13 @@ func _process(delta: float) -> void:
 	var vs := _root.get_viewport_rect().size
 	_bg_mat.set_shader_parameter("aspect", vs.x / maxf(vs.y, 1.0))
 	_bg_mat.set_shader_parameter("progress", _shown)
+	_bg_mat.set_shader_parameter("ring_r", 132.0 * minf(vs.x, vs.y) / 720.0 / maxf(vs.y, 1.0))   # on the gold ring
 	_fg.queue_redraw()
 
 
 func _draw_fg() -> void:
 	var vs := _fg.size
-	var c := Vector2(vs.x / 2.0, vs.y * 0.4)
+	var c := vs / 2.0                                  # the circle in the exact centre of the screen
 	var font := ThemeDB.fallback_font
 	var cyan := Color(0.3, 0.8, 1.0)
 	var gold := Color(0.95, 0.78, 0.35)

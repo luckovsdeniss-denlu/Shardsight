@@ -34,6 +34,7 @@ var players_panel: Control
 var players_box: VBoxContainer
 var bag_panel: Control
 var corner_toggle: Button              # the Menu button in the upper right
+var corner_box: Control                # the upper-right corner: the buttons and the minimap (hidden on the title)
 var corner_grid: GridContainer         # the buttons it opens
 var mute_button: Button
 var names_button: Button
@@ -231,6 +232,7 @@ func _ready() -> void:
 	# Upper right: one Menu button that opens every other button (two columns, so they fit the
 	# screen), with the minimap under it.
 	var corner := VBoxContainer.new()
+	corner_box = corner
 	corner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	corner.alignment = BoxContainer.ALIGNMENT_BEGIN
 	layer.add_child(corner)
@@ -5603,7 +5605,7 @@ func _show_title(layer: CanvasLayer) -> void:
 	var hint: Label = null
 	for l in lines:
 		if box.get_child_count() == 0:             # the name: in 3D, raised gold with light sweeping across it
-			var t3 := Title3D.make(String(l[0]), minf(get_viewport().get_visible_rect().size.x * 0.8, 1150.0), 1.6)
+			var t3 := Title3D.make(String(l[0]), minf(get_viewport().get_visible_rect().size.x * 0.98, 1900.0), 1.6)
 			t3.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 			box.add_child(t3)
 			continue
@@ -5705,6 +5707,11 @@ func _show_title(layer: CanvasLayer) -> void:
 			_skip_flyby())                         # a tap glides the camera down to the hero
 	_title_close = flyby_done
 	title_up = true
+	if corner_box != null:
+		corner_box.visible = false                 # the title has the screen to itself
+	card.tree_exited.connect(func() -> void:
+		if not title_up and corner_box != null and is_instance_valid(corner_box):
+			corner_box.visible = true)                 # (not when the fly-by is only starting again)
 	_flyby_t = 0.0                                 # start the fly-by over the world
 	_fov_rest = cam.fov
 	get_tree().create_timer(FLYBY_SEG * FLYBY.size() + 3.0).timeout.connect(flyby_done)   # just in case

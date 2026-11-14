@@ -71,7 +71,7 @@ func _build(text: String, width: float, intro: float) -> void:
 	tm.text = text
 	tm.font = font
 	tm.font_size = 96
-	tm.pixel_size = minf(0.0058, 6.2 / (maxf(float(text.length()), 1.0) * 67.5))   # a long line still fits
+	tm.pixel_size = minf(0.0068, 6.4 / (maxf(float(text.length()), 1.0) * 67.5))   # big; a long line still fits
 	tm.depth = 0.22
 	tm.curve_step = 1.0
 	var mat := StandardMaterial3D.new()

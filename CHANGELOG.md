@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.88.2
+- The 3D name is bigger, on the title and in the trailer (about half as large again); while the
+  title shows, the corner buttons and the minimap step aside so it has the screen to itself.
+- The loading screen's circle sits in the exact centre of the screen, and its glowing ring now
+  lies right on the gold ring round the Shard (before, the two were off from each other).
+
 ## 0.88.1
 - The trailer's flying words have their own sounds, in step with each flight: a swoop as the
   word comes in from afar (rushing air and a falling whistle), a glittering bell-like shimmer as
