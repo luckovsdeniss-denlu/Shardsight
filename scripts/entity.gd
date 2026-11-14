@@ -1908,6 +1908,9 @@ func start_looting(c: Corpse) -> void:
 func _loot_step() -> bool:
 	if loot_target == null:
 		return false
+	if game.movie != null:
+		loot_target = null                    # the trailer: nobody stops to loot (treasure included)
+		return false
 	if not is_instance_valid(loot_target) or loot_target.is_empty():
 		loot_target = null
 		return false
@@ -1957,7 +1960,7 @@ func _take(c: Corpse) -> void:
 
 ## Picks the nearest corpse worth looting, unless a monster is close.
 func _seek_loot() -> bool:
-	if _hostile_near(4.0):
+	if _hostile_near(4.0) or game.movie != null:
 		return false
 	var best: Corpse = null
 	var best_score := INF
