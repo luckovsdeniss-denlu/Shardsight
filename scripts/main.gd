@@ -1198,7 +1198,7 @@ func _refresh_perf() -> void:
 		_refresh_perf()))
 	box.add_child(_info("Current settings: " + _graphics_summary()))
 	box.add_child(_menu_button("Keep current settings", _keep_graphics))
-	box.add_child(_menu_button("Reset all graphics settings", _reset_graphics))
+	box.add_child(_menu_button("Reset all graphics settings to default", _reset_graphics))
 	box.add_child(_menu_button("Close", _close_perf))
 
 
@@ -1218,7 +1218,18 @@ func _reset_graphics() -> void:
 	_apply_features()
 	(_fps_label.get_parent() as CanvasLayer).visible = true
 	DirAccess.remove_absolute(GRAPHICS_PATH)           # (nothing kept any more)
-	log_event("Graphics settings reset: Auto-optimize on, every look on, the starting resolution.")
+	# and everything else about how the game looks, back to how it comes
+	property.first_person = false                      # the camera above the hero
+	property.names_on = false                          # a clean screen: no names over heads
+	property.corpse_names_on = true
+	property.magic_label_on = true
+	property.minimap_on = true
+	property.stats_on = true
+	property.weather_on = true
+	for e in creatures:
+		e.show_name(property.names_on)
+	_update_corner_buttons()
+	log_event("All graphics settings reset to default: Auto-optimize on, every look on, the starting resolution, the camera above, the map, stats and weather on.")
 	_refresh_perf()
 
 

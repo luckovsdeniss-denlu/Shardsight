@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.88.5
+- "Reset all graphics settings to default" now resets everything about how the game looks, not
+  only the performance settings: Auto-optimize on, every look on, the starting resolution, the
+  frame counter shown, the camera back above the hero (not first person), names over heads off,
+  corpse names, the magic line, the minimap, the stats and the weather on.
+
 ## 0.88.4
 - The hero no longer casts Night Sight by itself at night (in the game or the trailer); it's still
   in the spellbook to cast by hand.
