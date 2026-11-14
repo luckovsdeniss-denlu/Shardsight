@@ -42,9 +42,12 @@ const PLANS := {
 	"church": {"beat": 0.9, "chords": [[48, "maj"], [53, "maj"], [45, "min"], [55, "maj"], [48, "maj"], [50, "min"], [53, "maj"], [55, "maj"],
 			[57, "min"], [53, "maj"], [48, "maj"], [55, "maj"], [53, "maj"], [50, "min"], [55, "maj"], [48, "maj"]],
 		"scale": [72, 74, 76, 77, 79, 81], "melody": 0.18, "lead": "choir", "choir": true},
-	"trailer": {"beat": 0.42, "chords": [[50, "min"], [50, "min"], [46, "maj"], [46, "maj"], [43, "min"], [43, "min"], [45, "maj"], [45, "maj"],
-			[50, "min"], [46, "maj"], [48, "maj"], [45, "maj"], [50, "min"], [46, "maj"], [45, "maj"], [50, "min"]],
-		"scale": [62, 64, 65, 67, 69, 70, 72, 74, 76], "melody": 0.5, "lead": "brass", "drums": true, "ostinato": true, "choir": true},
+	# the trailer's epic score: a heroic minor climb (i - VI - III - VII, then up to the major
+	# sixth and back), a choir swelling under the chords, brass calling the theme, drums driving
+	# every beat with fills at each phrase's end, and bells ringing over the top
+	"trailer": {"beat": 0.5, "chords": [[50, "min"], [46, "maj"], [43, "maj"], [48, "maj"], [50, "min"], [46, "maj"], [41, "maj"], [45, "maj"],
+			[50, "min"], [46, "maj"], [43, "maj"], [48, "maj"], [41, "maj"], [45, "maj"], [46, "maj"], [50, "min"]],
+		"scale": [62, 64, 65, 67, 69, 70, 72, 74, 77], "melody": 0.7, "lead": "brass", "drums": true, "ostinato": true, "choir": true, "bells": true},
 	# the murky fen: low and slow, a breathy flute over deep water
 	"swamp": {"beat": 0.7, "chords": [[40, "min"], [40, "min"], [43, "maj"], [41, "maj"], [40, "min"], [38, "min"], [41, "maj"], [40, "min"],
 			[45, "min"], [43, "maj"], [41, "maj"], [40, "min"], [38, "min"], [41, "maj"], [43, "maj"], [40, "min"]],

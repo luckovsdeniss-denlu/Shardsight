@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.95.0
+- The trailer has an epic score throughout: a heroic minor climb of chords that swells upward and
+  resolves, a choir under the chords, brass calling out the theme more often, drums driving every
+  beat with a fill at each phrase's end, and bells ringing over the top.
+
 ## 0.94.4
 - No sound for the trailer's 3D words appearing or fading: the swell as a word comes in, the hit
   as it lands and the fly-by as it leaves are all silent now (the music and the big brass cuts stay).
