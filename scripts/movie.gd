@@ -82,13 +82,11 @@ func start(p_game) -> void:
 	layer = 50
 	game.add_child(self)
 	_snapshot()
-	# a clean screen: no buttons, log, stats or menus, no health bars (the words over heads stay:
-	# names, damage, spell words, loot)
+	# a clean screen: no buttons, log, stats or menus (over heads the fight shows in full: damage,
+	# spell words, health and casting bars - the hero's too)
 	if game.ui_layer != null:
 		game.ui_layer.visible = false
-	hero.show_name(false)                               # and nothing over the hero's head
-	for e in game.creatures:
-		e.hp_bar.visible = false
+	hero.show_name(false)                               # (the hero's name stays off; the fight's numbers, words and bars all show)
 	# lighter, for a steady 60: the movie has its own vignette (the game's overlay goes), the camera
 	# sees no further than the land, the 3D starts a little under full resolution on a phone
 	if game._grade != null:

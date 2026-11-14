@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.90.0
+The trailer: every combat label, and a cartoon touch.
+- Over heads in the trailer, the fight shows in full - the hero's too: damage numbers, spell
+  words, health bars, and the hero's casting bar under the health bar. (In the game itself
+  nothing shows over your hero, as before.)
+- Cartoon action: a body squashes and springs back with a hop at every blow (more for a heavy
+  one), comic words burst over the struck ("BONK!", "POW!", "WHAM!", "KAPOW!", "SPLAT!" ...),
+  and a slain foe is sent tumbling up into the air and away with a "YEET!" or "K.O.!", a burst
+  of sparkles and a twinkle as it goes.
+
 ## 0.89.1
 - Fix: the trailer's flying words were cut off at the edges of their little frame as they swooped
   in and rushed past. Each word now flies in a frame as big as the whole screen, so its flight is

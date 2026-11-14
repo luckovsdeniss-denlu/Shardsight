@@ -1142,6 +1142,8 @@ func take_damage(amount: float, from: Entity) -> void:
 		tame_target = null
 		_pop("interrupted", Color(0.75, 0.75, 0.75))
 	_pop("-%d" % maxi(1, roundi(amount)), Color(1.0, 0.45, 0.4))
+	if game.movie != null:
+		_comic_hit(heavy)
 	if from != target and not retreating and _outmatched(from) and kind == Kind.PLAYER and (ai_enabled or not is_hero):
 		start_retreat()                # mid-fight, something far stronger joins in: get out
 	if target == null and not recovering and not retreating:
@@ -1151,6 +1153,27 @@ func take_damage(amount: float, from: Entity) -> void:
 			target = from              # fight back
 	if hp <= 0.0:
 		_die(from)
+
+
+## The trailer's cartoon touch: a body squashes and springs back with a hop, and now and then a
+## comic word bursts over it.
+const COMIC_WORDS := ["BONK!", "POW!", "WHAM!", "THWACK!", "OOF!", "ZAP!", "KAPOW!", "CLANG!", "SPLAT!", "BOOM!"]
+const COMIC_COLOURS := [Color(1.0, 0.85, 0.2), Color(1.0, 0.45, 0.2), Color(0.5, 0.9, 1.0), Color(1.0, 0.5, 0.85), Color(0.6, 1.0, 0.4)]
+
+
+func _comic_hit(heavy: bool) -> void:
+	if rig == null or not _near:
+		return
+	var tw := rig.create_tween()
+	var s := 1.4 if heavy else 1.25
+	tw.tween_property(rig, "scale", Vector3(s, 1.0 / s, s), 0.06)
+	tw.tween_property(rig, "scale", Vector3(0.88, 1.18, 0.88), 0.09)
+	tw.tween_property(rig, "scale", Vector3.ONE, 0.22).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	var hop := rig.create_tween()
+	hop.tween_property(rig, "position:y", 0.35 if heavy else 0.18, 0.1).set_ease(Tween.EASE_OUT)
+	hop.tween_property(rig, "position:y", 0.0, 0.16).set_ease(Tween.EASE_IN)
+	if randf() < (0.6 if heavy else 0.3):
+		_pop(String(COMIC_WORDS[randi() % COMIC_WORDS.size()]), COMIC_COLOURS[randi() % COMIC_COLOURS.size()])
 
 
 func _die(killer: Entity) -> void:
@@ -1193,7 +1216,20 @@ func _die(killer: Entity) -> void:
 	else:
 		dead_timer = respawn_time
 		_dying = 0.7 if _near else 0.0         # topples over before vanishing (its corpse stays)
+		if game.movie != null and _near:
+			_dying = COMIC_FLIGHT              # the trailer: sent flying, cartoon-style
+			_pop(String(["YEET!", "BYE!", "WHEEE!", "K.O.!", "POOF!"][randi() % 5]), Color(1.0, 0.9, 0.3))
+			Fx.sparkle(get_parent(), position + Vector3(0.0, 1.0, 0.0), Color(1.0, 0.95, 0.5), 24)
+		_dying_started = _dying
 		visible = _dying > 0.0
+
+
+## Whether this fall is the trailer's cartoon flight (it starts longer than a plain topple).
+func _comic_flying() -> bool:
+	return _dying_started > 0.75
+
+
+var _dying_started := 0.0
 
 
 func _respawn() -> void:
@@ -1318,8 +1354,8 @@ func _magic_line() -> String:
 
 ## Floating combat text that drifts up and vanishes.
 func _pop(text: String, color: Color) -> void:
-	if is_hero:
-		return                                # nothing rises over the hero (the blows on others still show; the log tells you the rest)
+	if is_hero and game.movie == null:
+		return                                # in the game nothing rises over the hero (the trailer shows it all)
 	var l := Label3D.new()
 	l.text = text
 	l.modulate = color
@@ -4678,7 +4714,24 @@ func jewel(key: String) -> float:
 
 
 ## Topples over when slain (monsters; it then vanishes, leaving its corpse).
+const COMIC_FLIGHT := 1.3
+
+
 func _fall_step(delta: float) -> void:
+	if game.movie != null and rig != null and _dying > 0.0 and _comic_flying():
+		_dying -= delta
+		var c := clampf(1.0 - _dying / COMIC_FLIGHT, 0.0, 1.0)
+		rig.position = Vector3(0.0, 4.0 * c * (1.0 - c) * 3.2 + c * 0.5, -c * 2.5)   # up in an arc and away
+		rig.rotation = Vector3(c * TAU * 2.0, c * TAU, c * PI)                        # tumbling
+		rig.scale = Vector3.ONE * maxf(1.0 - c * 0.8, 0.05)
+		if _dying <= 0.0:
+			_dying = 0.0
+			visible = false
+			rig.rotation = Vector3.ZERO
+			rig.position = Vector3.ZERO
+			rig.scale = Vector3.ONE
+			Fx.sparkle(get_parent(), position + Vector3(0.0, 2.0, -2.5), Color(1.0, 0.95, 0.6), 18)   # a twinkle as it goes
+		return
 	_dying -= delta
 	var k := clampf(1.0 - _dying / 0.7, 0.0, 1.0)
 	var e := 1.0 - (1.0 - k) * (1.0 - k)          # quick at first, settling at the end
@@ -5066,7 +5119,16 @@ func _start_cast_fx(c: Color) -> void:
 		add_child(_cast_fx)
 		_cast_fx.position = Vector3(0.0, 0.15, 0.0)
 		_cast_fx.emitting = true
-	# (no casting bar over the hero's head: nothing shows there)
+	# the casting bar under the hero's health bar - in the trailer only (in the game nothing shows there)
+	if is_hero and game.movie != null:
+		if cast_bar == null:
+			cast_bar = Art.hp_bar()
+			(cast_bar.material_override as ShaderMaterial).set_shader_parameter("tint", Color(0.45, 0.65, 1.0, 1.0))
+			cast_bar.scale = Vector3(1.0, 0.7, 1.0)
+			add_child(cast_bar)
+			cast_bar.position = hp_bar.position - Vector3(0.0, 0.14, 0.0)
+		(cast_bar.material_override as ShaderMaterial).set_shader_parameter("fill", 0.0)
+		cast_bar.visible = true
 
 
 func _end_cast_fx() -> void:
@@ -5140,7 +5202,7 @@ func _maybe_label(delta: float) -> void:
 ## The health bar shows over anyone hurt or fighting (and always over the hero), not townsfolk.
 func _update_hp_bar() -> void:
 	var max_hp := float(stats.max_hp())
-	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self and game.movie == null and not is_hero \
+	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self and (game.movie != null or not is_hero) \
 		and (is_hero or hp < max_hp - 0.5 or target != null)
 	hp_bar.visible = show
 	if show:
