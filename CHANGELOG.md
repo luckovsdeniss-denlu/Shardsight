@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.91.0
+The trailer: more camera, more animation.
+- Every scene has its own camera move, in turn: a slow orbit, a crane that starts low among the
+  fighters and rises up and over, a low tracking shot following the hero, a spiral closing in,
+  and a dolly zoom (pulling back as the lens closes in). A hand-held drift, a gentle dutch tilt,
+  and the camera punches in for an instant on a heavy blow or a K.O.
+- Foes drop into each fight from the sky and land with a squash; after a K.O. the hero twirls and
+  hops with a sparkle; the cartoon hops on every blow now really show.
+
 ## 0.90.3
 - The trailer follows the loading screen: its 3D name, at the start and on the closing card, sits
   high on the screen (about a third of the way down) with the words below it; the closing card's

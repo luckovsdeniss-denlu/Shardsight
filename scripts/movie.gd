@@ -23,6 +23,13 @@ var _cast_acc := 0.0
 const TRAILER_MUSIC_DB := 4.0          # the score a little louder than in the game
 const CAST_EVERY := 1.1                # a spell this often in every fight
 var _fight := []
+const CAM_MOVES := ["orbit", "crane", "track", "spiral", "dolly", "orbit", "track", "crane"]
+var _punch := 0.0                      # a quick zoom on a heavy blow (fades)
+
+
+## A heavy blow or a K.O.: the camera punches in for an instant.
+func punch(amount := 1.0) -> void:
+	_punch = maxf(_punch, amount)
 var _words_box: Control                 # where the flying words appear (each fills the screen)
 var _word_queue: Array = []
 var _word_t := 0.0
@@ -411,8 +418,31 @@ func tick(delta: float) -> bool:
 		cam.position = (sh["from"] as Vector3).lerp(sh["to"], k)
 	else:
 		var a := lerpf(float(sh["a0"]), float(sh["a1"]), k)
-		cam.position = look + Vector3(cos(a) * float(sh["r"]), float(sh["h"]), sin(a) * float(sh["r"]))
+		var r := float(sh["r"])
+		var h := float(sh["h"])
+		# each scene its own camera move (they take turns), so no two scenes are filmed alike
+		match String(sh.get("cam", CAM_MOVES[i % CAM_MOVES.size()])):
+			"crane":                                    # starts low among them, rises up and over
+				h = lerpf(maxf(h * 0.25, 1.2), h * 1.5, k)
+				r = lerpf(r * 0.8, r * 1.1, k)
+			"spiral":                                   # circles faster and closes in, descending
+				a = lerpf(float(sh["a0"]), float(sh["a0"]) + (float(sh["a1"]) - float(sh["a0"])) * 2.4, k)
+				r = lerpf(r * 1.3, r * 0.7, k)
+				h = lerpf(h * 1.4, h * 0.7, k)
+			"track":                                    # low behind the hero, following the fight
+				look = look.lerp(hero.position, 0.7)
+				r *= 0.75
+				h = maxf(h * 0.45, 1.3)
+			"dolly":                                    # the dolly zoom: pulls back as the lens closes in
+				r = lerpf(r * 0.7, r * 1.5, k)
+				cam.fov = lerpf(70.0, 34.0, k)
+		cam.position = look + Vector3(cos(a) * r, h, sin(a) * r)
+	# a little life in the hand-held camera, and a punch-in on a big blow
+	cam.position += Vector3(sin(t * 1.7) * 0.06, sin(t * 2.3) * 0.04, cos(t * 1.3) * 0.06)
+	_punch = maxf(_punch - delta * 3.0, 0.0)
+	cam.fov -= _punch * 8.0
 	cam.look_at(look + Vector3(0, 0.8, 0), Vector3.UP)
+	cam.rotate_object_local(Vector3(0, 0, 1), sin(t * 0.6) * 0.035 * (1.0 if i % 2 == 0 else -1.0))   # a gentle dutch tilt
 	game.view_planes = cam.get_frustum()
 	if t >= dur:
 		_next()
@@ -614,6 +644,13 @@ func _spawn_wave() -> void:
 		var e: Entity = game.pool_spawn("%s " % foe_name if k > 0 else foe_name, c, Color(0.85, 0.3, 0.25), at)
 		e.target = hero
 		_actors.append(e)
+		if e.rig != null:                               # dropping in from the sky, cartoon-style
+			e.anim_lift = 6.0 + randf() * 2.0
+			var drop := e.create_tween()
+			drop.tween_interval(randf() * 0.4)
+			drop.tween_property(e, "anim_lift", 0.0, 0.45).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			drop.tween_property(e.rig, "scale", Vector3(1.35, 0.65, 1.35), 0.06)
+			drop.tween_property(e.rig, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 	for a in _actors:
 		if is_instance_valid(a) and not a.dead:
 			hero.target = a

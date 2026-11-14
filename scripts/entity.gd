@@ -160,6 +160,8 @@ var blade_poison_hits := 0
 var _pop_slot := 0               # floating texts that come close together are stacked, not overlaid
 var _pop_at := 0
 var tick_debt := 0.0            # time not yet lived (off screen, creatures tick every third frame)
+var anim_lift := 0.0            # the trailer's cartoon hops and drops, on top of the body's own motion
+var anim_spin := 0.0            # and its twirls
 var _dying := 0.0               # the fall when slain (seconds left)         # the hero in first person: its own model, bar and label hidden
 var _hit_sound := ""            # set by whoever strikes us, so the blow sounds like what hit what
 var cast_bar: MeshInstance3D    # the hero's casting progress, under the health bar
@@ -1188,6 +1190,20 @@ const COMIC_WORDS := ["BONK!", "POW!", "WHAM!", "THWACK!", "OOF!", "ZAP!", "KAPO
 const COMIC_COLOURS := [Color(1.0, 0.85, 0.2), Color(1.0, 0.45, 0.2), Color(0.5, 0.9, 1.0), Color(1.0, 0.5, 0.85), Color(0.6, 1.0, 0.4)]
 
 
+## The trailer: a quick twirl and hop after a K.O., sword up.
+func _victory_spin() -> void:
+	if rig == null:
+		return
+	anim_spin = 0.0
+	var tw := create_tween()
+	tw.tween_property(self, "anim_spin", TAU, 0.45).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func() -> void: anim_spin = 0.0)
+	var hop := create_tween()
+	hop.tween_property(self, "anim_lift", 0.45, 0.18).set_ease(Tween.EASE_OUT)
+	hop.tween_property(self, "anim_lift", 0.0, 0.22).set_ease(Tween.EASE_IN)
+	Fx.sparkle(get_parent(), position + Vector3(0.0, 1.6, 0.0), Color(1.0, 0.9, 0.4), 16)
+
+
 func _comic_hit(heavy: bool) -> void:
 	if rig == null or not _near:
 		return
@@ -1196,17 +1212,21 @@ func _comic_hit(heavy: bool) -> void:
 	tw.tween_property(rig, "scale", Vector3(s, 1.0 / s, s), 0.06)
 	tw.tween_property(rig, "scale", Vector3(0.88, 1.18, 0.88), 0.09)
 	tw.tween_property(rig, "scale", Vector3.ONE, 0.22).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	var hop := rig.create_tween()
-	hop.tween_property(rig, "position:y", 0.35 if heavy else 0.18, 0.1).set_ease(Tween.EASE_OUT)
-	hop.tween_property(rig, "position:y", 0.0, 0.16).set_ease(Tween.EASE_IN)
+	var hop := create_tween()
+	hop.tween_property(self, "anim_lift", 0.35 if heavy else 0.18, 0.1).set_ease(Tween.EASE_OUT)
+	hop.tween_property(self, "anim_lift", 0.0, 0.16).set_ease(Tween.EASE_IN)
 	if randf() < (0.6 if heavy else 0.3):
 		_pop(String(COMIC_WORDS[randi() % COMIC_WORDS.size()]), COMIC_COLOURS[randi() % COMIC_COLOURS.size()])
+	if heavy:
+		game.movie.punch(0.6)
 
 
 func _die(killer: Entity) -> void:
 	if mounted_on != null:
 		dismount()                           # thrown from the saddle
 	dead = true
+	anim_lift = 0.0
+	anim_spin = 0.0
 	form = ""
 	form_timer = 0.0
 	effects.clear()
@@ -1245,6 +1265,9 @@ func _die(killer: Entity) -> void:
 		_dying = 0.7 if _near else 0.0         # topples over before vanishing (its corpse stays)
 		if game.movie != null and _near:
 			_dying = COMIC_FLIGHT              # the trailer: sent flying, cartoon-style
+			game.movie.punch(1.0)
+			if killer != null and killer.is_hero:
+				killer._victory_spin()         # and the hero twirls for the camera
 			_pop(String(["YEET!", "BYE!", "WHEEE!", "K.O.!", "POOF!"][randi() % 5]), Color(1.0, 0.9, 0.3))
 			Fx.sparkle(get_parent(), position + Vector3(0.0, 1.0, 0.0), Color(1.0, 0.95, 0.5), 24)
 		_dying_started = _dying
@@ -3034,8 +3057,8 @@ func _animate(delta: float) -> void:
 		var h := hit_anim / 0.18
 		tilt -= 0.22 * h
 		z += 0.07 * h
-	rig.position = Vector3(0.0, y, z)
-	rig.rotation = Vector3(-tilt, glance, roll)
+	rig.position = Vector3(0.0, y + anim_lift, z)
+	rig.rotation = Vector3(-tilt, glance + anim_spin, roll)
 	if model.is_empty():
 		return
 	var stride := sin(walk_phase) * 0.6 * _stride_k if not ghost else 0.0
