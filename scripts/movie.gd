@@ -277,6 +277,12 @@ func _make_shots() -> void:
 			"at": _tc(Vector2i(32, 9)), "r": 20.0, "h": 17.0, "a0": 0.4, "a1": 1.3},
 		{"title": "Living towns", "words": ["LIVE IN THE TOWNS", "TRADE · BANK · HEAL"], "sub": "Healers, priests, merchants, bankers - and folk who keep their own days.", "dur": 6.0,
 			"at": _tc(Vector2i(32, 10)), "r": 9.0, "h": 6.0, "a0": 2.4, "a1": 3.4, "setup": _stage_town},
+		{"title": "Quests", "words": ["TAKE ON QUESTS", "GOLD · FAME · KARMA"], "sub": "Captain Marcus has work for a strong arm - and every town has someone in need.", "dur": 7.0, "day": 0.4, "stay": true, "cam": "orbit",
+			"at": _tc(Vector2i(30, 13)), "r": 4.5, "h": 3.0, "a0": 0.9, "a1": 1.9,
+			"setup": _stage_talk.bind(Quests.GIVER, Vector2i(31, 13), ["\"Orcs on the north road!\"", ">\"I'll see to it.\"", "\"Four of them. Bring me proof.\""])},
+		{"title": "Bounties", "words": ["HUNT THE BOUNTIES", "NAMED BEASTS · RICH REWARDS"], "sub": "Every board posts a beast with a name and a price on its head.", "dur": 7.0, "day": 0.35,
+			"at": _tc(Vector2i(14, 19)), "r": 5.0, "h": 3.0, "a0": 3.0, "a1": 4.2, "cam": "orbit",
+			"setup": _stage_fight.bind(Vector2i(14, 19), "Grimfang the Wolf", _elite(Bestiary.WOLF), 1)},
 		{"title": "Fight", "words": ["MASTER THE BLADE", "EVERY WEAPON ITS OWN BLOW"], "sub": "Swords, axes, maces, spears, bows - and a different blow for each.", "dur": 8.0,
 			"at": _tc(Vector2i(14, 19)), "r": 4.5, "h": 2.6, "a0": 0.0, "a1": 1.4, "setup": _stage_fight.bind(Vector2i(14, 19), "Orc", Bestiary.ORC, 2)},
 		{"title": "Magic", "words": ["67 SPELLS", "SPEAK THE OLD WORDS"], "sub": "Sixty-seven spells in eight circles. Speak the old words.", "dur": 9.0, "white": true,
@@ -293,10 +299,14 @@ func _make_shots() -> void:
 			"at": _tc(Vector2i(53, 36)), "r": 5.0, "h": 4.0, "a0": 0.8, "a1": 1.8, "setup": _stage_place.bind(Vector2i(53, 37))},
 		{"title": "The Arena", "words": ["CHALLENGE CHAMPIONS", "BET ON YOURSELF"], "sub": "Fight champions for the purse. Bet on yourself.", "dur": 8.0, "day": 0.45,
 			"at": _tc(Vector2i(89, 91)), "r": 5.5, "h": 3.5, "a0": 2.0, "a1": 3.3, "setup": _stage_fight.bind(Vector2i(89, 91), "Valka the Undefeated", Bestiary.WARRIOR, 1)},
+		{"title": "Help the townsfolk", "words": ["EVERYONE HAS A STORY"], "sub": "Farmers, fishers, wardens and smiths - each with a task, and a reward.", "dur": 7.0, "day": 0.45, "stay": true, "cam": "orbit",
+			"at": _tc(Vector2i(103, 106)), "r": 4.5, "h": 3.0, "a0": 4.0, "a1": 5.0,
+			"setup": _stage_talk.bind("Warden Sela", Vector2i(104, 106), ["\"Bears on the southern roads...\"", ">\"Leave them to me.\"", "\"Five of them. Highmoor won't forget.\""])},
 		{"title": "Ravenhollow", "words": ["FACE THE DEAD"], "sub": "Graves, wisps, and a tomb that should stay shut.", "dur": 7.0, "day": 0.02,
 			"at": _tc(Vector2i(103, 133)), "r": 9.0, "h": 10.5, "cam": "orbit", "a0": 5.0, "a1": 6.0, "setup": _stage_fight.bind(Vector2i(103, 133), "Zombie", Bestiary.ZOMBIE, 2)},
-		{"title": "The Church of the Shard", "words": ["SEEK A BLESSING"], "sub": "Pray at the altar. The bell tolls at dawn.", "dur": 6.0, "day": 0.28,
-			"at": _tc(Vector2i(12, 129)), "r": 6.5, "h": 6.0, "a0": 1.2, "a1": 2.0, "setup": _stage_place.bind(Vector2i(12, 129)), "stay": true},
+		{"title": "The Shattered Sight", "words": ["A STORY TO UNCOVER", "WHAT WAS TAKEN FROM YOU?"], "sub": "You wake with no memory. Father Corwin knows more than he says.", "dur": 8.0, "day": 0.28,
+			"at": _tc(Vector2i(12, 129)), "r": 6.5, "h": 6.0, "a0": 1.2, "a1": 2.0, "stay": true,
+			"setup": _stage_talk.bind("Father Corwin", Vector2i(12, 129), ["\"You saw something you shouldn't have.\"", ">\"I remember nothing...\"", "\"Then we'll find it again - together.\""])},
 		{"title": "Seasons and storms", "words": ["THE SEASONS TURN"], "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true,
 			"at": _tc(Vector2i(30, 30)), "r": 14.0, "h": 11.0, "a0": 3.5, "a1": 4.3},
 		{"title": "World bosses", "words": ["SLAY THE GIANTS", "TOGETHER"], "sub": "Now and then a giant wakes. The whole land comes to fight it.", "dur": 9.0, "day": 0.55, "weather": "clear", "white": true,
@@ -655,6 +665,39 @@ func _put_hero(tile: Vector2i) -> void:
 	hero.pause = 0.0
 	if hero.mounted_on != null:
 		hero.dismount()
+
+
+## A scene of talk: the hero beside someone, the two facing each other, and their lines rising
+## over their heads one after another (a line starting with ">" is the hero's).
+func _stage_talk(npc_name: String, hero_tile: Vector2i, lines: Array) -> void:
+	_put_hero(hero_tile)
+	var npc: Entity = null
+	for e in game.creatures:
+		if e.display_name == npc_name and not e.dead:
+			npc = e
+			break
+	if npc != null:
+		hero._face(npc.position - hero.position)
+		npc._face(hero.position - npc.position)
+	for k in range(lines.size()):
+		var line := String(lines[k])
+		var who: Entity = hero if line.begins_with(">") else npc
+		if who == null:
+			continue
+		var say := line.trim_prefix(">")
+		var col := Color(0.7, 0.88, 1.0) if who == hero else Color(1.0, 0.92, 0.6)
+		get_tree().create_timer(0.9 + k * 1.8).timeout.connect(func() -> void:
+			if running and is_instance_valid(who):
+				who._pop(say, col))
+
+
+## A named beast for a bounty: bigger, tougher, worth more.
+static func _elite(cfg: Dictionary) -> Dictionary:
+	var c := cfg.duplicate(true)
+	c["scale"] = float(c.get("scale", 1.0)) * 1.4
+	c["str"] = int(c.get("str", 40)) * 2
+	c["danger"] = float(c.get("danger", 2.0)) + 2.0
+	return c
 
 
 func _stage_place(tile: Vector2i) -> void:

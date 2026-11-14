@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.93.0
+The trailer tells more of the stories and quests:
+- "Quests": the hero takes a job from Captain Marcus in town ("Orcs on the north road!" -
+  "I'll see to it." - "Four of them. Bring me proof.").
+- "Bounties": a fight with a named beast, Grimfang the Wolf, bigger and tougher than the rest.
+- "Help the townsfolk": Warden Sela of Highmoor asks for help with the bears on the southern roads.
+- "The Shattered Sight" (in the church): Father Corwin and the hero speak of the memory that was
+  taken - the main story.
+- The lines rise over the speakers' heads in turn, gold for them and blue for the hero, and each
+  scene has its own flying 3D words. The trailer now has 18 scenes.
+
 ## 0.92.0
 - The trailer opens with the loading screen's animation: the spinning Shard in its rings over the
   glowing hexagons, the bar filling as the lines type out ("Waking the shard", "Raising the land",
