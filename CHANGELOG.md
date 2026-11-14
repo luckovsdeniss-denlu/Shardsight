@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.87.0
+The trailer: music all the way, and more action.
+- Its score is written while the game loads (no silent start), plays even with music switched
+  off in the game, and sits a little louder; after the trailer your own music setting returns.
+- Every fight has one more foe (a named champion still fights alone), and they rush in from all sides.
+- The hero casts in every fight scene, and more often (a spell every 1.1 seconds).
+- When the foes fall with time to spare, a new wave charges in with a burst of light.
+
 ## 0.86.1
 - Characters no longer push each other: whoever is walking steps round whoever stands still
   (two walkers each give way half); someone standing - fighting, casting, talking - stays put.

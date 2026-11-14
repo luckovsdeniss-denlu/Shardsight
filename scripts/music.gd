@@ -75,6 +75,12 @@ func _ready() -> void:
 	player = player_a
 
 
+## Writes a piece ahead of time, in the background, so it's ready the moment it's wanted.
+func prebuild(area: String) -> void:
+	if PLANS.has(area) and not _tracks.has(area) and not _building.has(area):
+		_building[area] = WorkerThreadPool.add_task(_build.bind(area))
+
+
 ## Ask for a piece; it fades in over the last one once it's written (and when music is on).
 func play_area(area: String) -> void:
 	if not PLANS.has(area):

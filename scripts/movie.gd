@@ -20,6 +20,9 @@ var _bars: Array[ColorRect] = []
 var _actors: Array[Entity] = []
 var _fade: ColorRect
 var _cast_acc := 0.0
+const TRAILER_MUSIC_DB := 4.0          # the score a little louder than in the game
+const CAST_EVERY := 1.1                # a spell this often in every fight
+var _fight := []                       # the scene's fight: [tile, foe name, cfg, count] (a new wave when it's won)
 var _fx: ShaderMaterial            # grain, vignette, a light leak, the flash
 var _rule: ColorRect               # the gold line under the title
 var _counter: Label
@@ -107,8 +110,9 @@ func start(p_game) -> void:
 	hero.roam_timer = 1.0e9                             # no wandering off between scenes
 	game.frontier._auto_wait = 1.0e9                     # and no errands
 	game.skip_save = true                               # nothing of the movie is kept
-	game.music.set_enabled(game.property.music_on)
+	game.music.set_enabled(true)                        # the trailer always has its score (even with music off)
 	game.music.play_area("trailer")                     # its own score: drums, brass, choir
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Music"), TRAILER_MUSIC_DB)   # and up front
 	for k in ["crickets", "water", "fire", "wind", "tavern", "crowd"]:
 		game._amb_set(k, -80.0)                         # the ambience steps back
 	_make_shots()
@@ -268,6 +272,7 @@ func _next() -> void:
 	_actors.clear()
 	i += 1
 	t = 0.0
+	_fight = []
 	if i >= shots.size():
 		finish()
 		return
@@ -334,9 +339,18 @@ func tick(delta: float) -> bool:
 	hero.hp = float(hero.stats.max_hp())                # the star can't die
 	hero.mana = float(hero.stats.max_mana())
 	hero.reagents = 60.0
+	if not _fight.is_empty() and t < dur - 2.0:
+		var standing := false
+		for a in _actors:
+			if is_instance_valid(a) and not a.dead:
+				standing = true
+				break
+		if not standing:
+			Fx.sparkle(game, hero.position + Vector3(0, 0.8, 0), Color(1.0, 0.8, 0.4), 30)
+			_spawn_wave()                               # more of them!
 	if bool(sh.get("magic", false)):
 		_cast_acc += delta
-		if _cast_acc >= 1.6:
+		if _cast_acc >= CAST_EVERY:
 			_cast_acc = 0.0
 			_cast_something()
 	# a spell landing: a flash and a moment of slow motion (the camera stays steady)
@@ -472,6 +486,8 @@ func _restore() -> void:
 	Engine.time_scale = 1.0
 	Soundscape.slowmo = false
 	game.music.player.pitch_scale = 1.0
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Music"), 0.0)
+	_fight = []
 
 
 ## The end, or Skip: everything put back as it was, and the title with its mode buttons again -
@@ -548,16 +564,32 @@ func _stage_town() -> void:
 
 func _stage_fight(tile: Vector2i, foe_name: String, cfg: Dictionary, n: int) -> void:
 	_put_hero(tile)
+	_fight = [tile, foe_name, cfg, n + (0 if " the " in foe_name else 1)]   # one more foe (a champion stays alone)
+	_spawn_wave()
+	shots[i]["magic"] = true                            # and the hero's spells in every fight
+	_cast_acc = CAST_EVERY * 0.6
+
+
+## The foes of the scene's fight rush in round the hero (again, if the last lot fell early).
+func _spawn_wave() -> void:
+	var tile: Vector2i = _fight[0]
+	var foe_name := String(_fight[1])
+	var cfg: Dictionary = _fight[2]
+	var n := int(_fight[3])
 	for k in range(n):
 		var c := cfg.duplicate(true)
 		c["passive"] = false
 		c["leash"] = 20
 		c["aggro"] = 15.0
-		var at := world.tile_center(tile) + Vector3(1.6 + k * 0.8, 0, 0.8 * (k - 0.5))
+		var ang := TAU * float(k) / float(n) + randf() * 0.5     # from all sides
+		var at := world.tile_center(tile) + Vector3(cos(ang), 0, sin(ang)) * (2.2 + randf() * 0.8)
 		var e: Entity = game.pool_spawn("%s " % foe_name if k > 0 else foe_name, c, Color(0.85, 0.3, 0.25), at)
 		e.target = hero
 		_actors.append(e)
-	hero.target = _actors[0]
+	for a in _actors:
+		if is_instance_valid(a) and not a.dead:
+			hero.target = a
+			break
 
 
 func _stage_magic() -> void:

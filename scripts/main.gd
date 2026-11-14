@@ -4725,6 +4725,7 @@ func _build_environment() -> void:
 	add_child(we)
 
 	add_child(music)
+	music.prebuild("trailer")                # the trailer's score, written while the game loads
 	add_child(rain_sound)
 	rain_sound.volume_db = -14.0
 	rain_sound.bus = "Ambience"
