@@ -5661,9 +5661,18 @@ func _show_title(layer: CanvasLayer) -> void:
 		movie.start(self))
 	var exp_b := _menu_button("Experimental mode", _switch_mode.bind("experimental"))
 	exp_b.custom_minimum_size = Vector2(320, 80)
+	var again := _menu_button("Fly-by", func() -> void:
+		# the opening flight once more, with all its effects; the buttons come back at the end
+		card.set_meta("closing", true)             # (this card's timers and taps stand down)
+		card.queue_free()
+		_fx_done = false
+		_fx_bars.clear()
+		paused = false
+		_show_title(layer))
 	row.add_child(play)
 	row.add_child(tut)
 	row.add_child(film)
+	row.add_child(again)
 	row.add_child(exp_b)
 	# Once the camera is down: on a fresh start, the choice of mode (the game waits for it);
 	# after switching modes the choice is already made, so the title simply fades.

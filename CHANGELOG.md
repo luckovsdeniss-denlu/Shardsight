@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.85.0
+- A Fly-by button on the start screen (beside Play, Tutorial and Movie) plays the opening flight
+  over the land again, with all its effects and the 3D title; the mode buttons come back when the
+  camera is down.
+
 ## 0.84.3
 - The Performance panel shows the current settings in a line (Auto-optimize, each look, the
   resolution, the frame counter), and "Keep current settings" keeps them for every later start.
