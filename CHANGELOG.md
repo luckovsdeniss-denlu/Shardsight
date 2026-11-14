@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.92.0
+- The trailer opens with the loading screen's animation: the spinning Shard in its rings over the
+  glowing hexagons, the bar filling as the lines type out ("Waking the shard", "Raising the land",
+  "Calling the heroes", "Rolling the trailer"), its score already playing - then it fades into the
+  first scene. Skip works during it too.
+
 ## 0.91.9
 - New sounds for the trailer's words coming and going: as a word flies in, a reverse-cymbal
   swell with a tone sweeping up (and a shimmer of fifths) that rises right into its landing hit;

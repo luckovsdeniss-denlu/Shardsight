@@ -126,6 +126,37 @@ func start(p_game) -> void:
 	for k in ["crickets", "water", "fire", "wind", "tavern", "crowd"]:
 		game._amb_set(k, -80.0)                         # the ambience steps back
 	_make_shots()
+	_intro_loading()
+
+
+## The opening: the loading screen's own animation - the spinning Shard in its rings over the
+## glowing hexagons, the bar filling as the lines type out - then it fades into the first scene.
+var _intro: LoadingScreen
+
+
+func _intro_loading() -> void:
+	_intro = LoadingScreen.new()
+	add_child(_intro)
+	_intro._root.mouse_filter = Control.MOUSE_FILTER_IGNORE   # (Skip stays in reach)
+	_intro.step(0.18, "Waking the shard")
+	var tw := create_tween()
+	tw.tween_interval(0.6)
+	tw.tween_callback(_intro.step.bind(0.45, "Raising the land"))
+	tw.tween_interval(0.6)
+	tw.tween_callback(_intro.step.bind(0.7, "Calling the heroes"))
+	tw.tween_interval(0.6)
+	tw.tween_callback(_intro.step.bind(0.92, "Rolling the trailer"))
+	tw.tween_interval(0.6)
+	tw.tween_callback(_begin)
+
+
+## The first scene starts as the opening fades away.
+func _begin() -> void:
+	if running or _intro == null:
+		return
+	if is_instance_valid(_intro):
+		_intro.finish()
+	_intro = null
 	running = true
 	_next()
 
@@ -459,6 +490,11 @@ func tick(delta: float) -> bool:
 
 
 func finish(skipped := false) -> void:
+	if _intro != null:                                   # Skip during the opening
+		if is_instance_valid(_intro):
+			_intro.queue_free()
+		_intro = null
+		running = true
 	if not running:
 		return
 	running = false
