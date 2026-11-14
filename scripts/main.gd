@@ -148,7 +148,6 @@ var booted := false                    # the world is built (the loading screen 
 
 
 func _ready() -> void:
-	_apply_orientation()                     # upright or sideways, as chosen last time
 	Soundscape.setup()                       # the mix: music, effects and ambience buses, reverb, compressor
 	# experimental mode: its own save, and the experiments' switches
 	Experiments.active = start_mode == "experimental" and not autotest
@@ -5727,12 +5726,6 @@ func _show_title(layer: CanvasLayer) -> void:
 	row.add_child(tut)
 	row.add_child(film)
 	row.add_child(again)
-	# Vertical / Horizontal: turns the game to stand upright on the phone (or back), kept for next time
-	var turn := _menu_button("Vertical" if not _portrait() else "Horizontal", func() -> void:
-		_set_portrait(not _portrait()))
-	turn.pressed.connect(func() -> void:
-		turn.text = "Vertical" if not _portrait() else "Horizontal")
-	row.add_child(turn)
 	row.add_child(exp_b)
 	# Once the camera is down: on a fresh start, the choice of mode (the game waits for it);
 	# after switching modes the choice is already made, so the title simply fades.
@@ -6525,30 +6518,6 @@ func _campfire_tick(delta: float) -> void:
 ## Sound effects are heard only from the middle of the screen: a box SOUND_ZONE (75%) of the
 ## screen's width and height, centred, i.e. round the hero. Weather, music and thunder are global.
 const SOUND_ZONE := 0.75
-
-
-# --- holding the phone upright or sideways --------------------------------------------------
-
-const ORIENTATION_PATH := "user://shardsight_orientation.cfg"
-
-
-func _portrait() -> bool:
-	var cf := ConfigFile.new()
-	return cf.load(ORIENTATION_PATH) == OK and bool(cf.get_value("screen", "portrait", false))
-
-
-func _set_portrait(on: bool) -> void:
-	var cf := ConfigFile.new()
-	cf.set_value("screen", "portrait", on)
-	cf.save(ORIENTATION_PATH)
-	_apply_orientation()
-
-
-## Vertical: the game stands upright (turning with the phone, either way up); horizontal: on its
-## side, as it comes. On a computer it does nothing.
-func _apply_orientation() -> void:
-	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_PORTRAIT if _portrait()
-		else DisplayServer.SCREEN_SENSOR_LANDSCAPE)
 
 
 ## A sound heard wherever you are (a level, a quest done, the dead rising) - not placed in the world.
