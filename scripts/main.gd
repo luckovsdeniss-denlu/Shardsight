@@ -5654,7 +5654,7 @@ func _show_title(layer: CanvasLayer) -> void:
 		close.call()
 		if frontier != null:
 			frontier.start_tutorial())
-	var film := _menu_button("Movie", func() -> void:
+	var film := _menu_button("Trailer", func() -> void:
 		start_mode = "classic"
 		close.call()
 		movie = Movie.new()                        # the gameplay showcase (then back to this title)

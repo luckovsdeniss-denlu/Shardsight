@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.85.1
+- The Movie button on the start screen is now called Trailer.
+
 ## 0.85.0
 - A Fly-by button on the start screen (beside Play, Tutorial and Movie) plays the opening flight
   over the land again, with all its effects and the 3D title; the mode buttons come back when the
