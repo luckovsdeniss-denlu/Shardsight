@@ -20,7 +20,7 @@ var _bars: Array[ColorRect] = []
 var _actors: Array[Entity] = []
 var _fade: ColorRect
 var _cast_acc := 0.0
-const TRAILER_MUSIC_DB := 4.0          # the score a little louder than in the game
+const TRAILER_MUSIC_DB := 6.0          # the epic score louder than in the game
 const CAST_EVERY := 1.1                # a spell this often in every fight
 var _fight := []
 const CAM_MOVES := ["orbit", "crane", "track", "spiral", "dolly", "orbit", "track", "crane"]

@@ -47,7 +47,7 @@ const PLANS := {
 	# every beat with fills at each phrase's end, and bells ringing over the top
 	"trailer": {"beat": 0.5, "chords": [[50, "min"], [46, "maj"], [43, "maj"], [48, "maj"], [50, "min"], [46, "maj"], [41, "maj"], [45, "maj"],
 			[50, "min"], [46, "maj"], [43, "maj"], [48, "maj"], [41, "maj"], [45, "maj"], [46, "maj"], [50, "min"]],
-		"scale": [62, 64, 65, 67, 69, 70, 72, 74, 77], "melody": 0.7, "lead": "brass", "drums": true, "ostinato": true, "choir": true, "bells": true},
+		"scale": [62, 64, 65, 67, 69, 70, 72, 74, 77], "melody": 0.7, "lead": "brass", "drums": true, "ostinato": true, "choir": true, "bells": true, "double": true},
 	# the murky fen: low and slow, a breathy flute over deep water
 	"swamp": {"beat": 0.7, "chords": [[40, "min"], [40, "min"], [43, "maj"], [41, "maj"], [40, "min"], [38, "min"], [41, "maj"], [40, "min"],
 			[45, "min"], [43, "maj"], [41, "maj"], [40, "min"], [38, "min"], [41, "maj"], [43, "maj"], [40, "min"]],
@@ -250,6 +250,8 @@ static func _compose(area: String) -> AudioStreamWAV:
 					c.pluck(t + beat / 4.0, _freq(note), 0.07)    # an ornament, as on an oud
 			"brass":
 				c.brass(t, length * 0.9, _freq(note), 0.07)
+				if bool(plan.get("double", false)):          # a second horn an octave below: a fuller, bigger sound
+					c.brass(t, length * 0.9, _freq(note - 12), 0.05)
 			"choir":
 				c.choir(t, length * 1.5, _freq(note), 0.05)
 			_:
