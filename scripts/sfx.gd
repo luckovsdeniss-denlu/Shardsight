@@ -453,6 +453,29 @@ func _build_trailer() -> void:
 			v += sin(TAU * f * t + 2.0 * sin(TAU * 6.0 * t)) * exp(-t * (2.0 + f / 1200.0))
 		var sparkle := sin(TAU * 3136.0 * t) * exp(-fmod(t, 0.11) * 40.0) * exp(-t * 2.5) * 0.4
 		return (v * 0.22 + sparkle) * minf(t / 0.01, 1.0))]
+	# when a word lands: two cinematic hits instead of the plain shimmer. Gold: a deep boom under a
+	# ringing metal "shing" (inharmonic, like struck steel), a burst of air and a falling sparkle.
+	# Ice: a cracking crystal chime, high glassy partials with a shiver, over a soft low thud.
+	var glp := [0.0]
+	_pending["word_gold"] = [_make(1.6, func(t: float) -> float:
+		var boom := sin(TAU * (34.0 + 40.0 * exp(-t * 12.0)) * t) * exp(-t * 3.2) * 0.9
+		var shing := 0.0
+		for p: Array in [[1180.0, 1.0], [1873.0, 0.7], [2611.0, 0.55], [3420.0, 0.4], [4475.0, 0.25]]:
+			shing += sin(TAU * float(p[0]) * t * (1.0 + 0.002 * sin(TAU * 7.0 * t))) * float(p[1])
+		shing *= exp(-t * 3.5) * 0.18
+		glp[0] = float(glp[0]) * 0.8 + randf_range(-1.0, 1.0) * 0.2
+		var air := float(glp[0]) * 1.2 * exp(-t * 14.0)
+		var k := fmod(t, 0.075)
+		var sp := sin(TAU * (3000.0 - t * 900.0) * t) * exp(-k * 60.0) * exp(-t * 2.2) * 0.18 * (1.0 if t > 0.15 else 0.0)
+		return clampf(boom + shing + air + sp, -1.0, 1.0))]
+	_pending["word_ice"] = [_make(1.5, func(t: float) -> float:
+		var v := 0.0
+		for p: Array in [[2093.0, 1.0, 3.0], [2637.0, 0.8, 3.6], [3520.0, 0.6, 4.4], [4186.0, 0.45, 5.0], [5274.0, 0.3, 6.0]]:
+			v += sin(TAU * float(p[0]) * t + 1.5 * sin(TAU * 9.0 * t)) * float(p[1]) * exp(-t * float(p[2]))
+		var crack := randf_range(-1.0, 1.0) * exp(-t * 60.0) * 0.6
+		var thud := sin(TAU * (60.0 + 50.0 * exp(-t * 20.0)) * t) * exp(-t * 6.0) * 0.6
+		var shiver := 0.6 + 0.4 * sin(TAU * 13.0 * t)
+		return clampf(v * 0.16 * shiver + crack + thud, -1.0, 1.0))]
 	var plp := [0.0]
 	_pending["rush"] = [_make(0.5, func(t: float) -> float:
 		var k := t / 0.5

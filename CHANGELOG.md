@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.91.8
+- A new sound as each 3D word lands in the trailer, instead of the plain shimmer: the gold words
+  hit with a deep boom under a ringing struck-steel "shing", a burst of air and a falling sparkle;
+  the ice-blue words with a cracking crystal chime that shivers, over a soft low thud.
+
 ## 0.91.7
 - No looting in the trailer: at the end (after the world boss falls) the hero no longer walks off
   to open the treasure chest, and nobody stops to loot bodies anywhere in the trailer.
