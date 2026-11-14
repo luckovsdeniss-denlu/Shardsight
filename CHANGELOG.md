@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.94.0
+- Every trailer scene tells a little story in floating lines over the characters: Elara the healer
+  ("Back again? Try not to die this time." - "No promises."), the orcs ("Fresh meat!" - "Not
+  today." - "...ow."), the ogre ("ME SMASH TINY HUMAN!"), the yeti, the scorpions, a quiet day on
+  the lake ("...said no adventurer, ever."), Rosa at the bar with a rumour, Valka in the arena,
+  the zombies ("Braaaains..." - "You'll be disappointed."), the storm, Tharok the World-Eater, and
+  the hero wondering where to begin. The hero's lines rise in blue, the foes' in red, the
+  townsfolk's in gold.
+
 ## 0.93.0
 The trailer tells more of the stories and quests:
 - "Quests": the hero takes a job from Captain Marcus in town ("Orcs on the north road!" -
