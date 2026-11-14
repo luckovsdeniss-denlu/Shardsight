@@ -439,6 +439,25 @@ func _build_trailer() -> void:
 		blp[0] = float(blp[0]) * 0.96 + randf_range(-1.0, 1.0) * 0.04
 		var thump := sin(TAU * (40.0 + 80.0 * exp(-t * 20.0)) * t) * exp(-t * 5.0) * 1.2
 		return clampf((v * 0.35 + float(blp[0]) * 3.0) * env * 1.6, -1.0, 1.0) + thump)]
+	# the flying words: a swoop in from afar (a falling whistle over rushing air), a magical
+	# shimmer as the word hangs (bell-like partials, glittering), and a rush past the ear
+	var slp := [0.0]
+	_pending["swoop"] = [_make(0.75, func(t: float) -> float:
+		var k := t / 0.75
+		slp[0] = lerpf(float(slp[0]), randf_range(-1.0, 1.0), 0.08 + 0.25 * sin(PI * k))
+		var whistle := sin(TAU * (1500.0 * t - 700.0 * t * t)) * 0.18 * sin(PI * k)
+		return (float(slp[0]) * 1.5 + whistle) * sin(PI * k) * (0.4 + 0.6 * k))]
+	_pending["shimmer"] = [_make(1.3, func(t: float) -> float:
+		var v := 0.0
+		for f: float in [1046.5, 1318.5, 1568.0, 2093.0]:      # a high C major, ringing
+			v += sin(TAU * f * t + 2.0 * sin(TAU * 6.0 * t)) * exp(-t * (2.0 + f / 1200.0))
+		var sparkle := sin(TAU * 3136.0 * t) * exp(-fmod(t, 0.11) * 40.0) * exp(-t * 2.5) * 0.4
+		return (v * 0.22 + sparkle) * minf(t / 0.01, 1.0))]
+	var plp := [0.0]
+	_pending["rush"] = [_make(0.5, func(t: float) -> float:
+		var k := t / 0.5
+		plp[0] = lerpf(float(plp[0]), randf_range(-1.0, 1.0), 0.15 + 0.6 * k)   # brightening as it passes
+		return float(plp[0]) * 1.8 * pow(sin(PI * k), 2.0) * (1.2 - k * 0.5))]
 	var ilp := [0.0]
 	_pending["impact"] = [_make(0.9, func(t: float) -> float:
 		ilp[0] = float(ilp[0]) * 0.9 + randf_range(-1.0, 1.0) * 0.1

@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.88.1
+- The trailer's flying words have their own sounds, in step with each flight: a swoop as the
+  word comes in from afar (rushing air and a falling whistle), a glittering bell-like shimmer as
+  it hangs in the light, and a rush past the ear as it flies by (the ice-blue words a little higher).
+
 ## 0.88.0
 - The trailer explains itself in big flying 3D words: one or two short lines a scene ("MASTER THE
   BLADE", "67 SPELLS", "SAIL THE LAKES", "CHALLENGE CHAMPIONS", "YOUR LEGEND BEGINS NOW" ...), in

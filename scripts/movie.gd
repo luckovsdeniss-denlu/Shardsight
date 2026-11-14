@@ -361,6 +361,11 @@ func tick(delta: float) -> bool:
 			var screen := get_viewport().get_visible_rect().size
 			_words_box.add_child(Title3D.make_flying(w, minf(screen.x * 0.75, 1100.0),
 				Title3D.GOLD if _word_n % 2 == 1 else Title3D.ICE))
+			# its sounds, in step with the flight: the swoop in, the shimmer as it hangs, the rush past
+			var hi := 1.0 if _word_n % 2 == 1 else 1.12
+			_sound("swoop", hi, 3.0)
+			get_tree().create_timer(Title3D.FLY_LIFE * 0.22).timeout.connect(_sound.bind("shimmer", hi, 2.0))
+			get_tree().create_timer(Title3D.FLY_LIFE * 0.8).timeout.connect(_sound.bind("rush", hi * 0.95, 3.0))
 	if not _fight.is_empty() and t < dur - 2.0:
 		var standing := false
 		for a in _actors:
