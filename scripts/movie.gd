@@ -313,6 +313,7 @@ func _next() -> void:
 		add_child(cc)
 		move_child(cc, _fade.get_index())               # under the fade
 		cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		cc.offset_bottom = -get_viewport().get_visible_rect().size.y * 0.28   # high, like the loading screen's: the words below
 		_open_title = Title3D.make("SHARDSIGHT", minf(get_viewport().get_visible_rect().size.x * 0.98, 1900.0), 1.4)
 		cc.add_child(_open_title)
 	_sub.text = String(sh["sub"])
@@ -544,6 +545,7 @@ func _end_logo() -> void:
 	add_child(_end_card)
 	move_child(_end_card, get_child_count() - 2)
 	_end_card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_end_card.offset_bottom = -get_viewport().get_visible_rect().size.y * 0.28   # the name high, as on the loading screen
 	var logo := Title3D.make("SHARDSIGHT", minf(get_viewport().get_visible_rect().size.x * 0.98, 1900.0), 1.2)
 	_end_card.add_child(logo)                           # the name in 3D: gold, glowing, the light sweeping across
 	var sparks := CPUParticles2D.new()
@@ -560,7 +562,7 @@ func _end_logo() -> void:
 	sparks.scale_amount_max = 4.0
 	sparks.color = Color(1.0, 0.82, 0.4, 0.9)
 	var vs := get_viewport().get_visible_rect().size
-	sparks.position = Vector2(vs.x / 2.0, vs.y * 0.85)
+	sparks.position = Vector2(vs.x / 2.0, vs.y * 0.62)   # rising from just under the name
 	add_child(sparks)
 	move_child(sparks, get_child_count() - 2)
 	_flash = 0.0

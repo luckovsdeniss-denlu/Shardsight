@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.90.3
+- The trailer follows the loading screen: its 3D name, at the start and on the closing card, sits
+  high on the screen (about a third of the way down) with the words below it; the closing card's
+  sparks rise from just under the name.
+
 ## 0.90.2
 - Loading screen: the Shard, its rings and the name sit higher on the screen (the circle's middle
   at about a third of the height), with the loading bar below them; the glowing ring still lies
