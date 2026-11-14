@@ -1040,7 +1040,9 @@ func _adapt_resolution(delta: float) -> void:
 	_fps_acc = 0.0
 	_fps_frames = 0
 	_fps_windows += 1
-	if _fps_windows <= 6 or not _auto_opt:
+	if _fps_windows <= 6 or not _auto_opt or movie != null:
+		return                                 # (the trailer: the picture holds steady - no looks switching mid-scene)
+	if false:
 		return                                 # the first seconds stutter while everything loads (and with Auto-optimize off, the player decides)
 	_raised_ago += 1
 	var want := _render_scale

@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.94.3
+- No more strange flashes in the trailer: spells landing no longer flash the screen white (the
+  slow-motion moment stays), no scene cuts in through white any more (every cut is a dip to
+  black), and the frame-rate keeper leaves the picture alone during the trailer (no glow, shadows
+  or resolution switching mid-scene).
+
 ## 0.94.2
 - Night and day change smoothly: dawn and dusk glide in and out on an eased curve, every change
   of light is eased (no steps), the sky updates in small, frequent steps too small to see instead

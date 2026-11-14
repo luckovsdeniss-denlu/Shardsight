@@ -389,9 +389,7 @@ func _next() -> void:
 		_fx.set_shader_parameter("leak", 0.0)
 		_fade.modulate.a = 1.0
 		_fade.create_tween().tween_property(_fade, "modulate:a", 0.0, 1.4).set_trans(Tween.TRANS_SINE)
-	elif bool(sh.get("white", false)):
-		_flash = 1.0                                    # a cut through white
-	else:
+	else:                                               # (no cuts through white: every cut dips to black)
 		_fade.modulate.a = 1.0                          # a dip to black between scenes
 		_fade.create_tween().tween_property(_fade, "modulate:a", 0.0, 0.6)
 
@@ -441,7 +439,6 @@ func tick(delta: float) -> bool:
 	# a spell landing: a flash and a moment of slow motion (the camera stays steady)
 	var casting := hero.casting_id != ""
 	if _was_casting and not casting:
-		_flash = maxf(_flash, 0.45)
 		_slow = 0.5
 		Engine.time_scale = 0.35
 		Soundscape.slowmo = true                       # the world goes dull and far away...
