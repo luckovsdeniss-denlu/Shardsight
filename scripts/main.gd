@@ -234,9 +234,15 @@ func _ready() -> void:
 	corner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	corner.alignment = BoxContainer.ALIGNMENT_BEGIN
 	layer.add_child(corner)
+	# the Performance button sits beside Menu, always in reach
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", 8)
+	top_row.size_flags_horizontal = Control.SIZE_SHRINK_END
+	corner.add_child(top_row)
+	var perf_button := _menu_button("Performance", _open_perf)
+	top_row.add_child(perf_button)
 	corner_toggle = _menu_button("Menu", _toggle_corner)
-	corner_toggle.size_flags_horizontal = Control.SIZE_SHRINK_END
-	corner.add_child(corner_toggle)
+	top_row.add_child(corner_toggle)
 	corner_grid = GridContainer.new()
 	corner_grid.columns = 2
 	corner_grid.visible = false
@@ -265,7 +271,6 @@ func _ready() -> void:
 	magic_button = _menu_button("", _toggle_magic_label)
 	_corner_add(magic_button)
 	_corner_add(_menu_button("Statistics", _open_stats))
-	_corner_add(_menu_button("Performance", _open_perf))
 	minimap.setup(self, world)
 	minimap.size_flags_horizontal = Control.SIZE_SHRINK_END
 	corner.add_child(minimap)
