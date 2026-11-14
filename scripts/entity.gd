@@ -817,7 +817,10 @@ func _follow_path(delta: float) -> void:
 	while budget > 0.0 and not path.is_empty():
 		var to_next := path[0] - position
 		var dist := to_next.length()
-		_face(to_next)
+		if not (game.movie != null and kite_timer > 0.0 and target != null and is_hero):
+			_face(to_next)                    # (the trailer's run from a foe: the hero keeps facing it, never turns its back)
+		else:
+			_face(target.position - position)
 		if dist <= budget:
 			position = path[0]
 			path.remove_at(0)

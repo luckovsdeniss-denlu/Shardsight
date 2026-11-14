@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.95.2
+- In the trailer the hero no longer turns its back on the monsters while running from them: it
+  keeps facing the foe as it backs away and casts.
+
 ## 0.95.1
 - The trailer's foes no longer fall from the sky into each fight: they're already on the ground
   and step in with a small bounce.
