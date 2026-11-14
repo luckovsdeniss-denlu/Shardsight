@@ -808,6 +808,8 @@ func _stage_boat() -> void:
 	_put_hero(Vector2i(66, 11))
 	game.frontier.data["boat"] = true
 	game.frontier._sail(2, false)
+	# the hero turns a full half-circle, smoothly, to face the way the boat is going
+	hero.create_tween().tween_property(hero, "_face_yaw", hero._face_yaw + PI, 1.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
 func _stage_boss() -> void:

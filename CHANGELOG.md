@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.95.4
+- Trailer boat scene: the hero turns 180 degrees, smoothly, to face the way the boat is going.
+
 ## 0.95.3
 - More epic trailer music: the brass theme is doubled by a second horn an octave below for a
   fuller, bigger sound, and the trailer's score sits 2 dB louder.
