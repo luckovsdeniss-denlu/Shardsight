@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.94.2
+- Night and day change smoothly: dawn and dusk glide in and out on an eased curve, every change
+  of light is eased (no steps), the sky updates in small, frequent steps too small to see instead
+  of a jump every few seconds, and rain or a storm darkens the land and greys the sky gradually as
+  the clouds gather (and lifts as slowly when it clears). The trailer still cuts at once.
+
 ## 0.94.1
 - No sound effects from the characters any more - the hero's, the other players', the
   townsfolk's or the monsters': no blows, swings, parries, bows, spells, deaths, roars and

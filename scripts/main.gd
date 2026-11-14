@@ -6549,21 +6549,31 @@ func _in_sound_zone(p: Vector3) -> bool:
 
 
 ## Moves the sun and dims the sky over the day; nights stay readable.
+var _lit := -1.0                       # the light as shown (eased towards the light as it should be)
+var _dim := 1.0                        # the weather's darkening, as shown
+var _cloud := 0.0                      # the sky's greyness, as shown
+
+
 func _apply_daylight() -> void:
 	var sun_height := sin((day_time - 0.25) * TAU)          # -1 midnight .. 1 noon
 	var light := clampf(0.5 + 0.5 * sun_height, 0.0, 1.0)
-	match weather:
-		"rain":
-			light *= 0.7
-		"storm":
-			light *= 0.5
+	light = light * light * (3.0 - 2.0 * light)          # eased: dawn and dusk glide in and out
+	# the weather darkens the day gradually (clouds rolling in), not at a stroke
+	var dt := get_process_delta_time()
+	var want_dim: float = {"rain": 0.7, "storm": 0.5}.get(weather, 1.0)
+	_dim = want_dim if movie != null else move_toward(_dim, want_dim, dt * 0.08)   # (the trailer cuts at once)
+	light *= _dim
+	if _lit < 0.0:
+		_lit = light
+	_lit = light if movie != null else lerpf(_lit, light, 1.0 - exp(-dt * 1.5))   # and every change of light is eased
+	light = _lit
 	if _flash > 0.0 and movie == null:
 		light = 1.0                                    # lightning (not in the trailer: its storm rolls without flashes)
 	if hero != null and hero.flags.has("night_sight"):
 		light = maxf(light, 0.7)                       # Night Sight: the dark lifts for you
 	# Painted light: a strong warm sun against cool, dim shade by day; amber when the sun is low;
 	# blue moonlight at night.
-	var low_sun := clampf(1.0 - absf(sun_height) * 2.5, 0.0, 1.0) * (1.0 if weather == "clear" else 0.3)
+	var low_sun := clampf(1.0 - absf(sun_height) * 2.5, 0.0, 1.0) * (1.0 - _cloud)
 	sun.light_energy = lerpf(0.3, 1.35, light)
 	sun.light_color = Color(0.55, 0.66, 1.0).lerp(Color(1.0, 0.93, 0.8), light).lerp(Color(1.0, 0.66, 0.38), low_sun * 0.7)
 	sun.rotation_degrees = Vector3(-20.0 - 50.0 * maxf(sun_height, 0.0), day_time * 360.0, 0.0)
@@ -6574,9 +6584,12 @@ func _apply_daylight() -> void:
 	_sky_acc += get_process_delta_time()
 	# The sky changes slowly, and each change re-lights the world from it, so it's updated at most
 	# every 3 seconds and only when it has visibly changed (lightning at once).
-	var dusk := clampf(1.0 - absf(sun_height) * 3.0, 0.0, 1.0) * (1.0 if weather == "clear" else 0.4)
-	var cloudy := 0.0 if weather == "clear" else 0.7
-	if _flash > 0.0 or (_sky_acc >= 3.0 and (absf(light - _sky_light) > 0.02 or absf(dusk - _sky_dusk) > 0.03 or cloudy != _sky_cloudy)):
+	var dusk := clampf(1.0 - absf(sun_height) * 3.0, 0.0, 1.0) * (1.0 - _cloud / 0.7 * 0.6)
+	var want_cloud := 0.0 if weather == "clear" else 0.7
+	_cloud = want_cloud if movie != null else move_toward(_cloud, want_cloud, dt * 0.06)   # clouds gather and part slowly
+	var cloudy := _cloud
+	# the sky in small, frequent steps (each one too small to see), so night falls and day breaks smoothly
+	if _flash > 0.0 or (_sky_acc >= 0.5 and (absf(light - _sky_light) > 0.006 or absf(dusk - _sky_dusk) > 0.01 or absf(cloudy - _sky_cloudy) > 0.01)):
 		_sky_acc = 0.0
 		_sky_light = light
 		_sky_dusk = dusk
