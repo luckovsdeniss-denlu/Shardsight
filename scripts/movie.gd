@@ -416,12 +416,7 @@ func tick(delta: float) -> bool:
 				Title3D.GOLD if _word_n % 2 == 1 else Title3D.ICE, screen)
 			_words_box.add_child(word)                     # the whole screen: its flight is never cut off
 			word.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			# its sounds, in step with the flight: the swoop in, the shimmer as it hangs, the rush past
-			var hi := 1.0 if _word_n % 2 == 1 else 1.12
-			_sound("word_in", hi, 3.0)                  # a reverse swell rising into the landing
-			get_tree().create_timer(Title3D.FLY_LIFE * 0.22).timeout.connect(
-				_sound.bind("word_gold" if _word_n % 2 == 1 else "word_ice", 1.0, 4.0))   # as the word lands: a cinematic hit
-			get_tree().create_timer(Title3D.FLY_LIFE * 0.8).timeout.connect(_sound.bind("word_out", hi, 3.0))   # a fly-by
+			# (no sound for the word flying in or out; only the trailer's music and its brass cuts)
 	if not _fight.is_empty() and t < dur - 2.0:
 		var standing := false
 		for a in _actors:

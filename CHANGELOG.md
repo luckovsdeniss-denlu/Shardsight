@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.94.4
+- No sound for the trailer's 3D words appearing or fading: the swell as a word comes in, the hit
+  as it lands and the fly-by as it leaves are all silent now (the music and the big brass cuts stay).
+
 ## 0.94.3
 - No more strange flashes in the trailer: spells landing no longer flash the screen white (the
   slow-motion moment stays), no scene cuts in through white any more (every cut is a dip to
