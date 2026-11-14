@@ -1163,8 +1163,8 @@ func take_damage(amount: float, from: Entity) -> void:
 	game.sound(snd, position, 0.85 if heavy else 1.0, 3.0 if heavy else 0.0)
 	# A blow may break a spell in progress: likely for a novice, rare for a grandmaster, never
 	# under Protection.
-	if casting_id != "" and not flags.has("protection") \
-			and randf() < Rules.disrupt_chance(_skill(Hero.Skill.MAGERY)):
+	if casting_id != "" and not flags.has("protection") and not (is_hero and game.movie != null) \
+			and randf() < Rules.disrupt_chance(_skill(Hero.Skill.MAGERY)):   # (the trailer's hero: spells can't be broken)
 		_fizzle("disrupted")
 	if bandage_timer > 0.0:
 		bandage_timer = 0.0

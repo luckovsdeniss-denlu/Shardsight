@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.95.6
+- In the trailer the hero's spells can't be broken: a blow no longer interrupts the hero's casting.
+
 ## 0.95.5
 - Trailer church scene: the camera pulls back and up, so the whole church is in the shot.
 
