@@ -22,7 +22,11 @@ var _fade: ColorRect
 var _cast_acc := 0.0
 const TRAILER_MUSIC_DB := 4.0          # the score a little louder than in the game
 const CAST_EVERY := 1.1                # a spell this often in every fight
-var _fight := []                       # the scene's fight: [tile, foe name, cfg, count] (a new wave when it's won)
+var _fight := []
+var _words_box: CenterContainer         # where the flying words appear: the middle, a little high
+var _word_queue: Array = []
+var _word_t := 0.0
+var _word_n := 0                       # the scene's fight: [tile, foe name, cfg, count] (a new wave when it's won)
 var _fx: ShaderMaterial            # grain, vignette, a light leak, the flash
 var _rule: ColorRect               # the gold line under the title
 var _counter: Label
@@ -186,6 +190,11 @@ func _build_ui() -> void:
 		else:
 			b.offset_top = 0.0
 			b.create_tween().tween_property(b, "offset_top", -full, 1.0).set_trans(Tween.TRANS_SINE)
+	_words_box = CenterContainer.new()
+	_words_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_words_box)
+	_words_box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_words_box.offset_bottom = -vs.y * 0.18                # a little above the middle, clear of the titles
 	_fade = ColorRect.new()
 	_fade.color = Color.BLACK
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -230,33 +239,33 @@ func _make_shots() -> void:
 	shots = [
 		{"title": "SHARDSIGHT", "sub": "A world of swords, spells and skill.", "dur": 6.0, "no_hero": true, "day": 0.35, "weather": "clear",
 			"at": _tc(Vector2i(32, 9)), "r": 20.0, "h": 17.0, "a0": 0.4, "a1": 1.3},
-		{"title": "Living towns", "sub": "Healers, priests, merchants, bankers - and folk who keep their own days.", "dur": 6.0,
+		{"title": "Living towns", "words": ["LIVE IN THE TOWNS", "TRADE · BANK · HEAL"], "sub": "Healers, priests, merchants, bankers - and folk who keep their own days.", "dur": 6.0,
 			"at": _tc(Vector2i(32, 10)), "r": 9.0, "h": 6.0, "a0": 2.4, "a1": 3.4, "setup": _stage_town},
-		{"title": "Fight", "sub": "Swords, axes, maces, spears, bows - and a different blow for each.", "dur": 8.0,
+		{"title": "Fight", "words": ["MASTER THE BLADE", "EVERY WEAPON ITS OWN BLOW"], "sub": "Swords, axes, maces, spears, bows - and a different blow for each.", "dur": 8.0,
 			"at": _tc(Vector2i(14, 19)), "r": 4.5, "h": 2.6, "a0": 0.0, "a1": 1.4, "setup": _stage_fight.bind(Vector2i(14, 19), "Orc", Bestiary.ORC, 2)},
-		{"title": "Magic", "sub": "Sixty-seven spells in eight circles. Speak the old words.", "dur": 9.0, "white": true,
+		{"title": "Magic", "words": ["67 SPELLS", "SPEAK THE OLD WORDS"], "sub": "Sixty-seven spells in eight circles. Speak the old words.", "dur": 9.0, "white": true,
 			"at": _tc(Vector2i(14, 19)), "r": 6.0, "h": 4.0, "a0": 1.4, "a1": 2.8, "setup": _stage_magic},
-		{"title": "The dungeon's depths", "sub": "Five levels down, each darker than the last.", "dur": 7.0,
+		{"title": "The dungeon's depths", "words": ["FIVE LEVELS DEEP", "EACH DARKER THAN THE LAST"], "sub": "Five levels down, each darker than the last.", "dur": 7.0,
 			"at": _tc(Vector2i(11, 72)), "r": 7.0, "h": 6.5, "a0": 3.0, "a1": 4.2, "setup": _stage_fight.bind(Vector2i(12, 75), "Skeleton", Bestiary.SKELETON, 2)},
-		{"title": "The Frostmarch", "sub": "Biomes: snow, desert, swamp and ash - each with its own beasts.", "dur": 7.0, "snow": true,
+		{"title": "The Frostmarch", "words": ["EXPLORE EVERY LAND", "SNOW · SAND · SWAMP · ASH"], "sub": "Biomes: snow, desert, swamp and ash - each with its own beasts.", "dur": 7.0, "snow": true,
 			"at": _tc(Vector2i(70, 5)), "r": 8.0, "h": 5.0, "a0": 0.5, "a1": 1.6, "setup": _stage_fight.bind(Vector2i(70, 5), "Yeti", Bestiary.YETI, 1)},
-		{"title": "Caves and deserts", "sub": "Scorpions in the Sunscar Wastes; crystals deep in the caves.", "dur": 7.0,
+		{"title": "Caves and deserts", "words": ["DIG FOR TREASURE"], "sub": "Scorpions in the Sunscar Wastes; crystals deep in the caves.", "dur": 7.0,
 			"at": _tc(Vector2i(74, 42)), "r": 6.0, "h": 4.0, "a0": 4.0, "a1": 5.0, "setup": _stage_fight.bind(Vector2i(74, 42), "Sand Scorpion", Bestiary.SAND_SCORPION, 2)},
-		{"title": "Boats", "sub": "Cross the lakes, fish the deep water, sail to the Isle of Tides.", "dur": 8.0,
+		{"title": "Boats", "words": ["SAIL THE LAKES", "FISH THE DEEP"], "sub": "Cross the lakes, fish the deep water, sail to the Isle of Tides.", "dur": 8.0,
 			"from": _tc(Vector2i(64, 16)) + Vector3(0, 7, 6), "to": _tc(Vector2i(74, 14)) + Vector3(0, 5, 5), "at": _tc(Vector2i(72, 11)), "setup": _stage_boat},
-		{"title": "The Drunken Shard", "sub": "Ale, a hot meal, a room for the night - and rumours.", "dur": 6.0, "day": 0.8,
+		{"title": "The Drunken Shard", "words": ["REST · EAT · LISTEN"], "sub": "Ale, a hot meal, a room for the night - and rumours.", "dur": 6.0, "day": 0.8,
 			"at": _tc(Vector2i(53, 36)), "r": 5.0, "h": 4.0, "a0": 0.8, "a1": 1.8, "setup": _stage_place.bind(Vector2i(53, 37))},
-		{"title": "The Arena", "sub": "Fight champions for the purse. Bet on yourself.", "dur": 8.0, "day": 0.45,
+		{"title": "The Arena", "words": ["CHALLENGE CHAMPIONS", "BET ON YOURSELF"], "sub": "Fight champions for the purse. Bet on yourself.", "dur": 8.0, "day": 0.45,
 			"at": _tc(Vector2i(89, 91)), "r": 5.5, "h": 3.5, "a0": 2.0, "a1": 3.3, "setup": _stage_fight.bind(Vector2i(89, 91), "Valka the Undefeated", Bestiary.WARRIOR, 1)},
-		{"title": "Ravenhollow", "sub": "Graves, wisps, and a tomb that should stay shut.", "dur": 7.0, "day": 0.02,
+		{"title": "Ravenhollow", "words": ["FACE THE DEAD"], "sub": "Graves, wisps, and a tomb that should stay shut.", "dur": 7.0, "day": 0.02,
 			"at": _tc(Vector2i(103, 133)), "r": 9.0, "h": 7.0, "a0": 5.0, "a1": 6.0, "setup": _stage_fight.bind(Vector2i(103, 133), "Zombie", Bestiary.ZOMBIE, 2)},
-		{"title": "The Church of the Shard", "sub": "Pray at the altar. The bell tolls at dawn.", "dur": 6.0, "day": 0.28,
+		{"title": "The Church of the Shard", "words": ["SEEK A BLESSING"], "sub": "Pray at the altar. The bell tolls at dawn.", "dur": 6.0, "day": 0.28,
 			"at": _tc(Vector2i(12, 129)), "r": 6.5, "h": 6.0, "a0": 1.2, "a1": 2.0, "setup": _stage_place.bind(Vector2i(12, 129)), "stay": true},
-		{"title": "Seasons and storms", "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true, "white": true,
+		{"title": "Seasons and storms", "words": ["THE SEASONS TURN"], "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true, "white": true,
 			"at": _tc(Vector2i(30, 30)), "r": 14.0, "h": 11.0, "a0": 3.5, "a1": 4.3},
-		{"title": "World bosses", "sub": "Now and then a giant wakes. The whole land comes to fight it.", "dur": 9.0, "day": 0.55, "weather": "clear", "white": true,
+		{"title": "World bosses", "words": ["SLAY THE GIANTS", "TOGETHER"], "sub": "Now and then a giant wakes. The whole land comes to fight it.", "dur": 9.0, "day": 0.55, "weather": "clear", "white": true,
 			"at": _tc(Vector2i(60, 26)), "r": 8.0, "h": 5.0, "a0": 0.2, "a1": 1.5, "setup": _stage_boss},
-		{"title": "Your story", "sub": "Quests, bounties, guilds, a house, a horse, a boat. Begin.", "dur": 6.0,
+		{"title": "Your story", "words": ["YOUR LEGEND", "BEGINS NOW"], "sub": "Quests, bounties, guilds, a house, a horse, a boat. Begin.", "dur": 6.0,
 			"at": _tc(Vector2i(32, 9)), "r": 22.0, "h": 19.0, "a0": 1.3, "a1": 1.9},
 	]
 
@@ -273,6 +282,7 @@ func _next() -> void:
 	i += 1
 	t = 0.0
 	_fight = []
+	_word_queue = []
 	if i >= shots.size():
 		finish()
 		return
@@ -318,6 +328,8 @@ func _next() -> void:
 	_rule.custom_minimum_size.x = 0.0
 	_rule.create_tween().tween_property(_rule, "custom_minimum_size:x", 360.0, 1.0).set_delay(0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_counter.text = "%02d / %02d" % [i + 1, shots.size()]
+	_word_queue = (sh.get("words", []) as Array).duplicate()
+	_word_t = 1.0                                       # the first word a moment after the cut
 	if "--movie-test" in OS.get_cmdline_user_args():
 		print("MOVIE scene %d: %s (hero at %s)" % [i + 1, sh["title"], world.to_tile(hero.position)])
 	_fx.set_shader_parameter("leak", 1.0 if float(sh.get("day", 0.4)) > 0.2 and String(sh.get("weather", "clear")) != "storm" else 0.0)
@@ -339,6 +351,16 @@ func tick(delta: float) -> bool:
 	hero.hp = float(hero.stats.max_hp())                # the star can't die
 	hero.mana = float(hero.stats.max_mana())
 	hero.reagents = 60.0
+	# the explanation: big 3D words, one after another, flying in and past
+	if not _word_queue.is_empty():
+		_word_t -= delta / maxf(Engine.time_scale, 0.05)
+		if _word_t <= 0.0:
+			_word_t = 2.5
+			var w := String(_word_queue.pop_front())
+			_word_n += 1
+			var screen := get_viewport().get_visible_rect().size
+			_words_box.add_child(Title3D.make_flying(w, minf(screen.x * 0.75, 1100.0),
+				Title3D.GOLD if _word_n % 2 == 1 else Title3D.ICE))
 	if not _fight.is_empty() and t < dur - 2.0:
 		var standing := false
 		for a in _actors:

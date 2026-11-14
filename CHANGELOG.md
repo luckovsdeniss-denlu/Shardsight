@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.88.0
+- The trailer explains itself in big flying 3D words: one or two short lines a scene ("MASTER THE
+  BLADE", "67 SPELLS", "SAIL THE LAKES", "CHALLENGE CHAMPIONS", "YOUR LEGEND BEGINS NOW" ...), in
+  the same lit 3D letters as the title, gold and ice-blue in turn. Each swoops in from the distance
+  spinning to face you, hangs a moment with the light sweeping over it, then rushes past the camera.
+
 ## 0.87.0
 The trailer: music all the way, and more action.
 - Its score is written while the game loads (no silent start), plays even with music switched
