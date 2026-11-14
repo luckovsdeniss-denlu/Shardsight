@@ -756,13 +756,11 @@ func _spawn_wave() -> void:
 		var e: Entity = game.pool_spawn("%s " % foe_name if k > 0 else foe_name, c, Color(0.85, 0.3, 0.25), at)
 		e.target = hero
 		_actors.append(e)
-		if e.rig != null:                               # dropping in from the sky, cartoon-style
-			e.anim_lift = 6.0 + randf() * 2.0
-			var drop := e.create_tween()
-			drop.tween_interval(randf() * 0.4)
-			drop.tween_property(e, "anim_lift", 0.0, 0.45).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-			drop.tween_property(e.rig, "scale", Vector3(1.35, 0.65, 1.35), 0.06)
-			drop.tween_property(e.rig, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+		if e.rig != null:                               # they step in on their feet: no dropping from the sky
+			e.anim_lift = 0.0
+			var arrive := e.create_tween()
+			arrive.tween_property(e.rig, "scale", Vector3(1.1, 0.9, 1.1), 0.08)
+			arrive.tween_property(e.rig, "scale", Vector3.ONE, 0.2).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 	for a in _actors:
 		if is_instance_valid(a) and not a.dead:
 			hero.target = a

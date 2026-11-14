@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.95.1
+- The trailer's foes no longer fall from the sky into each fight: they're already on the ground
+  and step in with a small bounce.
+
 ## 0.95.0
 - The trailer has an epic score throughout: a heroic minor climb of chords that swells upward and
   resolves, a choir under the chords, brass calling out the theme more often, drums driving every
