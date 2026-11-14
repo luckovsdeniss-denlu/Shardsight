@@ -5461,9 +5461,17 @@ func _separate_bodies() -> void:
 					if overlap <= 0.0:
 						continue
 					var n := d / dist if dist > 0.001 else Vector2(1, 0).rotated(randf() * TAU)
-					var share := rb / (ra + rb)       # the smaller one gives way more
-					_nudge(e, -n * overlap * share)
-					_nudge(b, n * overlap * (1.0 - share))
+					# Nobody is pushed: whoever is walking steps round whoever stands still (if both
+					# walk, each gives way half); two standing still are left as they are.
+					var e_moves := not e.path.is_empty()
+					var b_moves := not b.path.is_empty()
+					if e_moves and b_moves:
+						_nudge(e, -n * overlap * 0.5)
+						_nudge(b, n * overlap * 0.5)
+					elif e_moves:
+						_nudge(e, -n * overlap)
+					elif b_moves:
+						_nudge(b, n * overlap)
 
 
 func _nudge(e: Entity, v: Vector2) -> void:

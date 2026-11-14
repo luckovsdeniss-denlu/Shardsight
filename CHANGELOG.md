@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.86.1
+- Characters no longer push each other: whoever is walking steps round whoever stands still
+  (two walkers each give way half); someone standing - fighting, casting, talking - stays put.
+
 ## 0.86.0
 Nobody sees through walls or through each other:
 - Characters and monsters only notice someone they can actually see: no wall between, and no
