@@ -305,7 +305,7 @@ func _make_shots() -> void:
 		{"title": "Ravenhollow", "story": [["foe", "\"Braaaains...\""], ["hero", "\"You'll be disappointed.\""]], "words": ["FACE THE DEAD"], "sub": "Graves, wisps, and a tomb that should stay shut.", "dur": 7.0, "day": 0.02,
 			"at": _tc(Vector2i(103, 133)), "r": 9.0, "h": 10.5, "cam": "orbit", "a0": 5.0, "a1": 6.0, "setup": _stage_fight.bind(Vector2i(103, 133), "Zombie", Bestiary.ZOMBIE, 2)},
 		{"title": "The Shattered Sight", "words": ["A STORY TO UNCOVER", "WHAT WAS TAKEN FROM YOU?"], "sub": "You wake with no memory. Father Corwin knows more than he says.", "dur": 8.0, "day": 0.28,
-			"at": _tc(Vector2i(12, 129)), "r": 6.5, "h": 6.0, "a0": 1.2, "a1": 2.0, "stay": true,
+			"at": _tc(Vector2i(13, 129)), "r": 13.0, "h": 12.0, "a0": 1.2, "a1": 2.0, "stay": true, "cam": "orbit",
 			"setup": _stage_talk.bind("Father Corwin", Vector2i(12, 129), ["\"You saw something you shouldn't have.\"", ">\"I remember nothing...\"", "\"Then we'll find it again - together.\""])},
 		{"title": "Seasons and storms", "story": [["hero", "\"Lovely weather for it.\""], ["hero", "\"Is it always winter when I'm out?\""]], "words": ["THE SEASONS TURN"], "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true,
 			"at": _tc(Vector2i(30, 30)), "r": 14.0, "h": 11.0, "a0": 3.5, "a1": 4.3},
