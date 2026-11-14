@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.88.3
+- A tap on the free space round a menu goes back one level at a time: from a page to the page
+  before it, from a panel opened in the Main Menu back to the Main Menu, and a tap there closes
+  the menu. (Before, one tap could close everything at once.) The X button steps back the same way.
+
 ## 0.88.2
 - The 3D name is bigger, on the title and in the trailer (about half as large again); while the
   title shows, the corner buttons and the minimap step aside so it has the screen to itself.

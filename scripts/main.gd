@@ -5193,23 +5193,52 @@ func _make_ui_solid(t: Theme) -> void:
 
 ## Presses a panel's own Back / Close button (wherever its list has put it), so the X in the
 ## corner and a tap outside the panel close it the way that button would.
+## One step back: a page's own Back button first (to the page before it), and only then Close
+## (or Continue, Resume) - so each tap goes back one level, never everything at once.
 func _press_back(box: Node) -> void:
-	var kids := box.get_children()
-	for i in range(kids.size() - 1, -1, -1):
-		var b := kids[i] as Button
-		if b != null and not b.disabled and b.text in ["Back", "Close", "Continue", "Resume"]:
-			b.pressed.emit()
+	var buttons := box.find_children("*", "Button", true, false)
+	for want in [["Back"], ["Close", "Continue", "Resume"]]:
+		for i in range(buttons.size() - 1, -1, -1):
+			var b := buttons[i] as Button
+			if b != null and b.is_visible_in_tree() and not b.disabled and b.text in want:
+				b.pressed.emit()
+				return
+
+
+## A tap on the free space round a panel goes back one level: to the page before it, then (for a
+## panel opened from the Main Menu) to the Main Menu, and a tap there closes the menu too.
+func _go_back(overlay: Control, box: Node) -> void:
+	for b in box.find_children("*", "Button", true, false):
+		if (b as Button).text == "Back" and (b as Button).is_visible_in_tree() and not (b as Button).disabled:
+			(b as Button).pressed.emit()
 			return
+	if overlay != menu and bool(overlay.get_meta("from_menu", false)):
+		overlay.visible = false
+		menu.visible = true                            # back to the Main Menu (still paused)
+		paused = true
+		return
+	_press_back(box)
 
 
-## Behind an open panel the game is dimmed a little, and a tap there closes the panel.
+var _menu_hid_frame := -1                 # the frame the Main Menu last closed (a panel opened from it)
+
+
+## Behind an open panel the game is dimmed a little, and a tap there goes back a step.
 func _dress_overlay(overlay: Control, box: Node) -> void:
 	overlay.draw.connect(func() -> void:
 		overlay.draw_rect(Rect2(Vector2.ZERO, overlay.size), Color(0.0, 0.01, 0.03, 0.3)))
 	overlay.gui_input.connect(func(ev: InputEvent) -> void:
 		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed \
 				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-			_press_back(box))
+			_go_back(overlay, box))
+	if overlay == menu:
+		menu.visibility_changed.connect(func() -> void:
+			if not menu.visible:
+				_menu_hid_frame = Engine.get_process_frames())
+	else:
+		overlay.visibility_changed.connect(func() -> void:
+			if overlay.visible:                        # opened straight from the Main Menu?
+				overlay.set_meta("from_menu", Engine.get_process_frames() == _menu_hid_frame))
 
 
 const BUTTON_ICONS := {"Main Menu": "scroll", "Bag": "chest", "Spells": "magic", "Retreat": "alert", "Ride": "travel",
