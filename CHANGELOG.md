@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.85.2
+- The hero no longer casts Night Sight during the trailer (its night scenes stay dark).
+
 ## 0.85.1
 - The Movie button on the start screen is now called Trailer.
 
