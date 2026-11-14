@@ -23,7 +23,7 @@ var _cast_acc := 0.0
 const TRAILER_MUSIC_DB := 4.0          # the score a little louder than in the game
 const CAST_EVERY := 1.1                # a spell this often in every fight
 var _fight := []
-var _words_box: CenterContainer         # where the flying words appear: the middle, a little high
+var _words_box: Control                 # where the flying words appear (each fills the screen)
 var _word_queue: Array = []
 var _word_t := 0.0
 var _word_n := 0                       # the scene's fight: [tile, foe name, cfg, count] (a new wave when it's won)
@@ -190,11 +190,10 @@ func _build_ui() -> void:
 		else:
 			b.offset_top = 0.0
 			b.create_tween().tween_property(b, "offset_top", -full, 1.0).set_trans(Tween.TRANS_SINE)
-	_words_box = CenterContainer.new()
+	_words_box = Control.new()                          # the flying words: each one as big as the screen
 	_words_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_words_box)
 	_words_box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_words_box.offset_bottom = -vs.y * 0.18                # a little above the middle, clear of the titles
 	_fade = ColorRect.new()
 	_fade.color = Color.BLACK
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -359,8 +358,10 @@ func tick(delta: float) -> bool:
 			var w := String(_word_queue.pop_front())
 			_word_n += 1
 			var screen := get_viewport().get_visible_rect().size
-			_words_box.add_child(Title3D.make_flying(w, minf(screen.x * 0.75, 1100.0),
-				Title3D.GOLD if _word_n % 2 == 1 else Title3D.ICE))
+			var word := Title3D.make_flying(w, minf(screen.x * 0.75, 1100.0),
+				Title3D.GOLD if _word_n % 2 == 1 else Title3D.ICE, screen)
+			_words_box.add_child(word)                     # the whole screen: its flight is never cut off
+			word.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			# its sounds, in step with the flight: the swoop in, the shimmer as it hangs, the rush past
 			var hi := 1.0 if _word_n % 2 == 1 else 1.12
 			_sound("swoop", hi, 3.0)

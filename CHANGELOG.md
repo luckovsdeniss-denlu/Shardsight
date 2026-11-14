@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.89.1
+- Fix: the trailer's flying words were cut off at the edges of their little frame as they swooped
+  in and rushed past. Each word now flies in a frame as big as the whole screen, so its flight is
+  never clipped; the letters keep the same size and still hang a little above the middle.
+
 ## 0.89.0
 More music and sound.
 - Six new pieces of music: the swamp (murky and low: the Blackwater Fen and the Reedmarsh), the

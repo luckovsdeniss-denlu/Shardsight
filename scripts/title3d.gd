@@ -18,12 +18,20 @@ const ICE := Color(0.7, 0.88, 1.0)
 
 ## A flying word for the trailer: in `colour`, it swoops in from the distance spinning, hangs a
 ## moment swaying in the light, then rushes past the camera and is gone (about 2.7 seconds).
-static func make_flying(text: String, width: float, colour := GOLD) -> Title3D:
+## It takes the whole screen (`screen`), so nothing of its flight is cut off at an edge: the
+## letters come out the size a `width`-wide title would have, a little above the middle.
+static func make_flying(text: String, width: float, colour := GOLD, screen := Vector2.ZERO) -> Title3D:
 	var t := Title3D.new()
 	t._colour = colour
 	t._fly = true
+	if screen.x > 0.0:
+		t._full = screen
 	t._build(text, width, 0.4)
 	return t
+
+
+var _full := Vector2.ZERO              # a flying word's frame: the whole screen (no edges to hit)
+var _lift := 0.0                       # how far up from the middle the word flies (metres)
 
 
 ## A title `width` pixels wide (the height follows), fading and growing in over `intro` seconds.
@@ -37,7 +45,7 @@ static func make(text: String, width: float, intro := 1.2) -> Title3D:
 func _build(text: String, width: float, intro: float) -> void:
 	stretch = true
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	custom_minimum_size = Vector2(width, width * 0.3)
+	custom_minimum_size = Vector2(width, width * 0.3) if _full == Vector2.ZERO else _full
 	var vp := SubViewport.new()
 	vp.transparent_bg = true
 	vp.own_world_3d = true
@@ -61,6 +69,11 @@ func _build(text: String, width: float, intro: float) -> void:
 	vp.add_child(we)
 	var cam := Camera3D.new()
 	cam.fov = 28.0
+	if _full != Vector2.ZERO:
+		# the same size of letters as in a `width`-wide frame, but the view as big as the screen
+		var half := tan(deg_to_rad(14.0)) * _full.y / (width * 0.3)
+		cam.fov = rad_to_deg(2.0 * atan(half))
+		_lift = 4.2 * half * 0.3                       # a little above the middle
 	cam.position = Vector3(0, 0, 4.2)
 	vp.add_child(cam)
 	# the letters: extruded, in polished gold (no emboldening: it broke the A when made solid)
@@ -118,7 +131,7 @@ func _build(text: String, width: float, intro: float) -> void:
 	sparks.lifetime = 2.2
 	sparks.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 	sparks.emission_box_extents = Vector3(1.9, 0.15, 0.3)
-	sparks.position = Vector3(0, -0.35, 0)
+	sparks.position = Vector3(0, -0.35 + _lift, 0)
 	sparks.direction = Vector3(0, 1, 0)
 	sparks.spread = 20.0
 	sparks.gravity = Vector3.ZERO
@@ -180,11 +193,11 @@ func _fly_step() -> void:
 		pos = Vector3(lerpf(0.0, -1.2, e), lerpf(0.0, 0.3, e), lerpf(0.35, 3.6, e))
 		rot = Vector3(0.0, lerpf(0.0, 0.7, e), 0.0)
 		modulate.a = 1.0 - u
-	_text.position = pos
+	_text.position = pos + Vector3(0.0, _lift, 0.0)
 	_text.rotation = rot
 	_text.scale = Vector3.ONE
 	var s := fmod(_t, 1.6) / 1.6                       # the light sweeps across faster
-	_shine.position = Vector3(lerpf(-2.6, 2.6, s), 0.15, pos.z + 0.55)
+	_shine.position = Vector3(lerpf(-2.6, 2.6, s), 0.15 + _lift, pos.z + 0.55)
 	_shine.visible = true
 
 
