@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.90.2
+- Loading screen: the Shard, its rings and the name sit higher on the screen (the circle's middle
+  at about a third of the height), with the loading bar below them; the glowing ring still lies
+  right on the gold ring.
+
 ## 0.90.1
 - Casters step back before they cast: when a foe close enough to land a blow is coming for them
   (a blow can break a spell), mages - your hero on Auto, the other players and the monsters that
