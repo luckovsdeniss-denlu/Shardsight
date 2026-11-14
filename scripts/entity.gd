@@ -4147,8 +4147,7 @@ func _try_idle_magic() -> bool:
 		return false
 	if Crafting.count(inventory, "bread") < 2 and mana >= float(stats.max_mana()) * 0.9 and can_cast("create_food"):
 		return start_cast("create_food", self)
-	if is_hero and game.is_night() and game.movie == null and not flags.has("night_sight") and can_cast("night_sight"):
-		return start_cast("night_sight", self)
+	# (Night Sight is never cast by itself: the nights stay dark; you can still cast it from the spellbook)
 	return false
 
 

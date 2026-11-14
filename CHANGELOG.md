@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.88.4
+- The hero no longer casts Night Sight by itself at night (in the game or the trailer); it's still
+  in the spellbook to cast by hand.
+
 ## 0.88.3
 - A tap on the free space round a menu goes back one level at a time: from a page to the page
   before it, from a panel opened in the Main Menu back to the Main Menu, and a tap there closes
