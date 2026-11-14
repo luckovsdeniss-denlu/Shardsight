@@ -1528,7 +1528,7 @@ func _ambience_tick(delta: float) -> void:
 	var moved := hero.position.distance_to(_last_hero_pos) > 0.01
 	_last_hero_pos = hero.position
 	_step_acc -= delta
-	if on and moved and hero.mounted_on == null and _step_acc <= 0.0:
+	if false and on and moved and hero.mounted_on == null and _step_acc <= 0.0:   # (no footsteps: no character sounds)
 		_step_acc = 0.36
 		var t := world.to_tile(hero.position)
 		sfx.play("step_stone" if world.is_town(t) or world.is_dungeon(t) else "step_grass", 1.0, -16.0)
@@ -1544,7 +1544,7 @@ func _ambience_tick(delta: float) -> void:
 		_heart_acc += 0.5
 		if _heart_acc >= 1.0:
 			_heart_acc = 0.0
-			sfx.play("heartbeat", 1.0, -6.0)
+			pass                                   # (no heartbeat: no character sounds)
 	if not on:
 		for k in ["crickets", "water", "fire"]:
 			_amb_set(k, -80.0)
@@ -6526,7 +6526,14 @@ func sound_here(sound_name: String, pitch := 1.0, volume_db := 0.0) -> void:
 		sfx.play(sound_name, pitch, volume_db)
 
 
+## The sounds placed in the world that still play: the land's own, not the characters' (no blows,
+## swings, spells, cries, steps or work sounds from anyone).
+const WORLD_SOUNDS := ["toll", "thunder", "cheer", "braam", "riser", "impact"]
+
+
 func sound(sound_name: String, at: Vector3, pitch := 1.0, volume_db := 0.0) -> void:
+	if not sound_name in WORLD_SOUNDS:
+		return                                    # (the characters make no sound effects)
 	if property.sound_on and hero != null and _in_sound_zone(at + Vector3(0.0, 0.5, 0.0)):
 		# farther from the hero, quieter (up to 12 dB at the edge of the screen)
 		var d := Vector2(at.x - hero.position.x, at.z - hero.position.z).length()

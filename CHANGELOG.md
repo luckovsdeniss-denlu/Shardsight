@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.94.1
+- No sound effects from the characters any more - the hero's, the other players', the
+  townsfolk's or the monsters': no blows, swings, parries, bows, spells, deaths, roars and
+  hisses, no footsteps or heartbeat, no chopping, mining, fishing, rowing, drinking or coins.
+  The music, the ambience (wind, water, birds, crickets, the tavern), the button clicks, the
+  church bell, thunder, the arena crowd, the jingles for a level, quest or achievement, and the
+  trailer's own sounds all stay.
+
 ## 0.94.0
 - Every trailer scene tells a little story in floating lines over the characters: Elara the healer
   ("Back again? Try not to die this time." - "No promises."), the orcs ("Fresh meat!" - "Not
