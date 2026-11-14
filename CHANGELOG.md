@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.92.0
+- A Vertical button on the start screen (beside Play, Tutorial, Trailer and Fly-by) turns the
+  game upright, to play holding the phone vertically; it then reads Horizontal, to turn it back.
+  The choice is kept for the next start.
+
 ## 0.91.0
 The trailer: more camera, more animation.
 - Every scene has its own camera move, in turn: a slow orbit, a crane that starts low among the
