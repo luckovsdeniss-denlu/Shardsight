@@ -638,6 +638,8 @@ func _chase() -> void:
 		_tactical_weapon()
 		if _kite():
 			return
+	elif kind == Kind.MONSTER and _kite():
+		return                               # a monster that casts steps back from a blade too
 	var reach := attack_range()
 	if (kind != Kind.PLAYER or ai_enabled) and _best_spell("attack") != "":
 		reach = maxf(reach, SPELL_RANGE)   # casters keep their distance
@@ -678,13 +680,18 @@ func _tactical_weapon() -> void:
 func _kite() -> bool:
 	if kite_timer > 0.0:
 		return true                        # let the step back play out
-	if weapon == "" or not Gear.is_ranged(weapon) or arrows <= 0 or target == null:
+	if target == null or kite_cd > 0.0 or casting_id != "":
 		return false
-	if target.attack_range() > MELEE_RANGE or target.target != self:
+	var archer := weapon != "" and Gear.is_ranged(weapon) and arrows > 0
+	# a caster about to cast: a blow could break the spell, so first get out of reach
+	var caster := not archer and _skill(Hero.Skill.MAGERY) >= 30.0 and _best_spell("attack") != "" \
+		and mana >= 12.0 and not flags.has("protection")
+	if not archer and not caster:
 		return false
-	if position.distance_to(target.position) > 2.2 or kite_cd > 0.0:
+	var threat := _melee_threat()
+	if threat == null:
 		return false
-	var away := position - target.position
+	var away := position - threat.position
 	away.y = 0.0
 	if away.length() < 0.01:
 		return false
@@ -694,6 +701,26 @@ func _kite() -> bool:
 	kite_timer = 0.9
 	kite_cd = 3.0
 	return true
+
+
+## The nearest foe close enough to land a blow on us and coming for us (a sword's reach, not a bow).
+func _melee_threat() -> Entity:
+	var best: Entity = null
+	var best_d := 2.2
+	if target != null and not target.dead and target.target == self and target.attack_range() <= MELEE_RANGE:
+		var d := position.distance_to(target.position)
+		if d <= best_d:
+			best = target
+			best_d = d
+	for item in game.creatures:
+		var e := item as Entity
+		if e == self or e.dead or e.target != self or e.attack_range() > MELEE_RANGE:
+			continue
+		var d := position.distance_to(e.position)
+		if d < best_d:
+			best = e
+			best_d = d
+	return best
 
 
 func _wander() -> void:

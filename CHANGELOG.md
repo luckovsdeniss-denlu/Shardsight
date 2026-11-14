@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.90.1
+- Casters step back before they cast: when a foe close enough to land a blow is coming for them
+  (a blow can break a spell), mages - your hero on Auto, the other players and the monsters that
+  cast - first step out of reach, then cast. Archers keep stepping back as before. (Not under
+  Protection, which keeps a spell from being broken.)
+
 ## 0.90.0
 The trailer: every combat label, and a cartoon touch.
 - Over heads in the trailer, the fight shows in full - the hero's too: damage numbers, spell
