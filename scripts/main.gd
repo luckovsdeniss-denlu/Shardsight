@@ -4231,6 +4231,19 @@ static func _recording_trailer() -> bool:
 
 ## The movie is over (or skipped) and has put the hero back as they were: the interface returns
 ## and so does the title with its mode buttons - the world stays as it is, nothing reloads.
+## The richer graphics on or off while the game runs (the trailers show them off, then put the
+## game back as it was): the shapes and colours, the land and walls, and every creature.
+func set_rich_graphics(on: bool) -> void:
+	if on == Art.rich:
+		return
+	Art.set_rich(on)
+	world.set_rich(on)
+	sun.shadow_blur = 1.6 if on else 1.0
+	for e in creatures:
+		if is_instance_valid(e) and not e.dead:
+			e.rich_changed()
+
+
 func movie_ended() -> void:
 	movie = null
 	start_mode = ""

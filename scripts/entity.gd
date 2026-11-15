@@ -370,7 +370,23 @@ func _build_visual(color: Color, s: float) -> void:
 	hp_bar.position = Vector3(0.0, 1.5 * s + 0.18, 0.0)
 	add_child(hp_bar)
 	if Art.rich:
-		add_child(Art.contact_shadow(s))       # (richer graphics: a soft shadow sits it on the ground)
+		_contact = Art.contact_shadow(s)       # (richer graphics: a soft shadow sits it on the ground)
+		add_child(_contact)
+
+
+var _contact: MeshInstance3D
+
+
+## The richer graphics switched on or off while the game runs: the body rebuilt the new way, and
+## its soft shadow on the ground added or taken away.
+func rich_changed() -> void:
+	if Art.rich and _contact == null and rig != null:
+		_contact = Art.contact_shadow(visual_scale)
+		add_child(_contact)
+	elif not Art.rich and _contact != null:
+		_contact.queue_free()
+		_contact = null
+	refresh_look()
 
 
 func tick(delta: float) -> void:

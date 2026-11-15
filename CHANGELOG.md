@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.2.7
+- The richer graphics can be switched on and off while the game runs (no restart): every
+  creature is rebuilt the new way and gets (or loses) its soft shadow, the walls change to stone
+  courses and back, the town windows appear and go, the ground's fine grain and the rim of light
+  come and go. (The trees' smooth shading still comes with a start in experimental mode.)
+- All four trailers show the richer graphics: on as the trailer starts, the game put back as it
+  was when it ends.
+
 ## 1.2.6
 - The trailers' work (versions 1.2.3 and 1.2.5) and the game's (1.2.4) together in one version.
 

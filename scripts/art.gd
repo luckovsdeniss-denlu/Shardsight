@@ -271,8 +271,12 @@ static func contact_shadow(s: float) -> MeshInstance3D:
 ## the new way (they outlive a restart of the game otherwise).
 static func set_rich(on: bool) -> void:
 	if on != rich:
-		_mesh_cache.clear()
-		_mat_cache.clear()
+		_mesh_cache.clear()                    # (shapes from now on built the new way)
+		for m in _mat_cache.values():          # the shared colours: the rim of light on or off, in place
+			if m is StandardMaterial3D and (m as StandardMaterial3D).vertex_color_use_as_albedo:
+				(m as StandardMaterial3D).rim_enabled = on
+				(m as StandardMaterial3D).rim = 0.3
+				(m as StandardMaterial3D).rim_tint = 0.45
 	rich = on
 
 

@@ -976,6 +976,23 @@ void fragment() {
 }
 """
 var window_mat: ShaderMaterial          # (richer graphics) the windows' shared glass: lit at night
+var _masonry_mat: ShaderMaterial
+var _plain_wall_mat: Material
+var _wall_chunks: Array = []
+var _window_chunks: Array = []
+
+
+## The richer graphics on or off while the game runs (a trailer shows them off): the walls' stone
+## courses, the town windows and the ground's fine grain.
+func set_rich(on: bool) -> void:
+	for n in _wall_chunks:
+		if is_instance_valid(n):
+			(n as GeometryInstance3D).material_override = _masonry_mat if on else _plain_wall_mat
+	for n in _window_chunks:
+		if is_instance_valid(n):
+			(n as Node3D).visible = on
+	if ground_material != null:
+		ground_material.set_shader_parameter("detail", 1.0 if on else 0.0)
 
 
 ## Richer graphics: now and then a window on the open side of a straight run of town wall - a
@@ -1382,7 +1399,7 @@ func build(parent: Node3D, progress := Callable()) -> void:
 			match tiles[y * cols + x]:
 				Tile.WALL:
 					walls.append(Transform3D(Basis(), c))
-					if Art.rich and is_town(t):
+					if is_town(t):
 						_add_windows(t, c, windows)
 					var k := v * (0.62 if is_dungeon(t) else 1.0)   # the dungeon's stone is darker
 					wall_tints.append(Color(k, k, k))
@@ -1461,24 +1478,25 @@ func build(parent: Node3D, progress := Callable()) -> void:
 		parent.add_child(glow)
 	var vc := Art.vc_mat()
 	var leafy := _foliage_mat()                 # trees, bushes, grass and flowers sway in the wind
-	if Art.rich:
-		var msh := Shader.new()
-		msh.code = MASONRY_SHADER
-		var masonry := ShaderMaterial.new()
-		masonry.shader = msh
-		_add_batch(parent, _wall_piece(), masonry, walls, wall_tints)
-		var wsh := Shader.new()
-		wsh.code = WINDOW_SHADER
-		window_mat = ShaderMaterial.new()
-		window_mat.shader = wsh
-		var pane := QuadMesh.new()
-		pane.size = Vector2(0.3, 0.42)
-		var wt: Array[Color] = []
-		for _w in windows:
-			wt.append(Color.WHITE)
-		_add_batch(parent, pane, window_mat, windows, wt)
-	else:
-		_add_batch(parent, _wall_piece(), vc, walls, wall_tints)
+	# the walls (in stone courses when the graphics are richer) and the town windows (only then)
+	var msh := Shader.new()
+	msh.code = MASONRY_SHADER
+	_masonry_mat = ShaderMaterial.new()
+	_masonry_mat.shader = msh
+	_plain_wall_mat = vc
+	_wall_chunks = _add_batch(parent, _wall_piece(), _masonry_mat if Art.rich else vc, walls, wall_tints)
+	var wsh := Shader.new()
+	wsh.code = WINDOW_SHADER
+	window_mat = ShaderMaterial.new()
+	window_mat.shader = wsh
+	var pane := QuadMesh.new()
+	pane.size = Vector2(0.3, 0.42)
+	var wt: Array[Color] = []
+	for _w in windows:
+		wt.append(Color.WHITE)
+	_window_chunks = _add_batch(parent, pane, window_mat, windows, wt)
+	for n in _window_chunks:
+		(n as Node3D).visible = Art.rich
 	_add_batch(parent, water_mesh, water_mat, waters, water_tints)
 	_add_batch(parent, _pine(), leafy, pines, pine_tints)
 	_add_batch(parent, _oak(), leafy, oaks, oak_tints)
