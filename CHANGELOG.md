@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.2.6
+- The trailers' work (versions 1.2.3 and 1.2.5) and the game's (1.2.4) together in one version.
+
+## 1.2.5
+- Trailer camera close on the hero: in every scene with the hero it stays 4.5-8.5 m out from them
+  and 2.8-5.2 m above them - no more high orbits overhead or shots from far off. Getting past a
+  wall it now closes in and rises only a little (3 m, not 7). Flights between places still arc
+  high, settling close as they land; the church keeps its wide shot of the whole building; the
+  land-only shots (the opening, the whole land, the end) keep their height.
+
 ## 1.2.4
 - Richer graphics - a new experiment (experimental mode, Main Menu > Experiments > "Richer
   graphics", from the next start; off in the ordinary game until it has been tried):
@@ -16,6 +26,12 @@ into the Android `version/name` and derives `version/code` from it (major*10000 
   - towns: walls laid in courses of stone with dark mortar, and windows in the town walls - dark
     glass by day, glowing with lamplight at night;
   - trees, rocks and bushes shade smooth (no extra detail, so no extra cost).
+## 1.2.3
+- Trailer sword choreography, cleaner: the four-blow combo is a slash with a side-step, a
+  backhand, a driving blow with a half step in, and a finisher with one clean turn - no more
+  twirling on every other blow or leaping into the air - named plainly (SLASH, BACKHAND, DRIVING
+  BLOW, FINISHER). As a spell begins the hero rises a little, steady, instead of twirling or
+  hopping.
 
 ## 1.2.2
 - Weighty combat - always in the trailers, and in experimental mode as the "Weighty combat"
