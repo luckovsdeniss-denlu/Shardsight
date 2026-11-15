@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.0.1
+- Trailer, the world boss scene: the hero no longer dashes away from the giant before every spell
+  (it caught up at once, so the hero kept repeating the same short run). The hero stands and
+  fights it - sword combos and spells - without the repeated dashes.
+
 ## 1.0.0
 The trailer camera sees the hero, always (both trailers):
 - It never films through walls: if a wall, a house, a tree or a rock stands between it and the

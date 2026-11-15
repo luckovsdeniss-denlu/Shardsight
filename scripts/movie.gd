@@ -321,7 +321,7 @@ func _make_shots() -> void:
 			"setup": _stage_talk.bind("Father Corwin", Vector2i(12, 129), ["\"You saw something you shouldn't have.\"", ">\"I remember nothing...\"", "\"Then we'll find it again - together.\""])},
 		{"title": "Seasons and storms", "story": [["hero", "\"Lovely weather for it.\""], ["hero", "\"Is it always winter when I'm out?\""]], "words": ["THE SEASONS TURN"], "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true,
 			"at": _tc(Vector2i(30, 30)), "r": 14.0, "h": 11.0, "a0": 3.5, "a1": 4.3},
-		{"title": "World bosses", "story": [["foe", "\"I AM THAROK, THE WORLD-EATER!\""], ["hero", "\"You'll need a bigger appetite.\""], ["foe", "\"...urk.\""]], "words": ["SLAY THE GIANTS", "TOGETHER"], "sub": "Now and then a giant wakes. The whole land comes to fight it.", "dur": 9.0, "day": 0.55, "weather": "clear", "white": true,
+		{"title": "World bosses", "no_run": true, "story": [["foe", "\"I AM THAROK, THE WORLD-EATER!\""], ["hero", "\"You'll need a bigger appetite.\""], ["foe", "\"...urk.\""]], "words": ["SLAY THE GIANTS", "TOGETHER"], "sub": "Now and then a giant wakes. The whole land comes to fight it.", "dur": 9.0, "day": 0.55, "weather": "clear", "white": true,
 			"at": _tc(Vector2i(60, 26)), "r": 8.0, "h": 5.0, "a0": 0.2, "a1": 1.5, "setup": _stage_boss},
 		{"title": "Your story", "story": [["hero", "\"So... where do I begin?\""], ["hero", "\"Anywhere. Everywhere.\""]], "words": ["YOUR LEGEND", "BEGINS NOW"], "sub": "Quests, bounties, guilds, a house, a horse, a boat. Begin.", "dur": 6.0,
 			"at": _tc(Vector2i(32, 9)), "r": 22.0, "h": 19.0, "a0": 1.3, "a1": 1.9},
@@ -965,7 +965,7 @@ func _cast_something() -> void:
 	# a monster close enough to strike? run out of reach first (a blow would break the spell),
 	# and cast when clear
 	var threat: Entity = hero._melee_threat()
-	if threat != null and _runs < 2:                   # (twice at most, then stand and cast anyway)
+	if threat != null and _runs < 2 and not bool(shots[i].get("no_run", false)):   # (twice at most, then stand and cast anyway; never from a giant)
 		_runs += 1
 		var away := hero.position - threat.position
 		away.y = 0.0
