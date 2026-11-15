@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.99.3
+- A new README for the GitHub page: what Shardsight is, its story, skills, world and features,
+  screenshots, links to the latest APK and both trailer videos, and a guide to the code.
+
 ## 0.99.2
 - A "Download trailer 2" button on the start screen opens the second trailer's video (the long
   flight across the map).
