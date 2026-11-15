@@ -369,6 +369,8 @@ func _build_visual(color: Color, s: float) -> void:
 	hp_bar = Art.hp_bar()
 	hp_bar.position = Vector3(0.0, 1.5 * s + 0.18, 0.0)
 	add_child(hp_bar)
+	if Art.rich:
+		add_child(Art.contact_shadow(s))       # (richer graphics: a soft shadow sits it on the ground)
 
 
 func tick(delta: float) -> void:

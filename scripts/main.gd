@@ -154,6 +154,7 @@ func _ready() -> void:
 	SaveGame.slot = "_experimental" if Experiments.active else ""
 	if Experiments.active:
 		Experiments.load_cfg()
+	Art.set_rich(Experiments.on("rich_graphics"))   # (the models and the land are built the richer way)
 	if not autotest and DisplayServer.get_name() != "headless":
 		Engine.max_fps = FPS_GOAL                # no faster than 60, even on a 120 Hz screen (cooler, steadier)
 	# The loading screen, then the world built a step at a time so it can move between steps.
@@ -6620,13 +6621,13 @@ func _apply_daylight() -> void:
 	# Painted light: a strong warm sun against cool, dim shade by day; amber when the sun is low;
 	# blue moonlight at night.
 	var low_sun := clampf(1.0 - absf(sun_height) * 2.5, 0.0, 1.0) * (1.0 - _cloud)
-	sun.light_energy = lerpf(0.3, 1.35, light)
+	sun.light_energy = lerpf(0.3, 1.35, light) * (1.12 if Art.rich else 1.0)   # (richer: a stronger sun...)
 	sun.light_color = Color(0.55, 0.66, 1.0).lerp(Color(1.0, 0.93, 0.8), light).lerp(Color(1.0, 0.66, 0.38), low_sun * 0.7)
 	sun.rotation_degrees = Vector3(-20.0 - 50.0 * maxf(sun_height, 0.0), day_time * 360.0, 0.0)
 	env.background_color = Color("0d1426").lerp(Color("87a8c9"), light)
 	if weather == "clear":
 		env.fog_light_color = env.background_color       # the haze takes the sky's colour
-	env.ambient_light_energy = lerpf(0.42, 0.6, light)
+	env.ambient_light_energy = lerpf(0.42, 0.6, light) * (0.86 if Art.rich else 1.0)   # (...and deeper shade)
 	_sky_acc += get_process_delta_time()
 	# The sky changes slowly, and each change re-lights the world from it, so it's updated at most
 	# every 3 seconds and only when it has visibly changed (lightning at once).
@@ -6646,6 +6647,8 @@ func _apply_daylight() -> void:
 		sky_mat.set_shader_parameter("cloudy", cloudy)
 	_fireflies_step(sun_height < -0.15 and weather == "clear")
 	var night := clampf(1.0 - light * 1.6, 0.0, 1.0)
+	if world.window_mat != null:
+		world.window_mat.set_shader_parameter("glow", night)   # (richer graphics: the town's windows light up)
 	for l in brazier_lights:
 		l.light_energy = 1.6 * night * (0.9 + 0.1 * sin(Time.get_ticks_msec() * 0.01))   # a flicker
 
@@ -6801,6 +6804,7 @@ func _apply_graphics() -> void:
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL   # one shadow pass, not two
 	sun.directional_shadow_max_distance = 28.0
 	sun.directional_shadow_fade_start = 0.85
+	sun.shadow_blur = 1.6 if Art.rich else 1.0             # (richer: softer edges to the shadows)
 	world.set_ground_detail(true)
 	_render_base = 0.8 if OS.has_feature("mobile") else 1.0    # phone screens are dense: 80% looks the same
 	cam.far = 80.0 if property.first_person else VIEW_FAR

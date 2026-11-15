@@ -933,6 +933,69 @@ void fragment() {
 """
 
 
+## Richer graphics: walls laid in courses of stone - each block its own shade, the mortar between
+## them dark - on their sides; their tops plain.
+const MASONRY_SHADER := """
+shader_type spatial;
+varying vec3 wp;
+varying vec3 wn;
+void vertex() {
+	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+void fragment() {
+	vec2 uv = abs(wn.x) > 0.5 ? wp.zy : wp.xy;
+	uv *= vec2(2.6, 4.4);
+	float row = floor(uv.y);
+	uv.x += mod(row, 2.0) * 0.5;
+	vec2 f = fract(uv);
+	float mortar = smoothstep(0.0, 0.07, f.x) * smoothstep(1.0, 0.93, f.x) * smoothstep(0.0, 0.11, f.y) * smoothstep(1.0, 0.89, f.y);
+	float hsh = fract(sin(dot(floor(uv), vec2(12.9898, 78.233))) * 43758.5453);
+	vec3 col = COLOR.rgb * (0.84 + 0.26 * hsh) * mix(0.55, 1.0, mortar);
+	if (abs(wn.y) > 0.6) {
+		col = COLOR.rgb * (0.92 + 0.1 * hsh);
+	}
+	ALBEDO = col;
+	ROUGHNESS = 0.93;
+}
+"""
+## Richer graphics: windows in the town walls - dark glass and a wooden frame by day, a warm glow
+## of lamplight at night (`glow` follows the dark).
+const WINDOW_SHADER := """
+shader_type spatial;
+uniform float glow = 0.0;
+void fragment() {
+	vec2 u = UV;
+	float bar = step(abs(u.x - 0.5), 0.045) + step(abs(u.y - 0.45), 0.04);
+	float edge = step(u.x, 0.09) + step(0.91, u.x) + step(u.y, 0.08) + step(0.9, u.y);
+	float frame = clamp(bar + edge, 0.0, 1.0);
+	vec3 glass = mix(vec3(0.1, 0.12, 0.16), vec3(1.0, 0.72, 0.38), glow);
+	ALBEDO = mix(glass, vec3(0.24, 0.15, 0.08), frame);
+	EMISSION = (1.0 - frame) * vec3(1.0, 0.62, 0.26) * glow * 2.4;
+	ROUGHNESS = mix(0.25, 0.8, frame);
+}
+"""
+var window_mat: ShaderMaterial          # (richer graphics) the windows' shared glass: lit at night
+
+
+## Richer graphics: now and then a window on the open side of a straight run of town wall - a
+## pane in the wall's face at a little above head height (never at a corner or an end).
+func _add_windows(t: Vector2i, c: Vector3, out: Array[Transform3D]) -> void:
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var n := t + d
+		if not in_bounds(n) or tiles[n.y * cols + n.x] != Tile.GRASS:
+			continue
+		var side := Vector2i(d.y, d.x)                 # along the wall
+		var a := t + side
+		var b := t - side
+		if not (in_bounds(a) and in_bounds(b) and tiles[a.y * cols + a.x] == Tile.WALL and tiles[b.y * cols + b.x] == Tile.WALL):
+			continue
+		if (t.x * 31 + t.y * 17 + d.x * 7 + d.y * 3) % 4 != 0:
+			continue
+		var out_dir := Vector3(d.x, 0.0, d.y)
+		out.append(Transform3D(Basis.looking_at(-out_dir, Vector3.UP), c + out_dir * (TILE * 0.51) + Vector3(0.0, 0.85, 0.0)))
+
+
 ## Leaves and grass that sway in the wind: vertex colour (with each instance's tint), the top of
 ## the plant swinging more than its base, each plant on its own beat.
 const FOLIAGE_SHADER := """
@@ -988,6 +1051,7 @@ uniform vec2 grid = vec2(96.0, 48.0);          // the map in tiles
 uniform float tile = 1.0;
 uniform vec3 season_tint = vec3(1.0);          // the seasons: golden summer, russet autumn...
 uniform float snow = 0.0;                      // ...and winter's snow, lying on the flatter ground
+uniform float detail = 0.0;                    // richer graphics: a finer grain, and the light catching it
 varying float up;
 
 float land(vec2 uv) {
@@ -1011,6 +1075,16 @@ void fragment() {
 	col *= mix(0.72, 1.0, smoothstep(0.86, 0.995, up));   // slopes fall into shade: the hills get weight
 	float cover = snow * smoothstep(0.35, 0.75, g * 0.6 + snow * 0.6) * smoothstep(0.8, 0.97, up);
 	col = mix(col, vec3(0.9, 0.93, 0.97) * (0.92 + 0.12 * g), cover);
+	if (detail > 0.0) {
+		// a second, finer grain - blades, grit and pebbles - and its little bumps catching the sun
+		vec2 duv = UV * grain_scale * 5.0;
+		float d1 = texture(grain, duv).r;
+		float dx = texture(grain, duv + vec2(0.02, 0.0)).r - d1;
+		float dz = texture(grain, duv + vec2(0.0, 0.02)).r - d1;
+		col *= mix(1.0, 0.82 + 0.36 * d1, detail);
+		NORMAL_MAP = normalize(vec3(-dx * 7.0, -dz * 7.0, 1.0)) * 0.5 + 0.5;
+		NORMAL_MAP_DEPTH = detail;
+	}
 	ALBEDO = col * (1.0 - cloud_amount * 0.24 * smoothstep(0.52, 0.74, cl));
 	ROUGHNESS = 1.0;
 }
@@ -1119,6 +1193,7 @@ func _ground_mat() -> ShaderMaterial:
 	m.set_shader_parameter("hmax", HEIGHT_MAX)
 	m.set_shader_parameter("grid", Vector2(cols, rows))
 	m.set_shader_parameter("tile", TILE)
+	m.set_shader_parameter("detail", 1.0 if Art.rich else 0.0)
 	ground_material = m
 	return m
 
@@ -1283,6 +1358,7 @@ func build(parent: Node3D, progress := Callable()) -> void:
 
 	var walls: Array[Transform3D] = []
 	var wall_tints: Array[Color] = []
+	var windows: Array[Transform3D] = []
 	var waters: Array[Transform3D] = []
 	var water_tints: Array[Color] = []
 	var pines: Array[Transform3D] = []
@@ -1306,6 +1382,8 @@ func build(parent: Node3D, progress := Callable()) -> void:
 			match tiles[y * cols + x]:
 				Tile.WALL:
 					walls.append(Transform3D(Basis(), c))
+					if Art.rich and is_town(t):
+						_add_windows(t, c, windows)
 					var k := v * (0.62 if is_dungeon(t) else 1.0)   # the dungeon's stone is darker
 					wall_tints.append(Color(k, k, k))
 				Tile.WATER:
@@ -1383,7 +1461,24 @@ func build(parent: Node3D, progress := Callable()) -> void:
 		parent.add_child(glow)
 	var vc := Art.vc_mat()
 	var leafy := _foliage_mat()                 # trees, bushes, grass and flowers sway in the wind
-	_add_batch(parent, _wall_piece(), vc, walls, wall_tints)
+	if Art.rich:
+		var msh := Shader.new()
+		msh.code = MASONRY_SHADER
+		var masonry := ShaderMaterial.new()
+		masonry.shader = msh
+		_add_batch(parent, _wall_piece(), masonry, walls, wall_tints)
+		var wsh := Shader.new()
+		wsh.code = WINDOW_SHADER
+		window_mat = ShaderMaterial.new()
+		window_mat.shader = wsh
+		var pane := QuadMesh.new()
+		pane.size = Vector2(0.3, 0.42)
+		var wt: Array[Color] = []
+		for _w in windows:
+			wt.append(Color.WHITE)
+		_add_batch(parent, pane, window_mat, windows, wt)
+	else:
+		_add_batch(parent, _wall_piece(), vc, walls, wall_tints)
 	_add_batch(parent, water_mesh, water_mat, waters, water_tints)
 	_add_batch(parent, _pine(), leafy, pines, pine_tints)
 	_add_batch(parent, _oak(), leafy, oaks, oak_tints)

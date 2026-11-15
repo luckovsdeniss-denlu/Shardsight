@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.2.4
+- Richer graphics - a new experiment (experimental mode, Main Menu > Experiments > "Richer
+  graphics", from the next start; off in the ordinary game until it has been tried):
+  - characters and creatures: rounder heads, limbs and bodies (finer spheres and cylinders),
+    armour and clothes with bevelled edges instead of sharp blocks, and round things shaded
+    smooth; a soft shadow on the ground under everyone;
+  - light and shadow: a rim of light round every figure and thing, a stronger sun with deeper
+    shade, softer shadow edges;
+  - the ground: a second, finer grain (blades, grit, pebbles) with little bumps that catch the
+    sun;
+  - towns: walls laid in courses of stone with dark mortar, and windows in the town walls - dark
+    glass by day, glowing with lamplight at night;
+  - trees, rocks and bushes shade smooth (no extra detail, so no extra cost).
+
 ## 1.2.2
 - Weighty combat - always in the trailers, and in experimental mode as the "Weighty combat"
   experiment (Main Menu > Experiments; off in the ordinary game until it has been tried):

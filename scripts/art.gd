@@ -38,6 +38,10 @@ const HAIRS := [Color(0.2, 0.14, 0.09), Color(0.42, 0.27, 0.13), Color(0.75, 0.6
 
 static var _mesh_cache := {}
 static var _mat_cache := {}
+## The "Richer graphics" experiment: round things shaded smooth, a rim of light on everything, and
+## creatures built finer (rounder limbs and heads, bevelled edges). Set before the world is built.
+static var rich := false
+static var _hi := false                 # (while a creature is being built: the finer shapes)
 
 
 # --- materials ------------------------------------------------------------
@@ -49,6 +53,10 @@ static func vc_mat(alpha := false) -> StandardMaterial3D:
 		var m := StandardMaterial3D.new()
 		m.vertex_color_use_as_albedo = true
 		m.roughness = 0.9
+		if rich:
+			m.rim_enabled = true                   # a soft rim of light round every edge against the sky
+			m.rim = 0.3
+			m.rim_tint = 0.45
 		if alpha:
 			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		_mat_cache[key] = m
@@ -79,6 +87,9 @@ static func box(x: float, y: float, z: float) -> BoxMesh:
 
 
 static func ball(r: float, segments := 7, rings := 4) -> SphereMesh:
+	if _hi:
+		segments = maxi(segments, 12)
+		rings = maxi(rings, 7)
 	var m := SphereMesh.new()
 	m.radius = r
 	m.height = r * 2.0
@@ -98,6 +109,8 @@ static func ring_mesh(inner: float, outer: float) -> TorusMesh:
 
 
 static func cone(bottom: float, height: float, top := 0.0, segments := 7) -> CylinderMesh:
+	if _hi:
+		segments = maxi(segments, 10)
 	var m := CylinderMesh.new()
 	m.top_radius = top
 	m.bottom_radius = bottom
@@ -117,11 +130,20 @@ static func merge(parts: Array) -> ArrayMesh:
 	var norms := PackedVector3Array()
 	var cols := PackedColorArray()
 	for p in parts:
-		var arr: Array = (p[0] as PrimitiveMesh).get_mesh_arrays()
+		var prim: PrimitiveMesh = p[0]
+		var arr: Array
+		if _hi and prim is BoxMesh:
+			arr = _bevel_box((prim as BoxMesh).size)   # (richer: a box with its edges bevelled)
+		else:
+			arr = prim.get_mesh_arrays()
 		var xf: Transform3D = p[1]
 		var col: Color = p[2]
 		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
 		var ix: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+		# richer: round things shaded smooth (their own normals), the rest flat
+		var smooth := rich and (prim is SphereMesh or prim is CapsuleMesh or prim is CylinderMesh or prim is TorusMesh)
+		var vn: PackedVector3Array = arr[Mesh.ARRAY_NORMAL] if smooth else PackedVector3Array()
+		var nb := xf.basis.inverse().transposed()
 		for t in range(0, ix.size() - 2, 3):
 			var a := xf * v[ix[t]]
 			var b := xf * v[ix[t + 1]]
@@ -133,8 +155,12 @@ static func merge(parts: Array) -> ArrayMesh:
 			verts.append(a)
 			verts.append(b)
 			verts.append(c)
-			for _k in range(3):
-				norms.append(n)
+			for k in range(3):
+				if smooth:
+					var sn: Vector3 = (nb * vn[ix[t + k]]).normalized()
+					norms.append(sn if sn.dot(n) > -0.2 else n)
+				else:
+					norms.append(n)
 				cols.append(col)
 	var out := []
 	out.resize(Mesh.ARRAY_MAX)
@@ -145,6 +171,109 @@ static func merge(parts: Array) -> ArrayMesh:
 	if not verts.is_empty():
 		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out)
 	return am
+
+
+## A box of `size` with its twelve edges bevelled (a cut across each edge and each corner), as mesh
+## arrays: catches the light along its edges like a carved or forged thing, not a block.
+static func _bevel_box(size: Vector3) -> Array:
+	var h := size * 0.5
+	var r := minf(minf(h.x, h.y), h.z) * 0.38
+	var pts := func(sx: float, sy: float, sz: float, axis: int) -> Vector3:
+		var q := Vector3(sx * (h.x - r), sy * (h.y - r), sz * (h.z - r))
+		q[axis] = [sx, sy, sz][axis] * h[axis]
+		return q
+	var tris: Array[Vector3] = []
+	for a in range(3):                                   # the six faces
+		var u := (a + 1) % 3
+		var w := (a + 2) % 3
+		for s in [-1.0, 1.0]:
+			var fq: Array[Vector3] = []
+			for uv in [[-1.0, -1.0], [1.0, -1.0], [1.0, 1.0], [-1.0, 1.0]]:
+				var c := [0.0, 0.0, 0.0]
+				c[a] = s
+				c[u] = uv[0]
+				c[w] = uv[1]
+				fq.append(pts.call(c[0], c[1], c[2], a))
+			tris.append_array([fq[0], fq[1], fq[2], fq[0], fq[2], fq[3]])
+	for a in range(3):                                   # the twelve edges
+		var b := (a + 1) % 3
+		var k := (a + 2) % 3
+		for sa in [-1.0, 1.0]:
+			for sb in [-1.0, 1.0]:
+				var c0 := [0.0, 0.0, 0.0]
+				c0[a] = sa
+				c0[b] = sb
+				c0[k] = -1.0
+				var c1 := c0.duplicate()
+				c1[k] = 1.0
+				var e0: Vector3 = pts.call(c0[0], c0[1], c0[2], a)
+				var e1: Vector3 = pts.call(c1[0], c1[1], c1[2], a)
+				var e2: Vector3 = pts.call(c1[0], c1[1], c1[2], b)
+				var e3: Vector3 = pts.call(c0[0], c0[1], c0[2], b)
+				tris.append_array([e0, e1, e2, e0, e2, e3])
+	for sx in [-1.0, 1.0]:                               # the eight corners
+		for sy in [-1.0, 1.0]:
+			for sz in [-1.0, 1.0]:
+				tris.append_array([pts.call(sx, sy, sz, 0), pts.call(sx, sy, sz, 1), pts.call(sx, sy, sz, 2)])
+	var verts := PackedVector3Array()
+	var idx := PackedInt32Array()
+	for t in range(0, tris.size(), 3):                  # every triangle facing outwards
+		var p0 := tris[t]
+		var p1 := tris[t + 1]
+		var p2 := tris[t + 2]
+		if (p1 - p0).cross(p2 - p0).dot(p0 + p1 + p2) < 0.0:
+			var tmp := p1
+			p1 = p2
+			p2 = tmp
+		for corner in [p0, p1, p2]:
+			idx.append(verts.size())
+			verts.append(corner)
+	var out := []
+	out.resize(Mesh.ARRAY_MAX)
+	out[Mesh.ARRAY_VERTEX] = verts
+	out[Mesh.ARRAY_INDEX] = idx
+	return out
+
+
+## A soft dark patch on the ground under a body (the "Richer graphics" experiment): it sits the
+## figure on the land instead of floating over it.
+const CONTACT_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+void fragment() {
+	float d = length(UV - 0.5) * 2.0;
+	ALBEDO = vec3(0.0);
+	ALPHA = 0.42 * (1.0 - smoothstep(0.3, 1.0, d));
+}
+"""
+static var _contact_mesh: PlaneMesh
+static var _contact_mat: ShaderMaterial
+
+
+static func contact_shadow(s: float) -> MeshInstance3D:
+	if _contact_mesh == null:
+		_contact_mesh = PlaneMesh.new()
+		_contact_mesh.size = Vector2(1.0, 1.0)
+		var sh := Shader.new()
+		sh.code = CONTACT_SHADER
+		_contact_mat = ShaderMaterial.new()
+		_contact_mat.shader = sh
+	var mi := MeshInstance3D.new()
+	mi.mesh = _contact_mesh
+	mi.material_override = _contact_mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.scale = Vector3.ONE * 1.15 * s
+	mi.position.y = 0.04
+	return mi
+
+
+## Starts afresh for the "Richer graphics" switch: the shared meshes and materials are rebuilt
+## the new way (they outlive a restart of the game otherwise).
+static func set_rich(on: bool) -> void:
+	if on != rich:
+		_mesh_cache.clear()
+		_mat_cache.clear()
+	rich = on
 
 
 static func _cached(key: String, parts_fn: Callable) -> ArrayMesh:
@@ -179,6 +308,7 @@ static func creature(look: String, style: Dictionary, scale: float) -> Dictionar
 	root.scale = Vector3.ONE * scale
 	var model := {"root": root, "legs": [], "arm": null, "spin": null, "meshes": [], "quad": false, "arm_rest": 0.0,
 		"knees": [], "hips": [], "arm_l": null, "elbow": null, "elbow_l": null, "head": null}
+	_hi = rich                                     # (richer: built finer)
 	match look:
 		"rat", "wolf", "bear", "hind", "horse", "llama", "nightmare", "swamp_dragon", "beetle":
 			_quadruped(model, look)
@@ -196,6 +326,7 @@ static func creature(look: String, style: Dictionary, scale: float) -> Dictionar
 			_spinner(model, look)
 		_:
 			_humanoid(model, look, style)
+	_hi = false
 	return model
 
 
