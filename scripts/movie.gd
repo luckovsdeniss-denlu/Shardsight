@@ -135,6 +135,8 @@ var _intro: LoadingScreen
 
 
 func _intro_loading() -> void:
+	if "--trailer-video" in OS.get_cmdline_user_args():
+		print("TRAILER_START_FRAME %d" % Engine.get_frames_drawn())   # (the video is cut from here: its opening included)
 	_intro = LoadingScreen.new()
 	add_child(_intro)
 	_intro._root.mouse_filter = Control.MOUSE_FILTER_IGNORE   # (Skip stays in reach)
@@ -608,6 +610,9 @@ func _back_to_title() -> void:
 	var tw := create_tween()
 	tw.tween_property(_fade, "modulate:a", 0.0, 0.6)
 	tw.tween_callback(queue_free)
+	if "--trailer-video" in OS.get_cmdline_user_args():
+		print("TRAILER_END_FRAME %d" % Engine.get_frames_drawn())
+		game.get_tree().create_timer(0.2).timeout.connect(game.get_tree().quit)   # the recording ends with it
 
 
 ## The last card: SHARDSIGHT in gold, a band of light sweeping across it, sparks rising.

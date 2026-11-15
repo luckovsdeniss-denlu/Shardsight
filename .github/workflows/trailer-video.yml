@@ -1,0 +1,72 @@
+name: Record trailer video
+
+# Records the game's trailer as an MP4 (picture and music) and publishes it to the "trailer"
+# release, where the start screen's "Download trailer" button finds it. Started by hand only
+# (Actions > Record trailer video > Run workflow). The game draws in software here, so it takes a
+# while (about half an hour).
+on:
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.3.0
+  FPS: 30
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write          # to publish the video as a release asset
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
+          include-templates: false
+
+      - name: A virtual screen and software OpenGL to draw on
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri mesa-utils ffmpeg >/dev/null
+
+      - name: Import the project
+        run: godot --headless --import || true
+
+      # Godot's Movie Maker writes every frame and the game's sound to an AVI at a fixed frame
+      # rate, however slowly it draws. The game starts the trailer by itself and quits when it ends.
+      - name: Record the trailer
+        run: |
+          mkdir -p build
+          set +e
+          timeout 6000 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 \
+            --resolution 1280x720 --fixed-fps "$FPS" --write-movie build/trailer.avi -- --trailer-video > record.log 2>&1
+          set -e
+          grep -E "TRAILER_(START|END)_FRAME" record.log || (tail -n 60 record.log; exit 1)
+          ls -la build
+
+      - name: Cut it and make an MP4
+        run: |
+          START=$(grep -oP 'TRAILER_START_FRAME \K[0-9]+' record.log | head -n1)
+          END=$(grep -oP 'TRAILER_END_FRAME \K[0-9]+' record.log | tail -n1)
+          SS=$(python3 -c "print(max(0, $START) / $FPS)")
+          DUR=$(python3 -c "print(max(1, $END - $START) / $FPS)")
+          ffmpeg -y -loglevel error -ss "$SS" -i build/trailer.avi -t "$DUR" \
+            -c:v libx264 -preset medium -crf 21 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart \
+            build/shardsight-trailer.mp4
+          ls -la build/shardsight-trailer.mp4
+
+      - name: Publish to the "trailer" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(grep -oP '^config/version="\K[^"]+' project.godot)
+          if gh release view trailer >/dev/null 2>&1; then
+            gh release upload trailer build/shardsight-trailer.mp4 --clobber
+            gh release edit trailer --notes "The Shardsight trailer, recorded from v$VERSION."
+          else
+            gh release create trailer build/shardsight-trailer.mp4 --target "$GITHUB_SHA" --title "Shardsight trailer" \
+              --notes "The Shardsight trailer, recorded from v$VERSION." --latest=false
+          fi
+          echo "Trailer: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/trailer/shardsight-trailer.mp4" >> "$GITHUB_STEP_SUMMARY"

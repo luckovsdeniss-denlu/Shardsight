@@ -4217,6 +4217,10 @@ func _open_menu() -> void:
 
 
 ## After the movie: the game starts again from the title, nothing kept.
+## Where the trailer's video is published (recorded by the "Record trailer video" workflow).
+const TRAILER_VIDEO_URL := "https://github.com/luckovsdeniss-denlu/Shardsight/releases/download/trailer/shardsight-trailer.mp4"
+
+
 ## The movie is over (or skipped) and has put the hero back as they were: the interface returns
 ## and so does the title with its mode buttons - the world stays as it is, nothing reloads.
 func movie_ended() -> void:
@@ -5446,6 +5450,9 @@ func _build_fps_counter() -> void:
 	var top := CanvasLayer.new()
 	top.layer = 100
 	add_child(top)
+	if "--trailer-video" in OS.get_cmdline_user_args():
+		top.visible = false                       # (recording the trailer: a clean picture, all looks on)
+		_auto_opt = false
 	_fps_label = Label.new()
 	_fps_label.add_theme_font_size_override("font_size", 22)
 	_fps_label.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -5728,6 +5735,9 @@ func _show_title(layer: CanvasLayer) -> void:
 	row.add_child(tut)
 	row.add_child(film)
 	row.add_child(again)
+	# the trailer as a video file to keep or share: opens its download in the browser
+	row.add_child(_menu_button("Download trailer", func() -> void:
+		OS.shell_open(TRAILER_VIDEO_URL)))
 	row.add_child(exp_b)
 	# Once the camera is down: on a fresh start, the choice of mode (the game waits for it);
 	# after switching modes the choice is already made, so the title simply fades.
@@ -5744,8 +5754,8 @@ func _show_title(layer: CanvasLayer) -> void:
 		row.visible = true
 		var tw := row.create_tween()
 		tw.tween_property(row, "modulate:a", 1.0, 0.5)
-		if "--movie-test" in OS.get_cmdline_user_args():
-			film.pressed.emit()                    # (CI: play the movie by itself)
+		if "--movie-test" in OS.get_cmdline_user_args() or "--trailer-video" in OS.get_cmdline_user_args():
+			film.pressed.emit()                    # (CI: play the trailer by itself, or record it as a video)
 	card.gui_input.connect(func(ev: InputEvent) -> void:
 		if (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed) or (ev is InputEventScreenTouch and (ev as InputEventScreenTouch).pressed):
 			_skip_flyby())                         # a tap glides the camera down to the hero
@@ -5757,6 +5767,8 @@ func _show_title(layer: CanvasLayer) -> void:
 		if not title_up and corner_box != null and is_instance_valid(corner_box):
 			corner_box.visible = true)                 # (not when the fly-by is only starting again)
 	_flyby_t = 0.0                                 # start the fly-by over the world
+	if "--trailer-video" in OS.get_cmdline_user_args():
+		_skip_flyby()                              # (recording the trailer: straight to it)
 	_fov_rest = cam.fov
 	get_tree().create_timer(FLYBY_SEG * FLYBY.size() + 3.0).timeout.connect(flyby_done)   # just in case
 

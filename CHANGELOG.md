@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.97.0
+- A "Download trailer" button on the start screen opens the trailer's video (an MP4 with its
+  music) in the browser, to save or share.
+- A new GitHub workflow, "Record trailer video", records the trailer as that video: Godot's
+  Movie Maker draws every frame at 30 a second with all the looks on and no frame counter, then
+  it's cut to the trailer (its opening included) and published to the "trailer" release, always at
+  the same link. Started by hand, like the APK build.
+
 ## 0.96.0
 The trailer's hero fights with style:
 - Sword combos: each blow is the next step of a four-step combo, each with its own move - a
