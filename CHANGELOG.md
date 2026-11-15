@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.97.2
+- The hero never leaves the frame in the trailer: the camera follows the hero, looking between
+  the scene's centre and the hero (its circling and crane moves go with it), and if the hero ever
+  slips out of view it swings round to them at once.
+
 ## 0.97.1
 - Smoother, more fluid movement in the trailer: characters cut the corners of their paths and go
   straight to the furthest point they can walk to directly (no zig-zag from tile to tile), ease

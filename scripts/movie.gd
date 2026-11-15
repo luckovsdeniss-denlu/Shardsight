@@ -25,6 +25,7 @@ const CAST_EVERY := 2.8                # a spell this often in a fight; between 
 var _fight := []
 const CAM_MOVES := ["orbit", "crane", "track", "spiral", "dolly", "orbit", "track", "crane"]
 var _punch := 0.0
+var _look_s := Vector3.INF             # where the camera looks, eased (it follows the hero)
 var _runs := 0                         # runs from a blade in a row before a spell                      # a quick zoom on a heavy blow (fades)
 
 
@@ -459,7 +460,17 @@ func tick(delta: float) -> bool:
 	var cam: Camera3D = game.cam
 	cam.fov = lerpf(60.0, 48.0, k)                      # a slow push in
 	var look: Vector3 = sh["at"]
-	if sh.has("from"):
+	# the camera follows the hero: it looks at a point between the scene's centre and the hero,
+	# leaning all the way to the hero if they slip out of the frame - so the hero never leaves it
+	if hero.visible and not bool(sh.get("no_hero", false)):
+		var lean := 0.6
+		if not cam.is_position_in_frustum(hero.position + Vector3(0.0, 1.0, 0.0)):
+			lean = 1.0
+		var want: Vector3 = look.lerp(hero.position, lean)
+		if t < 0.05 or _look_s == Vector3.INF:
+			_look_s = want
+		_look_s = _look_s.lerp(want, 1.0 - exp(-delta * (6.0 if lean >= 1.0 else 3.0)))
+		look = _look_s
 		cam.position = (sh["from"] as Vector3).lerp(sh["to"], k)
 	else:
 		var a := lerpf(float(sh["a0"]), float(sh["a1"]), k)
@@ -475,7 +486,6 @@ func tick(delta: float) -> bool:
 				r = lerpf(r * 1.3, r * 0.7, k)
 				h = lerpf(h * 1.4, h * 0.7, k)
 			"track":                                    # low behind the hero, following the fight
-				look = look.lerp(hero.position, 0.7)
 				r *= 0.75
 				h = maxf(h * 0.45, 1.3)
 			"dolly":                                    # the dolly zoom: pulls back as the lens closes in
