@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.0.6
+- The icon's ring reaches out to the icon's edges: the four gold arcs sweep wide round the shard
+  and the sword, and the four small shards sit right at the edges in the cuts.
+
 ## 1.0.5
 - The icon's ring cut wider: each of the four cuts is 15% of the ring, leaving four short gold arcs
   with rounded ends, a small blue shard in each cut.

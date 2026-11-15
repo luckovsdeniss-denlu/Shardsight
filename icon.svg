@@ -27,6 +27,7 @@
   <!-- the ring: a soft gold glow behind; a dark rim and a polished gold band, centred on the icon
        round the shard and the sword, cut on all four sides (each cut 15% of the ring); a fine inner
        ring with ticks like a compass's; and in each cut a small shard, at north, east, south and west -->
+  <g transform="translate(128 128) scale(1.13) translate(-128 -128)">   <!-- the ring out to the icon's edges -->
   <circle cx="128" cy="128" r="106" fill="none" stroke="#f0c860" stroke-width="16" opacity="0.35" filter="url(#glow)" stroke-dasharray="66.60 99.90" stroke-dashoffset="116.55" stroke-linecap="round"/>
   <circle cx="128" cy="128" r="106" fill="none" stroke="#5a3f10" stroke-width="11" stroke-dasharray="66.60 99.90" stroke-dashoffset="116.55" stroke-linecap="round"/>
   <circle cx="128" cy="128" r="106" fill="none" stroke="url(#gold)" stroke-width="7" stroke-dasharray="66.60 99.90" stroke-dashoffset="116.55" stroke-linecap="round"/>
@@ -52,10 +53,11 @@
   <line x1="195.2" y1="60.8" x2="197.7" y2="58.3" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="203.4" y1="70.2" x2="206.1" y2="68.0" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="210.3" y1="80.5" x2="215.0" y2="77.7" stroke="#e8c870" stroke-width="1.6" opacity="0.9"/>
-  <g transform="translate(128.0 22.0) rotate(0)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
-  <g transform="translate(234.0 128.0) rotate(90)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
-  <g transform="translate(128.0 234.0) rotate(180)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
-  <g transform="translate(22.0 128.0) rotate(270)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
+  </g>
+  <g transform="translate(128.0 13.0) rotate(0)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
+  <g transform="translate(243.0 128.0) rotate(90)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
+  <g transform="translate(128.0 243.0) rotate(180)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
+  <g transform="translate(13.0 128.0) rotate(270)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
   <g transform="translate(128 128) scale(0.84) translate(-128 -129)">
   <!-- the shard: a faceted crystal -->
   <polygon points="128,30 176,104 150,206 106,206 80,104" fill="url(#shard)"/>
