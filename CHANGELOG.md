@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.99.2
+- A "Download trailer 2" button on the start screen opens the second trailer's video (the long
+  flight across the map).
+- "Record trailer video" can record trailer 1, trailer 2 or both (chosen when it's started), and
+  replaces only the videos of the trailer it records: the other trailer's stay. Each is published
+  under a fixed name (for the buttons) and one with the version.
+
 ## 0.99.1
 Trailer 2 is now one long flight across the whole map:
 - The camera never cuts. It starts over the starting town and travels the land in one line -

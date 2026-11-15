@@ -4219,6 +4219,13 @@ func _open_menu() -> void:
 ## After the movie: the game starts again from the title, nothing kept.
 ## Where the trailer's video is published (recorded by the "Record trailer video" workflow).
 const TRAILER_VIDEO_URL := "https://github.com/luckovsdeniss-denlu/Shardsight/releases/download/trailer/shardsight-trailer.mp4"
+const TRAILER_2_VIDEO_URL := "https://github.com/luckovsdeniss-denlu/Shardsight/releases/download/trailer/shardsight-trailer-2.mp4"
+
+
+## Recording a trailer as a video (CI): either trailer.
+static func _recording_trailer() -> bool:
+	var args := OS.get_cmdline_user_args()
+	return "--trailer-video" in args or "--trailer-video-2" in args
 
 
 ## The movie is over (or skipped) and has put the hero back as they were: the interface returns
@@ -5450,7 +5457,7 @@ func _build_fps_counter() -> void:
 	var top := CanvasLayer.new()
 	top.layer = 100
 	add_child(top)
-	if "--trailer-video" in OS.get_cmdline_user_args():
+	if _recording_trailer():
 		top.visible = false                       # (recording the trailer: a clean picture, all looks on)
 		_auto_opt = false
 	_fps_label = Label.new()
@@ -5747,6 +5754,8 @@ func _show_title(layer: CanvasLayer) -> void:
 	# the trailer as a video file to keep or share: opens its download in the browser
 	row.add_child(_menu_button("Download trailer", func() -> void:
 		OS.shell_open(TRAILER_VIDEO_URL)))
+	row.add_child(_menu_button("Download trailer 2", func() -> void:
+		OS.shell_open(TRAILER_2_VIDEO_URL)))
 	row.add_child(exp_b)
 	# Once the camera is down: on a fresh start, the choice of mode (the game waits for it);
 	# after switching modes the choice is already made, so the title simply fades.
@@ -5763,7 +5772,9 @@ func _show_title(layer: CanvasLayer) -> void:
 		row.visible = true
 		var tw := row.create_tween()
 		tw.tween_property(row, "modulate:a", 1.0, 0.5)
-		if "--movie-test" in OS.get_cmdline_user_args() or "--trailer-video" in OS.get_cmdline_user_args():
+		if "--trailer-video-2" in OS.get_cmdline_user_args():
+			film2.pressed.emit()                   # (CI: record the second trailer as a video)
+		elif "--movie-test" in OS.get_cmdline_user_args() or "--trailer-video" in OS.get_cmdline_user_args():
 			film.pressed.emit()                    # (CI: play the trailer by itself, or record it as a video)
 	card.gui_input.connect(func(ev: InputEvent) -> void:
 		if (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed) or (ev is InputEventScreenTouch and (ev as InputEventScreenTouch).pressed):
@@ -5776,7 +5787,7 @@ func _show_title(layer: CanvasLayer) -> void:
 		if not title_up and corner_box != null and is_instance_valid(corner_box):
 			corner_box.visible = true)                 # (not when the fly-by is only starting again)
 	_flyby_t = 0.0                                 # start the fly-by over the world
-	if "--trailer-video" in OS.get_cmdline_user_args():
+	if _recording_trailer():
 		_skip_flyby()                              # (recording the trailer: straight to it)
 	_fov_rest = cam.fov
 	get_tree().create_timer(FLYBY_SEG * FLYBY.size() + 3.0).timeout.connect(flyby_done)   # just in case

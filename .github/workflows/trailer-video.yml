@@ -1,11 +1,20 @@
 name: Record trailer video
 
-# Records the game's trailer as an MP4 (picture and music) and publishes it to the "trailer"
-# release, where the start screen's "Download trailer" button finds it. Started by hand only
-# (Actions > Record trailer video > Run workflow). The game draws in software here, so it takes a
-# while (about half an hour).
+# Records the game's trailers as MP4s (picture and music) and publishes them to the "trailer"
+# release, where the start screen's "Download trailer" buttons find them:
+#   trailer 1 (the scenes)      -> shardsight-trailer.mp4   (+ shardsight-trailer-v<version>.mp4)
+#   trailer 2 (the long flight) -> shardsight-trailer-2.mp4 (+ shardsight-trailer-2-v<version>.mp4)
+# Recording one replaces only that trailer's videos; the other stays. Started by hand only
+# (Actions > Record trailer video > Run workflow). The game draws in software here, so each
+# trailer takes a while (about half an hour).
 on:
   workflow_dispatch:
+    inputs:
+      which:
+        description: "Which trailer to record"
+        type: choice
+        options: ["1", "2", "both"]
+        default: "both"
 
 env:
   GODOT_VERSION: 4.3.0
@@ -14,9 +23,9 @@ env:
 jobs:
   record:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
     permissions:
-      contents: write          # to publish the video as a release asset
+      contents: write          # to publish the videos as release assets
     steps:
       - uses: actions/checkout@v4
 
@@ -35,42 +44,56 @@ jobs:
         run: godot --headless --import || true
 
       # Godot's Movie Maker writes every frame and the game's sound to an AVI at a fixed frame
-      # rate, however slowly it draws. The game starts the trailer by itself and quits when it ends.
-      - name: Record the trailer
+      # rate, however slowly it draws. The game starts the trailer by itself and quits when it
+      # ends; the video is then cut to the trailer (its opening included) and made an MP4.
+      - name: Record
+        env:
+          WHICH: ${{ inputs.which }}
         run: |
           mkdir -p build
-          set +e
-          timeout 6000 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 \
-            --resolution 1280x720 --fixed-fps "$FPS" --write-movie build/trailer.avi -- --trailer-video > record.log 2>&1
-          set -e
-          grep -E "TRAILER_(START|END)_FRAME" record.log || (tail -n 60 record.log; exit 1)
-          ls -la build
+          case "$WHICH" in 1) LIST="1";; 2) LIST="2";; *) LIST="1 2";; esac
+          for N in $LIST; do
+            if [ "$N" = "2" ]; then ARG="--trailer-video-2"; NAME="shardsight-trailer-2"; else ARG="--trailer-video"; NAME="shardsight-trailer"; fi
+            echo "== recording trailer $N"
+            set +e
+            timeout 6000 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 \
+              --resolution 1280x720 --fixed-fps "$FPS" --write-movie "build/$NAME.avi" -- "$ARG" > "record-$N.log" 2>&1
+            set -e
+            grep -E "TRAILER_(START|END)_FRAME" "record-$N.log" || (tail -n 60 "record-$N.log"; exit 1)
+            START=$(grep -oP 'TRAILER_START_FRAME \K[0-9]+' "record-$N.log" | head -n1)
+            END=$(grep -oP 'TRAILER_END_FRAME \K[0-9]+' "record-$N.log" | tail -n1)
+            SS=$(python3 -c "print(max(0, $START) / $FPS)")
+            DUR=$(python3 -c "print(max(1, $END - $START) / $FPS)")
+            ffmpeg -y -loglevel error -ss "$SS" -i "build/$NAME.avi" -t "$DUR" \
+              -c:v libx264 -preset medium -crf 21 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart \
+              "build/$NAME.mp4"
+            rm -f "build/$NAME.avi"
+            ls -la "build/$NAME.mp4"
+          done
 
-      - name: Cut it and make an MP4
-        run: |
-          START=$(grep -oP 'TRAILER_START_FRAME \K[0-9]+' record.log | head -n1)
-          END=$(grep -oP 'TRAILER_END_FRAME \K[0-9]+' record.log | tail -n1)
-          SS=$(python3 -c "print(max(0, $START) / $FPS)")
-          DUR=$(python3 -c "print(max(1, $END - $START) / $FPS)")
-          ffmpeg -y -loglevel error -ss "$SS" -i build/trailer.avi -t "$DUR" \
-            -c:v libx264 -preset medium -crf 21 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart \
-            build/shardsight-trailer.mp4
-          ls -la build/shardsight-trailer.mp4
-
+      # Each trailer's old videos go first (only that trailer's), then the new ones go up in their
+      # place - under a fixed name (the game's buttons) and one with the version.
       - name: Publish to the "trailer" release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(grep -oP '^config/version="\K[^"]+' project.godot)
-          # the last video goes first (its release and tag), then the new one is published in its place
-          if gh release view trailer >/dev/null 2>&1; then
-            gh release delete trailer --yes --cleanup-tag
-          fi
-          # two names for the same video: a fixed one (the game's button) and one with the version
-          cp build/shardsight-trailer.mp4 "build/shardsight-trailer-v$VERSION.mp4"
           SHORT=$(git rev-parse --short HEAD)
-          gh release create trailer build/shardsight-trailer.mp4 "build/shardsight-trailer-v$VERSION.mp4" \
-            --target "$GITHUB_SHA" --title "Shardsight trailer v$VERSION" --latest=false \
-            --notes "The Shardsight trailer, recorded from version $VERSION (commit $SHORT) on $(date -u +%Y-%m-%d)."
-          echo "Trailer v$VERSION: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/trailer/shardsight-trailer-v$VERSION.mp4" >> "$GITHUB_STEP_SUMMARY"
-          echo "Latest (the game's button): $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/trailer/shardsight-trailer.mp4" >> "$GITHUB_STEP_SUMMARY"
+          if ! gh release view trailer >/dev/null 2>&1; then
+            gh release create trailer --target "$GITHUB_SHA" --title "Shardsight trailers" --latest=false \
+              --notes "The Shardsight trailers."
+          fi
+          NOTES=""
+          for NAME in shardsight-trailer shardsight-trailer-2; do
+            [ -f "build/$NAME.mp4" ] || continue
+            for A in $(gh release view trailer --json assets -q '.assets[].name'); do
+              case "$A" in
+                "$NAME.mp4"|"$NAME"-v*.mp4) gh release delete-asset trailer "$A" --yes ;;
+              esac
+            done
+            cp "build/$NAME.mp4" "build/$NAME-v$VERSION.mp4"
+            gh release upload trailer "build/$NAME.mp4" "build/$NAME-v$VERSION.mp4" --clobber
+            echo "$NAME (v$VERSION): $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/trailer/$NAME.mp4" >> "$GITHUB_STEP_SUMMARY"
+            NOTES="$NOTES$NAME recorded from version $VERSION (commit $SHORT) on $(date -u +%Y-%m-%d). "
+          done
+          gh release edit trailer --title "Shardsight trailers" --notes "The Shardsight trailers. Latest: $NOTES"
