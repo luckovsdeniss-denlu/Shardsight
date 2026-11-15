@@ -809,6 +809,15 @@ func _find_role(r: String) -> Entity:
 func _follow_path(delta: float) -> void:
 	_accel = move_toward(_accel, 1.0, delta * 5.0) if not path.is_empty() else 0.4   # a step to get going
 	var budget := speed * delta * (mounted_on.mount_speed if mounted_on != null else 1.0) * _accel * form_value("speed", 1.0)
+	if game.movie != null and not path.is_empty() and _near:
+		# the trailer: fluid movement - cut the path's corners (straight to the furthest point
+		# that can be walked to directly), ease off on the last stretch, and a livelier hero
+		while path.size() > 1 and world.walk_clear(position, path[1]):
+			path.remove_at(0)
+		var left := position.distance_to(path[path.size() - 1])
+		budget *= clampf(0.35 + left * 0.65, 0.35, 1.0)
+		if is_hero:
+			budget *= 1.25
 	if effects.has("hiding") and not path.is_empty():
 		stealth_left -= budget
 		if stealth_left < 0.0:

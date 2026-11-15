@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.97.1
+- Smoother, more fluid movement in the trailer: characters cut the corners of their paths and go
+  straight to the furthest point they can walk to directly (no zig-zag from tile to tile), ease
+  off as they arrive instead of stopping dead, and the hero moves a quarter faster.
+
 ## 0.97.0
 - A "Download trailer" button on the start screen opens the trailer's video (an MP4 with its
   music) in the browser, to save or share.
