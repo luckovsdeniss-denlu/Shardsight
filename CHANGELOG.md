@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.1.2
+- The Android icon now fills the whole icon: the design reaches the edges of the launcher's shape
+  (circle or rounded square) instead of sitting small inside a dark border; behind it, a blurred,
+  darkened copy of the design.
+
 ## 1.1.1
 - Trailer camera: no more jitter. The camera and its aim now glide towards where they want to be
   instead of copying every shuffle of the hero and bump of the ground; turning towards a hero near
