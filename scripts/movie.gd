@@ -699,13 +699,13 @@ func tick(delta: float) -> bool:
 			_occl = move_toward(_occl, 0.0, delta * 0.3)
 	if _occl > 0.0:
 		var ease_k := _occl * _occl * (3.0 - 2.0 * _occl)
-		cam.position = cam.position.lerp(subject, 0.45 * ease_k) + Vector3(0.0, 3.0 * ease_k, 0.0)   # (closer in, only a little up)
+		cam.position = cam.position.lerp(subject, 0.6 * ease_k) + Vector3(0.0, 1.2 * ease_k, 0.0)   # (closer in, barely up)
 	# always a good height above the hero, so it is never filmed from below or at a crouch - and,
 	# close on the hero, never far up either
 	if see_hero:
 		cam.position.y = maxf(cam.position.y, hero.position.y + CAM_ABOVE_HERO)
 		if band > 0.0:
-			cam.position.y = minf(cam.position.y, hero.position.y + CAM_HIGH + 2.5 * _occl + 30.0 * (1.0 - band))
+			cam.position.y = minf(cam.position.y, hero.position.y + CAM_HIGH + 1.2 * _occl + 30.0 * (1.0 - band))
 	cam.position.y = maxf(cam.position.y, world.height_at(cam.position) + 1.3)
 	# and if the hero is getting near the edge of the picture, turn (gently) towards them
 	if see_hero:
@@ -1126,10 +1126,10 @@ var _clear_for := 0.0                  # how long the view of the hero has been 
 var _edge_k := 0.0                     # how hard the camera is turning towards a hero near the edge
 var _cam_s := Vector3.INF              # the camera's place, eased (no jitter)
 var _aim_s := Vector3.ZERO             # where it aims, eased
-const CAM_ABOVE_HERO := 2.8            # the camera never comes lower than this above the hero...
-const CAM_HIGH := 5.2                  # ...nor (close on the hero) higher than this
-const CAM_NEAR := 4.5                  # and keeps between these, out from the hero (metres)
-const CAM_FAR := 8.5
+const CAM_ABOVE_HERO := 1.0            # the camera never comes lower than this above the hero...
+const CAM_HIGH := 2.3                  # ...nor (close on the hero) higher: about the hero's own eye level
+const CAM_NEAR := 3.5                  # and keeps between these, out from the hero (metres)
+const CAM_FAR := 6.5
 var _floor_s := -INF                   # the camera's lowest height, eased
 var _punch_s := 0.0                    # the punch-in, eased            # the camera never comes lower than this above the hero
 

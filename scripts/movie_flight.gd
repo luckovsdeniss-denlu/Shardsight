@@ -47,7 +47,7 @@ func _plan_scene(sh: Dictionary) -> void:
 	_fly_from_look = _look_last
 	var dist := _fly_from_pos.distance_to(sh["at"] as Vector3)
 	_fly_dur = clampf(dist / 22.0, 2.2, 6.0)
-	_fly_arc = clampf(dist * 0.3, 6.0, 45.0)
+	_fly_arc = clampf(dist * 0.1, 2.0, 12.0)              # (low over the land, not high in the sky)
 	sh["dur"] = float(sh["dur"]) + _fly_dur
 	_delay = _fly_dur
 
