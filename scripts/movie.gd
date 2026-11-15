@@ -639,6 +639,18 @@ func _end_logo() -> void:
 	move_child(_end_card, get_child_count() - 2)
 	_end_card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_end_card.offset_bottom = -get_viewport().get_visible_rect().size.y * 0.28   # the name high, as on the loading screen
+	# the version under it (so a recording of the trailer shows which version it is)
+	var ver := _label(22, Color(0.75, 0.8, 0.9, 0.85))
+	ver.text = "v" + String(ProjectSettings.get_setting("application/config/version", ""))
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(ver)
+	move_child(ver, get_child_count() - 2)
+	ver.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	ver.offset_top = -get_viewport().get_visible_rect().size.y * 0.3
+	ver.offset_left = -200.0
+	ver.offset_right = 200.0
+	ver.modulate.a = 0.0
+	ver.create_tween().tween_property(ver, "modulate:a", 1.0, 1.2).set_delay(0.6)
 	var logo := Title3D.make("SHARDSIGHT", minf(get_viewport().get_visible_rect().size.x * 0.98, 1900.0), 1.2)
 	_end_card.add_child(logo)                           # the name in 3D: gold, glowing, the light sweeping across
 	var sparks := CPUParticles2D.new()

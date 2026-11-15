@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.97.4
+- Trailer recordings carry their version: the video is published both as
+  shardsight-trailer.mp4 (the fixed link the game's button opens) and as
+  shardsight-trailer-v<version>.mp4; the release is titled with the version and notes the commit
+  and date it was recorded from; and the trailer's closing card shows the version under the name.
+
 ## 0.97.3
 - Recording the trailer video now deletes the last video (its release and tag) before publishing
   the new one, so only the latest trailer is ever there.

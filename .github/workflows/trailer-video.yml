@@ -66,6 +66,11 @@ jobs:
           if gh release view trailer >/dev/null 2>&1; then
             gh release delete trailer --yes --cleanup-tag
           fi
-          gh release create trailer build/shardsight-trailer.mp4 --target "$GITHUB_SHA" --title "Shardsight trailer" \
-            --notes "The Shardsight trailer, recorded from v$VERSION." --latest=false
-          echo "Trailer: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/trailer/shardsight-trailer.mp4" >> "$GITHUB_STEP_SUMMARY"
+          # two names for the same video: a fixed one (the game's button) and one with the version
+          cp build/shardsight-trailer.mp4 "build/shardsight-trailer-v$VERSION.mp4"
+          SHORT=$(git rev-parse --short HEAD)
+          gh release create trailer build/shardsight-trailer.mp4 "build/shardsight-trailer-v$VERSION.mp4" \
+            --target "$GITHUB_SHA" --title "Shardsight trailer v$VERSION" --latest=false \
+            --notes "The Shardsight trailer, recorded from version $VERSION (commit $SHORT) on $(date -u +%Y-%m-%d)."
+          echo "Trailer v$VERSION: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/trailer/shardsight-trailer-v$VERSION.mp4" >> "$GITHUB_STEP_SUMMARY"
+          echo "Latest (the game's button): $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/trailer/shardsight-trailer.mp4" >> "$GITHUB_STEP_SUMMARY"
