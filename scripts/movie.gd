@@ -31,7 +31,13 @@ var _runs := 0                         # runs from a blade in a row before a spe
 
 ## A heavy blow or a K.O.: the camera punches in for an instant.
 func punch(amount := 1.0) -> void:
+	if _punch_cd > 0.0 and amount <= _punch:
+		return                         # (not one on top of another: a run of blows made it shake)
 	_punch = maxf(_punch, amount)
+	_punch_cd = 1.2
+
+
+var _punch_cd := 0.0
 
 
 # --- in time with the music ---------------------------------------------------------------
@@ -99,6 +105,17 @@ var _was_casting := false
 var _slow := 0.0                   # real seconds of slow motion left
 var _end_card: Control
 var _spell_light: OmniLight3D           # the light of the hero's spells
+
+# --- one colour grade for the whole trailer ---------------------------------------------------
+# Every scene the same look: the same saturation and contrast, the same warm edge of light, and
+# the brightness evened out - a scene at night, in a storm or at dusk is exposed up towards the
+# brightness of a sunny one (keeping a little of its mood), so the trailer doesn't go dark and
+# light from scene to scene. Put back as it was afterwards.
+const GRADE_SATURATION := 0.92
+const GRADE_CONTRAST := 1.14
+const GRADE_EXPOSURE := 1.05         # (the game's own, in full daylight)
+const LEAK := 0.4
+var _expo := -1.0
 var _spell_col := Color(0.7, 0.8, 1.0)
 var _flare := 0.0
 var _riser_done := false
@@ -165,6 +182,12 @@ func start(p_game) -> void:
 		game._scale_cap = 0.8
 		get_viewport().scaling_3d_scale = 0.8
 	_build_ui()
+	var env: Environment = game.env
+	_snap["grade"] = [env.tonemap_exposure, env.adjustment_enabled, env.adjustment_saturation, env.adjustment_contrast, env.adjustment_brightness]
+	env.adjustment_enabled = true
+	env.adjustment_saturation = GRADE_SATURATION
+	env.adjustment_contrast = GRADE_CONTRAST
+	env.adjustment_brightness = 1.0
 	# the spell light: the hero's spells light them and the ground round them (best at night)
 	_spell_light = OmniLight3D.new()
 	_spell_light.light_energy = 0.0
@@ -470,19 +493,33 @@ func _next() -> void:
 	_word_t = 1.0 + _delay                              # the first word a moment after the cut (or the landing)
 	if "--movie-test" in OS.get_cmdline_user_args():
 		print("MOVIE scene %d: %s (hero at %s)" % [i + 1, sh["title"], world.to_tile(hero.position)])
-	_fx.set_shader_parameter("leak", 1.0 if float(sh.get("day", 0.4)) > 0.2 and String(sh.get("weather", "clear")) != "storm" else 0.0)
+	_fx.set_shader_parameter("leak", LEAK)                # (the same warm edge in every scene: one look throughout)
 	game.cam.fov = 60.0                                 # each scene starts wide and pushes in
 	if i == 0:
 		# the very start: no flash and no blink - the picture simply rises out of black
 		_flash = 0.0
 		_fx.set_shader_parameter("flash", 0.0)
 		_fx.set_shader_parameter("leak", 0.0)
+		create_tween().tween_method(func(v: float) -> void: _fx.set_shader_parameter("leak", v), 0.0, LEAK, 1.4)
 		_fade.modulate.a = 1.0
 		_fade.create_tween().tween_property(_fade, "modulate:a", 0.0, 1.4).set_trans(Tween.TRANS_SINE)
 	elif not _continuous():                             # (no cuts through white: every cut dips to black)
 		_fade.modulate.a = 1.0                          # a dip to black between scenes
 		_fade.create_tween().tween_property(_fade, "modulate:a", 0.0, 0.6)
 	# (the long flight never cuts: no dip at all)
+
+
+## The brightness evened out: how strongly the land is lit now (the sun and the sky's light, as the
+## game sets them from the time of day and the weather), against full daylight.
+func _grade_step(delta: float) -> void:
+	var lit := clampf(float(game._lit), 0.0, 1.0)
+	var now := lerpf(0.42, 0.6, lit) + 0.5 * lerpf(0.3, 1.35, lit)
+	var full := 0.6 + 0.5 * 1.35
+	var want := clampf(GRADE_EXPOSURE * pow(full / maxf(now, 0.1), 0.8), GRADE_EXPOSURE, 2.0)
+	if _expo < 0.0 or (t < 0.05 and not _continuous()):
+		_expo = want                                     # (at a cut: at once, under the dip to black)
+	_expo = lerpf(_expo, want, 1.0 - exp(-delta * 1.5))  # (on the long flight: gliding)
+	(game.env as Environment).tonemap_exposure = _expo
 
 
 ## Runs the scene: films it and keeps the hero going. Returns false once the movie is over.
@@ -563,6 +600,7 @@ func tick(delta: float) -> bool:
 	var vs := get_viewport().get_visible_rect().size
 	_progress.size.x = vs.x * (float(i) + clampf(t / dur, 0.0, 1.0)) / float(shots.size())
 	var k := smoothstep(0.0, 1.0, clampf(t / dur, 0.0, 1.0))
+	_grade_step(delta)
 	var cam: Camera3D = game.cam
 	cam.fov = lerpf(60.0, 48.0, k)                      # a slow push in
 	cam.far = float(sh.get("far", 130.0))               # (the whole land in sight only where a scene asks for it)
@@ -679,6 +717,7 @@ func tick(delta: float) -> bool:
 	# a little life in the hand-held camera, and a punch-in on a big blow
 	cam.position += Vector3(sin(t * 1.7) * 0.06, sin(t * 2.3) * 0.04, cos(t * 1.3) * 0.06)
 	_punch = maxf(_punch - delta * 3.0, 0.0)
+	_punch_cd = maxf(_punch_cd - delta, 0.0)
 	_punch_s = lerpf(_punch_s, _punch, 1.0 - exp(-delta * 10.0))   # (the punch-in eases in: no jolt)
 	cam.fov -= _punch_s * 5.0
 	cam.look_at(look + Vector3(0, 0.8, 0), Vector3.UP)
@@ -801,6 +840,14 @@ func _back_to_title() -> void:
 	if _end_card != null:
 		_end_card.visible = false
 	_restore()
+	if _snap.has("grade"):
+		var env: Environment = game.env
+		var g: Array = _snap["grade"]
+		env.tonemap_exposure = g[0]
+		env.adjustment_enabled = g[1]
+		env.adjustment_saturation = g[2]
+		env.adjustment_contrast = g[3]
+		env.adjustment_brightness = g[4]
 	if _spell_light != null and is_instance_valid(_spell_light):
 		_spell_light.queue_free()
 	_spell_light = null
@@ -953,7 +1000,6 @@ func on_hero_strike(foe: Entity) -> void:
 	match step:
 		0:                                               # slash, then a side-step round the foe
 			if hero_holds_ground():
-				_spin(hero, 0.3)                         # (standing its ground: a turn on the spot instead)
 				foe._pop(String(COMBO_NAMES[step]), Color(1.0, 0.9, 0.5))
 				return
 			_side = -_side
@@ -965,16 +1011,36 @@ func on_hero_strike(foe: Entity) -> void:
 				if not world.is_blocked(world.to_tile(dest)):
 					hero.create_tween().tween_property(hero, "position", dest, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		1:                                               # spin slash
-			_spin(hero, 0.32)
+			if not hero_holds_ground():
+				_spin(hero, 0.32)
 		2:                                               # leaping strike
-			_hop(hero, 0.7, 0.18, 0.2)
-			punch_on_beat(0.5)
+			if not hero_holds_ground():
+				_hop(hero, 0.7, 0.18, 0.2)
+				punch_on_beat(0.5)
 		3:                                               # whirlwind finisher
 			_spin(hero, 0.45, 2.0)
-			_hop(hero, 0.45, 0.15, 0.2)
-			punch_on_beat(1.0)
+			if not hero_holds_ground():
+				_hop(hero, 0.45, 0.15, 0.2)
+			punch_on_beat(0.5 if hero_holds_ground() else 1.0)
 			Fx.sparkle(game, foe.position + Vector3(0.0, 1.0, 0.0), Color(1.0, 0.85, 0.35), 30)
 	foe._pop(String(COMBO_NAMES[step]), [Color(1.0, 0.9, 0.5), Color(0.6, 0.9, 1.0), Color(1.0, 0.6, 0.3), Color(1.0, 0.45, 0.85)][step])
+
+
+## Against the giant, blows are struck from the size of the two apart (the hero no longer stands
+## inside the giant, sword through its legs, both shuffling to keep in reach).
+func melee_extra(e: Entity) -> float:
+	if not hero_holds_ground():
+		return 0.0
+	var x := maxf(e.visual_scale - 1.0, 0.0) * 0.6
+	if e.target != null and is_instance_valid(e.target):
+		x += maxf(e.target.visual_scale - 1.0, 0.0) * 0.6
+	return x
+
+
+## The hero takes the giant's blows standing: no squash, hop or punch-in on each one (they came
+## every second and shook the hero, sword and all, and the camera with them).
+func calm_hits(e: Entity) -> bool:
+	return e == hero and hero_holds_ground()
 
 
 ## In a scene marked "no_run" (the giant), the hero stands and fights: no stepping back from the

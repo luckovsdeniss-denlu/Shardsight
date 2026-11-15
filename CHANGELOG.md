@@ -3,6 +3,20 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.2.1
+- All trailers: one colour grade throughout. Every scene has the same saturation and contrast and
+  the same warm edge of light (it used to come and go with the time of day and the weather), and
+  the brightness is evened out: night, dusk and storm scenes are exposed up towards the brightness
+  of a sunny one, keeping a little of their mood - eased on the long flight, at once under each
+  cut's dip to black. The game's own grade is put back afterwards.
+- "Slay the giants": no more shaking.
+  - The hero takes the giant's blows standing: no squash, hop and camera punch-in on every one
+    (they came about every second and shook the hero, sword and all, and the camera with them).
+  - The hero and the giant strike from their size apart, so the hero no longer stands inside the
+    giant with the sword through its legs, both shuffling to stay in reach.
+  - The sword combo is calmer here: no leaps; the whirlwind finisher still spins.
+- All trailers: a camera punch-in can't land on top of another one (at most one every 1.2 s).
+
 ## 1.2.0
 - **Short trailer** (new button on the start screen): about 30 seconds of the best of the first
   trailer, for sharing - the name, the whole land from high above, a fight, magic at night,

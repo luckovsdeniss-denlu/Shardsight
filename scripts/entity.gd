@@ -1231,6 +1231,8 @@ func _victory_spin() -> void:
 func _comic_hit(heavy: bool) -> void:
 	if rig == null or not _near:
 		return
+	if game.movie.calm_hits(self):
+		return                               # (the hero against the giant: takes it standing, no wobble)
 	var tw := rig.create_tween()
 	var s := 1.4 if heavy else 1.25
 	tw.tween_property(rig, "scale", Vector3(s, 1.0 / s, s), 0.06)
@@ -3638,6 +3640,8 @@ func attack_range() -> float:
 	var w := _wielded()
 	if w != "" and Gear.is_ranged(w):
 		return float(Gear.stats(w)["range"])
+	if game != null and game.movie != null:
+		return MELEE_RANGE + game.movie.melee_extra(self)   # (the trailer's giant: blows from its size apart)
 	return MELEE_RANGE
 
 
