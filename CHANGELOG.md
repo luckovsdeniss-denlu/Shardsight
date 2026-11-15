@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.0.7
+- The icon: the gold ring reaches further out, right to the edges, and a second ring circles
+  closer to the shard - an icy blue band of light, turned a little against the gold one, cut on
+  four sides too, with a bright bead at each end of its arcs and a soft blue glow.
+
 ## 1.0.6
 - The icon's ring reaches out to the icon's edges: the four gold arcs sweep wide round the shard
   and the sword, and the four small shards sit right at the edges in the cuts.
