@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.1.0
+- The game's icon is now the new design (the shard and sword in the cut gold ring, the blue ring
+  and the fine rings), from the owner's image: `icon.png` is the game's icon, and Android's
+  launcher gets it too - as a plain icon, and as an adaptive icon (the whole design inside the
+  safe area on a matching dark background, so a round or rounded launcher shape never cuts off the
+  rings or the shards).
+
 ## 1.0.9
 - The icon: the blue ring moves a little out, clear of the sword's pommel (it touched it), with a
   hairline just outside it; and between the shard and the rings, the fine work - hairline rings at
