@@ -645,7 +645,11 @@ func _chase() -> void:
 	var reach := attack_range()
 	if (kind != Kind.PLAYER or ai_enabled) and _best_spell("attack") != "" and not (is_hero and game.movie != null):
 		reach = maxf(reach, SPELL_RANGE)   # casters keep their distance
-	if position.distance_to(target.position) > reach or not world.line_clear(position, target.position) \
+	# (while closing in, keep going until a little inside striking reach before stopping, so a
+	# fighter doesn't stutter stop-go at the edge of reach as the foe shifts)
+	var stop_at := reach - (0.3 if not path.is_empty() and reach > 0.6 else 0.0)
+	var far := position.distance_to(target.position) > stop_at
+	if far or not world.line_clear(position, target.position) \
 			or (reach > 2.0 and _body_between(target)):
 		if repath_timer <= 0.0 or path.is_empty():
 			repath_timer = 0.4
@@ -807,6 +811,10 @@ func _find_role(r: String) -> Entity:
 # --- movement --------------------------------------------------------------
 
 func _follow_path(delta: float) -> void:
+	# a fresh path starts at the centre of the tile we stand on: skip it when it's behind or right
+	# here and the next point is in reach (no little step back - the twitch on every new path)
+	if path.size() > 1 and position.distance_to(path[0]) < 0.9 and world.walk_clear(position, path[1]):
+		path.remove_at(0)
 	_accel = move_toward(_accel, 1.0, delta * 5.0) if not path.is_empty() else 0.4   # a step to get going
 	var budget := speed * delta * (mounted_on.mount_speed if mounted_on != null else 1.0) * _accel * form_value("speed", 1.0)
 	if game.movie != null and not path.is_empty() and _near:

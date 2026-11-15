@@ -5519,13 +5519,15 @@ func _separate_bodies() -> void:
 					# walk, each gives way half); two standing still are left as they are.
 					var e_moves := not e.path.is_empty()
 					var b_moves := not b.path.is_empty()
+					# (eased apart over a few frames, not shoved in one - no shaking)
+					var ease := 0.35
 					if e_moves and b_moves:
-						_nudge(e, -n * overlap * 0.5)
-						_nudge(b, n * overlap * 0.5)
+						_nudge(e, -n * overlap * 0.5 * ease)
+						_nudge(b, n * overlap * 0.5 * ease)
 					elif e_moves:
-						_nudge(e, -n * overlap)
+						_nudge(e, -n * overlap * ease)
 					elif b_moves:
-						_nudge(b, n * overlap)
+						_nudge(b, n * overlap * ease)
 
 
 func _nudge(e: Entity, v: Vector2) -> void:

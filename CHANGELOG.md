@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.97.5
+Creatures move without jitter, in the game and the trailer:
+- A new path no longer begins with a little step back to the centre of the tile underfoot (the
+  twitch every time a chaser re-plans its route, several times a second).
+- A fighter closing in keeps going until a little inside striking reach before stopping, instead
+  of stuttering stop-go at the very edge of reach as its foe shifts.
+- Bodies that overlap are eased apart over a few frames instead of shoved in one (no shaking).
+
 ## 0.97.4
 - Trailer recordings carry their version: the video is published both as
   shardsight-trailer.mp4 (the fixed link the game's button opens) and as
