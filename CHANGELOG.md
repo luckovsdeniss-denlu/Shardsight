@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.99.5
+- Trailer 2 shows a map of the whole world with the journey drawn across it as one long line: in
+  the top-left corner, the land framed in gold, a dashed line through every place in the order the
+  camera visits them, the stretch already travelled in bright gold, a dot at each place, a glowing
+  marker moving with the camera, and the name of the place being visited.
+
 ## 0.99.4
 - Fix: since 0.97.2 the trailer camera stopped moving in almost every scene (a line was lost when
   the camera started following the hero, and it then reached for a glide that only the boat scene

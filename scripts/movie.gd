@@ -205,6 +205,12 @@ func _build_ui() -> void:
 	_rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_title.get_parent().add_child(_rule)
 	_title.get_parent().move_child(_rule, 1)
+	if variant == 2:
+		_route = Control.new()                          # the map of the journey, top left
+		_route.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_route)
+		_route.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_route.draw.connect(_draw_route)
 	_progress = ColorRect.new()
 	_progress.color = Color(0.95, 0.78, 0.35, 0.8)
 	_progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -535,6 +541,8 @@ func tick(delta: float) -> bool:
 		cam.position = _fly_from_pos.lerp(cam.position, fk) + Vector3(0.0, sin(PI * fk) * _fly_arc, 0.0)
 		look = _fly_from_look.lerp(look, fk)
 	_look_last = look
+	if _route != null:
+		_route.queue_redraw()
 	# a little life in the hand-held camera, and a punch-in on a big blow
 	cam.position += Vector3(sin(t * 1.7) * 0.06, sin(t * 2.3) * 0.04, cos(t * 1.3) * 0.06)
 	_punch = maxf(_punch - delta * 3.0, 0.0)
@@ -856,6 +864,72 @@ func _hop(e: Entity, height: float, up: float, down: float) -> void:
 	var tw := e.create_tween()
 	tw.tween_property(e, "anim_lift", height, up).set_ease(Tween.EASE_OUT)
 	tw.tween_property(e, "anim_lift", 0.0, down).set_ease(Tween.EASE_IN)
+
+
+# --- the map of the journey (trailer 2) ---------------------------------------------------
+
+var _route: Control
+
+
+## The whole world as a map in the corner, with the journey drawn across it as one long gold
+## line through every place, in order: the stretch already travelled bright, the rest faint and
+## dashed, a dot at each place, a glowing marker where the camera is now, and the name of the
+## place being visited. The line draws itself in during the opening flight.
+func _draw_route() -> void:
+	if shots.is_empty() or i < 0:
+		return
+	var mm = game.minimap
+	if mm._terrain == null:
+		mm._bake_terrain()
+	var vs := get_viewport().get_visible_rect().size
+	var side := minf(vs.y * 0.34, 300.0)
+	var origin := Vector2(24.0, vs.y * 0.14 + 10.0)               # under the top bar, at the left
+	var mscale := side / float(world.cols)
+	var to_map := func(p: Vector3) -> Vector2:
+		return origin + Vector2(p.x, p.z) / World.TILE * mscale
+	# the map, framed
+	_route.draw_rect(Rect2(origin - Vector2(5, 5), Vector2(side, side) + Vector2(10, 10)), Color(0.04, 0.05, 0.08, 0.85))
+	_route.draw_texture_rect(mm._terrain, Rect2(origin, Vector2(side, side)), false, Color(1, 1, 1, 0.9))
+	_route.draw_rect(Rect2(origin - Vector2(1, 1), Vector2(side, side) + Vector2(2, 2)), Color(0.85, 0.71, 0.29), false, 1.5)
+	# the stops: the start of the opening line, then every place
+	var pts: Array[Vector2] = []
+	for k in range(shots.size()):
+		var sh: Dictionary = shots[k]
+		if sh.has("line"):
+			pts.append(to_map.call(sh["line"][0]))
+			pts.append(to_map.call(sh["line"][1]))
+		else:
+			pts.append(to_map.call(sh["at"]))
+	# how far along: the stops reached so far, then the marker where the camera looks now
+	var reached := clampi(i + 1 + (1 if (shots[0] as Dictionary).has("line") else 0), 1, pts.size())
+	if i == 0 and (shots[0] as Dictionary).has("line"):
+		reached = 1
+	var here: Vector2 = to_map.call(_look_last)
+	var gold := Color(1.0, 0.82, 0.35)
+	for k in range(pts.size() - 1):                                # the way ahead: faint, dashed
+		var a := pts[k]
+		var b := pts[k + 1]
+		var n := int(a.distance_to(b) / 6.0) + 1
+		for d in range(0, n, 2):
+			_route.draw_line(a.lerp(b, float(d) / n), a.lerp(b, minf(float(d + 1) / n, 1.0)), Color(1, 1, 1, 0.35), 1.5, true)
+	var travelled := PackedVector2Array()                          # the way behind: bright gold
+	for k in range(reached):
+		travelled.append(pts[k])
+	travelled.append(here)
+	if travelled.size() >= 2:
+		_route.draw_polyline(travelled, Color(0, 0, 0, 0.6), 5.0, true)
+		_route.draw_polyline(travelled, gold, 2.5, true)
+	for k in range(pts.size()):                                    # the stops
+		_route.draw_circle(pts[k], 3.5 if k < reached else 2.5, gold if k < reached else Color(1, 1, 1, 0.6))
+	var pulse := 1.0 + 0.3 * sin(t * 6.0)                          # where we are now
+	_route.draw_circle(here, 7.0 * pulse, Color(1.0, 0.85, 0.4, 0.3))
+	_route.draw_circle(here, 4.0, Color(1, 1, 1))
+	var font := ThemeDB.fallback_font
+	var place := String((shots[i] as Dictionary)["title"])
+	if i == 0:
+		place = "The whole land"
+	_route.draw_string_outline(font, origin + Vector2(0, side + 24), place.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, side, 16, 4, Color.BLACK)
+	_route.draw_string(font, origin + Vector2(0, side + 24), place.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, side, 16, gold)
 
 
 ## A named beast for a bounty: bigger, tougher, worth more.
