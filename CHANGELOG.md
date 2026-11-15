@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.2.2
+- Weighty combat - always in the trailers, and in experimental mode as the "Weighty combat"
+  experiment (Main Menu > Experiments; off in the ordinary game until it has been tried):
+  - every hand-to-hand blow is drawn back, struck fast and followed through (0.42 s instead of a
+    0.22 s jab), and it lands at the moment of impact rather than as the swing begins - a foe who
+    steps out of reach in time hears it whistle past;
+  - as the blade bites, attacker and foe freeze for an instant (longer on a special move);
+  - a clean flinch: the struck body snaps back and eases out.
+- The trailers lose the cartoon touches for a cleaner look: no squash and stretch or comic words
+  ("BONK!", "POW!") on a hit, no foes sent flying with "YEET!" - they topple over - and no
+  victory twirl; a heavy blow is marked by a small punch-in of the camera.
+
 ## 1.2.1
 - All trailers: one colour grade throughout. Every scene has the same saturation and contrast and
   the same warm edge of light (it used to come and go with the time of day and the weather), and

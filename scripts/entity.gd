@@ -391,6 +391,10 @@ func tick(delta: float) -> void:
 			if dead_timer <= 0.0:
 				_respawn()
 		return
+	if _blow_t > 0.0:
+		_blow_t -= delta
+		if _blow_t <= 0.0:
+			_land_blow()
 	_cull_timer -= delta
 	if _cull_timer <= 0.0:
 		_cull_timer = 0.2
@@ -891,7 +895,68 @@ func _fight() -> void:
 		_end_flag("invisible")              # attacking reveals you
 	swing_cd = Rules.swing_seconds(maxi(1, int(stamina)), ws)   # tired fighters swing slower
 	stamina = maxf(stamina - SWING_STAMINA, 0.0)
+	_swing_len = SWING_ANIM
 	swing_anim = SWING_ANIM
+	if pro_combat() and (wielded == "" or not Gear.is_ranged(wielded)):
+		# a weighty blow: drawn back, brought through, followed through - and it lands at the
+		# moment of impact, not as the swing begins
+		_swing_len = PRO_SWING
+		swing_anim = PRO_SWING
+		swing_cd = maxf(swing_cd, PRO_SWING + 0.05)
+		_blow = [target, wielded, lo, hi]
+		_blow_t = PRO_SWING * PRO_IMPACT
+		return
+	_resolve_blow(wielded, lo, hi)
+
+
+# --- weighty combat ("Weighty combat" experiment; always in the trailers) ------------------
+const PRO_SWING := 0.42              # a whole blow: wind-up, strike, follow-through (seconds)
+const PRO_IMPACT := 0.56             # where in it the blade meets the foe
+const HIT_STOP := 0.07               # both freeze for an instant as it lands
+var _swing_len := SWING_ANIM
+var _blow: Array = []                # the blow on its way: [target, weapon, min, max]
+var _blow_t := 0.0
+var hit_stop := 0.0
+
+
+## Whether fights play the weighty way: in the trailers, and in experimental mode with
+## "Weighty combat" switched on.
+func pro_combat() -> bool:
+	return (game != null and game.movie != null) or Experiments.on("pro_combat")
+
+
+## The blow arrives: it lands if the foe is still there and still in reach (a step out of reach
+## and it whistles past).
+func _land_blow() -> void:
+	var b := _blow
+	_blow = []
+	if b.is_empty() or dead:
+		return
+	var foe = b[0]
+	if foe == null or not is_instance_valid(foe) or foe.dead or foe != target \
+			or position.distance_to(foe.position) > attack_range() + 0.8:
+		game.sound("whoosh", position)
+		return
+	_resolve_blow(String(b[1]), float(b[2]), float(b[3]))
+
+
+## A blow's swing, as a share of the way through it: in the weighty way, slow as it's drawn back,
+## fast through the strike, easing out in the follow-through.
+func _swing_p() -> float:
+	var p := 1.0 - swing_anim / maxf(_swing_len, 0.001)
+	if _swing_len <= SWING_ANIM:
+		return p
+	if p < 0.45:
+		return 0.3 * smoothstep(0.0, 0.45, p)                 # wind-up: drawn back
+	if p < 0.62:
+		return lerpf(0.3, 0.82, (p - 0.45) / 0.17)            # the strike: fast
+	return lerpf(0.82, 1.0, 1.0 - pow(1.0 - (p - 0.62) / 0.38, 2.0))   # follow-through
+
+
+## The blow itself: whether it hits, how hard, and everything that follows from it.
+func _resolve_blow(wielded: String, lo: float, hi: float) -> void:
+	if target == null:
+		return
 	var skill := _weapon_skill()
 	var atk := _skill(skill)
 	var def := target._skill(target._weapon_skill())
@@ -941,6 +1006,9 @@ func _fight() -> void:
 		elif special == "armor_ignore":
 			through = 1.0
 		target._hit_sound = _hit_sound_for(wielded, target)
+		if pro_combat() and (wielded == "" or not Gear.is_ranged(wielded)):
+			hit_stop = HIT_STOP                    # the blade bites: both freeze for an instant
+			target.hit_stop = HIT_STOP * (1.6 if special != "" else 1.0)
 		var dealt := target._absorb(dmg, through)
 		if is_hero:
 			game.count("hero_hits")
@@ -1171,6 +1239,8 @@ func take_damage(amount: float, from: Entity) -> void:
 	hp -= amount
 	hurt_timer = HURT_NO_REGEN
 	hit_anim = 0.18
+	if pro_combat():
+		hit_anim = 0.24                      # (a clean flinch, held a moment longer)
 	if form != "" and bool(Spells.FORMS[form].get("poly", false)):
 		form_timer -= 2.0                    # a borrowed body frays fast under blows
 	if paralyzed_timer > 0.0:
@@ -1233,6 +1303,10 @@ func _comic_hit(heavy: bool) -> void:
 		return
 	if game.movie.calm_hits(self):
 		return                               # (the hero against the giant: takes it standing, no wobble)
+	if pro_combat():
+		if heavy:
+			game.movie.punch(0.4)            # (weighty: no cartoon squash or words - the blow speaks)
+		return
 	var tw := rig.create_tween()
 	var s := 1.4 if heavy else 1.25
 	tw.tween_property(rig, "scale", Vector3(s, 1.0 / s, s), 0.06)
@@ -1289,7 +1363,7 @@ func _die(killer: Entity) -> void:
 	else:
 		dead_timer = respawn_time
 		_dying = 0.7 if _near else 0.0         # topples over before vanishing (its corpse stays)
-		if game.movie != null and _near:
+		if game.movie != null and _near and not pro_combat():
 			_dying = COMIC_FLIGHT              # the trailer: sent flying, cartoon-style
 			game.movie.punch(1.0)
 			if killer != null and killer.is_hero:
@@ -3039,6 +3113,9 @@ static func _ease_x(n: Node3D, want: float, delta: float, rate := 14.0) -> void:
 
 
 func _animate(delta: float) -> void:
+	if hit_stop > 0.0:
+		hit_stop -= delta
+		return                                 # (frozen in the pose of the blow, for an instant)
 	anim_t += delta
 	swing_anim = maxf(swing_anim - delta, 0.0)
 	var moving := position.distance_to(_last_pos) > 0.001
@@ -3071,7 +3148,7 @@ func _animate(delta: float) -> void:
 		glance = sin(anim_t * 0.6) * 0.08 if target == null else 0.0   # glancing about while idle
 	var z := 0.0
 	if swing_anim > 0.0:
-		var k := sin(swing_anim / SWING_ANIM * PI)
+		var k := sin(_swing_p() * PI)
 		if weapon != "" and Gear.is_ranged(weapon):
 			tilt -= 0.08 * k                 # loosing an arrow: a little lean back
 		elif weapon != "" and Gear.dtype(weapon) == "pierce":
@@ -3086,6 +3163,9 @@ func _animate(delta: float) -> void:
 			tilt += 0.25 * k
 	if hit_anim > 0.0:                       # flinching from a blow
 		var h := hit_anim / 0.18
+		if pro_combat():
+			var f := clampf(1.0 - hit_anim / 0.24, 0.0, 1.0)
+			h = sin(minf(f * 3.0, 1.0) * PI * 0.5) * (1.0 - smoothstep(0.35, 1.0, f))   # snaps back, eases out
 		tilt -= 0.22 * h
 		z += 0.07 * h
 	rig.position = Vector3(0.0, y + anim_lift, z)
@@ -5381,7 +5461,7 @@ func _animate_human(delta: float, stride: float, moving: bool) -> void:
 				lx = 0.8
 				lex = 0.9
 	if swing_anim > 0.0:                          # the blow itself
-		var p := 1.0 - swing_anim / SWING_ANIM     # 0 .. 1 through it
+		var p := _swing_p()                        # 0 .. 1 through it
 		var k := sin(p * PI)
 		rate = 40.0
 		crouch = 0.15 + 0.15 * k
@@ -5471,7 +5551,7 @@ func _animate_human(delta: float, stride: float, moving: bool) -> void:
 			hx = -0.2 * down
 		hy = 0.0
 	if hit_anim > 0.0:                            # struck: the head snaps back, the arms fly out
-		var h := hit_anim / 0.18
+		var h := minf(hit_anim / 0.18, 1.0)
 		hx += 0.35 * h
 		az += 0.5 * h
 		lz -= 0.5 * h
