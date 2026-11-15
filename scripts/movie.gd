@@ -882,15 +882,16 @@ func _draw_route() -> void:
 	if mm._terrain == null:
 		mm._bake_terrain()
 	var vs := get_viewport().get_visible_rect().size
-	var side := minf(vs.y * 0.34, 300.0)
-	var origin := Vector2(24.0, vs.y * 0.14 + 10.0)               # under the top bar, at the left
-	var mscale := side / float(world.cols)
+	# a long map: stretched across the whole top bar, the width of the screen and low
+	var bar := vs.y * 0.12
+	var origin := Vector2(24.0, 6.0)
+	var msize := Vector2(vs.x - 48.0, maxf(bar - 12.0, 40.0))
 	var to_map := func(p: Vector3) -> Vector2:
-		return origin + Vector2(p.x, p.z) / World.TILE * mscale
+		return origin + Vector2(p.x / float(world.cols), p.z / float(world.rows)) / World.TILE * msize
 	# the map, framed
-	_route.draw_rect(Rect2(origin - Vector2(5, 5), Vector2(side, side) + Vector2(10, 10)), Color(0.04, 0.05, 0.08, 0.85))
-	_route.draw_texture_rect(mm._terrain, Rect2(origin, Vector2(side, side)), false, Color(1, 1, 1, 0.9))
-	_route.draw_rect(Rect2(origin - Vector2(1, 1), Vector2(side, side) + Vector2(2, 2)), Color(0.85, 0.71, 0.29), false, 1.5)
+	_route.draw_rect(Rect2(origin - Vector2(4, 4), msize + Vector2(8, 8)), Color(0.04, 0.05, 0.08, 0.85))
+	_route.draw_texture_rect(mm._terrain, Rect2(origin, msize), false, Color(1, 1, 1, 0.92))
+	_route.draw_rect(Rect2(origin - Vector2(1, 1), msize + Vector2(2, 2)), Color(0.85, 0.71, 0.29), false, 1.5)
 	# the stops: the start of the opening line, then every place
 	var pts: Array[Vector2] = []
 	for k in range(shots.size()):
@@ -921,15 +922,29 @@ func _draw_route() -> void:
 		_route.draw_polyline(travelled, gold, 2.5, true)
 	for k in range(pts.size()):                                    # the stops
 		_route.draw_circle(pts[k], 3.5 if k < reached else 2.5, gold if k < reached else Color(1, 1, 1, 0.6))
-	var pulse := 1.0 + 0.3 * sin(t * 6.0)                          # where we are now
+	var pulse := 1.0 + 0.3 * sin(t * 6.0)                          # where the camera looks now
 	_route.draw_circle(here, 7.0 * pulse, Color(1.0, 0.85, 0.4, 0.3))
-	_route.draw_circle(here, 4.0, Color(1, 1, 1))
+	_route.draw_circle(here, 3.5, Color(1, 1, 1))
+	# the camera itself, flying by: its place, and a cone of light showing where it looks
+	var cpos: Vector2 = to_map.call(game.cam.global_position)
+	var fwd3 := -game.cam.global_transform.basis.z
+	var fwd := Vector2(fwd3.x / float(world.cols) * msize.x, fwd3.z / float(world.rows) * msize.y)
+	if fwd.length() > 0.0001:
+		fwd = fwd.normalized()
+		var reach := 26.0
+		var half := deg_to_rad(game.cam.fov * 0.5)
+		var cone := PackedVector2Array([cpos, cpos + fwd.rotated(-half) * reach, cpos + fwd.rotated(half) * reach])
+		_route.draw_colored_polygon(cone, Color(0.6, 0.85, 1.0, 0.28))
+		_route.draw_polyline(PackedVector2Array([cone[1], cpos, cone[2]]), Color(0.7, 0.9, 1.0, 0.8), 1.2, true)
+	_route.draw_circle(cpos, 4.5, Color(0.15, 0.2, 0.3))
+	_route.draw_circle(cpos, 3.0, Color(0.7, 0.9, 1.0))
 	var font := ThemeDB.fallback_font
 	var place := String((shots[i] as Dictionary)["title"])
 	if i == 0:
 		place = "The whole land"
-	_route.draw_string_outline(font, origin + Vector2(0, side + 24), place.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, side, 16, 4, Color.BLACK)
-	_route.draw_string(font, origin + Vector2(0, side + 24), place.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, side, 16, gold)
+	var at := origin + Vector2(8.0, msize.y - 6.0)                 # the place's name, in the map's corner
+	_route.draw_string_outline(font, at, place.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 4, Color.BLACK)
+	_route.draw_string(font, at, place.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, gold)
 
 
 ## A named beast for a bounty: bigger, tougher, worth more.

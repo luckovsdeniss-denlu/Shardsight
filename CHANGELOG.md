@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.99.6
+- Trailer 2's world map is long now, not square: stretched across the whole top of the screen in
+  the top black bar, the journey's line running through it. The camera flies along it too: its own
+  place on the map, with a cone of light showing which way it looks, travelling with every flight,
+  beside the glowing marker of what it's filming and the name of the place.
+
 ## 0.99.5
 - Trailer 2 shows a map of the whole world with the journey drawn across it as one long line: in
   the top-left corner, the land framed in gold, a dashed line through every place in the order the
