@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.0.4
+- The icon's ring is cut on all four sides: four arcs of gold (with their compass ticks), and in
+  each cut - at north, east, south and west - a small blue shard, a little bigger than before.
+
 ## 1.0.3
 - The icon's ring, richer: a polished gold band with a light running round its edge over a dark
   rim, a soft gold glow behind it, a fine inner ring with ticks like a compass's, and four small

@@ -25,14 +25,13 @@
   </defs>
   <rect width="256" height="256" rx="48" fill="url(#bg)"/>
   <!-- the ring: a soft gold glow behind; a dark rim and a polished gold band, centred on the icon
-       all the way round the shard and the sword; a fine inner ring with ticks like a compass's;
-       and four small shards set in the band at north, east, south and west -->
-  <circle cx="128" cy="128" r="106" fill="none" stroke="#f0c860" stroke-width="16" opacity="0.35" filter="url(#glow)"/>
-  <circle cx="128" cy="128" r="106" fill="none" stroke="#5a3f10" stroke-width="11"/>
-  <circle cx="128" cy="128" r="106" fill="none" stroke="url(#gold)" stroke-width="7"/>
-  <circle cx="128" cy="128" r="108.5" fill="none" stroke="#fff3c4" stroke-width="0.8" opacity="0.55"/>
-  <circle cx="128" cy="128" r="94" fill="none" stroke="#d9b44a" stroke-width="1.2" opacity="0.7"/>
-  <line x1="222.2" y1="140.4" x2="225.7" y2="140.9" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
+       round the shard and the sword, cut on all four sides; a fine inner ring with ticks like a
+       compass's; and in each cut a small shard, at north, east, south and west -->
+  <circle cx="128" cy="128" r="106" fill="none" stroke="#f0c860" stroke-width="16" opacity="0.35" filter="url(#glow)" stroke-dasharray="122.10 44.40" stroke-dashoffset="144.30"/>
+  <circle cx="128" cy="128" r="106" fill="none" stroke="#5a3f10" stroke-width="11" stroke-dasharray="122.10 44.40" stroke-dashoffset="144.30"/>
+  <circle cx="128" cy="128" r="106" fill="none" stroke="url(#gold)" stroke-width="7" stroke-dasharray="122.10 44.40" stroke-dashoffset="144.30"/>
+  <circle cx="128" cy="128" r="108.5" fill="none" stroke="#fff3c4" stroke-width="0.8" opacity="0.55" stroke-dasharray="124.98 45.45" stroke-dashoffset="147.71"/>
+  <circle cx="128" cy="128" r="94" fill="none" stroke="#d9b44a" stroke-width="1.2" opacity="0.7" stroke-dasharray="108.28 39.37" stroke-dashoffset="127.97"/>
   <line x1="219.8" y1="152.6" x2="223.1" y2="153.5" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="215.8" y1="164.4" x2="219.0" y2="165.7" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="210.3" y1="175.5" x2="215.0" y2="178.2" stroke="#e8c870" stroke-width="1.6" opacity="0.9"/>
@@ -42,8 +41,6 @@
   <line x1="175.5" y1="210.3" x2="178.2" y2="215.0" stroke="#e8c870" stroke-width="1.6" opacity="0.9"/>
   <line x1="164.4" y1="215.8" x2="165.7" y2="219.0" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="152.6" y1="219.8" x2="153.5" y2="223.1" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
-  <line x1="140.4" y1="222.2" x2="140.9" y2="225.7" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
-  <line x1="115.6" y1="222.2" x2="115.1" y2="225.7" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="103.4" y1="219.8" x2="102.5" y2="223.1" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="91.6" y1="215.8" x2="90.3" y2="219.0" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="80.5" y1="210.3" x2="77.8" y2="215.0" stroke="#e8c870" stroke-width="1.6" opacity="0.9"/>
@@ -53,8 +50,6 @@
   <line x1="45.7" y1="175.5" x2="41.0" y2="178.2" stroke="#e8c870" stroke-width="1.6" opacity="0.9"/>
   <line x1="40.2" y1="164.4" x2="37.0" y2="165.7" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="36.2" y1="152.6" x2="32.9" y2="153.5" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
-  <line x1="33.8" y1="140.4" x2="30.3" y2="140.9" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
-  <line x1="33.8" y1="115.6" x2="30.3" y2="115.1" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="36.2" y1="103.4" x2="32.9" y2="102.5" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="40.2" y1="91.6" x2="37.0" y2="90.3" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="45.7" y1="80.5" x2="41.0" y2="77.7" stroke="#e8c870" stroke-width="1.6" opacity="0.9"/>
@@ -64,8 +59,6 @@
   <line x1="80.5" y1="45.7" x2="77.7" y2="41.0" stroke="#e8c870" stroke-width="1.6" opacity="0.9"/>
   <line x1="91.6" y1="40.2" x2="90.3" y2="37.0" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="103.4" y1="36.2" x2="102.5" y2="32.9" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
-  <line x1="115.6" y1="33.8" x2="115.1" y2="30.3" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
-  <line x1="140.4" y1="33.8" x2="140.9" y2="30.3" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="152.6" y1="36.2" x2="153.5" y2="32.9" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="164.4" y1="40.2" x2="165.7" y2="37.0" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="175.5" y1="45.7" x2="178.2" y2="41.0" stroke="#e8c870" stroke-width="1.6" opacity="0.9"/>
@@ -75,11 +68,10 @@
   <line x1="210.3" y1="80.5" x2="215.0" y2="77.7" stroke="#e8c870" stroke-width="1.6" opacity="0.9"/>
   <line x1="215.8" y1="91.6" x2="219.0" y2="90.3" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
   <line x1="219.8" y1="103.4" x2="223.1" y2="102.5" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
-  <line x1="222.2" y1="115.6" x2="225.7" y2="115.1" stroke="#e8c870" stroke-width="1.0" opacity="0.6"/>
-  <g transform="translate(128.0 22.0) rotate(0)"><polygon points="0,-9 7,0 0,9 -7,0" fill="#7a5a18"/><polygon points="0,-7 5,0 0,7 -5,0" fill="url(#shard)"/><polygon points="0,-7 5,0 0,0" fill="#ffffff" opacity="0.45"/></g>
-  <g transform="translate(234.0 128.0) rotate(90)"><polygon points="0,-9 7,0 0,9 -7,0" fill="#7a5a18"/><polygon points="0,-7 5,0 0,7 -5,0" fill="url(#shard)"/><polygon points="0,-7 5,0 0,0" fill="#ffffff" opacity="0.45"/></g>
-  <g transform="translate(128.0 234.0) rotate(180)"><polygon points="0,-9 7,0 0,9 -7,0" fill="#7a5a18"/><polygon points="0,-7 5,0 0,7 -5,0" fill="url(#shard)"/><polygon points="0,-7 5,0 0,0" fill="#ffffff" opacity="0.45"/></g>
-  <g transform="translate(22.0 128.0) rotate(270)"><polygon points="0,-9 7,0 0,9 -7,0" fill="#7a5a18"/><polygon points="0,-7 5,0 0,7 -5,0" fill="url(#shard)"/><polygon points="0,-7 5,0 0,0" fill="#ffffff" opacity="0.45"/></g>
+  <g transform="translate(128.0 22.0) rotate(0)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
+  <g transform="translate(234.0 128.0) rotate(90)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
+  <g transform="translate(128.0 234.0) rotate(180)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
+  <g transform="translate(22.0 128.0) rotate(270)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
   <g transform="translate(128 128) scale(0.84) translate(-128 -129)">
   <!-- the shard: a faceted crystal -->
   <polygon points="128,30 176,104 150,206 106,206 80,104" fill="url(#shard)"/>
