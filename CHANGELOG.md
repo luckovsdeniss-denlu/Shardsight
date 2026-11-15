@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.1.3
+- `icon.png` (the game's icon, and the plain Android launcher icon) is now the design edge to
+  edge, as the adaptive icon shows it: no dark rounded border around it.
+
 ## 1.1.2
 - The Android icon now fills the whole icon: the design reaches the edges of the launcher's shape
   (circle or rounded square) instead of sitting small inside a dark border; behind it, a blurred,
