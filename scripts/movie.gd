@@ -406,7 +406,7 @@ func _make_shots() -> void:
 		{"title": "Ravenhollow", "story": [["foe", "\"Braaaains...\""], ["hero", "\"You'll be disappointed.\""]], "words": ["FACE THE DEAD"], "sub": "Graves, wisps, and a tomb that should stay shut.", "dur": 7.0, "day": 0.02,
 			"at": _tc(Vector2i(103, 133)), "r": 9.0, "h": 10.5, "cam": "orbit", "a0": 5.0, "a1": 6.0, "setup": _stage_fight.bind(Vector2i(103, 133), "Zombie", Bestiary.ZOMBIE, 2)},
 		{"title": "The Shattered Sight", "words": ["A STORY TO UNCOVER", "WHAT WAS TAKEN FROM YOU?"], "sub": "You wake with no memory. Father Corwin knows more than he says.", "dur": 8.0, "day": 0.28,
-			"at": _tc(Vector2i(13, 129)), "r": 13.0, "h": 12.0, "a0": 1.2, "a1": 2.0, "stay": true, "cam": "orbit",
+			"at": _tc(Vector2i(13, 129)), "r": 13.0, "h": 12.0, "a0": 1.2, "a1": 2.0, "stay": true, "cam": "orbit", "wide": true,
 			"setup": _stage_talk.bind("Father Corwin", Vector2i(12, 129), ["\"You saw something you shouldn't have.\"", ">\"I remember nothing...\"", "\"Then we'll find it again - together.\""])},
 		{"title": "Seasons and storms", "story": [["hero", "\"Lovely weather for it.\""], ["hero", "\"Is it always winter when I'm out?\""]], "words": ["THE SEASONS TURN"], "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true,
 			"at": _tc(Vector2i(30, 30)), "r": 14.0, "h": 11.0, "a0": 3.5, "a1": 4.3},
@@ -670,6 +670,21 @@ func tick(delta: float) -> bool:
 	# the hero (or what it films), rise and close in - smoothly - until the view is clear, then
 	# ease back; and never sink into the ground or sit inside anything solid
 	var see_hero: bool = hero.visible and not bool(sh.get("no_hero", false))
+	# close on the hero: never high overhead nor far off - a little way out and a little above
+	# (scenes marked "wide", like the whole church, keep their own framing; so do flights)
+	var band := 0.0
+	if see_hero and not bool(sh.get("wide", false)):
+		band = 1.0
+		if _fly_dur > 0.0 and t < _fly_dur:
+			band = smoothstep(0.6, 1.0, t / _fly_dur)
+	if band > 0.0:
+		var off := cam.position - hero.position
+		var flat := Vector2(off.x, off.z)
+		if flat.length() < 0.01:
+			flat = Vector2(0.0, 1.0)
+		flat = flat.normalized() * clampf(flat.length(), CAM_NEAR, CAM_FAR)
+		var held := hero.position + Vector3(flat.x, clampf(off.y, CAM_ABOVE_HERO, CAM_HIGH), flat.y)
+		cam.position = cam.position.lerp(held, band)
 	var subject: Vector3 = (hero.position + Vector3(0.0, 1.0, 0.0)) if see_hero else look + Vector3(0.0, 0.8, 0.0)
 	# (it rises quickly when blocked, but comes down only once the view has stayed clear a while -
 	# no bobbing up and down at the edge of a wall)
@@ -682,10 +697,13 @@ func tick(delta: float) -> bool:
 			_occl = move_toward(_occl, 0.0, delta * 0.3)
 	if _occl > 0.0:
 		var ease_k := _occl * _occl * (3.0 - 2.0 * _occl)
-		cam.position = cam.position.lerp(subject, 0.35 * ease_k) + Vector3(0.0, 7.0 * ease_k, 0.0)
-	# always a good height above the hero, so it is never filmed from below or at a crouch
+		cam.position = cam.position.lerp(subject, 0.45 * ease_k) + Vector3(0.0, 3.0 * ease_k, 0.0)   # (closer in, only a little up)
+	# always a good height above the hero, so it is never filmed from below or at a crouch - and,
+	# close on the hero, never far up either
 	if see_hero:
 		cam.position.y = maxf(cam.position.y, hero.position.y + CAM_ABOVE_HERO)
+		if band > 0.0:
+			cam.position.y = minf(cam.position.y, hero.position.y + CAM_HIGH + 2.5 * _occl + 30.0 * (1.0 - band))
 	cam.position.y = maxf(cam.position.y, world.height_at(cam.position) + 1.3)
 	# and if the hero is getting near the edge of the picture, turn (gently) towards them
 	if see_hero:
@@ -1102,7 +1120,10 @@ var _clear_for := 0.0                  # how long the view of the hero has been 
 var _edge_k := 0.0                     # how hard the camera is turning towards a hero near the edge
 var _cam_s := Vector3.INF              # the camera's place, eased (no jitter)
 var _aim_s := Vector3.ZERO             # where it aims, eased
-const CAM_ABOVE_HERO := 4.0
+const CAM_ABOVE_HERO := 2.8            # the camera never comes lower than this above the hero...
+const CAM_HIGH := 5.2                  # ...nor (close on the hero) higher than this
+const CAM_NEAR := 4.5                  # and keeps between these, out from the hero (metres)
+const CAM_FAR := 8.5
 var _floor_s := -INF                   # the camera's lowest height, eased
 var _punch_s := 0.0                    # the punch-in, eased            # the camera never comes lower than this above the hero
 

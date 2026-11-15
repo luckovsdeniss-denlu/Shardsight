@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.2.5
+- Trailer camera close on the hero: in every scene with the hero it stays 4.5-8.5 m out from them
+  and 2.8-5.2 m above them - no more high orbits overhead or shots from far off. Getting past a
+  wall it now closes in and rises only a little (3 m, not 7). Flights between places still arc
+  high, settling close as they land; the church keeps its wide shot of the whole building; the
+  land-only shots (the opening, the whole land, the end) keep their height.
+
 ## 1.2.3
 - Trailer sword choreography, cleaner: the four-blow combo is a slash with a side-step, a
   backhand, a driving blow with a half step in, and a finisher with one clean turn - no more
