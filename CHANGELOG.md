@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.95.8
+- No sentences over the hero's head in the trailer: the hero's lines are gone from every scene;
+  the townsfolk and the foes still speak theirs.
+
 ## 0.95.7
 - The trailer's hero fights with blade and magic in balance: a spell about every 2.8 seconds, and
   in between the hero closes in and strikes with the sword (before, the hero stood back and cast

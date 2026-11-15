@@ -674,7 +674,9 @@ func _stage_talk(npc_name: String, hero_tile: Vector2i, lines: Array) -> void:
 		npc._face(hero.position - npc.position)
 	for k in range(lines.size()):
 		var line := String(lines[k])
-		var who: Entity = hero if line.begins_with(">") else npc
+		if line.begins_with(">"):
+			continue                                    # (no sentences over the hero's head)
+		var who: Entity = npc
 		if who == null:
 			continue
 		var say := line.trim_prefix(">")
@@ -688,11 +690,15 @@ func _stage_talk(npc_name: String, hero_tile: Vector2i, lines: Array) -> void:
 ## "foe" (the first of the scene's foes still standing), or someone by name (gold) - the hero's in
 ## blue, the foes' in red.
 func _tell(lines: Array) -> void:
+	var said := 0
 	for k in range(lines.size()):
 		var who_name := String(lines[k][0])
+		if who_name == "hero":
+			continue                                    # (no sentences over the hero's head)
 		var say := String(lines[k][1])
 		var scene := i
-		get_tree().create_timer(1.0 + k * 1.9).timeout.connect(func() -> void:
+		said += 1
+		get_tree().create_timer(1.0 + (said - 1) * 1.9).timeout.connect(func() -> void:
 			if not running or i != scene:
 				return                                  # (the scene has moved on)
 			var who: Entity = null
