@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.95.7
+- The trailer's hero fights with blade and magic in balance: a spell about every 2.8 seconds, and
+  in between the hero closes in and strikes with the sword (before, the hero stood back and cast
+  almost nonstop). The Magic scene keeps its quicker spells.
+
 ## 0.95.6
 - In the trailer the hero's spells can't be broken: a blow no longer interrupts the hero's casting.
 

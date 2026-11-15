@@ -643,7 +643,7 @@ func _chase() -> void:
 	elif kind == Kind.MONSTER and _kite():
 		return                               # a monster that casts steps back from a blade too
 	var reach := attack_range()
-	if (kind != Kind.PLAYER or ai_enabled) and _best_spell("attack") != "":
+	if (kind != Kind.PLAYER or ai_enabled) and _best_spell("attack") != "" and not (is_hero and game.movie != null):
 		reach = maxf(reach, SPELL_RANGE)   # casters keep their distance
 	if position.distance_to(target.position) > reach or not world.line_clear(position, target.position) \
 			or (reach > 2.0 and _body_between(target)):
@@ -1654,8 +1654,8 @@ func _finish_cast() -> void:
 
 ## Heals itself when hurt, otherwise casts the best affordable attack spell in range.
 func _try_auto_cast(d: float) -> bool:
-	if casting_id != "" or cast_cd > 0.0:
-		return false
+	if casting_id != "" or cast_cd > 0.0 or (is_hero and game.movie != null):
+		return false                          # (the trailer times the hero's spells itself: blade and magic in turn)
 	if poison_level > 0:
 		var cure_id := _best_spell("cure")
 		if cure_id != "":
@@ -4177,7 +4177,7 @@ func _util_spell(id: String, sp: Dictionary, tgt: Entity) -> void:
 ## AI: dispel summoned foes, curse dangerous ones, drain casters, buff up, and lay fields
 ## under groups. Returns true if a spell was started.
 func _try_support_magic(d: float) -> bool:
-	if target == null or d > SPELL_RANGE:
+	if target == null or d > SPELL_RANGE or (is_hero and game.movie != null):
 		return false
 	var magery := _skill(Hero.Skill.MAGERY)
 	if _try_transform():

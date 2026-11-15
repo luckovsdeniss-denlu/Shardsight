@@ -21,7 +21,7 @@ var _actors: Array[Entity] = []
 var _fade: ColorRect
 var _cast_acc := 0.0
 const TRAILER_MUSIC_DB := 6.0          # the epic score louder than in the game
-const CAST_EVERY := 1.1                # a spell this often in every fight
+const CAST_EVERY := 2.8                # a spell this often in a fight; between them the hero fights with the blade
 var _fight := []
 const CAM_MOVES := ["orbit", "crane", "track", "spiral", "dolly", "orbit", "track", "crane"]
 var _punch := 0.0
@@ -428,7 +428,7 @@ func tick(delta: float) -> bool:
 			_spawn_wave()                               # more of them!
 	if bool(sh.get("magic", false)):
 		_cast_acc += delta
-		if _cast_acc >= CAST_EVERY:
+		if _cast_acc >= float(sh.get("cast_every", CAST_EVERY)):
 			_cast_acc = 0.0
 			_cast_something()
 	# a spell landing: a flash and a moment of slow motion (the camera stays steady)
@@ -770,6 +770,7 @@ func _spawn_wave() -> void:
 func _stage_magic() -> void:
 	_stage_fight(Vector2i(14, 19), "Ogre", Bestiary.OGRE, 1)
 	shots[i]["magic"] = true
+	shots[i]["cast_every"] = 1.4                      # (the magic scene: spells come quicker)
 	_cast_acc = 1.0
 
 
@@ -795,7 +796,7 @@ func _cast_something() -> void:
 				hero.casting_id = ""
 				hero.kite_timer = 1.1               # the run plays out before the hero turns to fight
 				break
-		_cast_acc = CAST_EVERY - 1.15                   # and the spell right after it
+		_cast_acc = float(shots[i].get("cast_every", CAST_EVERY)) - 1.15   # and the spell right after it
 		return
 	_runs = 0
 	hero.casting_id = ""
