@@ -73,8 +73,9 @@ Every mountain, tree, castle and creature is built from code at start-up — **n
 sound effect and every piece of music is **synthesised on the fly** — no audio files either: lutes,
 flutes, brass, choir, drums and bells written into sixteen-bar pieces for each place and mood.
 
-- 🎬 Two in-game trailers — a cinematic showcase, and one unbroken camera flight across the whole land —
-  with 3D titles, flying words, an epic score and cartoon-crunchy fights.
+- 🎬 In-game trailers — a cinematic showcase, one unbroken camera flight across the whole land, a
+  30-second short and an upright phone format — with 3D titles, flying words, an epic score cut on
+  the beat and cartoon-crunchy fights.
 - 📈 A frame-rate keeper that holds **60 fps** by itself, with a Performance panel to take control.
 - 📱 Built for phones: Godot 4.3, GL Compatibility renderer, one APK.
 
@@ -104,7 +105,7 @@ Open the folder in Godot 4.3 and press Play. Everything lives in `scripts/`:
 | `world.gd` | the map, biomes, caves, towns, roads; pathfinding; building the 3D land |
 | `entity.gd` | every creature: AI, movement, combat, magic, animation |
 | `frontier.gd` | towers, docks, the tavern, arena, church, cemetery, seasons, farming, world bosses, Auto |
-| `movie.gd`, `title3d.gd` | the two trailers and the 3D titles |
+| `movie*.gd`, `title3d.gd` | the trailers (full, flight, short, phone format) and the 3D titles |
 | `music.gd`, `sfx.gd`, `soundscape.gd` | the procedural score, sound effects and mix |
 | `spells.gd`, `gear.gd`, `items.gd`, `crafting.gd`, `bestiary.gd` | the game's tables |
 

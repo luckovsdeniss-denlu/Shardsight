@@ -3,6 +3,28 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.2.0
+- **Short trailer** (new button on the start screen): about 30 seconds of the best of the first
+  trailer, for sharing - the name, the whole land from high above, a fight, magic at night,
+  Ravenhollow and the giant - straight in (no loading screen), one flying word and one line of
+  talk per scene, cut on the beat, then the logo (`movie_short.gd`).
+- **Phone format** (new button): the first trailer upright, 9:16, for Shorts, Reels and TikTok.
+  The screen turns upright for it (the window, on a computer), the camera keeps the hero in the
+  middle of the narrow picture, the bars are thinner and the titles smaller and wrapped; at the end
+  the screen turns back before the title comes up (`movie_phone.gd`).
+- Trailers in time with the music: each cut lands on the beat of the score (a scene that has had
+  its time cuts on the next half bar), each flying word comes in on one, and a heavy blow's
+  punch-in waits for the beat when it's only a moment away.
+- New shots in the first trailer:
+  - "One world": straight after the name, the camera rises high over the middle of the land until
+    all of it is in sight.
+  - Every fight opens tight on the hero - close, just above them - and pulls back to show the
+    whole fight (the giant's too).
+  - The magic scene is now at night, and the hero's spells light them and the ground round them:
+    a glow in the spell's colour while it gathers, a flare as it flies.
+  - (Every other scene keeps the camera move it had.)
+- The start screen's buttons wrap onto a second line when they don't fit on one.
+
 ## 1.1.7
 - Trailer camera: no more jolts in the fight and magic scenes.
   - The slow motion after each spell now eases in and out instead of switching speed at once

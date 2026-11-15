@@ -5702,9 +5702,10 @@ func _show_title(layer: CanvasLayer) -> void:
 		ex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(ex)
 	# The mode buttons wait, hidden, until the fly-by has come down to the hero.
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 24)
+	var row := HFlowContainer.new()                # (as many lines as the buttons need: none off the screen)
+	row.alignment = FlowContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("h_separation", 24)
+	row.add_theme_constant_override("v_separation", 16)
 	row.visible = false
 	row.modulate.a = 0.0
 	box.add_child(row)
@@ -5735,6 +5736,16 @@ func _show_title(layer: CanvasLayer) -> void:
 		close.call()
 		movie = MovieFlight.new()                  # the second trailer: one long flight across the map
 		movie.start(self))
+	var film_short := _menu_button("Short trailer", func() -> void:
+		start_mode = "classic"
+		close.call()
+		movie = MovieShort.new()                   # about 30 seconds of the best of it, cut on the beat
+		movie.start(self))
+	var film_phone := _menu_button("Phone format", func() -> void:
+		start_mode = "classic"
+		close.call()
+		movie = MoviePhone.new()                   # the trailer upright (9:16), for phone screens
+		movie.start(self))
 	var exp_b := _menu_button("Experimental mode", _switch_mode.bind("experimental"))
 	exp_b.custom_minimum_size = Vector2(320, 80)
 	var again := _menu_button("Fly-by", func() -> void:
@@ -5749,6 +5760,8 @@ func _show_title(layer: CanvasLayer) -> void:
 	row.add_child(tut)
 	row.add_child(film)
 	row.add_child(film2)
+	row.add_child(film_short)
+	row.add_child(film_phone)
 	row.add_child(again)
 	# the trailer as a video file to keep or share: opens its download in the browser
 	row.add_child(_menu_button("Download trailer", func() -> void:

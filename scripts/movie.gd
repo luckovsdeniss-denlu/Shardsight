@@ -32,6 +32,61 @@ var _runs := 0                         # runs from a blade in a row before a spe
 ## A heavy blow or a K.O.: the camera punches in for an instant.
 func punch(amount := 1.0) -> void:
 	_punch = maxf(_punch, amount)
+
+
+# --- in time with the music ---------------------------------------------------------------
+# The cuts, the flying words and the big blows land on the beat of the trailer's score (a beat
+# every half second): a scene that has had its time cuts on the next half bar, each word flies in
+# on one, and a heavy blow's punch-in waits for the beat if it's only a moment away.
+const TRAILER_BEAT := 0.5              # (the "trailer" piece in music.gd)
+var _beat_prev := -1
+var _on_beat := false
+var _on_half_bar := false
+var _punch_pending := 0.0
+
+
+## Beats since the score began, or -1 when it isn't playing (then nothing waits for it).
+func _music_beat() -> float:
+	var m = game.music
+	if m == null or m.player == null or not m.player.playing or String(m._area) != "trailer":
+		return -1.0
+	return (m.player.get_playback_position() + AudioServer.get_time_since_last_mix()) / TRAILER_BEAT
+
+
+## A heavy blow: its punch-in lands on the beat when the beat is close; otherwise at once.
+func punch_on_beat(amount := 1.0) -> void:
+	var b := _music_beat()
+	if b >= 0.0 and (ceil(b) - b) * TRAILER_BEAT < 0.2:
+		_punch_pending = maxf(_punch_pending, amount)
+	else:
+		punch(amount)
+
+
+func _beat_step() -> float:
+	var b := _music_beat()
+	_on_beat = false
+	_on_half_bar = false
+	if b < 0.0:
+		_beat_prev = -1
+		return b
+	var bi := int(floor(b))
+	if bi != _beat_prev:
+		_on_beat = _beat_prev >= 0
+		_on_half_bar = _on_beat and bi % 2 == 0
+		_beat_prev = bi
+	if _on_beat and _punch_pending > 0.0:
+		punch(_punch_pending)
+		_punch_pending = 0.0
+	return b
+
+
+# --- hooks for the other trailers (short, phone format) --------------------------------------
+func _min_lean() -> float:
+	return 0.0                         # how far the camera always leans to the hero (phone: centred)
+
+
+func _bar_frac() -> float:
+	return 0.12                        # the letterbox bars, of the screen's height
 var _words_box: Control                 # where the flying words appear (each fills the screen)
 var _word_queue: Array = []
 var _word_t := 0.0
@@ -43,6 +98,9 @@ var _flash := 0.0
 var _was_casting := false
 var _slow := 0.0                   # real seconds of slow motion left
 var _end_card: Control
+var _spell_light: OmniLight3D           # the light of the hero's spells
+var _spell_col := Color(0.7, 0.8, 1.0)
+var _flare := 0.0
 var _riser_done := false
 
 
@@ -107,6 +165,12 @@ func start(p_game) -> void:
 		game._scale_cap = 0.8
 		get_viewport().scaling_3d_scale = 0.8
 	_build_ui()
+	# the spell light: the hero's spells light them and the ground round them (best at night)
+	_spell_light = OmniLight3D.new()
+	_spell_light.light_energy = 0.0
+	_spell_light.omni_range = 9.0
+	_spell_light.shadow_enabled = false
+	game.add_child(_spell_light)
 	# the hero, for the cameras: a master of arms and magic (nothing of it is kept)
 	for s in [Hero.Skill.MAGERY, Hero.Skill.EVALUATING_INTELLECT, Hero.Skill.SWORDSMANSHIP, Hero.Skill.TACTICS, Hero.Skill.ANATOMY]:
 		hero.stats.skills[s] = 100.0
@@ -173,8 +237,8 @@ func _build_ui() -> void:
 		bar.set_anchors_preset(Control.PRESET_TOP_WIDE if top else Control.PRESET_BOTTOM_WIDE)
 		bar.offset_left = 0.0
 		bar.offset_right = 0.0
-		bar.offset_top = 0.0 if top else -vs.y * 0.12
-		bar.offset_bottom = vs.y * 0.12 if top else 0.0
+		bar.offset_top = 0.0 if top else -vs.y * _bar_frac()
+		bar.offset_bottom = vs.y * _bar_frac() if top else 0.0
 		_bars.append(bar)
 	_title = _label(44, Color(0.95, 0.8, 0.42))
 	_sub = _label(24, Color(0.85, 0.88, 0.95))
@@ -185,8 +249,8 @@ func _build_ui() -> void:
 	col.add_child(_sub)
 	col.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 40)
 	col.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	col.offset_top -= vs.y * 0.12
-	col.offset_bottom -= vs.y * 0.12
+	col.offset_top -= vs.y * _bar_frac()
+	col.offset_bottom -= vs.y * _bar_frac()
 	# the grain, the dark corners, the light leak and the flash, under the titles
 	var fxr := ColorRect.new()
 	var sh := Shader.new()
@@ -287,6 +351,8 @@ func _make_shots() -> void:
 	shots = [
 		{"title": "SHARDSIGHT", "sub": "A world of swords, spells and skill.", "dur": 6.0, "no_hero": true, "day": 0.35, "weather": "clear",
 			"at": _tc(Vector2i(32, 9)), "r": 20.0, "h": 17.0, "a0": 0.4, "a1": 1.3},
+		{"title": "One world", "words": ["ONE VAST WORLD"], "sub": "Nine towns, eight wild lands, caves, a dungeon and an island - one land.", "dur": 7.0, "no_hero": true, "day": 0.42, "weather": "clear",
+			"at": _tc(Vector2i(72, 72)), "r": 70.0, "h": 62.0, "a0": 0.7, "a1": 1.4, "cam": "reveal", "far": 420.0},
 		{"title": "Living towns", "story": [["Elara", "\"Back again? Try not to die this time.\""], ["hero", "\"No promises.\""]], "words": ["LIVE IN THE TOWNS", "TRADE · BANK · HEAL"], "sub": "Healers, priests, merchants, bankers - and folk who keep their own days.", "dur": 6.0,
 			"at": _tc(Vector2i(32, 10)), "r": 9.0, "h": 6.0, "a0": 2.4, "a1": 3.4, "setup": _stage_town},
 		{"title": "Quests", "words": ["TAKE ON QUESTS", "GOLD · FAME · KARMA"], "sub": "Captain Marcus has work for a strong arm - and every town has someone in need.", "dur": 7.0, "day": 0.4, "stay": true, "cam": "orbit",
@@ -297,7 +363,7 @@ func _make_shots() -> void:
 			"setup": _stage_fight.bind(Vector2i(14, 19), "Grimfang the Wolf", _elite(Bestiary.WOLF), 1)},   # (higher and wider: the hero stays in sight)
 		{"title": "Fight", "story": [["foe", "\"Fresh meat!\""], ["hero", "\"Not today.\""], ["foe", "\"...ow.\""]], "words": ["MASTER THE BLADE", "EVERY WEAPON ITS OWN BLOW"], "sub": "Swords, axes, maces, spears, bows - and a different blow for each.", "dur": 8.0,
 			"at": _tc(Vector2i(14, 19)), "r": 4.5, "h": 2.6, "a0": 0.0, "a1": 1.4, "setup": _stage_fight.bind(Vector2i(14, 19), "Orc", Bestiary.ORC, 2)},
-		{"title": "Magic", "story": [["foe", "\"ME SMASH TINY HUMAN!\""], ["hero", "\"Stand back. This gets loud.\""]], "words": ["67 SPELLS", "SPEAK THE OLD WORDS"], "sub": "Sixty-seven spells in eight circles. Speak the old words.", "dur": 9.0, "white": true,
+		{"title": "Magic", "story": [["foe", "\"ME SMASH TINY HUMAN!\""], ["hero", "\"Stand back. This gets loud.\""]], "words": ["67 SPELLS", "SPEAK THE OLD WORDS"], "sub": "Sixty-seven spells in eight circles. Speak the old words.", "dur": 9.0, "white": true, "day": 0.03, "weather": "clear",
 			"at": _tc(Vector2i(14, 19)), "r": 6.0, "h": 4.0, "a0": 1.4, "a1": 2.8, "setup": _stage_magic},
 		{"title": "The dungeon's depths", "story": [["foe", "\"...clatter... clatter...\""], ["hero", "\"Who keeps leaving these doors open?\""]], "words": ["FIVE LEVELS DEEP", "EACH DARKER THAN THE LAST"], "sub": "Five levels down, each darker than the last.", "dur": 7.0,
 			"at": _tc(Vector2i(11, 72)), "r": 7.0, "h": 6.5, "a0": 3.0, "a1": 4.2, "setup": _stage_fight.bind(Vector2i(12, 75), "Skeleton", Bestiary.SKELETON, 2)},
@@ -327,6 +393,15 @@ func _make_shots() -> void:
 			"at": _tc(Vector2i(32, 9)), "r": 22.0, "h": 19.0, "a0": 1.3, "a1": 1.9},
 	]
 	_shape_shots()
+	# each scene's camera move, fixed by its place in the list without the land's reveal (so
+	# adding the reveal didn't change how any other scene is filmed)
+	var n := 0
+	for sh: Dictionary in shots:
+		if String(sh["title"]) == "One world":
+			continue
+		if not sh.has("cam"):
+			sh["cam"] = CAM_MOVES[n % CAM_MOVES.size()]
+		n += 1
 
 
 func _tc(tile: Vector2i) -> Vector3:
@@ -420,11 +495,12 @@ func tick(delta: float) -> bool:
 	hero.hp = float(hero.stats.max_hp())                # the star can't die
 	hero.mana = float(hero.stats.max_mana())
 	hero.reagents = 60.0
-	# the explanation: big 3D words, one after another, flying in and past
+	var beat := _beat_step()
+	# the explanation: big 3D words, one after another, flying in and past (each on a half bar)
 	if not _word_queue.is_empty():
 		_word_t -= delta / maxf(Engine.time_scale, 0.05)
-		if _word_t <= 0.0:
-			_word_t = 2.5
+		if _word_t <= 0.0 and (beat < 0.0 or _on_half_bar or _word_t < -1.2):
+			_word_t = 2.4
 			var w := String(_word_queue.pop_front())
 			_word_n += 1
 			var screen := get_viewport().get_visible_rect().size
@@ -454,6 +530,19 @@ func tick(delta: float) -> bool:
 		Soundscape.slowmo = true                       # the world goes dull and far away...
 		Soundscape.update("wilds", false, false)
 		game.music.player.pitch_scale = 0.8
+	if _spell_light != null:
+		var want := 0.0
+		if casting:
+			want = 2.2 + 0.4 * sin(t * 14.0)            # the spell gathering in the hero's hands
+		if _flare > 0.0:
+			want = maxf(want, 7.0 * _flare)            # and flaring as it flies
+			_flare = maxf(_flare - delta * 2.2, 0.0)
+		_spell_light.light_energy = lerpf(_spell_light.light_energy, want, 1.0 - exp(-delta * 9.0))
+		_spell_light.light_color = _spell_col
+		_spell_light.position = hero.position + Vector3(0.0, 1.6, 0.0)
+		_spell_light.visible = hero.visible and _spell_light.light_energy > 0.02
+	if _was_casting and not casting:
+		_flare = 1.0
 	_was_casting = casting
 	# (the slow motion eases in and out, never snaps: a sudden change of speed made the camera
 	# and everyone in the picture lurch)
@@ -476,11 +565,12 @@ func tick(delta: float) -> bool:
 	var k := smoothstep(0.0, 1.0, clampf(t / dur, 0.0, 1.0))
 	var cam: Camera3D = game.cam
 	cam.fov = lerpf(60.0, 48.0, k)                      # a slow push in
+	cam.far = float(sh.get("far", 130.0))               # (the whole land in sight only where a scene asks for it)
 	var look: Vector3 = sh["at"]
 	# the camera follows the hero: it looks at a point between the scene's centre and the hero,
 	# leaning all the way to the hero if they slip out of the frame - so the hero never leaves it
 	if hero.visible and not bool(sh.get("no_hero", false)):
-		var lean := float(sh.get("follow", 0.6))
+		var lean := maxf(float(sh.get("follow", 0.6)), _min_lean())
 		if not cam.is_position_in_frustum(hero.position + Vector3(0.0, 1.0, 0.0)):
 			lean = 1.0
 		var want: Vector3 = look.lerp(hero.position, lean)
@@ -514,10 +604,25 @@ func tick(delta: float) -> bool:
 			"track":                                    # low behind the hero, following the fight
 				r *= 0.75
 				h = maxf(h * 0.45, 1.3)
+			"reveal":                                   # rising high over the land until all of it is in sight
+				h = lerpf(h * 0.45, h * 1.35, k)
+				r = lerpf(r * 0.55, r * 1.15, k)
 			"dolly":                                    # the dolly zoom: pulls back as the lens closes in
 				r = lerpf(r * 0.7, r * 1.5, k)
 				cam.fov = lerpf(70.0, 34.0, k)
 		cam.position = look + Vector3(cos(a) * r, h, sin(a) * r)
+	# a fight opens tight on the hero - close, from the scene's side, just above them - and pulls
+	# back to show the whole fight
+	if bool(sh.get("hero_intro", false)) and hero.visible and t < 1.9 and not _continuous():
+		var w := 1.0 - smoothstep(0.5, 1.9, t)
+		var side := cam.position - hero.position
+		side.y = 0.0
+		if side.length() < 0.01:
+			side = Vector3(0, 0, 1)
+		var close := hero.position + side.normalized() * 3.0 + Vector3(0.0, CAM_ABOVE_HERO + 0.4, 0.0)
+		cam.position = cam.position.lerp(close, w)
+		look = look.lerp(hero.position, w)
+		cam.fov = lerpf(cam.fov, 50.0, w)
 	# the long flight: from where the camera was, up in an arc and down into this place
 	if _fly_dur > 0.0 and t < _fly_dur:
 		var fk := smoothstep(0.0, 1.0, t / _fly_dur)
@@ -579,8 +684,8 @@ func tick(delta: float) -> bool:
 	cam.look_at(look + Vector3(0, 0.8, 0), Vector3.UP)
 	cam.rotate_object_local(Vector3(0, 0, 1), sin(t * 0.6) * 0.035 * (1.0 if i % 2 == 0 else -1.0))   # a gentle dutch tilt
 	game.view_planes = cam.get_frustum()
-	if t >= dur:
-		_next()
+	if t >= dur and (beat < 0.0 or _on_half_bar or t >= dur + 1.2):
+		_next()                                         # (on the beat)
 	return running
 
 
@@ -696,6 +801,9 @@ func _back_to_title() -> void:
 	if _end_card != null:
 		_end_card.visible = false
 	_restore()
+	if _spell_light != null and is_instance_valid(_spell_light):
+		_spell_light.queue_free()
+	_spell_light = null
 	game.movie_ended()
 	var tw := create_tween()
 	tw.tween_property(_fade, "modulate:a", 0.0, 0.6)
@@ -860,11 +968,11 @@ func on_hero_strike(foe: Entity) -> void:
 			_spin(hero, 0.32)
 		2:                                               # leaping strike
 			_hop(hero, 0.7, 0.18, 0.2)
-			punch(0.5)
+			punch_on_beat(0.5)
 		3:                                               # whirlwind finisher
 			_spin(hero, 0.45, 2.0)
 			_hop(hero, 0.45, 0.15, 0.2)
-			punch(1.0)
+			punch_on_beat(1.0)
 			Fx.sparkle(game, foe.position + Vector3(0.0, 1.0, 0.0), Color(1.0, 0.85, 0.35), 30)
 	foe._pop(String(COMBO_NAMES[step]), [Color(1.0, 0.9, 0.5), Color(0.6, 0.9, 1.0), Color(1.0, 0.6, 0.3), Color(1.0, 0.45, 0.85)][step])
 
@@ -982,6 +1090,7 @@ func _stage_fight(tile: Vector2i, foe_name: String, cfg: Dictionary, n: int) -> 
 	_fight = [tile, foe_name, cfg, n + (0 if " the " in foe_name else 1)]   # one more foe (a champion stays alone)
 	_spawn_wave()
 	shots[i]["magic"] = true                            # and the hero's spells in every fight
+	shots[i]["hero_intro"] = true                       # (it opens tight on the hero)
 	_cast_acc = CAST_EVERY * 0.6
 
 
@@ -1047,6 +1156,8 @@ func _cast_something() -> void:
 	hero.casting_id = ""
 	hero.cast_cd = 0.0
 	var pick: String = ["fireball", "lightning", "flamestrike", "energy_bolt", "meteor_swarm", "chain_lightning"][randi() % 6]
+	_spell_col = {"fireball": Color(1.0, 0.55, 0.2), "lightning": Color(0.65, 0.8, 1.0), "flamestrike": Color(1.0, 0.45, 0.15),
+		"energy_bolt": Color(0.75, 0.5, 1.0), "meteor_swarm": Color(1.0, 0.6, 0.25), "chain_lightning": Color(0.6, 0.85, 1.0)}.get(pick, Color(0.7, 0.8, 1.0))
 	_cast_flourish()
 	hero.start_cast(pick, foe)
 
@@ -1071,5 +1182,6 @@ func _stage_boss() -> void:
 	boss.target = hero
 	hero.target = boss
 	_actors.append(boss)
+	shots[i]["hero_intro"] = true
 	shots[i]["magic"] = true
 	_cast_acc = 0.0
