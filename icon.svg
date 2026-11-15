@@ -15,7 +15,10 @@
     </linearGradient>
   </defs>
   <rect width="256" height="256" rx="48" fill="url(#bg)"/>
-  <circle cx="128" cy="124" r="92" fill="none" stroke="#d9b44a" stroke-width="7" opacity="0.9"/>
+  <!-- a gold ring, centred on the icon, all the way round the shard and the sword -->
+  <circle cx="128" cy="128" r="106" fill="none" stroke="#7a5a18" stroke-width="10" opacity="0.6"/>
+  <circle cx="128" cy="128" r="106" fill="none" stroke="#d9b44a" stroke-width="6"/>
+  <g transform="translate(128 128) scale(0.84) translate(-128 -129)">
   <!-- the shard: a faceted crystal -->
   <polygon points="128,30 176,104 150,206 106,206 80,104" fill="url(#shard)"/>
   <polygon points="128,30 150,104 128,206 106,104" fill="#e8f6ff" opacity="0.35"/>
@@ -25,4 +28,5 @@
   <rect x="98" y="172" width="60" height="11" rx="4" fill="#d9b44a" stroke="#7a5a18" stroke-width="2"/>
   <rect x="122" y="183" width="12" height="30" rx="3" fill="#6b4423"/>
   <circle cx="128" cy="219" r="9" fill="#d9b44a" stroke="#7a5a18" stroke-width="2"/>
+  </g>
 </svg>

@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.0.2
+- A new game icon: a gold ring centred on the icon runs all the way round the shard and the sword
+  (before, it sat a little off-centre and the shard's tip and the sword's pommel poked out of it).
+
 ## 1.0.1
 - Trailer, the world boss scene: the hero no longer dashes away from the giant before every spell
   (it caught up at once, so the hero kept repeating the same short run). The hero stands and
