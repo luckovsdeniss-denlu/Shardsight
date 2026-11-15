@@ -375,6 +375,7 @@ func _build_visual(color: Color, s: float) -> void:
 
 
 var _contact: MeshInstance3D
+var trailer_held := false              # the trailer holds them still, out of its scene's way
 
 
 ## The richer graphics switched on or off while the game runs: the body rebuilt the new way, and
@@ -394,6 +395,10 @@ func tick(delta: float) -> void:
 		position = mounted_by_position()    # carried along under its rider
 		return
 	position.y = world.height_at(position)   # standing on the land, up hill and down
+	if trailer_held:
+		if _near and not dead:
+			_animate(delta)                  # (the trailer: held where they stand, out of its way)
+		return
 	_tick_reputation(delta)              # flags and counts keep fading even while dead
 	if dead:
 		hp_bar.visible = false

@@ -184,6 +184,9 @@ func start(p_game) -> void:
 		game._scale_cap = 0.8
 		get_viewport().scaling_3d_scale = 0.8
 	_build_ui()
+	game.property.names_on = false                      # no names over anyone's head (put back after)
+	for e in game.creatures:
+		e.show_name(false)
 	var env: Environment = game.env
 	_snap["grade"] = [env.tonemap_exposure, env.adjustment_enabled, env.adjustment_saturation, env.adjustment_contrast, env.adjustment_brightness]
 	env.adjustment_enabled = true
@@ -215,6 +218,8 @@ func start(p_game) -> void:
 	for k in ["crickets", "water", "fire", "wind", "tavern", "crowd"]:
 		game._amb_set(k, -80.0)                         # the ambience steps back
 	_make_shots()
+	seed(SEED)
+	_warm_up()
 	_intro_loading()
 
 
@@ -272,7 +277,10 @@ func _build_ui() -> void:
 	add_child(col)
 	col.add_child(_title)
 	col.add_child(_sub)
-	col.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 40)
+	var margin := maxf(40.0, vs.x * 0.05)               # titles inside a safe margin on any screen
+	_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_sub.custom_minimum_size.x = minf(vs.x - margin * 2.0, 1100.0)
+	col.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, int(margin))
 	col.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	col.offset_top -= vs.y * _bar_frac()
 	col.offset_bottom -= vs.y * _bar_frac()
@@ -448,6 +456,8 @@ func _next() -> void:
 	if i > 0 and (bool(shots[i].get("white", false)) or i % 4 == 0):   # the big cuts land on a low swell
 		_sound("braam", 1.0, 0.0)
 	_riser_done = false
+	seed(SEED + i * 7919)                               # (each scene plays out the same every time)
+	_finish_sent = false
 	var sh: Dictionary = shots[i]
 	_fly_dur = 0.0
 	_delay = 0.0
@@ -468,6 +478,12 @@ func _next() -> void:
 	if not hero.ai_enabled:
 		hero.path.clear()
 		hero.target = null
+	_plan_camera(sh)                                    # the clearest way round the hero, chosen first
+	for k in range(_actors.size()):                     # the foes on the far side, facing the camera
+		var a := _actors[k]
+		if is_instance_valid(a) and not a.dead and not _fight.is_empty():
+			a.position = _foe_spot(k, _actors.size())
+	_clear_stage(sh)                                    # and nobody else walks into the shot
 	_title.text = " ".join(String(sh["title"]).to_upper().split(""))   # spaced capitals
 	if _open_title != null and is_instance_valid(_open_title):
 		_open_title.fade_out(0.5)
@@ -548,6 +564,7 @@ func tick(delta: float) -> bool:
 			_words_box.add_child(word)                     # the whole screen: its flight is never cut off
 			word.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			# (no sound for the word flying in or out; only the trailer's music and its brass cuts)
+	_script_fight(dur)
 	if not _fight.is_empty() and t < dur - 2.0:
 		var standing := false
 		for a in _actors:
@@ -803,6 +820,8 @@ var _was_rich := false
 
 
 func _restore() -> void:
+	_release_stage()
+	randomize()                                         # (the game's own chance again)
 	game.set_rich_graphics(_was_rich)
 	var f = game.frontier
 	if not f.sail.is_empty():                           # skipped out on the lake: back to the shore
@@ -1119,6 +1138,139 @@ func _hop(e: Entity, height: float, up: float, down: float) -> void:
 	tw.tween_property(e, "anim_lift", 0.0, down).set_ease(Tween.EASE_IN)
 
 
+# --- staging: the same every time, nothing in the way -------------------------------------------
+# Every scene plays out the same way each time (its own fixed chance, from the scene's number), on
+# a cleared stage (the beasts near it sent off, the townsfolk standing where they are), with the
+# foes coming from the far side of the hero (so the camera sees them, facing it), a fight that
+# lasts the whole scene and ends near its close, and a camera path picked, before the scene plays,
+# from the turns of its orbit that see the hero clearest.
+const SEED := 90210
+const STAGE_RADIUS := 18.0
+var _held: Array[Entity] = []
+var _plan_cam0 := Vector3.INF          # where the camera starts this scene (as planned)
+var _finish_sent := false
+
+
+## Everything near the scene that isn't in it: beasts and pets out of sight, townsfolk held still
+## (they stay in the picture as people of the town; they just don't walk into the shot).
+func _clear_stage(sh: Dictionary) -> void:
+	_release_stage()
+	var centre: Vector3 = sh["at"] if bool(sh.get("no_hero", false)) else hero.position
+	for item in game.creatures:
+		var e := item as Entity
+		if e == null or e == hero or e.dead or e in _actors or e == hero.mounted_on:
+			continue
+		if e.position.distance_to(centre) > STAGE_RADIUS:
+			continue
+		e.trailer_held = true
+		e.path.clear()
+		if e.kind == Entity.Kind.MONSTER or e.kind == Entity.Kind.PET:
+			e.visible = false
+		_held.append(e)
+
+
+func _release_stage() -> void:
+	for e in _held:
+		if is_instance_valid(e):
+			e.trailer_held = false
+			if not e.dead and (e.kind == Entity.Kind.MONSTER or e.kind == Entity.Kind.PET):
+				e.visible = true
+	_held.clear()
+
+
+## Where the camera stands (close on the hero, as the scene films them) at orbit angle `a`.
+func _held_cam(a: float, r: float, h: float) -> Vector3:
+	var d := clampf(r, CAM_NEAR, CAM_FAR)
+	return hero.position + Vector3(cos(a) * d, clampf(h, CAM_ABOVE_HERO, CAM_HIGH), sin(a) * d)
+
+
+## Before the scene plays: its orbit turned to the way round that sees the hero clearest (no wall,
+## house or tree between them along the whole move), and where the camera will start.
+func _plan_camera(sh: Dictionary) -> void:
+	_plan_cam0 = Vector3.INF
+	if not sh.has("a0") or sh.has("line") or sh.has("from"):
+		return
+	var a0 := float(sh["a0"])
+	var a1 := float(sh["a1"])
+	var r := float(sh.get("r", 6.0))
+	var h := float(sh.get("h", 4.0))
+	if not hero.visible or bool(sh.get("wide", false)):
+		_plan_cam0 = (sh["at"] as Vector3) + Vector3(cos(a0) * r, h, sin(a0) * r)
+		return
+	var best_off := 0.0
+	var best_bad := 1 << 20
+	for off in [0.0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9, PI]:
+		var bad := 0
+		for s in range(7):
+			var p := _held_cam(lerpf(a0, a1, float(s) / 6.0) + float(off), r, h)
+			if _view_blocked(p, hero.position + Vector3(0.0, 1.0, 0.0)) or _inside_solid(p):
+				bad += 1
+		if bad < best_bad:
+			best_bad = bad
+			best_off = float(off)
+		if bad == 0:
+			break
+	sh["a0"] = a0 + best_off
+	sh["a1"] = a1 + best_off
+	_plan_cam0 = _held_cam(a0 + best_off, r, h)
+
+
+## A foe's place: on the far side of the hero from the camera, spread a little, on open ground.
+func _foe_spot(k: int, n: int) -> Vector3:
+	var cam_at: Vector3 = _plan_cam0 if (t < 0.05 and _plan_cam0 != Vector3.INF) else game.cam.position
+	var away := hero.position - cam_at
+	away.y = 0.0
+	if away.length() < 0.01:
+		away = Vector3(0.0, 0.0, -1.0)
+	away = away.normalized()
+	var spread := (float(k) - float(n - 1) * 0.5) * 0.75
+	for tries in [[spread, 2.6], [-spread, 2.6], [spread * 1.6, 2.2], [spread, 3.4], [spread + PI * 0.5, 2.6], [spread - PI * 0.5, 2.6]]:
+		var p: Vector3 = hero.position + away.rotated(Vector3.UP, float(tries[0])) * float(tries[1])
+		if not world.is_blocked(world.to_tile(p)):
+			return Vector3(p.x, world.height_at(p), p.z)
+	return hero.position + away * 2.4
+
+
+## The fight lasts the whole scene and ends near its close: the foes can't fall before then (they
+## hold on to a share of their life), and from two seconds before the end the next blow fells them.
+func _script_fight(dur: float) -> void:
+	if _fight.is_empty():
+		return
+	var ending := t >= dur - 2.2
+	for a in _actors:
+		if not is_instance_valid(a) or a.dead:
+			continue
+		var mx := float(a.stats.max_hp())
+		if not ending:
+			a.hp = maxf(a.hp, mx * 0.4)
+		elif not _finish_sent:
+			a.hp = minf(a.hp, 1.0)
+	if ending:
+		_finish_sent = true
+
+
+## Before the first scene, behind the opening: every kind of spell effect once, out of sight of the
+## picture but in front of the camera - so none of them stutters the first time it's seen.
+func _warm_up() -> void:
+	var cam: Camera3D = game.cam
+	var p := cam.global_position - cam.global_transform.basis.z * 6.0
+	var q := p + Vector3(1.0, 0.0, 0.0)
+	Fx.burst(game, p)
+	Fx.fireball(game, p, q)
+	Fx.pillar(game, p)
+	Fx.lightning(game, p)
+	Fx.sparkle(game, p, Color(1.0, 0.9, 0.5))
+	Fx.orb(game, p, q, Color(0.7, 0.5, 1.0))
+	for node: Node3D in [Fx.flame(0.4), Fx.embers(0.4), Fx.cast_glow(Color(0.6, 0.8, 1.0)), Fx.smoke()]:
+		node.position = p
+		game.add_child(node)
+		get_tree().create_timer(1.2).timeout.connect(node.queue_free)
+	if _spell_light != null:
+		_spell_light.position = p
+		_spell_light.visible = true
+		_spell_light.light_energy = 0.05            # (its light, too, drawn once)
+
+
 # --- the camera's sight -------------------------------------------------------------------
 
 var _occl := 0.0                       # how far the camera has risen and closed in to see past something
@@ -1199,8 +1351,7 @@ func _spawn_wave() -> void:
 		c["passive"] = false
 		c["leash"] = 20
 		c["aggro"] = 15.0
-		var ang := TAU * float(k) / float(n) + randf() * 0.5     # from all sides
-		var at := world.tile_center(tile) + Vector3(cos(ang), 0, sin(ang)) * (2.2 + randf() * 0.8)
+		var at := _foe_spot(k, n)                       # (from the far side of the hero, facing the camera)
 		var e: Entity = game.pool_spawn("%s " % foe_name if k > 0 else foe_name, c, Color(0.85, 0.3, 0.25), at)
 		e.target = hero
 		_actors.append(e)

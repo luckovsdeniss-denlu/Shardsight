@@ -3,6 +3,22 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.2.9
+- Trailers, smooth and in place - every scene staged:
+  - the same every time: each scene plays out with its own fixed chance (where foes stand, which
+    spells, hits and misses), so what is fixed stays fixed;
+  - a cleared stage: beasts and pets near the scene are sent out of sight, townsfolk stand still
+    where they are (still in the town, never walking into the shot), and nobody's name hangs over
+    their head;
+  - foes come from the far side of the hero, spread a little, on open ground - in the picture and
+    facing the camera - and later waves the same;
+  - a fight that fills the scene: the foes hold on until two seconds before its end, then the
+    next blow fells them (no early win and a wait for the next lot, no fight cut off midway);
+  - a camera path checked before the scene plays: of the ways round the hero, the one that sees
+    them clearest (no wall, house or tree between them along the whole move);
+  - every kind of spell effect drawn once behind the opening, so none stutters the first time;
+  - the titles inside a safe margin on any screen, the line under them wrapping to fit.
+
 ## 1.2.8
 - Trailer camera at the hero's level: close on the hero it now stays 1.0-2.3 m above them (about
   their own eye level) and 3.5-6.5 m out, so the hero is filmed level, not looked down on. Getting
