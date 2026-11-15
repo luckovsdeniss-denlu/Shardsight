@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.2.3
+- Trailer sword choreography, cleaner: the four-blow combo is a slash with a side-step, a
+  backhand, a driving blow with a half step in, and a finisher with one clean turn - no more
+  twirling on every other blow or leaping into the air - named plainly (SLASH, BACKHAND, DRIVING
+  BLOW, FINISHER). As a spell begins the hero rises a little, steady, instead of twirling or
+  hopping.
+
 ## 1.2.2
 - Weighty combat - always in the trailers, and in experimental mode as the "Weighty combat"
   experiment (Main Menu > Experiments; off in the ordinary game until it has been tried):

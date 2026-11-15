@@ -988,7 +988,7 @@ func _tell(lines: Array) -> void:
 var _combo := 0
 var _cast_n := 0
 var _side := 1.0
-const COMBO_NAMES := ["SLASH!", "SPIN SLASH!", "LEAP STRIKE!", "WHIRLWIND FINISH!"]
+const COMBO_NAMES := ["SLASH", "BACKHAND", "DRIVING BLOW", "FINISHER"]
 
 
 ## Each blow of the hero's sword is the next step of a four-step combo, each with its own move:
@@ -1010,18 +1010,18 @@ func on_hero_strike(foe: Entity) -> void:
 				var dest := hero.position + perp * 1.0
 				if not world.is_blocked(world.to_tile(dest)):
 					hero.create_tween().tween_property(hero, "position", dest, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		1:                                               # spin slash
-			if not hero_holds_ground():
-				_spin(hero, 0.32)
-		2:                                               # leaping strike
-			if not hero_holds_ground():
-				_hop(hero, 0.7, 0.18, 0.2)
-				punch_on_beat(0.5)
-		3:                                               # whirlwind finisher
-			_spin(hero, 0.45, 2.0)
-			if not hero_holds_ground():
-				_hop(hero, 0.45, 0.15, 0.2)
-			punch_on_beat(0.5 if hero_holds_ground() else 1.0)
+		1:                                               # the backhand: the swing itself is the move
+			pass
+		2:                                               # a driving blow: a half step in behind it
+			var to2 := foe.position - hero.position
+			to2.y = 0.0
+			var dest2 := hero.position + to2.normalized() * 0.35
+			if to2.length() > 1.2 and not world.is_blocked(world.to_tile(dest2)) and not hero_holds_ground():
+				hero.create_tween().tween_property(hero, "position", dest2, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			punch_on_beat(0.3)
+		3:                                               # the finisher: one clean turn through the foe
+			_spin(hero, 0.5, 1.0)
+			punch_on_beat(0.6)
 			Fx.sparkle(game, foe.position + Vector3(0.0, 1.0, 0.0), Color(1.0, 0.85, 0.35), 30)
 	foe._pop(String(COMBO_NAMES[step]), [Color(1.0, 0.9, 0.5), Color(0.6, 0.9, 1.0), Color(1.0, 0.6, 0.3), Color(1.0, 0.45, 0.85)][step])
 
@@ -1060,10 +1060,11 @@ func _cast_flourish() -> void:
 			tw.tween_property(hero, "anim_lift", 0.55, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 			tw.tween_interval(0.7)
 			tw.tween_property(hero, "anim_lift", 0.0, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-		1:
-			_spin(hero, 0.5)
-		2:
-			_hop(hero, 0.5, 0.15, 0.2)
+		1, 2:                                            # (no twirls or hops: a steady stance, a lesser rise)
+			var tw2 := _new_tween(hero, "lift_tw")
+			tw2.tween_property(hero, "anim_lift", 0.25, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			tw2.tween_interval(0.5)
+			tw2.tween_property(hero, "anim_lift", 0.0, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	Fx.sparkle(game, hero.position + Vector3(0.0, 1.2, 0.0), [Color(0.6, 0.8, 1.0), Color(1.0, 0.7, 0.4), Color(0.8, 0.6, 1.0)][kind], 20)
 
 
