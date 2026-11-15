@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.0.9
+- The icon: the blue ring moves a little out, clear of the sword's pommel (it touched it), with a
+  hairline just outside it; and between the shard and the rings, the fine work - hairline rings at
+  seven levels, each with its own symmetry and each turned against the next: 32 gold ticks, a
+  dashed ring of 16, 24 tiny beads, a faint gold circle, 8 tiny diamonds, a dashed ring of 12 and
+  48 hair ticks, all faintly glowing behind the shard.
+
 ## 1.0.8
 - The icon's blue ring turned to 45 degrees, so it's the same on every side: its arcs face the
   gold ring's cuts (top, bottom, left and right) and its cuts face the gold arcs.
