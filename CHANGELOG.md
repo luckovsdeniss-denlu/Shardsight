@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.1.7
+- Trailer camera: no more jolts in the fight and magic scenes.
+  - The slow motion after each spell now eases in and out instead of switching speed at once
+    (in the magic scenes that happened every second or so, and the camera lurched each time).
+  - The punch-in on a big blow eases in, and is smaller.
+  - The camera's lowest height (above the hero, above the ground) is eased too, so a step of the
+    hero or a bump of the ground no longer jolts it.
+
 ## 1.1.6
 - Trailer, "Slay the giants" scene: no more jitter on the hero. The hero now stands and fights the
   giant - no stepping back every few seconds and walking straight back in, and no side-steps round

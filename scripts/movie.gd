@@ -451,17 +451,21 @@ func tick(delta: float) -> bool:
 	var casting := hero.casting_id != ""
 	if _was_casting and not casting:
 		_slow = 0.5
-		Engine.time_scale = 0.35
 		Soundscape.slowmo = true                       # the world goes dull and far away...
 		Soundscape.update("wilds", false, false)
 		game.music.player.pitch_scale = 0.8
 	_was_casting = casting
+	# (the slow motion eases in and out, never snaps: a sudden change of speed made the camera
+	# and everyone in the picture lurch)
+	var real := delta / maxf(Engine.time_scale, 0.05)  # real seconds
 	if _slow > 0.0:
-		_slow -= delta / maxf(Engine.time_scale, 0.05)  # counted in real seconds
+		_slow -= real
+		Engine.time_scale = move_toward(Engine.time_scale, 0.35, real * 5.0)
 		if _slow <= 0.0:
-			Engine.time_scale = 1.0
-			Soundscape.slowmo = false                  # ...and snaps back
+			Soundscape.slowmo = false                  # ...and comes back
 			game.music.player.pitch_scale = 1.0
+	elif Engine.time_scale < 1.0:
+		Engine.time_scale = move_toward(Engine.time_scale, 1.0, real * 2.5)
 	if not _riser_done and t >= dur - 1.2 and i < shots.size() - 1:
 		_riser_done = true                              # a riser sweeps up into the next cut
 		_sound("riser", 1.0, -4.0)
@@ -554,9 +558,15 @@ func tick(delta: float) -> bool:
 		_aim_s = look
 	_cam_s = _cam_s.lerp(cam.position, 1.0 - exp(-delta * 4.0))
 	_aim_s = _aim_s.lerp(look, 1.0 - exp(-delta * 5.0))
+	# the lowest it may go (above the hero, above the ground) - eased too, so a step of the hero
+	# or a bump in the ground under the camera doesn't jolt it; and never into the ground
+	var floor_y := world.height_at(_cam_s) + 1.3
 	if see_hero:
-		_cam_s.y = maxf(_cam_s.y, hero.position.y + CAM_ABOVE_HERO)
-	_cam_s.y = maxf(_cam_s.y, world.height_at(_cam_s) + 1.3)
+		floor_y = maxf(floor_y, hero.position.y + CAM_ABOVE_HERO)
+	if _floor_s == -INF or (t < 0.05 and _fly_dur <= 0.0 and not _continuous()):
+		_floor_s = floor_y
+	_floor_s = lerpf(_floor_s, floor_y, 1.0 - exp(-delta * 3.0))
+	_cam_s.y = maxf(_cam_s.y, maxf(_floor_s, world.height_at(_cam_s) + 0.6))
 	cam.position = _cam_s
 	look = _aim_s
 	_look_last = look
@@ -564,7 +574,8 @@ func tick(delta: float) -> bool:
 	# a little life in the hand-held camera, and a punch-in on a big blow
 	cam.position += Vector3(sin(t * 1.7) * 0.06, sin(t * 2.3) * 0.04, cos(t * 1.3) * 0.06)
 	_punch = maxf(_punch - delta * 3.0, 0.0)
-	cam.fov -= _punch * 8.0
+	_punch_s = lerpf(_punch_s, _punch, 1.0 - exp(-delta * 10.0))   # (the punch-in eases in: no jolt)
+	cam.fov -= _punch_s * 5.0
 	cam.look_at(look + Vector3(0, 0.8, 0), Vector3.UP)
 	cam.rotate_object_local(Vector3(0, 0, 1), sin(t * 0.6) * 0.035 * (1.0 if i % 2 == 0 else -1.0))   # a gentle dutch tilt
 	game.view_planes = cam.get_frustum()
@@ -916,7 +927,9 @@ var _clear_for := 0.0                  # how long the view of the hero has been 
 var _edge_k := 0.0                     # how hard the camera is turning towards a hero near the edge
 var _cam_s := Vector3.INF              # the camera's place, eased (no jitter)
 var _aim_s := Vector3.ZERO             # where it aims, eased
-const CAM_ABOVE_HERO := 4.0            # the camera never comes lower than this above the hero
+const CAM_ABOVE_HERO := 4.0
+var _floor_s := -INF                   # the camera's lowest height, eased
+var _punch_s := 0.0                    # the punch-in, eased            # the camera never comes lower than this above the hero
 
 
 ## How tall each solid thing is (metres), for the camera's sight.
