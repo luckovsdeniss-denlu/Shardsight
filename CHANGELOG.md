@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.1.6
+- Trailer, "Slay the giants" scene: no more jitter on the hero. The hero now stands and fights the
+  giant - no stepping back every few seconds and walking straight back in, and no side-steps round
+  it (a quick turn on the spot instead). And in every scene, a new spin or hop no longer cuts off
+  the one still playing: a spin lets the last one finish, and a hop or rise takes over smoothly
+  from the height the hero is at, instead of both pulling at the hero at once.
+
 ## 1.1.5
 - Fixed the build's publishing step (a stray `else` broke it, so 1.1.4's test build failed).
 

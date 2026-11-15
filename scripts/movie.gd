@@ -833,6 +833,10 @@ func on_hero_strike(foe: Entity) -> void:
 	_combo += 1
 	match step:
 		0:                                               # slash, then a side-step round the foe
+			if hero_holds_ground():
+				_spin(hero, 0.3)                         # (standing its ground: a turn on the spot instead)
+				foe._pop(String(COMBO_NAMES[step]), Color(1.0, 0.9, 0.5))
+				return
 			_side = -_side
 			var to := foe.position - hero.position
 			to.y = 0.0
@@ -854,13 +858,20 @@ func on_hero_strike(foe: Entity) -> void:
 	foe._pop(String(COMBO_NAMES[step]), [Color(1.0, 0.9, 0.5), Color(0.6, 0.9, 1.0), Color(1.0, 0.6, 0.3), Color(1.0, 0.45, 0.85)][step])
 
 
+## In a scene marked "no_run" (the giant), the hero stands and fights: no stepping back from the
+## foe and no side-steps round it, which against a big foe that keeps closing in played as the
+## same little move over and over (a jitter).
+func hero_holds_ground() -> bool:
+	return i >= 0 and i < shots.size() and bool(shots[i].get("no_run", false))
+
+
 ## As a spell begins, the hero moves with it, in turn: rising into the air, a twirl, a hop back.
 func _cast_flourish() -> void:
 	var kind := _cast_n % 3
 	_cast_n += 1
 	match kind:
 		0:                                               # rises, held aloft while the words are spoken
-			var tw := hero.create_tween()
+			var tw := _new_tween(hero, "lift_tw")
 			tw.tween_property(hero, "anim_lift", 0.55, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 			tw.tween_interval(0.7)
 			tw.tween_property(hero, "anim_lift", 0.0, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
@@ -871,16 +882,30 @@ func _cast_flourish() -> void:
 	Fx.sparkle(game, hero.position + Vector3(0.0, 1.2, 0.0), [Color(0.6, 0.8, 1.0), Color(1.0, 0.7, 0.4), Color(0.8, 0.6, 1.0)][kind], 20)
 
 
-func _spin(e: Entity, secs: float, turns := 1.0) -> void:
-	e.anim_spin = 0.0
+## A new move replaces the one still playing (instead of both pulling at the hero at once), and
+## starts from where that one left off - no snap.
+func _new_tween(e: Entity, key: String) -> Tween:
+	if e.has_meta(key):
+		var old: Variant = e.get_meta(key)
+		if old is Tween and (old as Tween).is_valid():
+			(old as Tween).kill()
 	var tw := e.create_tween()
+	e.set_meta(key, tw)
+	return tw
+
+
+func _spin(e: Entity, secs: float, turns := 1.0) -> void:
+	if e.has_meta("spin_tw") and e.get_meta("spin_tw") is Tween and (e.get_meta("spin_tw") as Tween).is_running():
+		return                                           # (still turning: let it finish)
+	e.anim_spin = 0.0
+	var tw := _new_tween(e, "spin_tw")
 	tw.tween_property(e, "anim_spin", TAU * turns, secs).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func() -> void: e.anim_spin = 0.0)
 
 
 func _hop(e: Entity, height: float, up: float, down: float) -> void:
-	var tw := e.create_tween()
-	tw.tween_property(e, "anim_lift", height, up).set_ease(Tween.EASE_OUT)
+	var tw := _new_tween(e, "lift_tw")
+	tw.tween_property(e, "anim_lift", maxf(height, e.anim_lift), up).set_ease(Tween.EASE_OUT)
 	tw.tween_property(e, "anim_lift", 0.0, down).set_ease(Tween.EASE_IN)
 
 

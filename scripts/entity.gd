@@ -688,6 +688,8 @@ func _kite() -> bool:
 		return true                        # let the step back play out
 	if target == null or kite_cd > 0.0 or casting_id != "":
 		return false
+	if is_hero and game.movie != null and game.movie.hero_holds_ground():
+		return false                       # (a trailer scene where the hero stands and fights)
 	var archer := weapon != "" and Gear.is_ranged(weapon) and arrows > 0
 	# a caster about to cast: a blow could break the spell, so first get out of reach
 	var caster := not archer and _skill(Hero.Skill.MAGERY) >= 30.0 and _best_spell("attack") != "" \
