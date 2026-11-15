@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.97.6
+- Trailer scene 4 (Bounties): the camera films from higher up and further out, and follows the
+  hero more closely, so the hero no longer runs out of the shot (or behind the scenery) while
+  fighting Grimfang.
+
 ## 0.97.5
 Creatures move without jitter, in the game and the trailer:
 - A new path no longer begins with a little step back to the centre of the tile underfoot (the

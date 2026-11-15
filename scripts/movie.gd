@@ -284,8 +284,8 @@ func _make_shots() -> void:
 			"at": _tc(Vector2i(30, 13)), "r": 4.5, "h": 3.0, "a0": 0.9, "a1": 1.9,
 			"setup": _stage_talk.bind(Quests.GIVER, Vector2i(31, 13), ["\"Orcs on the north road!\"", ">\"I'll see to it.\"", "\"Four of them. Bring me proof.\""])},
 		{"title": "Bounties", "story": [["foe", "\"Grrrrr...\""], ["hero", "\"Nice price on your head, Grimfang.\""], ["hero", "\"Sorry. Nothing personal.\""]], "words": ["HUNT THE BOUNTIES", "NAMED BEASTS · RICH REWARDS"], "sub": "Every board posts a beast with a name and a price on its head.", "dur": 7.0, "day": 0.35,
-			"at": _tc(Vector2i(14, 19)), "r": 5.0, "h": 3.0, "a0": 3.0, "a1": 4.2, "cam": "orbit",
-			"setup": _stage_fight.bind(Vector2i(14, 19), "Grimfang the Wolf", _elite(Bestiary.WOLF), 1)},
+			"at": _tc(Vector2i(14, 19)), "r": 8.5, "h": 7.5, "a0": 3.0, "a1": 4.2, "cam": "orbit", "follow": 0.85,
+			"setup": _stage_fight.bind(Vector2i(14, 19), "Grimfang the Wolf", _elite(Bestiary.WOLF), 1)},   # (higher and wider: the hero stays in sight)
 		{"title": "Fight", "story": [["foe", "\"Fresh meat!\""], ["hero", "\"Not today.\""], ["foe", "\"...ow.\""]], "words": ["MASTER THE BLADE", "EVERY WEAPON ITS OWN BLOW"], "sub": "Swords, axes, maces, spears, bows - and a different blow for each.", "dur": 8.0,
 			"at": _tc(Vector2i(14, 19)), "r": 4.5, "h": 2.6, "a0": 0.0, "a1": 1.4, "setup": _stage_fight.bind(Vector2i(14, 19), "Orc", Bestiary.ORC, 2)},
 		{"title": "Magic", "story": [["foe", "\"ME SMASH TINY HUMAN!\""], ["hero", "\"Stand back. This gets loud.\""]], "words": ["67 SPELLS", "SPEAK THE OLD WORDS"], "sub": "Sixty-seven spells in eight circles. Speak the old words.", "dur": 9.0, "white": true,
@@ -463,7 +463,7 @@ func tick(delta: float) -> bool:
 	# the camera follows the hero: it looks at a point between the scene's centre and the hero,
 	# leaning all the way to the hero if they slip out of the frame - so the hero never leaves it
 	if hero.visible and not bool(sh.get("no_hero", false)):
-		var lean := 0.6
+		var lean := float(sh.get("follow", 0.6))
 		if not cam.is_position_in_frustum(hero.position + Vector3(0.0, 1.0, 0.0)):
 			lean = 1.0
 		var want: Vector3 = look.lerp(hero.position, lean)
