@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.0.8
+- The icon's blue ring turned to 45 degrees, so it's the same on every side: its arcs face the
+  gold ring's cuts (top, bottom, left and right) and its cuts face the gold arcs.
+
 ## 1.0.7
 - The icon: the gold ring reaches further out, right to the edges, and a second ring circles
   closer to the shard - an icy blue band of light, turned a little against the gold one, cut on

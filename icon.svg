@@ -58,9 +58,10 @@
   <g transform="translate(243.0 128.0) rotate(90)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
   <g transform="translate(128.0 243.0) rotate(180)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
   <g transform="translate(13.0 128.0) rotate(270)"><polygon points="0,-12 9,0 0,12 -9,0" fill="#7a5a18"/><polygon points="0,-10 7,0 0,10 -7,0" fill="url(#shard)"/><polygon points="0,-10 7,0 0,0" fill="#ffffff" opacity="0.45"/></g>
-  <!-- the second ring: an icy blue band of light closer to the shard, turned a little against the
-       gold one, cut on four sides too, with a bright bead at each end of its arcs -->
-  <g transform="rotate(24 128 128)">
+  <!-- the second ring: an icy blue band of light closer to the shard, turned 45 degrees so it is
+       the same on every side - its arcs face the gold ring's cuts and its cuts face the gold arcs -
+       with a bright bead at each end of its arcs -->
+  <g transform="rotate(45 128 128)">
   <circle cx="128" cy="128" r="90" fill="none" stroke="#5fc8ff" stroke-width="9" opacity="0.35" filter="url(#glow)" stroke-dasharray="84.82 56.55" stroke-dashoffset="113.10"/>
   <circle cx="128" cy="128" r="90" fill="none" stroke="#1d4f9c" stroke-width="5.5" stroke-dasharray="84.82 56.55" stroke-dashoffset="113.10"/>
   <circle cx="128" cy="128" r="90" fill="none" stroke="url(#shard)" stroke-width="3.2" stroke-dasharray="84.82 56.55" stroke-dashoffset="113.10"/>
