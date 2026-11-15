@@ -992,8 +992,8 @@ const COMBO_NAMES := ["SLASH", "BACKHAND", "DRIVING BLOW", "FINISHER"]
 
 
 ## Each blow of the hero's sword is the next step of a four-step combo, each with its own move:
-## a slash with a quick side-step, a spinning slash, a leaping strike, and a whirling finisher
-## (the camera punches in). The move's name bursts over the foe that takes it.
+## a slash with a quick side-step, a backhand, a driving blow with a half step in, and a finisher
+## with one clean turn (the camera punches in). The move's name rises over the foe that takes it.
 func on_hero_strike(foe: Entity) -> void:
 	var step := _combo % 4
 	_combo += 1
