@@ -5,7 +5,7 @@
 ### *A world of swords, spells and skill — in your pocket.*
 
 A living 3D fantasy world for Android, in the spirit of the classic online RPGs:
-no classes, no levels to grind — just you, what you practise, and a land that goes on without you.
+no classes,just you, what you practise, and a land that goes on without you.
 
 ![Shardsight](docs/screenshots/title.jpg)
 
