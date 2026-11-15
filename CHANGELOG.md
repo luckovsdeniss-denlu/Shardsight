@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.99.9
+- The two trailers are apart: the second trailer (the long flight, its map across the top, its
+  opening line over the whole land) now lives in its own script, MovieFlight, built on the first;
+  the first trailer has none of it. "Trailer" always plays the first trailer in its scenes, and
+  "Trailer 2" the long flight - and changing one no longer changes the other.
+
 ## 0.99.8
 - "Record trailer video" can record from an older version of the game (a commit or tag given
   when it's started) - to bring back a trailer exactly as it was.

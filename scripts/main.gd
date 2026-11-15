@@ -5728,13 +5728,12 @@ func _show_title(layer: CanvasLayer) -> void:
 	var film := _menu_button("Trailer", func() -> void:
 		start_mode = "classic"
 		close.call()
-		movie = Movie.new()                        # the gameplay showcase (then back to this title)
+		movie = Movie.new()                        # the first trailer: the showcase in scenes (then back to this title)
 		movie.start(self))
 	var film2 := _menu_button("Trailer 2", func() -> void:
 		start_mode = "classic"
 		close.call()
-		movie = Movie.new()                        # the action cut: about a minute of fights
-		movie.variant = 2
+		movie = MovieFlight.new()                  # the second trailer: one long flight across the map
 		movie.start(self))
 	var exp_b := _menu_button("Experimental mode", _switch_mode.bind("experimental"))
 	exp_b.custom_minimum_size = Vector2(320, 80)
