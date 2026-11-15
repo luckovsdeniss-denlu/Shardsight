@@ -15,3 +15,13 @@
   `Experiments.LIST` (`scripts/experiments.gd`) and gate the change with `Experiments.on("id")`;
   it is off in the ordinary game and switchable in Main Menu > Experiments. Experimental mode has
   its own save (`SaveGame.slot`).
+- Branches: the trailers have their own branch, `trailers`. Changes to the trailers (`movie.gd`,
+  `movie_flight.gd`, `title3d.gd`, the trailer camera, words, music and recording) go there;
+  everything else goes to the dev branch. "merge trailers" means: bring `trailers` into the dev
+  branch, then fast-forward `main` to it. APKs are built from `main` only, so trailer changes
+  reach the phone after a merge. Not `trailer`: that name is the release tag holding the videos.
+- Trailer videos: "Record trailer video" (`trailer-video.yml`) records trailer 1, 2 or both, from
+  `main` or from any branch or commit given as `source` (e.g. `trailers`). Each trailer replaces
+  only its own videos in the `trailer` release.
+- Checks: don't run the game or any checks before committing unless the owner asks; the build has
+  no tests either.
