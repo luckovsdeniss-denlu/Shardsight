@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.0.0
+The trailer camera sees the hero, always (both trailers):
+- It never films through walls: if a wall, a house, a tree or a rock stands between it and the
+  hero (checked at the line's own height, so a low wall it can see over doesn't count), it rises
+  and closes in, smoothly, until the view is clear - and eases back once it is.
+- It never sinks into the ground or sits inside anything solid.
+- It follows the hero, and turns harder towards them if they near the edge of the picture.
+
 ## 0.99.9
 - The two trailers are apart: the second trailer (the long flight, its map across the top, its
   opening line over the whole land) now lives in its own script, MovieFlight, built on the first;

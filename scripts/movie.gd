@@ -519,6 +519,25 @@ func tick(delta: float) -> bool:
 		var fk := smoothstep(0.0, 1.0, t / _fly_dur)
 		cam.position = _fly_from_pos.lerp(cam.position, fk) + Vector3(0.0, sin(PI * fk) * _fly_arc, 0.0)
 		look = _fly_from_look.lerp(look, fk)
+	# keep the hero in sight: if a wall, a house, a tree or a rock stands between the camera and
+	# the hero (or what it films), rise and close in - smoothly - until the view is clear, then
+	# ease back; and never sink into the ground or sit inside anything solid
+	var subject: Vector3 = (hero.position + Vector3(0.0, 1.0, 0.0)) if hero.visible and not bool(sh.get("no_hero", false)) else look + Vector3(0.0, 0.8, 0.0)
+	if _view_blocked(cam.position, subject) or _inside_solid(cam.position):
+		_occl = move_toward(_occl, 1.0, delta * 1.6)
+	else:
+		_occl = move_toward(_occl, 0.0, delta * 0.6)
+	if _occl > 0.0:
+		var ease_k := _occl * _occl * (3.0 - 2.0 * _occl)
+		cam.position = cam.position.lerp(subject, 0.35 * ease_k) + Vector3(0.0, 7.0 * ease_k, 0.0)
+	cam.position.y = maxf(cam.position.y, world.height_at(cam.position) + 1.3)
+	# and if the hero is getting near the edge of the picture, turn harder towards them
+	if hero.visible and not bool(sh.get("no_hero", false)):
+		var sp := cam.unproject_position(hero.position + Vector3(0.0, 1.0, 0.0)) if not cam.is_position_behind(hero.position) else Vector2(-1.0, -1.0)
+		var vsz := get_viewport().get_visible_rect().size
+		var edge := sp.x < vsz.x * 0.15 or sp.x > vsz.x * 0.85 or sp.y < vsz.y * 0.18 or sp.y > vsz.y * 0.82
+		if edge:
+			look = look.lerp(hero.position, 0.5)
 	_look_last = look
 	_redraw_extra()
 	# a little life in the hand-held camera, and a punch-in on a big blow
@@ -842,6 +861,39 @@ func _hop(e: Entity, height: float, up: float, down: float) -> void:
 	var tw := e.create_tween()
 	tw.tween_property(e, "anim_lift", height, up).set_ease(Tween.EASE_OUT)
 	tw.tween_property(e, "anim_lift", 0.0, down).set_ease(Tween.EASE_IN)
+
+
+# --- the camera's sight -------------------------------------------------------------------
+
+var _occl := 0.0                       # how far the camera has risen and closed in to see past something
+
+
+## How tall each solid thing is (metres), for the camera's sight.
+const SOLID_HEIGHT := {World.Tile.WALL: 2.2, World.Tile.HOUSE: 3.2, World.Tile.TREE: 2.0, World.Tile.ROCK: 1.0, World.Tile.FORGE: 1.0}
+
+
+## Whether anything solid stands in the line from the camera to `to`, at the line's own height there.
+func _view_blocked(from: Vector3, to: Vector3) -> bool:
+	var d := Vector2(to.x - from.x, to.z - from.z)
+	var steps := int(d.length() / 0.35) + 1
+	for k in range(1, steps - 1):
+		var p := from.lerp(to, float(k) / steps)
+		var c := world.to_tile(p)
+		if not world.in_bounds(c):
+			continue
+		var tile: int = world.tiles[c.y * world.cols + c.x]
+		if SOLID_HEIGHT.has(tile) and p.y < world.height_at(p) + float(SOLID_HEIGHT[tile]):
+			return true
+	return false
+
+
+## Whether the camera itself is inside a wall, a house or a tree.
+func _inside_solid(p: Vector3) -> bool:
+	var c := world.to_tile(p)
+	if not world.in_bounds(c):
+		return false
+	var tile: int = world.tiles[c.y * world.cols + c.x]
+	return SOLID_HEIGHT.has(tile) and p.y < world.height_at(p) + float(SOLID_HEIGHT[tile]) + 0.3
 
 
 ## A named beast for a bounty: bigger, tougher, worth more.
