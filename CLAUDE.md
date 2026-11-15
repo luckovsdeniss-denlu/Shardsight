@@ -7,6 +7,9 @@
   being asked: the APK is published to Releases,
   `https://github.com/luckovsdeniss-denlu/Shardsight/releases/tag/v<version>`. Don't give the
   Actions run page link.
+- Test builds: when the owner asks to build from another branch (e.g. "build from trailers"), start
+  the workflow on that branch; it publishes a pre-release `v<version>-<branch>`
+  (`.../releases/tag/v<version>-trailers`), separate from the normal one.
 - "push" means: fast-forward `main` to the dev branch `claude/android-game-apk-init-3zkjp2`,
   without building.
 - Play-tests: don't start extra play-test runs or schedule check-ins.

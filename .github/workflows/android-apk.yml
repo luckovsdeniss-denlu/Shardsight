@@ -2,6 +2,9 @@ name: Build Android APK
 
 # Builds only when started by hand (Actions > Build Android APK > Run workflow), never on a
 # push or pull request: an APK is built only when the owner asks for one.
+# Built from `main`, it is the normal release `v<version>`. Built from any other branch (e.g.
+# `trailers`), it is a separate test release `v<version>-<branch>`, marked as a pre-release, so
+# it never replaces or shows up as the latest normal one.
 on:
   workflow_dispatch:
 
@@ -67,7 +70,13 @@ jobs:
           CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))   # 0.5.0 -> 500
           sed -i "s|^version/name=.*|version/name=\"$VERSION\"|" export_presets.cfg
           sed -i "s|^version/code=.*|version/code=$CODE|" export_presets.cfg
-          echo "APK_NAME=shardsight-v$VERSION" >> "$GITHUB_ENV"
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            SUFFIX=""
+          else
+            SUFFIX="-$(echo "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9.\n' '-' | sed 's/-*$//')"
+            echo "PRERELEASE=true" >> "$GITHUB_ENV"
+          fi
+          echo "APK_NAME=shardsight-v$VERSION$SUFFIX" >> "$GITHUB_ENV"
           echo "Version $VERSION (code $CODE)"
 
       - name: Import and export debug APK
@@ -116,6 +125,11 @@ jobs:
           if [ -f "build/$APK_NAME-release.apk" ]; then FILES="$FILES build/$APK_NAME-release.apk"; fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" $FILES --clobber
+          else
+          elif [ "$PRERELEASE" = "true" ]; then
+            gh release create "$TAG" $FILES --target "$GITHUB_SHA" --title "Shardsight $TAG (test build from $GITHUB_REF_NAME)" \
+              --prerelease --latest=false \
+              --notes "Test APK built from the $GITHUB_REF_NAME branch ($GITHUB_SHA). Not a normal release."
           else
             gh release create "$TAG" $FILES --target "$GITHUB_SHA" --title "Shardsight $TAG" \
               --notes "Android APK built from $GITHUB_SHA. See CHANGELOG.md for what changed."

@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.1.4
+- Builds from a branch other than `main` (e.g. `trailers`) now publish to their own test release,
+  `v<version>-<branch>` (e.g. `v1.1.4-trailers`), marked as a pre-release, so they never replace
+  the normal `v<version>` APK or show up as the latest release.
+
 ## 1.1.3
 - `icon.png` (the game's icon, and the plain Android launcher icon) is now the design edge to
   edge, as the adaptive icon shows it: no dark rounded border around it.
