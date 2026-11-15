@@ -165,6 +165,8 @@ func start(p_game) -> void:
 	layer = 50
 	game.add_child(self)
 	_snapshot()
+	_was_rich = Art.rich
+	game.set_rich_graphics(true)                       # the trailer shows the game at its best (put back after)
 	# a clean screen: no buttons, log, stats or menus (over heads the fight shows in full: damage,
 	# spell words, health and casting bars - the hero's too)
 	if game.ui_layer != null:
@@ -797,7 +799,11 @@ func _snapshot() -> void:
 	}
 
 
+var _was_rich := false
+
+
 func _restore() -> void:
+	game.set_rich_graphics(_was_rich)
 	var f = game.frontier
 	if not f.sail.is_empty():                           # skipped out on the lake: back to the shore
 		f.sail = {}
