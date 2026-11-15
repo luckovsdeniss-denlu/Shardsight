@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.99.4
+- Fix: since 0.97.2 the trailer camera stopped moving in almost every scene (a line was lost when
+  the camera started following the hero, and it then reached for a glide that only the boat scene
+  has). Both trailers film properly again: the circling, cranes, spirals, dolly zooms and the
+  following all work. (The trailer videos recorded since then need recording again.)
+- Trailer 2 opens with the whole map as one long line: the camera glides from the far south-east
+  corner across the entire land - deserts, lakes, regions and towns - to the starting town, under
+  the 3D title, and the journey goes on from there.
+
 ## 0.99.3
 - A new README for the GitHub page: what Shardsight is, its story, skills, world and features,
   screenshots, links to the latest APK and both trailer videos, and a guide to the code.

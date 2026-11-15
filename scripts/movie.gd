@@ -282,6 +282,11 @@ func _long_line() -> void:
 	last["h"] = 34.0
 	last["cam"] = "orbit"
 	last["no_hero"] = true                                 # (the land alone at the end)
+	var first: Dictionary = line[0]                        # the start: one line over the whole land
+	first["line"] = [_tc(Vector2i(136, 136)), _tc(Vector2i(32, 12))]
+	first["line_h"] = 26.0
+	first["dur"] = 16.0
+	first["sub"] = "One world, from the sands of the south to the snows of the north."
 	shots = line
 
 
@@ -494,6 +499,15 @@ func tick(delta: float) -> bool:
 			_look_s = want
 		_look_s = _look_s.lerp(want, 1.0 - exp(-delta * (6.0 if lean >= 1.0 else 3.0)))
 		look = _look_s
+	if sh.has("line"):
+		# the long line over the whole map: gliding from one end of the land to the other,
+		# looking ahead along the way
+		var la: Vector3 = sh["line"][0]
+		var lb: Vector3 = sh["line"][1]
+		var lh := float(sh.get("line_h", 24.0))
+		cam.position = la.lerp(lb, k) + Vector3(0.0, lh, 0.0)
+		look = la.lerp(lb, minf(k + 0.12, 1.0))
+	elif sh.has("from"):
 		cam.position = (sh["from"] as Vector3).lerp(sh["to"], k)
 	else:
 		var a := lerpf(float(sh["a0"]), float(sh["a1"]), k)
