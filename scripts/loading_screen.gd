@@ -145,12 +145,18 @@ func _process(delta: float) -> void:
 	_bg_mat.set_shader_parameter("aspect", vs.x / maxf(vs.y, 1.0))
 	_bg_mat.set_shader_parameter("progress", _shown)
 	_bg_mat.set_shader_parameter("center_y", CENTER_Y)
-	_bg_mat.set_shader_parameter("ring_r", 132.0 * minf(vs.x, vs.y) / 720.0 / maxf(vs.y, 1.0))   # on the gold ring
+	_bg_mat.set_shader_parameter("ring_r", 141.0 * minf(vs.x, vs.y) / 720.0 / maxf(vs.y, 1.0))   # on the 3D gold ring
 	_layout(vs)
 	_fg.queue_redraw()
 
 
-const CENTER_Y := 0.36                                 # the circle's middle, as a fraction of the height
+const CENTER_Y := 0.33                                 # the circle's middle, as a fraction of the height
+## Below the circle, evenly spaced (in units of a 720-pixel-high screen, from the circle's middle):
+## the rings reach about 165 down; then a gap, the name; a gap, the line under it; a gap, the bar.
+const GAP := 34.0
+const NAME_Y := 165.0 + GAP + 36.0                      # the middle of the 3D name (its letters ~72 tall)
+const SUB_Y := NAME_Y + 36.0 + GAP + 12.0               # the line under it (its baseline)
+const BAR_Y := SUB_Y + GAP                              # the top of the bar
 
 
 func _draw_fg() -> void:
@@ -161,14 +167,14 @@ func _draw_fg() -> void:
 	var gold := Color(0.95, 0.78, 0.35)
 	var u := minf(vs.x, vs.y) / 720.0                 # scale everything with the screen
 	# (the Shard, its rings and the name are 3D now: see _build_logo3d; only the line under them is drawn)
-	_spaced(font, "A WORLD OF SWORDS, SPELLS AND SKILL", Vector2(c.x, c.y + 244.0 * u), int(16 * u), 4.0 * u, Color(0.6, 0.75, 0.9))
+	_spaced(font, "A WORLD OF SWORDS, SPELLS AND SKILL", Vector2(c.x, c.y + SUB_Y * u), int(16 * u), 4.0 * u, Color(0.6, 0.75, 0.9))
 	# The bar: a slim capsule. A dark rounded track; the fill a soft gradient from cyan to gold
 	# with rounded ends, drawn a pixel at a time so there are no steps; a gentle glow under it, a
 	# light gliding along it, and a bright pearl at its head. The per cent sits above, at the right.
 	var bw := minf(vs.x * 0.55, 600.0 * u)
 	var bh := 8.0 * u
 	var bx := c.x - bw / 2.0
-	var by := c.y + 284.0 * u
+	var by := c.y + BAR_Y * u
 	var rad := bh / 2.0
 	var mid_y := by + rad
 	_capsule(bx - 3 * u, mid_y, bw + 6 * u, rad + 3 * u, Color(0.0, 0.02, 0.05, 0.75))   # the track's shadow edge
@@ -339,7 +345,7 @@ func _layout(vs: Vector2) -> void:
 	var nw := minf(vs.x * 0.85, 1000.0 * u)
 	_name3d.custom_minimum_size = Vector2(nw, nw * 0.3)
 	_name3d.size = Vector2(nw, nw * 0.3)
-	_name3d.position = Vector2(c.x - nw / 2.0, c.y + 210.0 * u - nw * 0.15)
+	_name3d.position = Vector2(c.x - nw / 2.0, c.y + NAME_Y * u - nw * 0.15)   # (centred on its line: clear of the rings and the text)
 	_name3d.visible = true
 	_crystal.rotation = Vector3(0.12 * sin(_t * 0.7), _t * 0.8, 0.0)
 	_crystal.position.y = 0.06 * sin(_t * 1.6)          # it floats
