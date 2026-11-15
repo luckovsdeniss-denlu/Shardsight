@@ -252,27 +252,37 @@ func _label(px: int, col: Color) -> Label:
 ## Each scene: a title and a line, how long it runs, what it sets up, and the camera: an orbit
 ## round a point ("at", "r" metres out, "h" up, from angle "a0" to "a1") or a glide ("from" ->
 ## "to", looking at "at").
-## The second trailer: the action cut - the opening, then only the fights, each cut shorter
-## and filmed with the boldest moves, and the closing shot. About a minute.
-const ACTION_CUT := ["SHARDSIGHT", "Fight", "Magic", "Bounties", "The dungeon's depths", "The Frostmarch",
-	"The Arena", "Ravenhollow", "World bosses", "Your story"]
-const ACTION_CAMS := ["spiral", "dolly", "crane", "track"]
-var variant := 1                       # 1: the full trailer; 2: the action cut
+## The second trailer: one long flight. The camera never cuts: it travels the whole map from
+## the starting town to the far south, landing at every place of the first trailer in turn (its
+## titles, words, talk, fights, weather and light as before), rising and swooping from each to
+## the next - the farther, the higher and longer the flight - and ends high over the land.
+const LONG_LINE := ["SHARDSIGHT", "Living towns", "Quests", "Bounties", "Fight", "Magic", "Seasons and storms",
+	"World bosses", "Boats", "The Frostmarch", "The Drunken Shard", "Caves and deserts", "The Arena",
+	"Help the townsfolk", "Ravenhollow", "The Shattered Sight", "The dungeon's depths", "Your story"]
+var variant := 1                       # 1: the trailer in scenes; 2: the long flight across the map
+var _fly_dur := 0.0                    # (the long flight) seconds of flying into this place
+var _fly_arc := 0.0
+var _fly_from_pos := Vector3.ZERO
+var _fly_from_look := Vector3.ZERO
+var _look_last := Vector3.ZERO
+var _delay := 0.0                      # how long after a place's start its talk and words begin
 
 
-func _action_cut() -> void:
-	var cut: Array = []
+func _long_line() -> void:
+	var by_title := {}
 	for sh: Dictionary in shots:
-		if String(sh["title"]) in ACTION_CUT:
-			cut.append(sh)
-	for k in range(cut.size()):
-		var sh: Dictionary = cut[k]
-		var first_or_last := k == 0 or k == cut.size() - 1
-		sh["dur"] = float(sh["dur"]) * (1.0 if first_or_last else 0.7)   # quicker cuts
-		if not first_or_last and not sh.has("from"):
-			sh["cam"] = ACTION_CAMS[k % ACTION_CAMS.size()]               # the boldest camera moves
-		sh.erase("story")                                              # (all action: no talk)
-	shots = cut
+		by_title[String(sh["title"])] = sh
+	var line: Array = []
+	for title in LONG_LINE:
+		if by_title.has(title):
+			line.append(by_title[title])
+	var last: Dictionary = line[line.size() - 1]           # the end: high over the middle of the land
+	last["at"] = _tc(Vector2i(64, 80))
+	last["r"] = 38.0
+	last["h"] = 34.0
+	last["cam"] = "orbit"
+	last["no_hero"] = true                                 # (the land alone at the end)
+	shots = line
 
 
 func _make_shots() -> void:
@@ -319,7 +329,7 @@ func _make_shots() -> void:
 			"at": _tc(Vector2i(32, 9)), "r": 22.0, "h": 19.0, "a0": 1.3, "a1": 1.9},
 	]
 	if variant == 2:
-		_action_cut()
+		_long_line()
 
 
 func _tc(tile: Vector2i) -> Vector3:
@@ -342,6 +352,16 @@ func _next() -> void:
 		_sound("braam", 1.0, 0.0)
 	_riser_done = false
 	var sh: Dictionary = shots[i]
+	_fly_dur = 0.0
+	_delay = 0.0
+	if variant == 2 and i > 0:
+		_fly_from_pos = game.cam.position
+		_fly_from_look = _look_last
+		var dist := _fly_from_pos.distance_to(sh["at"] as Vector3)
+		_fly_dur = clampf(dist / 22.0, 2.2, 6.0)
+		_fly_arc = clampf(dist * 0.3, 6.0, 45.0)
+		sh["dur"] = float(sh["dur"]) + _fly_dur          # the place gets its full time once landed
+		_delay = _fly_dur
 	if sh.has("day"):
 		game.day_time = float(sh["day"])
 	if sh.has("weather"):
@@ -382,7 +402,7 @@ func _next() -> void:
 	_rule.custom_minimum_size.x = 0.0
 	_rule.create_tween().tween_property(_rule, "custom_minimum_size:x", 360.0, 1.0).set_delay(0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_word_queue = (sh.get("words", []) as Array).duplicate()
-	_word_t = 1.0                                       # the first word a moment after the cut
+	_word_t = 1.0 + _delay                              # the first word a moment after the cut (or the landing)
 	if "--movie-test" in OS.get_cmdline_user_args():
 		print("MOVIE scene %d: %s (hero at %s)" % [i + 1, sh["title"], world.to_tile(hero.position)])
 	_fx.set_shader_parameter("leak", 1.0 if float(sh.get("day", 0.4)) > 0.2 and String(sh.get("weather", "clear")) != "storm" else 0.0)
@@ -394,9 +414,10 @@ func _next() -> void:
 		_fx.set_shader_parameter("leak", 0.0)
 		_fade.modulate.a = 1.0
 		_fade.create_tween().tween_property(_fade, "modulate:a", 0.0, 1.4).set_trans(Tween.TRANS_SINE)
-	else:                                               # (no cuts through white: every cut dips to black)
+	elif variant != 2:                                  # (no cuts through white: every cut dips to black)
 		_fade.modulate.a = 1.0                          # a dip to black between scenes
 		_fade.create_tween().tween_property(_fade, "modulate:a", 0.0, 0.6)
+	# (the long flight never cuts: no dip at all)
 
 
 ## Runs the scene: films it and keeps the hero going. Returns false once the movie is over.
@@ -494,6 +515,12 @@ func tick(delta: float) -> bool:
 				r = lerpf(r * 0.7, r * 1.5, k)
 				cam.fov = lerpf(70.0, 34.0, k)
 		cam.position = look + Vector3(cos(a) * r, h, sin(a) * r)
+	# the long flight: from where the camera was, up in an arc and down into this place
+	if _fly_dur > 0.0 and t < _fly_dur:
+		var fk := smoothstep(0.0, 1.0, t / _fly_dur)
+		cam.position = _fly_from_pos.lerp(cam.position, fk) + Vector3(0.0, sin(PI * fk) * _fly_arc, 0.0)
+		look = _fly_from_look.lerp(look, fk)
+	_look_last = look
 	# a little life in the hand-held camera, and a punch-in on a big blow
 	cam.position += Vector3(sin(t * 1.7) * 0.06, sin(t * 2.3) * 0.04, cos(t * 1.3) * 0.06)
 	_punch = maxf(_punch - delta * 3.0, 0.0)
@@ -710,7 +737,7 @@ func _stage_talk(npc_name: String, hero_tile: Vector2i, lines: Array) -> void:
 			continue
 		var say := line.trim_prefix(">")
 		var col := Color(0.7, 0.88, 1.0) if who == hero else Color(1.0, 0.92, 0.6)
-		get_tree().create_timer(0.9 + k * 1.8).timeout.connect(func() -> void:
+		get_tree().create_timer(0.9 + _delay + k * 1.8).timeout.connect(func() -> void:
 			if running and is_instance_valid(who):
 				who._pop(say, col))
 
@@ -727,7 +754,7 @@ func _tell(lines: Array) -> void:
 		var say := String(lines[k][1])
 		var scene := i
 		said += 1
-		get_tree().create_timer(1.0 + (said - 1) * 1.9).timeout.connect(func() -> void:
+		get_tree().create_timer(1.0 + _delay + (said - 1) * 1.9).timeout.connect(func() -> void:
 			if not running or i != scene:
 				return                                  # (the scene has moved on)
 			var who: Entity = null

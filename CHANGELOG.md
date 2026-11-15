@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.99.1
+Trailer 2 is now one long flight across the whole map:
+- The camera never cuts. It starts over the starting town and travels the land in one line -
+  the town, its quests and Captain Marcus, the fields of the first fights and the magic, the storm,
+  the world boss, the lake and the Frostmarch, the tavern, the deserts, the arena, Highmoor,
+  Ravenhollow, the church, the dungeon - and ends high over the middle of the land.
+- Between places it rises and swoops in an arc to the next (the farther away, the higher and the
+  longer the flight, 2 to 6 seconds), with no dips to black.
+- Everything of the first trailer comes with it: each place's title, its flying 3D words, the talk
+  and the foes' taunts, the fights, combos and casting moves, the weather and time of day, and
+  the epic score - each timed to begin as the camera lands.
+
 ## 0.99.0
 - A second trailer: "Trailer 2" on the start screen plays the action cut - about a minute of
   fights only (the orcs, Magic, Bounties, the dungeon, the Frostmarch, the Arena, Ravenhollow,
