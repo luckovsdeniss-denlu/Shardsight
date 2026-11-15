@@ -15,6 +15,10 @@ on:
         type: choice
         options: ["1", "2", "both"]
         default: "both"
+      source:
+        description: "Record from this version of the game: a commit or tag (empty: the latest)"
+        type: string
+        default: ""
 
 env:
   GODOT_VERSION: 4.3.0
@@ -28,6 +32,8 @@ jobs:
       contents: write          # to publish the videos as release assets
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source != '' && inputs.source || github.ref }}   # the game as it was at that version
 
       - uses: chickensoft-games/setup-godot@v2
         with:

@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.99.8
+- "Record trailer video" can record from an older version of the game (a commit or tag given
+  when it's started) - to bring back a trailer exactly as it was.
+
 ## 0.99.7
 - Loading screen: the 3D name no longer overlaps the line under it. The Shard and its rings, the
   name, the line "A world of swords, spells and skill" and the loading bar now stand one under
