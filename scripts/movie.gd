@@ -522,22 +522,43 @@ func tick(delta: float) -> bool:
 	# keep the hero in sight: if a wall, a house, a tree or a rock stands between the camera and
 	# the hero (or what it films), rise and close in - smoothly - until the view is clear, then
 	# ease back; and never sink into the ground or sit inside anything solid
-	var subject: Vector3 = (hero.position + Vector3(0.0, 1.0, 0.0)) if hero.visible and not bool(sh.get("no_hero", false)) else look + Vector3(0.0, 0.8, 0.0)
+	var see_hero: bool = hero.visible and not bool(sh.get("no_hero", false))
+	var subject: Vector3 = (hero.position + Vector3(0.0, 1.0, 0.0)) if see_hero else look + Vector3(0.0, 0.8, 0.0)
+	# (it rises quickly when blocked, but comes down only once the view has stayed clear a while -
+	# no bobbing up and down at the edge of a wall)
 	if _view_blocked(cam.position, subject) or _inside_solid(cam.position):
-		_occl = move_toward(_occl, 1.0, delta * 1.6)
+		_occl = move_toward(_occl, 1.0, delta * 1.2)
+		_clear_for = 0.0
 	else:
-		_occl = move_toward(_occl, 0.0, delta * 0.6)
+		_clear_for += delta
+		if _clear_for > 1.2:
+			_occl = move_toward(_occl, 0.0, delta * 0.3)
 	if _occl > 0.0:
 		var ease_k := _occl * _occl * (3.0 - 2.0 * _occl)
 		cam.position = cam.position.lerp(subject, 0.35 * ease_k) + Vector3(0.0, 7.0 * ease_k, 0.0)
+	# always a good height above the hero, so it is never filmed from below or at a crouch
+	if see_hero:
+		cam.position.y = maxf(cam.position.y, hero.position.y + CAM_ABOVE_HERO)
 	cam.position.y = maxf(cam.position.y, world.height_at(cam.position) + 1.3)
-	# and if the hero is getting near the edge of the picture, turn harder towards them
-	if hero.visible and not bool(sh.get("no_hero", false)):
+	# and if the hero is getting near the edge of the picture, turn (gently) towards them
+	if see_hero:
 		var sp := cam.unproject_position(hero.position + Vector3(0.0, 1.0, 0.0)) if not cam.is_position_behind(hero.position) else Vector2(-1.0, -1.0)
 		var vsz := get_viewport().get_visible_rect().size
 		var edge := sp.x < vsz.x * 0.15 or sp.x > vsz.x * 0.85 or sp.y < vsz.y * 0.18 or sp.y > vsz.y * 0.82
-		if edge:
-			look = look.lerp(hero.position, 0.5)
+		_edge_k = move_toward(_edge_k, 1.0 if edge else 0.0, delta * (2.5 if edge else 0.8))
+		look = look.lerp(hero.position, 0.5 * _edge_k)
+	# no jitter: the camera and its aim glide towards where they want to be, instead of copying
+	# every shuffle of the hero and every bump of the ground (at a cut, they start right there)
+	if _cam_s == Vector3.INF or (t < 0.05 and _fly_dur <= 0.0 and not _continuous()):
+		_cam_s = cam.position
+		_aim_s = look
+	_cam_s = _cam_s.lerp(cam.position, 1.0 - exp(-delta * 4.0))
+	_aim_s = _aim_s.lerp(look, 1.0 - exp(-delta * 5.0))
+	if see_hero:
+		_cam_s.y = maxf(_cam_s.y, hero.position.y + CAM_ABOVE_HERO)
+	_cam_s.y = maxf(_cam_s.y, world.height_at(_cam_s) + 1.3)
+	cam.position = _cam_s
+	look = _aim_s
 	_look_last = look
 	_redraw_extra()
 	# a little life in the hand-held camera, and a punch-in on a big blow
@@ -866,6 +887,11 @@ func _hop(e: Entity, height: float, up: float, down: float) -> void:
 # --- the camera's sight -------------------------------------------------------------------
 
 var _occl := 0.0                       # how far the camera has risen and closed in to see past something
+var _clear_for := 0.0                  # how long the view of the hero has been clear
+var _edge_k := 0.0                     # how hard the camera is turning towards a hero near the edge
+var _cam_s := Vector3.INF              # the camera's place, eased (no jitter)
+var _aim_s := Vector3.ZERO             # where it aims, eased
+const CAM_ABOVE_HERO := 4.0            # the camera never comes lower than this above the hero
 
 
 ## How tall each solid thing is (metres), for the camera's sight.

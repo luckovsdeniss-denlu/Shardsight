@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.1.1
+- Trailer camera: no more jitter. The camera and its aim now glide towards where they want to be
+  instead of copying every shuffle of the hero and bump of the ground; turning towards a hero near
+  the edge of the picture is gradual, not a snap; and after rising over a wall it comes back down
+  only once the view has stayed clear for a while, slowly (no bobbing). It also always stays at
+  least 4 m above the hero.
+
 ## 1.1.0
 - The game's icon is now the new design (the shard and sword in the cut gold ring, the blue ring
   and the fine rings), from the owner's image: `icon.png` is the game's icon, and Android's
