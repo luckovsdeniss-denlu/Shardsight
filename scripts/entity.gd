@@ -929,6 +929,8 @@ func _fight() -> void:
 		elif target.is_hero:
 			game.count("hero_dmg_taken_melee", roundi(dealt))
 		target.take_damage(dealt, self)
+		if is_hero and game.movie != null and target != null and is_instance_valid(target):
+			game.movie.on_hero_strike(target)    # the trailer: each blow a step of a combo
 		_wear_out("weapon", 0.3)              # every blow wears the weapon a little
 		if target == null:
 			return                            # (the blow ended it, and the target went with it)

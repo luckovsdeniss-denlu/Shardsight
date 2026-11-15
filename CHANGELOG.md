@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.96.0
+The trailer's hero fights with style:
+- Sword combos: each blow is the next step of a four-step combo, each with its own move - a
+  slash with a quick side-step round the foe (left and right in turn), a spin slash, a leaping
+  strike, and a whirlwind finisher with a camera punch-in and a burst of sparks. The move's name
+  bursts over the foe that takes it ("SLASH!", "SPIN SLASH!", "LEAP STRIKE!", "WHIRLWIND FINISH!").
+- Casting flourishes: as each spell begins the hero moves with it, in turn - rising into the air
+  and held there while the words are spoken, a twirl, or a hop - with a sparkle of light.
+
 ## 0.95.9
 - Fix: the trailer's epic score never actually played. During the loading-screen opening the
   game's own music took over and kept playing through the whole trailer. Now the trailer's score

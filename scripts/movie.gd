@@ -721,6 +721,73 @@ func _tell(lines: Array) -> void:
 				who._pop(say, col))
 
 
+# --- the hero's moves: sword combos and casting flourishes -------------------------------------
+
+var _combo := 0
+var _cast_n := 0
+var _side := 1.0
+const COMBO_NAMES := ["SLASH!", "SPIN SLASH!", "LEAP STRIKE!", "WHIRLWIND FINISH!"]
+
+
+## Each blow of the hero's sword is the next step of a four-step combo, each with its own move:
+## a slash with a quick side-step, a spinning slash, a leaping strike, and a whirling finisher
+## (the camera punches in). The move's name bursts over the foe that takes it.
+func on_hero_strike(foe: Entity) -> void:
+	var step := _combo % 4
+	_combo += 1
+	match step:
+		0:                                               # slash, then a side-step round the foe
+			_side = -_side
+			var to := foe.position - hero.position
+			to.y = 0.0
+			if to.length() > 0.01:
+				var perp := Vector3(-to.z, 0.0, to.x).normalized() * _side
+				var dest := hero.position + perp * 1.0
+				if not world.is_blocked(world.to_tile(dest)):
+					hero.create_tween().tween_property(hero, "position", dest, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		1:                                               # spin slash
+			_spin(hero, 0.32)
+		2:                                               # leaping strike
+			_hop(hero, 0.7, 0.18, 0.2)
+			punch(0.5)
+		3:                                               # whirlwind finisher
+			_spin(hero, 0.45, 2.0)
+			_hop(hero, 0.45, 0.15, 0.2)
+			punch(1.0)
+			Fx.sparkle(game, foe.position + Vector3(0.0, 1.0, 0.0), Color(1.0, 0.85, 0.35), 30)
+	foe._pop(String(COMBO_NAMES[step]), [Color(1.0, 0.9, 0.5), Color(0.6, 0.9, 1.0), Color(1.0, 0.6, 0.3), Color(1.0, 0.45, 0.85)][step])
+
+
+## As a spell begins, the hero moves with it, in turn: rising into the air, a twirl, a hop back.
+func _cast_flourish() -> void:
+	var kind := _cast_n % 3
+	_cast_n += 1
+	match kind:
+		0:                                               # rises, held aloft while the words are spoken
+			var tw := hero.create_tween()
+			tw.tween_property(hero, "anim_lift", 0.55, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			tw.tween_interval(0.7)
+			tw.tween_property(hero, "anim_lift", 0.0, 0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		1:
+			_spin(hero, 0.5)
+		2:
+			_hop(hero, 0.5, 0.15, 0.2)
+	Fx.sparkle(game, hero.position + Vector3(0.0, 1.2, 0.0), [Color(0.6, 0.8, 1.0), Color(1.0, 0.7, 0.4), Color(0.8, 0.6, 1.0)][kind], 20)
+
+
+func _spin(e: Entity, secs: float, turns := 1.0) -> void:
+	e.anim_spin = 0.0
+	var tw := e.create_tween()
+	tw.tween_property(e, "anim_spin", TAU * turns, secs).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func() -> void: e.anim_spin = 0.0)
+
+
+func _hop(e: Entity, height: float, up: float, down: float) -> void:
+	var tw := e.create_tween()
+	tw.tween_property(e, "anim_lift", height, up).set_ease(Tween.EASE_OUT)
+	tw.tween_property(e, "anim_lift", 0.0, down).set_ease(Tween.EASE_IN)
+
+
 ## A named beast for a bounty: bigger, tougher, worth more.
 static func _elite(cfg: Dictionary) -> Dictionary:
 	var c := cfg.duplicate(true)
@@ -808,6 +875,7 @@ func _cast_something() -> void:
 	hero.casting_id = ""
 	hero.cast_cd = 0.0
 	var pick: String = ["fireball", "lightning", "flamestrike", "energy_bolt", "meteor_swarm", "chain_lightning"][randi() % 6]
+	_cast_flourish()
 	hero.start_cast(pick, foe)
 
 
