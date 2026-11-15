@@ -125,7 +125,6 @@ jobs:
           if [ -f "build/$APK_NAME-release.apk" ]; then FILES="$FILES build/$APK_NAME-release.apk"; fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" $FILES --clobber
-          else
           elif [ "$PRERELEASE" = "true" ]; then
             gh release create "$TAG" $FILES --target "$GITHUB_SHA" --title "Shardsight $TAG (test build from $GITHUB_REF_NAME)" \
               --prerelease --latest=false \

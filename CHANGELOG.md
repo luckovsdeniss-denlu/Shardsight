@@ -3,6 +3,9 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.1.5
+- Fixed the build's publishing step (a stray `else` broke it, so 1.1.4's test build failed).
+
 ## 1.1.4
 - Builds from a branch other than `main` (e.g. `trailers`) now publish to their own test release,
   `v<version>-<branch>` (e.g. `v1.1.4-trailers`), marked as a pre-release, so they never replace
