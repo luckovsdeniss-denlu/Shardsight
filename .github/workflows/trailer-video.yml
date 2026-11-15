@@ -62,11 +62,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=$(grep -oP '^config/version="\K[^"]+' project.godot)
+          # the last video goes first (its release and tag), then the new one is published in its place
           if gh release view trailer >/dev/null 2>&1; then
-            gh release upload trailer build/shardsight-trailer.mp4 --clobber
-            gh release edit trailer --notes "The Shardsight trailer, recorded from v$VERSION."
-          else
-            gh release create trailer build/shardsight-trailer.mp4 --target "$GITHUB_SHA" --title "Shardsight trailer" \
-              --notes "The Shardsight trailer, recorded from v$VERSION." --latest=false
+            gh release delete trailer --yes --cleanup-tag
           fi
+          gh release create trailer build/shardsight-trailer.mp4 --target "$GITHUB_SHA" --title "Shardsight trailer" \
+            --notes "The Shardsight trailer, recorded from v$VERSION." --latest=false
           echo "Trailer: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/trailer/shardsight-trailer.mp4" >> "$GITHUB_STEP_SUMMARY"
