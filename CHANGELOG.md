@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.99.0
+- A second trailer: "Trailer 2" on the start screen plays the action cut - about a minute of
+  fights only (the orcs, Magic, Bounties, the dungeon, the Frostmarch, the Arena, Ravenhollow,
+  the world boss) between the opening and the closing shot, each cut shorter, filmed with the
+  boldest camera moves in turn (spirals, dolly zooms, cranes, tracking shots), and no talk.
+
 ## 0.98.0
 The loading screen's logo in 3D:
 - The Shard is a real 3D crystal now - two six-sided points glowing blue from within, turning

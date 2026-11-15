@@ -252,6 +252,29 @@ func _label(px: int, col: Color) -> Label:
 ## Each scene: a title and a line, how long it runs, what it sets up, and the camera: an orbit
 ## round a point ("at", "r" metres out, "h" up, from angle "a0" to "a1") or a glide ("from" ->
 ## "to", looking at "at").
+## The second trailer: the action cut - the opening, then only the fights, each cut shorter
+## and filmed with the boldest moves, and the closing shot. About a minute.
+const ACTION_CUT := ["SHARDSIGHT", "Fight", "Magic", "Bounties", "The dungeon's depths", "The Frostmarch",
+	"The Arena", "Ravenhollow", "World bosses", "Your story"]
+const ACTION_CAMS := ["spiral", "dolly", "crane", "track"]
+var variant := 1                       # 1: the full trailer; 2: the action cut
+
+
+func _action_cut() -> void:
+	var cut: Array = []
+	for sh: Dictionary in shots:
+		if String(sh["title"]) in ACTION_CUT:
+			cut.append(sh)
+	for k in range(cut.size()):
+		var sh: Dictionary = cut[k]
+		var first_or_last := k == 0 or k == cut.size() - 1
+		sh["dur"] = float(sh["dur"]) * (1.0 if first_or_last else 0.7)   # quicker cuts
+		if not first_or_last and not sh.has("from"):
+			sh["cam"] = ACTION_CAMS[k % ACTION_CAMS.size()]               # the boldest camera moves
+		sh.erase("story")                                              # (all action: no talk)
+	shots = cut
+
+
 func _make_shots() -> void:
 	shots = [
 		{"title": "SHARDSIGHT", "sub": "A world of swords, spells and skill.", "dur": 6.0, "no_hero": true, "day": 0.35, "weather": "clear",
@@ -295,6 +318,8 @@ func _make_shots() -> void:
 		{"title": "Your story", "story": [["hero", "\"So... where do I begin?\""], ["hero", "\"Anywhere. Everywhere.\""]], "words": ["YOUR LEGEND", "BEGINS NOW"], "sub": "Quests, bounties, guilds, a house, a horse, a boat. Begin.", "dur": 6.0,
 			"at": _tc(Vector2i(32, 9)), "r": 22.0, "h": 19.0, "a0": 1.3, "a1": 1.9},
 	]
+	if variant == 2:
+		_action_cut()
 
 
 func _tc(tile: Vector2i) -> Vector3:

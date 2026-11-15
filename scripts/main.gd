@@ -5723,6 +5723,12 @@ func _show_title(layer: CanvasLayer) -> void:
 		close.call()
 		movie = Movie.new()                        # the gameplay showcase (then back to this title)
 		movie.start(self))
+	var film2 := _menu_button("Trailer 2", func() -> void:
+		start_mode = "classic"
+		close.call()
+		movie = Movie.new()                        # the action cut: about a minute of fights
+		movie.variant = 2
+		movie.start(self))
 	var exp_b := _menu_button("Experimental mode", _switch_mode.bind("experimental"))
 	exp_b.custom_minimum_size = Vector2(320, 80)
 	var again := _menu_button("Fly-by", func() -> void:
@@ -5736,6 +5742,7 @@ func _show_title(layer: CanvasLayer) -> void:
 	row.add_child(play)
 	row.add_child(tut)
 	row.add_child(film)
+	row.add_child(film2)
 	row.add_child(again)
 	# the trailer as a video file to keep or share: opens its download in the browser
 	row.add_child(_menu_button("Download trailer", func() -> void:
