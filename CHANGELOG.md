@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.97.7
+- The trailer can't be skipped by accident: the Skip button is gone, and taps anywhere on the
+  screen are ignored for the whole trailer (its opening included) - it plays to its end.
+- The scene counter ("04 / 18") is gone from the trailer.
+
 ## 0.97.6
 - Trailer scene 4 (Bounties): the camera films from higher up and further out, and follows the
   hero more closely, so the hero no longer runs out of the shot (or behind the scenery) while

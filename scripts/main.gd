@@ -4922,8 +4922,8 @@ func world_event(text: String) -> void:
 # --- input -----------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
-	if paused or not booted or (movie != null and movie.running):
-		return
+	if paused or not booted or movie != null:
+		return                                     # (the trailer: taps do nothing, its opening included)
 	# Two fingers: pinch to zoom, twist to turn the camera. Taps are ignored meanwhile.
 	if event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch

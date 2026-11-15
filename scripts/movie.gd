@@ -38,7 +38,6 @@ var _word_t := 0.0
 var _word_n := 0                       # the scene's fight: [tile, foe name, cfg, count] (a new wave when it's won)
 var _fx: ShaderMaterial            # grain, vignette, a light leak, the flash
 var _rule: ColorRect               # the gold line under the title
-var _counter: Label
 var _progress: ColorRect
 var _flash := 0.0
 var _was_casting := false
@@ -188,11 +187,6 @@ func _build_ui() -> void:
 	col.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	col.offset_top -= vs.y * 0.12
 	col.offset_bottom -= vs.y * 0.12
-	var skip := Button.new()
-	skip.text = "Skip"
-	skip.custom_minimum_size = Vector2(150, 56)
-	skip.add_theme_font_size_override("font_size", 24)
-	skip.pressed.connect(finish.bind(true))
 	# the grain, the dark corners, the light leak and the flash, under the titles
 	var fxr := ColorRect.new()
 	var sh := Shader.new()
@@ -211,10 +205,6 @@ func _build_ui() -> void:
 	_rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_title.get_parent().add_child(_rule)
 	_title.get_parent().move_child(_rule, 1)
-	_counter = _label(18, Color(0.95, 0.78, 0.35, 0.8))
-	add_child(_counter)
-	_counter.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_MINSIZE, 24)
-	_counter.offset_top += vs.y * 0.12 * 0.25
 	_progress = ColorRect.new()
 	_progress.color = Color(0.95, 0.78, 0.35, 0.8)
 	_progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -240,23 +230,11 @@ func _build_ui() -> void:
 	_fade.modulate.a = 1.0                              # black from the first frame (no flash of the title)
 	add_child(_fade)
 	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	# Skip: over everything (even the dips to black), well in from the corner (rounded corners and
-	# camera cut-outs), in the middle of the top bar
-	add_child(skip)
-	skip.anchor_left = 1.0
-	skip.anchor_right = 1.0
-	skip.anchor_top = 0.0
-	skip.anchor_bottom = 0.0
-	# in the top-right corner, just inside the screen's safe area (clear of a rounded corner or a cut-out)
-	var inset := 20.0
-	var win := DisplayServer.window_get_size()
-	var safe := DisplayServer.get_display_safe_area()
-	if win.x > 0 and safe.size.x > 0:
-		inset += maxf(float(win.x - safe.end.x), 0.0) * vs.x / float(win.x)
-	skip.offset_right = -inset
-	skip.offset_left = -inset - 150.0
-	skip.offset_top = 12.0
-	skip.offset_bottom = skip.offset_top + 56.0
+	# no Skip button, and taps anywhere do nothing: the trailer plays to its end
+	var hold := Control.new()
+	hold.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(hold)
+	hold.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 
 func _label(px: int, col: Color) -> Label:
@@ -378,7 +356,6 @@ func _next() -> void:
 		tw.tween_property(l, "position:x", 0.0, 0.9).set_delay(0.4 if l == _title else 0.75).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_rule.custom_minimum_size.x = 0.0
 	_rule.create_tween().tween_property(_rule, "custom_minimum_size:x", 360.0, 1.0).set_delay(0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_counter.text = "%02d / %02d" % [i + 1, shots.size()]
 	_word_queue = (sh.get("words", []) as Array).duplicate()
 	_word_t = 1.0                                       # the first word a moment after the cut
 	if "--movie-test" in OS.get_cmdline_user_args():
