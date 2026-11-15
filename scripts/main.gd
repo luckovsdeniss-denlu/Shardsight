@@ -5520,14 +5520,14 @@ func _separate_bodies() -> void:
 					var e_moves := not e.path.is_empty()
 					var b_moves := not b.path.is_empty()
 					# (eased apart over a few frames, not shoved in one - no shaking)
-					var ease := 0.35
+					var soft := 0.35
 					if e_moves and b_moves:
-						_nudge(e, -n * overlap * 0.5 * ease)
-						_nudge(b, n * overlap * 0.5 * ease)
+						_nudge(e, -n * overlap * 0.5 * soft)
+						_nudge(b, n * overlap * 0.5 * soft)
 					elif e_moves:
-						_nudge(e, -n * overlap * ease)
+						_nudge(e, -n * overlap * soft)
 					elif b_moves:
-						_nudge(b, n * overlap * ease)
+						_nudge(b, n * overlap * soft)
 
 
 func _nudge(e: Entity, v: Vector2) -> void:
