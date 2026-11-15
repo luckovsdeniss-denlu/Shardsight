@@ -104,6 +104,7 @@ func _init() -> void:
 	_root.add_child(_fg)
 	_fg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_fg.draw.connect(_draw_fg)
+	_build_logo3d()
 
 
 ## The next step: the bar heads for `frac` (0..1) and `text` is typed out under it.
@@ -145,6 +146,7 @@ func _process(delta: float) -> void:
 	_bg_mat.set_shader_parameter("progress", _shown)
 	_bg_mat.set_shader_parameter("center_y", CENTER_Y)
 	_bg_mat.set_shader_parameter("ring_r", 132.0 * minf(vs.x, vs.y) / 720.0 / maxf(vs.y, 1.0))   # on the gold ring
+	_layout(vs)
 	_fg.queue_redraw()
 
 
@@ -152,39 +154,13 @@ const CENTER_Y := 0.36                                 # the circle's middle, as
 
 
 func _draw_fg() -> void:
-	var vs := _fg.size
+	var vs := _root.get_viewport_rect().size            # (the screen's own size: centred from the first frame)
 	var c := Vector2(vs.x / 2.0, vs.y * CENTER_Y)      # the circle and the words a little high, the bar below
 	var font := ThemeDB.fallback_font
 	var cyan := Color(0.3, 0.8, 1.0)
 	var gold := Color(0.95, 0.78, 0.35)
 	var u := minf(vs.x, vs.y) / 720.0                 # scale everything with the screen
-	# rings of light round the Shard, broken into arcs, turning at different speeds
-	_rings(c, 112.0 * u, 6, _t * 0.6, 2.5 * u, Color(cyan, 0.55))
-	_rings(c, 132.0 * u, 3, -_t * 0.35, 1.5 * u, Color(gold, 0.6))
-	_rings(c, 150.0 * u, 12, _t * 0.15, 3.0 * u, Color(cyan, 0.25))
-	# the progress arc on the inner ring
-	_fg.draw_arc(c, 96.0 * u, -PI / 2.0, -PI / 2.0 + TAU * _shown, 64, Color(gold, 0.95), 3.5 * u, true)
-	# tick marks round the outside
-	for i in range(48):
-		var a := TAU * i / 48.0
-		var d := Vector2(cos(a), sin(a))
-		var long := i % 4 == 0
-		_fg.draw_line(c + d * 162.0 * u, c + d * (162.0 + (10.0 if long else 5.0)) * u, Color(cyan, 0.5 if long else 0.25), 1.5 * u)
-	# the Shard: a crystal spinning slowly, with a glow
-	var spin := _t * 0.8
-	var w := absf(cos(spin)) * 30.0 * u + 6.0 * u
-	var hgt := 62.0 * u
-	var glow_r := 58.0 * u * (1.0 + 0.06 * sin(_t * 3.0))
-	for k in range(6):
-		_fg.draw_circle(c, glow_r * (1.0 - k * 0.14), Color(0.3, 0.7, 1.0, 0.035))
-	var shard := PackedVector2Array([c + Vector2(0, -hgt), c + Vector2(w, -hgt * 0.15), c + Vector2(0, hgt * 0.7), c + Vector2(-w, -hgt * 0.15)])
-	_fg.draw_colored_polygon(shard, Color(0.55, 0.85, 1.0, 0.85))
-	var facet := PackedVector2Array([c + Vector2(0, -hgt), c + Vector2(w * (0.5 if cos(spin) > 0.0 else -0.5), -hgt * 0.15), c + Vector2(0, hgt * 0.7)])
-	_fg.draw_colored_polygon(facet, Color(0.9, 0.97, 1.0, 0.7))
-	shard.append(shard[0])
-	_fg.draw_polyline(shard, Color(1, 1, 1, 0.9), 1.5 * u, true)
-	# the name, spaced out, with a gold glow
-	_spaced(font, "SHARDSIGHT", Vector2(c.x, c.y + 210.0 * u), int(54 * u), 14.0 * u, gold)
+	# (the Shard, its rings and the name are 3D now: see _build_logo3d; only the line under them is drawn)
 	_spaced(font, "A WORLD OF SWORDS, SPELLS AND SKILL", Vector2(c.x, c.y + 244.0 * u), int(16 * u), 4.0 * u, Color(0.6, 0.75, 0.9))
 	# The bar: a slim capsule. A dark rounded track; the fill a soft gradient from cyan to gold
 	# with rounded ends, drawn a pixel at a time so there are no steps; a gentle glow under it, a
@@ -250,6 +226,129 @@ func _capsule(x: float, y: float, w: float, r: float, col: Color) -> void:
 	_fg.draw_rect(Rect2(x + r, y - r, w - 2.0 * r, 2.0 * r), col)
 	_fg.draw_circle(Vector2(x + r, y), r, col)
 	_fg.draw_circle(Vector2(x + w - r, y), r, col)
+
+
+# --- the 3D logo ----------------------------------------------------------------------------
+
+var _logo: SubViewportContainer
+var _name3d: Title3D
+var _crystal: Node3D
+var _ring_nodes: Array[Node3D] = []
+
+
+## The Shard in 3D: a glowing six-sided crystal turning slowly inside three rings of light (gold
+## and blue, each spinning on its own axis), lit warm and cool, with a soft glow - and below it the
+## name in the 3D gold letters of the title. Hidden until laid out, so the first frame is centred.
+func _build_logo3d() -> void:
+	_logo = SubViewportContainer.new()
+	_logo.stretch = true
+	_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_logo.visible = false
+	_root.add_child(_logo)
+	var vp := SubViewport.new()
+	vp.transparent_bg = true
+	vp.own_world_3d = true
+	vp.msaa_3d = Viewport.MSAA_4X
+	_logo.add_child(vp)
+	var we := WorldEnvironment.new()
+	var env := Environment.new()
+	env.background_mode = Environment.BG_CLEAR_COLOR
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.4, 0.5, 0.6)
+	env.ambient_light_energy = 0.6
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.glow_enabled = true
+	for lv in range(7):
+		env.set_glow_level(lv, lv in [1, 2, 3])
+	env.glow_intensity = 1.2
+	env.glow_bloom = 0.1
+	we.environment = env
+	vp.add_child(we)
+	var cam := Camera3D.new()
+	cam.fov = 34.0
+	cam.position = Vector3(0, 0.25, 5.2)
+	cam.look_at_from_position(cam.position, Vector3.ZERO, Vector3.UP)
+	vp.add_child(cam)
+	var key := DirectionalLight3D.new()
+	key.rotation = Vector3(deg_to_rad(-40), deg_to_rad(-30), 0)
+	key.light_energy = 1.4
+	key.light_color = Color(1.0, 0.93, 0.82)
+	vp.add_child(key)
+	var rim := OmniLight3D.new()
+	rim.position = Vector3(-1.5, 1.0, -1.5)
+	rim.light_color = Color(0.4, 0.75, 1.0)
+	rim.light_energy = 3.0
+	rim.omni_range = 5.0
+	vp.add_child(rim)
+	# the crystal: two six-sided points, one up and one down, glowing blue from within
+	_crystal = Node3D.new()
+	vp.add_child(_crystal)
+	var cmat := StandardMaterial3D.new()
+	cmat.albedo_color = Color(0.55, 0.85, 1.0)
+	cmat.metallic = 0.3
+	cmat.roughness = 0.12
+	cmat.emission_enabled = true
+	cmat.emission = Color(0.3, 0.75, 1.0)
+	cmat.emission_energy_multiplier = 0.9
+	for up in [true, false]:
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0 if up else 0.42
+		cone.bottom_radius = 0.42 if up else 0.0
+		cone.height = 0.95 if up else 0.6
+		cone.radial_segments = 6
+		cone.rings = 1
+		cone.material = cmat
+		var mi := MeshInstance3D.new()
+		mi.mesh = cone
+		mi.position = Vector3(0, 0.475 if up else -0.3, 0)
+		_crystal.add_child(mi)
+	# three rings of light round it
+	for r: Array in [[1.05, 0.025, Color(0.3, 0.8, 1.0)], [1.25, 0.018, Color(0.98, 0.76, 0.3)], [1.45, 0.03, Color(0.3, 0.8, 1.0)]]:
+		var tm := TorusMesh.new()
+		tm.inner_radius = float(r[0]) - float(r[1])
+		tm.outer_radius = float(r[0]) + float(r[1])
+		tm.rings = 48
+		tm.ring_segments = 8
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = r[2]
+		m.emission_enabled = true
+		m.emission = r[2]
+		m.emission_energy_multiplier = 1.5
+		tm.material = m
+		var ring := MeshInstance3D.new()
+		ring.mesh = tm
+		vp.add_child(ring)
+		_ring_nodes.append(ring)
+	# the name, in 3D gold
+	_name3d = Title3D.make("SHARDSIGHT", 900.0, 0.8)
+	_name3d.visible = false
+	_root.add_child(_name3d)
+
+
+## Places the logo and the name round the circle's centre, and turns them.
+func _layout(vs: Vector2) -> void:
+	if _logo == null:
+		return
+	var u := minf(vs.x, vs.y) / 720.0
+	var c := Vector2(vs.x / 2.0, vs.y * CENTER_Y)
+	var side := 360.0 * u
+	_logo.size = Vector2(side, side)
+	_logo.position = c - Vector2(side, side) / 2.0
+	_logo.visible = true
+	var nw := minf(vs.x * 0.85, 1000.0 * u)
+	_name3d.custom_minimum_size = Vector2(nw, nw * 0.3)
+	_name3d.size = Vector2(nw, nw * 0.3)
+	_name3d.position = Vector2(c.x - nw / 2.0, c.y + 210.0 * u - nw * 0.15)
+	_name3d.visible = true
+	_crystal.rotation = Vector3(0.12 * sin(_t * 0.7), _t * 0.8, 0.0)
+	_crystal.position.y = 0.06 * sin(_t * 1.6)          # it floats
+	var axes: Array[Vector3] = [Vector3(1, 0.2, 0).normalized(), Vector3(0.3, 1, 0.2).normalized(), Vector3(0.2, 0.4, 1).normalized()]
+	for i in range(_ring_nodes.size()):
+		var tilt := Basis(Vector3(1, 0, 0), deg_to_rad(70.0 - i * 20.0))
+		_ring_nodes[i].basis = Basis(axes[i], _t * (0.6 - i * 0.25) * (1.0 if i % 2 == 0 else -1.0)) * tilt
+		var sc := 1.0 + 0.02 * sin(_t * 2.0 + i) + (_shown * 0.05 if i == 1 else 0.0)   # the gold ring swells with the loading
+		_ring_nodes[i].scale = Vector3.ONE * sc
 
 
 ## A ring of `n` arcs with gaps between, turned by `turn`.

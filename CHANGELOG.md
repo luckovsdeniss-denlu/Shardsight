@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 0.98.0
+The loading screen's logo in 3D:
+- The Shard is a real 3D crystal now - two six-sided points glowing blue from within, turning
+  slowly and floating - inside three rings of light (blue, gold, blue), each spinning on its own
+  axis, lit warm and cool with a soft glow; the gold ring swells as the loading goes on.
+- The name below it is in the 3D gold letters of the title, with the light sweeping across them.
+- Everything is centred from the very first frame (before, the first frame could draw the logo in
+  the corner while the screen was still finding its size).
+
 ## 0.97.7
 - The trailer can't be skipped by accident: the Skip button is gone, and taps anywhere on the
   screen are ignored for the whole trailer (its opening included) - it plays to its end.
