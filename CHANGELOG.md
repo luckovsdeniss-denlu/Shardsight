@@ -3,6 +3,10 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.3.0
+- A tap anywhere during a trailer (any of the four) leaves it: a quick dip to black and straight
+  back to the main menu, the game put back as it was. (Phone format turns the screen back first.)
+
 ## 1.2.9
 - Trailers, smooth and in place - every scene staged:
   - the same every time: each scene plays out with its own fixed chance (where foes stand, which

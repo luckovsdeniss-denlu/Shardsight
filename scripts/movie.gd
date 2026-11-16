@@ -328,11 +328,18 @@ func _build_ui() -> void:
 	_fade.modulate.a = 1.0                              # black from the first frame (no flash of the title)
 	add_child(_fade)
 	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	# no Skip button, and taps anywhere do nothing: the trailer plays to its end
+	# no Skip button: a tap anywhere leaves the trailer, straight back to the main menu
 	var hold := Control.new()
 	hold.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(hold)
 	hold.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hold.gui_input.connect(func(ev: InputEvent) -> void:
+		if (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed) \
+				or (ev is InputEventScreenTouch and (ev as InputEventScreenTouch).pressed):
+			hold.accept_event()
+			if not _leaving:
+				_leaving = true
+				finish(true))
 
 
 func _label(px: int, col: Color) -> Label:
@@ -794,6 +801,7 @@ func finish(skipped := false) -> void:
 
 
 var _music_fade: Tween
+var _leaving := false                  # a tap has asked to leave (once is enough)
 var _open_title: Title3D
 
 
