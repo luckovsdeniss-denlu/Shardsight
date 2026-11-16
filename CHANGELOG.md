@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.3.5
+- Wild life - a new experiment (experimental mode, Main Menu > Experiments > "Wild life"; off in
+  the ordinary game until it has been tried), and always in the trailers:
+  - deer grazing at the edges of the woods, heads down, wandering a few steps - and bounding
+    away when you come within 8 m;
+  - rabbits on open grass, nibbling and hopping about - and off in long hops from 5 m;
+  - ducks paddling about the lakes, bobbing on the ripples;
+  - fish leaping out of the water near you, with a splash out and a splash back in;
+  - by night the birds are bats, flitting low and quick.
+  They are scenery, not creatures (no fighting, taming or loot): a handful at a time near you,
+  turning up out of sight and going when left behind, so they cost next to nothing; off when
+  "Butterflies and falling leaves" are off in the Performance panel.
+
 ## 1.3.4
 - Trailers: the hero is halfway there - every skill at 50 (of 100) and Strength, Dexterity and
   Intelligence at 50 each (of 100), instead of a grandmaster in five skills. Their spells are the

@@ -1312,6 +1312,7 @@ var _flock_dir := Vector3.RIGHT
 var _butterflies: CPUParticles3D
 var _leaves: CPUParticles3D
 var _trees_near := 0
+var _wild: Wildlife
 
 
 ## Banners in each town's colours fly from poles at its four corners.
@@ -1454,7 +1455,9 @@ func _world_life(delta: float) -> void:
 		_flock_centre.y = 6.0
 		_flock_dir = (hero.position - _flock_centre).normalized()
 		_flock_dir.y = 0.0
-	var show_birds := day and weather != "storm" and not world.is_dungeon(here)
+	# by night, with the wild life on, the birds are bats: smaller, quicker wings, flitting about
+	var bats := not day and wild and weather != "storm" and (Experiments.on("wild_life") or movie != null)
+	var show_birds := (day or bats) and weather != "storm" and not world.is_dungeon(here)
 	for i in range(_birds.size()):
 		var b := _birds[i]
 		b.visible = show_birds
@@ -1462,14 +1465,26 @@ func _world_life(delta: float) -> void:
 			continue
 		var ang := t * 0.5 + i * 1.05
 		var p := _flock_centre + Vector3(cos(ang) * (2.0 + i * 0.4), sin(t * 0.9 + i) * 0.5, sin(ang) * (2.0 + i * 0.4))
+		if bats:
+			p += Vector3(sin(t * 3.1 + i * 2.0), sin(t * 4.3 + i) * 0.6 - 2.5, cos(t * 2.7 + i * 1.7)) * 1.2   # (flitting, lower)
+		b.scale = Vector3.ONE * (1.0 if bats else 1.6)
 		var heading := p - b.position
 		b.position = p
 		if heading.length() > 0.001:
 			b.rotation.y = atan2(-heading.x, -heading.z)
-		var flap := sin(t * 11.0 + i * 1.3) * 0.7
+		var flap := sin(t * (26.0 if bats else 11.0) + i * 1.3) * (0.9 if bats else 0.7)
 		var wings: Array = _bird_wings[i]
 		(wings[0] as Node3D).rotation.z = flap
 		(wings[1] as Node3D).rotation.z = -flap
+	# the wild life round you: deer, rabbits, ducks, leaping fish (the "Wild life" experiment;
+	# always in the trailers)
+	var wild_on := (Experiments.on("wild_life") or movie != null) and _feat("ambient") and property.graphics != "low"
+	if wild_on and _wild == null:
+		_wild = Wildlife.new()
+		add_child(_wild)
+		_wild.setup(self)
+	if _wild != null:
+		_wild.step(delta, wild_on)
 	# butterflies by day in the meadows, leaves in the woods
 	_butterflies.emitting = day and wild and nice and _trees_near < 12 and _feat("ambient")
 	_butterflies.global_position = hero.position + Vector3(0.0, 0.8, 0.0)

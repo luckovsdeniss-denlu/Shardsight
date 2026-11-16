@@ -10,6 +10,7 @@ const LIST := [
 	{"id": "quick_learning", "name": "Quick learning", "desc": "Skills rise twice as fast with use.", "restart": false},
 	{"id": "glass_cannon", "name": "Glass cannon", "desc": "Everyone deals and takes double damage.", "restart": false},
 	{"id": "rich_graphics", "name": "Richer graphics", "desc": "Rounder, smoother creatures with bevelled armour; soft shadows under everyone; a rim of light; finer ground; stone walls with windows that glow at night (from the next start).", "restart": true},
+	{"id": "wild_life", "name": "Wild life", "desc": "Deer grazing at the edges of the woods, rabbits in the meadows, ducks on the lakes, fish leaping, and bats at night - they bolt when you come close.", "restart": false},
 	{"id": "pro_combat", "name": "Weighty combat", "desc": "Blows are drawn back, struck and followed through, and land at the moment of impact with a brief freeze; clean flinches.", "restart": false},
 ]
 const CFG := "user://shardsight_experiments.json"
