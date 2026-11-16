@@ -5694,7 +5694,9 @@ func _show_title(layer: CanvasLayer) -> void:
 	var hint: Label = null
 	for l in lines:
 		if box.get_child_count() == 0:             # the name: in 3D, raised gold with light sweeping across it
-			var t3 := Title3D.make(String(l[0]), minf(get_viewport().get_visible_rect().size.x * 0.98, 1900.0), 1.6)
+			# (no taller than 45% of the screen: room left below for the lines and every button)
+			var vsz := get_viewport().get_visible_rect().size
+			var t3 := Title3D.make(String(l[0]), minf(minf(vsz.x * 0.98, 1900.0), vsz.y * 0.45 / 0.3), 1.6)
 			t3.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 			box.add_child(t3)
 			continue
@@ -5733,8 +5735,8 @@ func _show_title(layer: CanvasLayer) -> void:
 	# The mode buttons wait, hidden, until the fly-by has come down to the hero.
 	var row := HFlowContainer.new()                # (as many lines as the buttons need: none off the screen)
 	row.alignment = FlowContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("h_separation", 24)
-	row.add_theme_constant_override("v_separation", 16)
+	row.add_theme_constant_override("h_separation", 14)
+	row.add_theme_constant_override("v_separation", 10)
 	row.visible = false
 	row.modulate.a = 0.0
 	box.add_child(row)
@@ -5798,6 +5800,19 @@ func _show_title(layer: CanvasLayer) -> void:
 	row.add_child(_menu_button("Download trailer 2", func() -> void:
 		OS.shell_open(TRAILER_2_VIDEO_URL)))
 	row.add_child(exp_b)
+	# every button on the screen: sized so they all fit in two lines across it
+	var vs := get_viewport().get_visible_rect().size
+	var count := row.get_child_count()
+	var per_line := int(ceil(count / 2.0))
+	var bw := clampf((vs.x * 0.96 - (per_line - 1) * 14.0) / per_line, 150.0, 240.0)
+	if bw * per_line + (per_line - 1) * 14.0 > vs.x * 0.96:   # (a narrow screen: three lines)
+		per_line = int(ceil(count / 3.0))
+		bw = clampf((vs.x * 0.96 - (per_line - 1) * 14.0) / per_line, 120.0, 240.0)
+	for b in row.get_children():
+		var btn := b as Button
+		btn.custom_minimum_size = Vector2(bw, 58.0)
+		btn.add_theme_font_size_override("font_size", 22 if bw < 220.0 else 26)
+		btn.clip_text = true
 	# Once the camera is down: on a fresh start, the choice of mode (the game waits for it);
 	# after switching modes the choice is already made, so the title simply fades.
 	var flyby_done := func() -> void:

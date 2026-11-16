@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.3.6
+- Start screen: every button on the screen. The eleven buttons were too many for the old sizes
+  (the bottom line fell off the screen); now they're sized to the screen so they all fit in two
+  lines across it (three on a narrow screen), a little smaller and closer together, and the 3D
+  name is never taller than 45% of the screen, leaving room for the lines and buttons below.
+
 ## 1.3.5
 - Wild life - a new experiment (experimental mode, Main Menu > Experiments > "Wild life"; off in
   the ordinary game until it has been tried), and always in the trailers:
