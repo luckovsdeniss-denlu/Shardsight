@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.3.2
+- Trailer: "The adventure", a fast montage just before the giant - a cut on every half bar of the
+  score (a second each): the hammer at the forge and its sparks, a fireball into the night, a
+  blade flashing in the snow, lightning striking close in the storm, a run across the sand, light
+  falling in the depths - the hero close and centred in each. In the first trailer, the short
+  trailer (four of its cuts) and the phone format.
+- Trailers: slow-motion finishers. As the last foe of a fight falls, the picture eases into slow
+  motion and the camera circles the hero, then eases back.
+
 ## 1.3.1
 - Trailer camera keeps the hero in the middle of the picture: in every scene with the hero it
   looks at the hero, always (it used to look between the scene's centre and the hero), eased

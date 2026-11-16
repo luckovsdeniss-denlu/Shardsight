@@ -6,8 +6,8 @@ extends Movie
 ## It's its own script, so nothing here changes the first trailer.
 
 ## The scenes, in order, and how long each runs here (seconds).
-const CUT := [["SHARDSIGHT", 3.0], ["One world", 4.0], ["Fight", 4.5], ["Magic", 5.0],
-	["Ravenhollow", 3.5], ["World bosses", 5.5]]
+const CUT := [["SHARDSIGHT", 3.0], ["One world", 3.5], ["Fight", 4.0], ["Magic", 4.0],
+	["Ravenhollow", 3.0], ["The adventure", 4.0], ["World bosses", 5.5]]
 
 
 func _shape_shots() -> void:

@@ -427,6 +427,8 @@ func _make_shots() -> void:
 			"setup": _stage_talk.bind("Father Corwin", Vector2i(12, 129), ["\"You saw something you shouldn't have.\"", ">\"I remember nothing...\"", "\"Then we'll find it again - together.\""])},
 		{"title": "Seasons and storms", "story": [["hero", "\"Lovely weather for it.\""], ["hero", "\"Is it always winter when I'm out?\""]], "words": ["THE SEASONS TURN"], "sub": "Spring to winter; rain, snow, thunder.", "dur": 7.0, "day": 0.5, "weather": "storm", "winter": true,
 			"at": _tc(Vector2i(30, 30)), "r": 14.0, "h": 11.0, "a0": 3.5, "a1": 4.3},
+		{"title": "The adventure", "words": ["EVERY ROAD", "EVERY BATTLE"], "sub": "Forge it, cast it, fight it, cross it - then something wakes in the north.", "dur": 6.0, "stay": true, "cam": "orbit",
+			"montage": true, "at": _tc(Vector2i(14, 19)), "r": 4.0, "h": 1.8, "a0": 0.0, "a1": 0.3, "setup": _stage_montage},
 		{"title": "World bosses", "no_run": true, "story": [["foe", "\"I AM THAROK, THE WORLD-EATER!\""], ["hero", "\"You'll need a bigger appetite.\""], ["foe", "\"...urk.\""]], "words": ["SLAY THE GIANTS", "TOGETHER"], "sub": "Now and then a giant wakes. The whole land comes to fight it.", "dur": 9.0, "day": 0.55, "weather": "clear", "white": true,
 			"at": _tc(Vector2i(60, 26)), "r": 8.0, "h": 5.0, "a0": 0.2, "a1": 1.5, "setup": _stage_boss},
 		{"title": "Your story", "story": [["hero", "\"So... where do I begin?\""], ["hero", "\"Anywhere. Everywhere.\""]], "words": ["YOUR LEGEND", "BEGINS NOW"], "sub": "Quests, bounties, guilds, a house, a horse, a boat. Begin.", "dur": 6.0,
@@ -437,7 +439,7 @@ func _make_shots() -> void:
 	# adding the reveal didn't change how any other scene is filmed)
 	var n := 0
 	for sh: Dictionary in shots:
-		if String(sh["title"]) == "One world":
+		if String(sh["title"]) in ["One world", "The adventure"]:
 			continue
 		if not sh.has("cam"):
 			sh["cam"] = CAM_MOVES[n % CAM_MOVES.size()]
@@ -465,6 +467,9 @@ func _next() -> void:
 	_riser_done = false
 	seed(SEED + i * 7919)                               # (each scene plays out the same every time)
 	_finish_sent = false
+	_finisher_done = false
+	_finisher = 0.0
+	_circle = 0.0
 	var sh: Dictionary = shots[i]
 	_fly_dur = 0.0
 	_delay = 0.0
@@ -558,6 +563,9 @@ func tick(delta: float) -> bool:
 	hero.mana = float(hero.stats.max_mana())
 	hero.reagents = 60.0
 	var beat := _beat_step()
+	if bool(sh.get("montage", false)):
+		_montage_step(sh, beat)
+	_finisher_step(delta)
 	# the explanation: big 3D words, one after another, flying in and past (each on a half bar)
 	if not _word_queue.is_empty():
 		_word_t -= delta / maxf(Engine.time_scale, 0.05)
@@ -650,7 +658,7 @@ func tick(delta: float) -> bool:
 	elif sh.has("from"):
 		cam.position = (sh["from"] as Vector3).lerp(sh["to"], k)
 	else:
-		var a := lerpf(float(sh["a0"]), float(sh["a1"]), k)
+		var a := lerpf(float(sh["a0"]), float(sh["a1"]), k) + _circle
 		var r := float(sh["r"])
 		var h := float(sh["h"])
 		# each scene its own camera move (they take turns), so no two scenes are filmed alike
@@ -1274,6 +1282,130 @@ func _warm_up() -> void:
 		_spell_light.position = p
 		_spell_light.visible = true
 		_spell_light.light_energy = 0.05            # (its light, too, drawn once)
+
+
+# --- the montage, and the finishers ------------------------------------------------------------
+# Before the giant, the montage: a cut on every half bar of the score (a second each) - the forge's
+# sparks, a fireball in the night, a blade in the snow, lightning in the storm, a run across the
+# sand, light in the depths - the hero close and centred in each, each in its own light. And the
+# last blow of every fight in slow motion, the camera circling the hero as the foe falls.
+const MONTAGE := [
+	{"act": "forge", "day": 0.45, "a": 0.6},
+	{"act": "spell", "tile": Vector2i(14, 19), "day": 0.03, "a": 2.4},
+	{"act": "slash", "tile": Vector2i(71, 4), "day": 0.5, "snow": true, "a": 4.0},
+	{"act": "storm", "tile": Vector2i(30, 30), "day": 0.5, "weather": "storm", "a": 3.6},
+	{"act": "run", "tile": Vector2i(74, 42), "day": 0.62, "a": 5.2},
+	{"act": "pillar", "tile": Vector2i(12, 75), "day": 0.4, "a": 1.2},
+]
+var _montage_i := -1
+var _finisher := 0.0                   # real seconds of the finisher's slow motion left
+var _finisher_done := false
+var _circle := 0.0                     # how far the camera has circled the hero (the finisher)
+
+
+func _stage_montage() -> void:
+	_montage_i = -1
+	hero.ai_enabled = false
+
+
+## The next cut of the montage, on the half bar (or every second if the score isn't playing).
+func _montage_step(sh: Dictionary, beat: float) -> void:
+	var due := _montage_i < 0 or (beat >= 0.0 and _on_half_bar and t > 0.4) \
+		or (beat < 0.0 and t >= float(_montage_i + 1))
+	if due and _montage_i < MONTAGE.size() - 1:
+		_montage_i += 1
+		_montage_clip(sh, MONTAGE[_montage_i])
+
+
+## A free tile next to `tile` (the forge itself is solid).
+func _open_near(tile: Vector2i) -> Vector2i:
+	for d: Vector2i in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1), Vector2i(1, 1), Vector2i(-1, 1)]:
+		if not world.is_blocked(tile + d):
+			return tile + d
+	return tile
+
+
+func _montage_clip(sh: Dictionary, c: Dictionary) -> void:
+	var act := String(c["act"])
+	var tile: Vector2i = _open_near(world.forge_tile) if act == "forge" else c["tile"]
+	_put_hero(tile)
+	hero.ai_enabled = false
+	game.day_time = float(c.get("day", 0.5))
+	game._set_weather(String(c.get("weather", "clear")))
+	game.frontier._snow.emitting = bool(c.get("snow", false))
+	var a := float(c.get("a", 0.0))
+	sh["at"] = hero.position
+	sh["a0"] = a
+	sh["a1"] = a + 0.3
+	sh["r"] = 4.0
+	sh["h"] = 1.8
+	_cam_s = Vector3.INF                               # a hard cut: the camera starts right there
+	_look_s = Vector3.INF
+	_floor_s = -INF
+	_expo = -1.0
+	_flash = 0.25
+	_clear_stage(sh)
+	# the hero three-quarters on to the camera, and what they do
+	var to_cam := Vector3(cos(a), 0.0, sin(a))
+	var fwd := to_cam.rotated(Vector3.UP, 2.0)
+	if act == "forge":
+		fwd = (world.tile_center(world.forge_tile) - hero.position) * Vector3(1, 0, 1)
+		fwd = fwd.normalized() if fwd.length() > 0.01 else to_cam.rotated(Vector3.UP, 2.0)
+	hero._face(fwd)
+	var chest := hero.position + Vector3(0.0, 1.0, 0.0)
+	match act:
+		"forge":                                        # the hammer comes down: sparks fly
+			_swing()
+			get_tree().create_timer(0.22).timeout.connect(func() -> void:
+				if running:
+					Fx.burst(game, chest + fwd * 0.8, 0.6)
+					Fx.sparkle(game, chest + fwd * 0.8, Color(1.0, 0.7, 0.3), 24))
+		"spell":                                        # a fireball into the night
+			_cast_flourish()
+			_spell_col = Color(1.0, 0.55, 0.2)
+			_flare = 1.0
+			Fx.fireball(game, chest + Vector3(0.0, 0.3, 0.0), chest + fwd * 8.0, 1.0, 0.45)
+		"slash":                                        # a blade flashing in the snow
+			_swing()
+			Fx.sparkle(game, chest + fwd * 0.9, Color(0.85, 0.92, 1.0), 18)
+			punch(0.4)
+		"storm":                                        # lightning strikes close by
+			Fx.lightning(game, hero.position + fwd * 3.0 + to_cam.rotated(Vector3.UP, 1.2) * 1.5)
+			_flash = 0.6
+		"run":                                          # off at a run across the sand
+			hero.go_to(hero.position + fwd * 7.0)
+		"pillar":                                       # light falls in the depths
+			Fx.pillar(game, hero.position + fwd * 1.5)
+
+
+func _swing() -> void:
+	hero._swing_len = Entity.PRO_SWING
+	hero.swing_anim = Entity.PRO_SWING
+
+
+## The last blow of a fight: as the last foe falls, slow motion, and the camera circles the hero.
+func _finisher_step(delta: float) -> void:
+	var real := delta / maxf(Engine.time_scale, 0.05)
+	if _finisher > 0.0:
+		_finisher -= real
+		_circle += real * 1.5                           # (a little under half a turn round the hero)
+		_slow = maxf(_slow, 0.05)                        # (the slow motion held while it lasts)
+		if _finisher <= 0.0:
+			_slow = 0.0
+			Soundscape.slowmo = false
+			game.music.player.pitch_scale = 1.0
+		return
+	if _finisher_done or not _finish_sent or _fight.is_empty():
+		return
+	for a in _actors:
+		if is_instance_valid(a) and not a.dead:
+			return                                      # (not the last one yet)
+	_finisher_done = true
+	_finisher = 1.4
+	_slow = 0.05
+	Soundscape.slowmo = true
+	game.music.player.pitch_scale = 0.8
+	punch(0.6)
 
 
 # --- the camera's sight -------------------------------------------------------------------
