@@ -631,16 +631,13 @@ func tick(delta: float) -> bool:
 	cam.fov = lerpf(60.0, 48.0, k)                      # a slow push in
 	cam.far = float(sh.get("far", 130.0))               # (the whole land in sight only where a scene asks for it)
 	var look: Vector3 = sh["at"]
-	# the camera follows the hero: it looks at a point between the scene's centre and the hero,
-	# leaning all the way to the hero if they slip out of the frame - so the hero never leaves it
+	# the camera keeps the hero in the middle of the picture: it looks at the hero, always (eased,
+	# so a step or a lunge doesn't jerk it - but held close, so the hero stays centred)
 	if hero.visible and not bool(sh.get("no_hero", false)):
-		var lean := maxf(float(sh.get("follow", 0.6)), _min_lean())
-		if not cam.is_position_in_frustum(hero.position + Vector3(0.0, 1.0, 0.0)):
-			lean = 1.0
-		var want: Vector3 = look.lerp(hero.position, lean)
+		var want: Vector3 = hero.position
 		if t < 0.05 or _look_s == Vector3.INF:
 			_look_s = want
-		_look_s = _look_s.lerp(want, 1.0 - exp(-delta * (6.0 if lean >= 1.0 else 3.0)))
+		_look_s = _look_s.lerp(want, 1.0 - exp(-delta * 8.0))
 		look = _look_s
 	if sh.has("line"):
 		# the long line over the whole map: gliding from one end of the land to the other,
@@ -744,7 +741,7 @@ func tick(delta: float) -> bool:
 		_cam_s = cam.position
 		_aim_s = look
 	_cam_s = _cam_s.lerp(cam.position, 1.0 - exp(-delta * 4.0))
-	_aim_s = _aim_s.lerp(look, 1.0 - exp(-delta * 5.0))
+	_aim_s = _aim_s.lerp(look, 1.0 - exp(-delta * 9.0))   # (close behind: the hero stays in the middle)
 	# the lowest it may go (above the hero, above the ground) - eased too, so a step of the hero
 	# or a bump in the ground under the camera doesn't jolt it; and never into the ground
 	var floor_y := world.height_at(_cam_s) + 1.3
