@@ -200,8 +200,12 @@ func start(p_game) -> void:
 	_spell_light.shadow_enabled = false
 	game.add_child(_spell_light)
 	# the hero, for the cameras: a master of arms and magic (nothing of it is kept)
-	for s in [Hero.Skill.MAGERY, Hero.Skill.EVALUATING_INTELLECT, Hero.Skill.SWORDSMANSHIP, Hero.Skill.TACTICS, Hero.Skill.ANATOMY]:
-		hero.stats.skills[s] = 100.0
+	# a hero halfway there: every skill and every stat at half its maximum (nothing of it is kept)
+	for s in Hero.Skill.values():
+		hero.stats.skills[s] = Rules.SKILL_MAX * 0.5
+	hero.stats.strength = int(Rules.STAT_MAX * 0.5)
+	hero.stats.dexterity = int(Rules.STAT_MAX * 0.5)
+	hero.stats.intelligence = int(Rules.STAT_MAX * 0.5)
 	for id in Spells.LIST:
 		hero.spellbook[id] = true
 	hero.weapon = "longsword@ex"
@@ -1536,7 +1540,14 @@ func _cast_something() -> void:
 		return
 	_runs = 0
 	hero.cast_cd = 0.0                                  # (ready - but a spell still being cast is never cut off)
-	var pick: String = ["fireball", "lightning", "flamestrike", "energy_bolt", "meteor_swarm", "chain_lightning"][randi() % 6]
+	# the showiest attack spells the hero's Magery (half way) can cast
+	var can: Array = []
+	for id in ["fireball", "lightning", "flamestrike", "energy_bolt", "meteor_swarm", "chain_lightning", "magic_arrow", "harm", "mind_blast"]:
+		if Spells.LIST.has(id) and hero.can_cast(id):
+			can.append(id)
+	if can.is_empty():
+		return
+	var pick: String = can[randi() % mini(can.size(), 4)]
 	_spell_col = {"fireball": Color(1.0, 0.55, 0.2), "lightning": Color(0.65, 0.8, 1.0), "flamestrike": Color(1.0, 0.45, 0.15),
 		"energy_bolt": Color(0.75, 0.5, 1.0), "meteor_swarm": Color(1.0, 0.6, 0.25), "chain_lightning": Color(0.6, 0.85, 1.0)}.get(pick, Color(0.7, 0.8, 1.0))
 	if hero.start_cast(pick, foe):

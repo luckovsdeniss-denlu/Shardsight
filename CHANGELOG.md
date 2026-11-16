@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.3.4
+- Trailers: the hero is halfway there - every skill at 50 (of 100) and Strength, Dexterity and
+  Intelligence at 50 each (of 100), instead of a grandmaster in five skills. Their spells are the
+  showiest attack spells a Magery of 50 can cast (the highest circles are out of reach). Nothing
+  of it is kept after the trailer.
+
 ## 1.3.3
 - Fixed the hero flailing in the trailers - the sword waving or the spell-casting restarting very
   fast:
