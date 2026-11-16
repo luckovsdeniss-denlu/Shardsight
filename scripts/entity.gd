@@ -715,7 +715,7 @@ func _kite() -> bool:
 		return true                        # let the step back play out
 	if target == null or kite_cd > 0.0 or casting_id != "":
 		return false
-	if is_hero and game.movie != null and game.movie.hero_holds_ground():
+	if is_hero and game.movie != null:
 		return false                       # (a trailer scene where the hero stands and fights)
 	var archer := weapon != "" and Gear.is_ranged(weapon) and arrows > 0
 	# a caster about to cast: a blow could break the spell, so first get out of reach
@@ -1058,6 +1058,7 @@ func _resolve_blow(wielded: String, lo: float, hi: float) -> void:
 						target._fizzle("disrupted")
 		if special == "double":
 			swing_cd *= 0.25                   # the second strike follows at once
+			swing_cd = maxf(swing_cd, swing_anim + 0.12)   # (once this blow has followed through, never over it)
 		if target == null:
 			return                            # (the blow's after-effects ended it)
 		if target.flags.has("reactive_armor") and not dead:

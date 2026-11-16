@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.3.3
+- Fixed the hero flailing in the trailers - the sword waving or the spell-casting restarting very
+  fast:
+  - the trailer started a new spell every 1.4 s (2.8 s in fights) even while the last was still
+    being cast, cutting it off and starting it again (the words, the weaving hands and the rise
+    over and over); now it waits for the spell, and for a blow under way, to finish;
+  - the hero only rises with a spell when one actually begins (not when it couldn't be cast);
+  - in the trailers the hero no longer steps back from a foe on its own and walks straight back
+    in (the trailer's own runs before a spell stay);
+  - a "double strike" could start the next swing before the last had followed through (now and
+    then in the game too); the second blow now waits for the first to finish.
+
 ## 1.3.2
 - Trailer: "The adventure", a fast montage just before the giant - a cut on every half bar of the
   score (a second each): the hammer at the forge and its sparks, a fireball into the night, a

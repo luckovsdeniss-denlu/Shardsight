@@ -591,7 +591,7 @@ func tick(delta: float) -> bool:
 			_spawn_wave()                               # more of them!
 	if bool(sh.get("magic", false)):
 		_cast_acc += delta
-		if _cast_acc >= float(sh.get("cast_every", CAST_EVERY)):
+		if _cast_acc >= float(sh.get("cast_every", CAST_EVERY)) and hero.casting_id == "" and hero._blow.is_empty() and hero.swing_anim <= 0.0:   # (never on top of a spell or a blow)
 			_cast_acc = 0.0
 			_cast_something()
 	# a spell landing: a flash and a moment of slow motion (the camera stays steady)
@@ -1535,13 +1535,12 @@ func _cast_something() -> void:
 		_cast_acc = float(shots[i].get("cast_every", CAST_EVERY)) - 1.15   # and the spell right after it
 		return
 	_runs = 0
-	hero.casting_id = ""
-	hero.cast_cd = 0.0
+	hero.cast_cd = 0.0                                  # (ready - but a spell still being cast is never cut off)
 	var pick: String = ["fireball", "lightning", "flamestrike", "energy_bolt", "meteor_swarm", "chain_lightning"][randi() % 6]
 	_spell_col = {"fireball": Color(1.0, 0.55, 0.2), "lightning": Color(0.65, 0.8, 1.0), "flamestrike": Color(1.0, 0.45, 0.15),
 		"energy_bolt": Color(0.75, 0.5, 1.0), "meteor_swarm": Color(1.0, 0.6, 0.25), "chain_lightning": Color(0.6, 0.85, 1.0)}.get(pick, Color(0.7, 0.8, 1.0))
-	_cast_flourish()
-	hero.start_cast(pick, foe)
+	if hero.start_cast(pick, foe):
+		_cast_flourish()                                # (the hero moves with a spell only when one begins)
 
 
 func _stage_boat() -> void:
