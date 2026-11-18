@@ -49,6 +49,13 @@ const LIST := {
 	"studded_armor": {"name": "Studded Armor", "slot": "armor", "rating": 3.0, "str": 25, "value": 60, "metal": false},
 	"chainmail": {"name": "Chainmail", "slot": "armor", "rating": 5.0, "str": 35, "value": 110, "metal": true},
 	"platemail": {"name": "Platemail", "slot": "armor", "rating": 7.0, "str": 60, "value": 260, "metal": true},
+	# The Shardveil's guns (the "Shardveil chaos" experiment): never sold, made or dropped - in the
+	# other dimension everyone simply has one in hand. They shoot without arrows and never wear out.
+	"rift_shotgun": {"name": "Rift Shotgun", "slot": "weapon", "skill": "archery", "speed": 26, "min": 9.0, "max": 18.0, "str": 10, "value": 0, "range": 5.0, "gun": "shotgun"},
+	"shard_rocket": {"name": "Shard Rocket Launcher", "slot": "weapon", "skill": "archery", "speed": 16, "min": 14.0, "max": 26.0, "str": 10, "value": 0, "range": 9.0, "gun": "rocket"},
+	"spike_gun": {"name": "Spike Gun", "slot": "weapon", "skill": "archery", "speed": 58, "min": 4.0, "max": 8.0, "str": 10, "value": 0, "range": 8.0, "gun": "spike"},
+	"arc_caster": {"name": "Arc Caster", "slot": "weapon", "skill": "archery", "speed": 52, "min": 5.0, "max": 10.0, "str": 10, "value": 0, "range": 6.0, "gun": "arc"},
+	"ember_launcher": {"name": "Ember Launcher", "slot": "weapon", "skill": "archery", "speed": 20, "min": 12.0, "max": 22.0, "str": 10, "value": 0, "range": 7.0, "gun": "grenade"},
 	"wooden_shield": {"name": "Wooden Shield", "slot": "shield", "block": 0.6, "str": 10, "value": 20, "metal": false},
 	"bronze_shield": {"name": "Bronze Shield", "slot": "shield", "block": 0.75, "str": 20, "value": 45, "metal": true},
 	"heater_shield": {"name": "Heater Shield", "slot": "shield", "block": 0.9, "str": 35, "value": 95, "metal": true},
@@ -213,3 +220,8 @@ static func is_metal(id: String) -> bool:
 
 static func is_ranged(id: String) -> bool:
 	return has(id) and float(LIST[base(id)].get("range", 0.0)) > 0.0
+
+
+## What kind of Shardveil gun an item is ("shotgun", "rocket", "spike", "arc", "grenade"), or "".
+static func gun(id: String) -> String:
+	return String(LIST[base(id)].get("gun", "")) if has(id) else ""

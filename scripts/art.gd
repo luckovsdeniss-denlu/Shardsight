@@ -891,6 +891,31 @@ static func _weapon_parts(weapon: String) -> Array:
 			p.append([box(0.06, 0.06, 0.55), at(0, hy, -0.22), WOOD])
 			p.append([box(0.55, 0.04, 0.04), at(0, hy, -0.42), WOOD.darkened(0.3)])
 			p.append([box(0.5, 0.01, 0.01), at(0, hy + 0.035, -0.36), Color(0.9, 0.9, 0.85)])   # the string
+		"rift_shotgun":                                # two barrels, a dark body, a wooden stock
+			p.append([box(0.08, 0.09, 0.22), at(0, hy, 0.0), Color(0.16, 0.15, 0.18)])
+			p.append([cone(0.032, 0.5, 0.032, 8), at(-0.03, hy + 0.03, -0.34, Vector3(PI / 2, 0, 0)), Color(0.5, 0.52, 0.56)])
+			p.append([cone(0.032, 0.5, 0.032, 8), at(0.03, hy + 0.03, -0.34, Vector3(PI / 2, 0, 0)), Color(0.5, 0.52, 0.56)])
+			p.append([box(0.06, 0.1, 0.24), at(0, hy - 0.03, 0.2), WOOD])
+		"shard_rocket":                                # a long tube with a violet band, a grip and a sight
+			p.append([cone(0.085, 0.85, 0.085, 10), at(0, hy + 0.06, -0.22, Vector3(PI / 2, 0, 0)), Color(0.28, 0.3, 0.34)])
+			p.append([cone(0.095, 0.08, 0.095, 10), at(0, hy + 0.06, -0.62, Vector3(PI / 2, 0, 0)), Color(0.75, 0.4, 1.0)])
+			p.append([box(0.05, 0.12, 0.06), at(0, hy - 0.06, -0.1), DARK])
+			p.append([box(0.03, 0.06, 0.1), at(0, hy + 0.17, -0.2), DARK])
+		"spike_gun":                                   # a drum of four barrels
+			for k in range(4):
+				var ang := k * PI / 2.0
+				p.append([cone(0.022, 0.5, 0.022, 6), at(cos(ang) * 0.045, hy + sin(ang) * 0.045, -0.32, Vector3(PI / 2, 0, 0)), Color(0.62, 0.64, 0.7)])
+			p.append([cone(0.08, 0.16, 0.08, 10), at(0, hy, -0.05, Vector3(PI / 2, 0, 0)), Color(0.2, 0.2, 0.24)])
+			p.append([box(0.05, 0.12, 0.08), at(0, hy - 0.08, 0.06), DARK])
+		"arc_caster":                                  # coils of teal round a short barrel, a glowing tip
+			p.append([box(0.08, 0.08, 0.42), at(0, hy, -0.15), Color(0.2, 0.22, 0.26)])
+			for k in range(3):
+				p.append([ring_mesh(0.05, 0.075), at(0, hy, -0.08 - k * 0.12, Vector3(PI / 2, 0, 0)), Color(0.35, 0.95, 1.0)])
+			p.append([ball(0.05, 6, 4), at(0, hy, -0.4), Color(0.6, 1.0, 1.0)])
+		"ember_launcher":                              # a short fat barrel over an ember drum
+			p.append([cone(0.07, 0.4, 0.07, 10), at(0, hy + 0.04, -0.22, Vector3(PI / 2, 0, 0)), Color(0.3, 0.26, 0.24)])
+			p.append([cone(0.09, 0.12, 0.09, 10), at(0, hy - 0.04, -0.02, Vector3(0, 0, PI / 2)), Color(0.8, 0.4, 0.15)])
+			p.append([box(0.05, 0.12, 0.07), at(0, hy - 0.1, 0.08), DARK])
 		"heavy_crossbow":                              # bigger, with a steel prod and a crank
 			p.append([box(0.08, 0.08, 0.7), at(0, hy, -0.28), WOOD.darkened(0.15)])
 			p.append([box(0.7, 0.05, 0.06), at(0, hy, -0.55), steel])

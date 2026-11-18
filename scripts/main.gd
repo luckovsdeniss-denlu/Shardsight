@@ -3938,6 +3938,13 @@ func _on_switch_weapon() -> void:
 			hero.arrows, int(hero.attack_range())])
 
 
+## The Shardveil's free-for-all (experimental mode): at this spot, round the hero, while they're
+## in the other dimension - there anyone fights anyone, and nowhere is safe.
+func chaos_at(p: Vector3) -> bool:
+	return dimension != null and dimension.chaos and hero != null \
+		and p.distance_squared_to(hero.position) < Dimension.CHAOS_RADIUS * Dimension.CHAOS_RADIUS
+
+
 ## The Car button (experimental mode): into the dimension car, or out of it.
 func _on_car() -> void:
 	if dimension != null:

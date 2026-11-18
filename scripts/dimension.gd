@@ -195,10 +195,12 @@ func step(delta: float) -> void:
 			_set_world(false, false)               # (the trailers show the world as it is)
 		if not _trips.is_empty():
 			_end_trips()                           # (everyone home for the cameras)
+		_chaos_step(delta)                         # (and no chaos: everyone's own weapons)
 		_buttons(false)
 		return
 	_buttons(true)
 	_npc_step(delta)
+	_chaos_step(delta)
 	_cool = maxf(_cool - delta, 0.0)
 	if _jump_t >= 0.0:
 		_jump_step(delta)
@@ -241,6 +243,7 @@ func _keep_car() -> void:
 	else:
 		if active or veil > 0.0:
 			_set_world(false, false)
+			_chaos_step(0.0)                       # (the chaos ends with it)
 		if car != null:
 			_take_car()
 
@@ -610,3 +613,138 @@ func _end_trips() -> void:
 		if String(trip["phase"]) != "in":
 			_back(trip["who"], false)
 	_trips.clear()
+
+
+# --- the Shardveil's chaos (the "Shardveil chaos" experiment) ------------------------------------
+# In the Shardveil it's every one for themselves. Round you (35 m), everyone with hands has a gun
+# - you, the adventurers, the orcs and skeletons and the rest - and anyone fights anyone: the
+# adventurers each other and the beasts, the beasts each other, everyone you; no town is a refuge
+# and no blow is a crime. And meteors keep falling out of the violet sky, burning whoever they
+# land near. Back home, everyone has their own weapons again.
+
+const GUNS := ["rift_shotgun", "shard_rocket", "spike_gun", "arc_caster", "ember_launcher"]
+const CHAOS_RADIUS := 35.0
+## Beasts without hands to hold a gun (they fight with tooth and claw).
+const NO_HANDS := ["rat", "wolf", "bear", "hind", "horse", "llama", "nightmare", "swamp_dragon", "beetle",
+	"ostard", "spider", "scorpion", "leech", "earth_elemental", "air_elemental", "fire_elemental",
+	"water_elemental", "vortex", "blades", "car", "ghost"]
+var chaos := false
+var _armed: Array = []
+var _arm_check := 0.0
+var _meteor_t := 1.5
+var _meteor_src: Entity
+
+
+func _chaos_step(delta: float) -> void:
+	var want: bool = active and Experiments.on("veil_chaos") and game.movie == null
+	if want != chaos:
+		chaos = want
+		if chaos:
+			_arm_check = 0.0
+			_meteor_t = 1.2
+			game.log_event("In the Shardveil it's every one for themselves: everyone has a gun, and the sky is falling.")
+		else:
+			_disarm_all()
+	if not chaos:
+		return
+	_arm_check -= delta
+	if _arm_check <= 0.0:
+		_arm_check = 1.0
+		_arm_round()
+	_meteor_t -= delta
+	if _meteor_t <= 0.0:
+		_meteor_t = randf_range(0.9, 2.2)
+		_meteor()
+
+
+## Everyone with hands near you gets a gun (and keeps it while near); anyone who's gone far off
+## gets their own weapon back.
+func _arm_round() -> void:
+	var hero: Entity = game.hero
+	for item in game.creatures:
+		var e := item as Entity
+		if e == null or e.dead or e.parked or e.is_vehicle or e.kind == Entity.Kind.NPC or e.kind == Entity.Kind.PET:
+			continue
+		if e.kind == Entity.Kind.MONSTER and e.look in NO_HANDS:
+			continue
+		var d := e.position.distance_to(hero.position)
+		if e.has_meta("veil_weapon"):
+			if d > CHAOS_RADIUS + 6.0:
+				_disarm(e)
+			elif Gear.gun(e.weapon) == "":
+				e.weapon = String(e.get_meta("veil_gun"))   # (put away: in the Shardveil the gun's back in hand)
+				e.refresh_look()
+		elif d <= CHAOS_RADIUS:
+			_arm(e)
+
+
+func _arm(e: Entity) -> void:
+	var gun: String = "shard_rocket" if e.is_hero else String(GUNS[absi(e.display_name.hash()) % GUNS.size()])
+	e.set_meta("veil_weapon", e.weapon)
+	e.set_meta("veil_gun", gun)
+	if not e.is_hero:                              # (they all know how to aim one here)
+		e.set_meta("veil_archery", float(e.stats.skills.get(Hero.Skill.ARCHERY, 0.0)))
+		e.stats.skills[Hero.Skill.ARCHERY] = maxf(float(e.stats.skills.get(Hero.Skill.ARCHERY, 0.0)), 55.0)
+	e.weapon = gun
+	e.refresh_look()
+	_armed.append(e)
+
+
+func _disarm(e: Entity) -> void:
+	if e != null and is_instance_valid(e) and e.has_meta("veil_weapon"):
+		e.weapon = String(e.get_meta("veil_weapon"))
+		if e.has_meta("veil_archery"):
+			e.stats.skills[Hero.Skill.ARCHERY] = float(e.get_meta("veil_archery"))
+			e.remove_meta("veil_archery")
+		e.remove_meta("veil_weapon")
+		e.remove_meta("veil_gun")
+		e.refresh_look()
+	_armed.erase(e)
+
+
+func _disarm_all() -> void:
+	for e in _armed.duplicate():
+		_disarm(e)
+	_armed.clear()
+
+
+## A meteor out of the violet sky, somewhere near you (now and then very near): it burns
+## everyone it lands by. Not underground.
+func _meteor() -> void:
+	var hero: Entity = game.hero
+	var t: Vector2i = game.world.to_tile(hero.position)
+	if game.world.is_dungeon(t) or game.world.is_cave(t):
+		return
+	var a := randf() * TAU
+	var d := randf_range(2.0, 7.0) if randf() < 0.3 else randf_range(7.0, 24.0)
+	var at := hero.position + Vector3(cos(a) * d, 0.0, sin(a) * d)
+	at.y = game.world.height_at(at)
+	Fx.meteor(game, at, 0.0)
+	get_tree().create_timer(0.47).timeout.connect(_meteor_lands.bind(at))
+
+
+func _meteor_lands(at: Vector3) -> void:
+	if not chaos:
+		return
+	game.sound("impact", at, 0.8, 2.0)
+	if _meteor_src == null or not is_instance_valid(_meteor_src):
+		_make_meteor_src()
+	_meteor_src.position = at
+	for item in game.creatures:
+		var e := item as Entity
+		if e == null or e.dead or e.parked or e.is_vehicle or e.kind == Entity.Kind.NPC:
+			continue
+		if e.position.distance_to(at) <= 2.4:
+			e.take_damage(randf_range(10.0, 24.0), _meteor_src)
+
+
+## What the meteors' burns come from (so a fall reads "slain by a meteor"): out of sight, out of
+## the world's lists, and nobody to chase.
+func _make_meteor_src() -> void:
+	_meteor_src = Entity.new()
+	game.add_child(_meteor_src)
+	_meteor_src.setup(game, Entity.Kind.MONSTER, "a meteor", {"look": "blades", "passive": true, "str": 10, "dex": 10, "int": 10,
+		"aggro": 0.0, "loot": {"gold_min": 0, "gold_max": 0, "drops": []}}, Color.WHITE, game.world.to_tile(game.hero.position))
+	_meteor_src.visible = false
+	_meteor_src.parked = true
+	_meteor_src.dead = true

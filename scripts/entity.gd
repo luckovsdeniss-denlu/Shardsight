@@ -693,7 +693,7 @@ func _chase() -> void:
 ## weapon for the moment: the bow or crossbow while the foe is still coming, the hand weapon
 ## (and shield) once it's close. Archers at heart keep the bow up even close in.
 func _tactical_weapon() -> void:
-	if swap_cd > 0.0 or target == null or (is_hero and not auto_equip):
+	if swap_cd > 0.0 or target == null or (is_hero and not auto_equip) or Gear.gun(weapon) != "":
 		return
 	var ranged_now := weapon != "" and Gear.is_ranged(weapon)
 	var can_shoot := _has_ranged() and arrows >= 5
@@ -896,7 +896,7 @@ func _fight() -> void:
 		return
 	if swing_cd > 0.0 or d > attack_range():
 		return
-	if target.town_protects(self):
+	if target.town_protects(self) and not game.chaos_at(position):
 		_town_notice()
 		target = null                        # break off: no blows into, or out of, a town
 		return
@@ -909,7 +909,9 @@ func _fight() -> void:
 		ws = int(w["speed"])
 		lo = float(w["min"])
 		hi = float(w["max"])
-		if Gear.is_ranged(wielded):
+		if Gear.gun(wielded) != "":
+			_gun_fire(Gear.gun(wielded), target)  # a Shardveil gun: no arrows, its own shot
+		elif Gear.is_ranged(wielded):
 			arrows -= 1
 			_bolt(target.position, Color(0.85, 0.75, 0.5))
 			game.sound("crossbow" if "crossbow" in Gear.base(wielded) else "bow", position)
@@ -1040,7 +1042,11 @@ func _resolve_blow(wielded: String, lo: float, hi: float) -> void:
 			game.count("hero_dmg_dealt", roundi(dealt))
 		elif target.is_hero:
 			game.count("hero_dmg_taken_melee", roundi(dealt))
+		var struck := target
+		var struck_at := target.position
 		target.take_damage(dealt, self)
+		if Gear.gun(wielded) in ["rocket", "grenade"]:
+			_splash(struck_at, dealt * 0.5, struck)   # (a blast: everyone close by catches some of it)
 		if is_hero and game.movie != null and target != null and is_instance_valid(target):
 			game.movie.on_hero_strike(target)    # the trailer: each blow a step of a combo
 		_wear_out("weapon", 0.3)              # every blow wears the weapon a little
@@ -1248,14 +1254,16 @@ func take_damage(amount: float, from: Entity) -> void:
 	_hit_sound = ""
 	if dead or kind == Kind.NPC or is_vehicle:
 		return                               # (a car can't be hurt)
-	# Towns are safe: nobody inside one can be hurt, and nobody can attack out of one.
-	if town_protects(from):
+	# Towns are safe: nobody inside one can be hurt, and nobody can attack out of one. (Not in the
+	# Shardveil's free-for-all: there nowhere is safe, and no blow there is a crime.)
+	var chaos: bool = game.chaos_at(position)
+	if town_protects(from) and not chaos:
 		return
 	# Hitting an innocent player makes the attacker a criminal and, if the victim dies soon
 	# after, a murderer. The victim can fight back freely.
-	if from != self and from.kind == Kind.PLAYER and kind == Kind.PLAYER and _trammel() and not from.at_war_with(self):
+	if not chaos and from != self and from.kind == Kind.PLAYER and kind == Kind.PLAYER and _trammel() and not from.at_war_with(self):
 		return                             # Trammel: players can't hurt each other (guild wars aside)
-	if from != self and from.kind == Kind.PLAYER and kind == Kind.PLAYER and notoriety() == Notoriety.BLUE \
+	if not chaos and from != self and from.kind == Kind.PLAYER and kind == Kind.PLAYER and notoriety() == Notoriety.BLUE \
 			and not from.at_war_with(self):
 		from.criminal_timer = CRIMINAL_SECONDS
 		var aid := from.get_instance_id()
@@ -2176,8 +2184,8 @@ func _slot_value(id: String) -> float:
 ## Equips any carried piece that beats what is worn (and the old piece goes into the bag).
 ## Off once the player has chosen gear by hand (the Bag screen can turn it back on).
 func _manage_gear() -> void:
-	if not auto_equip:
-		return
+	if not auto_equip or Gear.gun(weapon) != "":
+		return                               # (gun in hand in the Shardveil: no changing gear)
 	for id in inventory.keys():
 		var jid := String(id)
 		if Jewelry.has(jid) and ((Jewelry.slot(jid) == "ring" and ring_id == "") or (Jewelry.slot(jid) == "amulet" and amulet_id == "")):
@@ -2433,6 +2441,8 @@ func _is_fair_target(e: Entity) -> bool:
 		return false                       # a mount under its rider
 	if e.is_vehicle:
 		return false                       # (a car: nothing to fight)
+	if game.chaos_at(position):
+		return _chaos_fair(e)              # (the Shardveil's free-for-all: anyone at all)
 	if _in_town() or e._in_town():
 		return false
 	if e.flags.has("invisible"):
@@ -2473,8 +2483,8 @@ func _outmatched(e: Entity) -> bool:
 
 
 func _worth_fighting(e: Entity) -> bool:
-	if kind != Kind.PLAYER or e.kind != Kind.MONSTER or e.target == self:
-		return true
+	if kind != Kind.PLAYER or e.kind != Kind.MONSTER or e.target == self or game.chaos_at(position):
+		return true                          # (in the Shardveil's free-for-all, fearless)
 	return e.threat() <= power() + 0.5
 
 
@@ -2486,7 +2496,7 @@ func threat() -> float:
 
 func _pick_target() -> Entity:
 	var best: Entity = null
-	var best_d := aggro_range
+	var best_d := maxf(aggro_range, 14.0) if game.chaos_at(position) else aggro_range   # (the free-for-all: looking for a fight)
 	var list: Array = game.creatures
 	for item in list:
 		var e := item as Entity
@@ -3231,6 +3241,80 @@ func _animate(delta: float) -> void:
 		(w as Node3D).rotation.x -= moved / 0.28
 
 
+# --- the Shardveil: guns and the free-for-all (the "Shardveil chaos" experiment) ----------------
+
+## What each Shardveil gun looks like going off - pellets, a rocket, spikes, an arc of lightning, an
+## ember that bursts - from the muzzle to the target (only drawn on screen).
+func _gun_fire(g: String, tgt: Entity) -> void:
+	if not _near or tgt == null or not is_instance_valid(tgt):
+		return
+	var fwd := tgt.position - position
+	fwd.y = 0.0
+	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
+	var muzzle := position + Vector3(0.0, 1.15, 0.0) + fwd * 0.55
+	var to := tgt.position + Vector3(0.0, 1.0, 0.0)
+	var parent := get_parent()
+	match g:
+		"shotgun":                                  # a spray of hot pellets
+			for k in range(5):
+				var j := Vector3(randf_range(-0.35, 0.35), randf_range(-0.2, 0.3), randf_range(-0.35, 0.35))
+				_shot(muzzle, to + j, Color(1.0, 0.85, 0.45), 0.05, 0.1)
+			Fx.sparkle(parent, muzzle, Color(1.0, 0.8, 0.4), 8)
+		"rocket":                                   # a rocket with a trail of fire, and a blast
+			Fx.fireball(parent, muzzle, to, 0.7, 0.32, false)
+		"spike":                                    # two quick steel spikes
+			_shot(muzzle, to, Color(0.8, 0.85, 0.95), 0.04, 0.09)
+			_shot(muzzle + Vector3(0.0, 0.05, 0.0), to + Vector3(0.1, 0.0, 0.0), Color(0.8, 0.85, 0.95), 0.04, 0.11)
+		"arc":                                      # a crackling arc of teal lightning
+			Fx.orb(parent, muzzle, to, Color(0.3, 0.95, 1.0), 0.6, 0.1)
+			Fx.sparkle(parent, to, Color(0.4, 0.95, 1.0), 10)
+		"grenade":                                  # an ember lobbed over, bursting where it lands
+			Fx.orb(parent, muzzle, to, Color(1.0, 0.5, 0.2), 0.8, 0.4)
+			get_tree().create_timer(0.4).timeout.connect(func() -> void:
+				if is_instance_valid(parent):
+					Fx.burst(parent, to, 0.9, false))
+
+
+## A bright little shot from `from` to `to`.
+func _shot(from: Vector3, to: Vector3, c: Color, r: float, secs: float) -> void:
+	var m := MeshInstance3D.new()
+	var s := SphereMesh.new()
+	s.radius = r
+	s.height = r * 2.0
+	s.radial_segments = 6
+	s.rings = 3
+	m.mesh = s
+	m.material_override = Art.glow_mat(c)
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	get_parent().add_child(m)
+	m.global_position = from
+	var tw := m.create_tween()
+	tw.tween_property(m, "global_position", to, secs)
+	tw.tween_callback(m.queue_free)
+
+
+## A rocket's or an ember's blast catches everyone else close by (half the blow).
+func _splash(at: Vector3, amount: float, struck: Entity) -> void:
+	for item in game.creatures:
+		var e := item as Entity
+		if e == null or e == self or e == struck or e.dead or e.parked or e.is_vehicle or e.kind == Kind.NPC:
+			continue
+		if e.position.distance_to(at) <= 2.2 and _is_fair_target(e):
+			e.take_damage(amount, self)
+
+
+## In the Shardveil's free-for-all anyone may fight anyone - but not townsfolk, cars, anyone out
+## of this world for now, your own pets, or the one whose pet you are.
+func _chaos_fair(e: Entity) -> bool:
+	if e == self or e.dead or e.ghost or e.parked or e.is_vehicle or e.kind == Kind.NPC:
+		return false
+	if e.kind == Kind.PET and e.pet_owner == self:
+		return false
+	if kind == Kind.PET and (pet_owner == e or (e.kind == Kind.PET and e.pet_owner == pet_owner)):
+		return false
+	return game.chaos_at(e.position)
+
+
 # --- poison and potions ----------------------------------------------------
 
 ## A stronger poison replaces a weaker one; it wears off on its own after a while.
@@ -3764,8 +3848,8 @@ static func skill_for(weapon_skill: String) -> int:
 
 ## The weapon actually in use: a bow without arrows is no weapon at all (bare hands).
 func _wielded() -> String:
-	if weapon != "" and Gear.is_ranged(weapon) and arrows <= 0:
-		return ""
+	if weapon != "" and Gear.is_ranged(weapon) and arrows <= 0 and Gear.gun(weapon) == "":
+		return ""                            # (a bow without arrows; the Shardveil's guns need none)
 	return weapon
 
 
@@ -5064,8 +5148,8 @@ func _wear_out(slot: String, chance: float) -> void:
 	if kind != Kind.PLAYER or randf() >= chance:
 		return
 	var id := _equipped_id(slot)
-	if id == "" or not Gear.has(id):
-		return
+	if id == "" or not Gear.has(id) or Gear.gun(id) != "":
+		return                               # (a Shardveil gun never wears)
 	var d := durability(id) - 1
 	if d <= 0:
 		wear.erase(id)

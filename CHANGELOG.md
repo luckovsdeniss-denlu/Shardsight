@@ -3,6 +3,28 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.5.0
+- Shardveil chaos - a new experiment, on for everyone in experimental mode (Main Menu >
+  Experiments > "Shardveil chaos"), and only in the other dimension: drive through the dimension
+  car's rift and it's every one for themselves.
+  - Guns for everyone near you (35 m) with hands - you, the adventurers, the orcs, skeletons,
+    ogres and the rest (wolves, spiders and the like keep their teeth): five new guns of the
+    Shardveil, each with its own look in the hand and its own shot - the Rift Shotgun (two
+    barrels, a spray of hot pellets), the Shard Rocket Launcher (a rocket with a trail of fire and
+    a blast that catches everyone close by - yours), the Spike Gun (a drum of four barrels, quick
+    steel spikes), the Arc Caster (teal coils, a crackling arc of lightning) and the Ember Launcher
+    (an ember lobbed over, bursting where it lands, blast and all). They need no arrows and never
+    wear out; everyone can aim one there.
+  - Fighting everywhere: anyone fights anyone - adventurers each other and the beasts, beasts each
+    other, everyone you; even peaceful animals join in; no town is a refuge, and no blow is a crime
+    (no criminal or murderer marks). Townsfolk, cars and your own pets are left out of it.
+  - Meteors keep falling out of the violet sky round you (now and then very near), burning
+    whoever they land by - "slain by a meteor". Not in the dungeon or the caves.
+  - Back home (or a trailer starting), everyone has their own weapons again; a save made in the
+    Shardveil keeps your own weapon, not the gun.
+- The blasts of the guns go without a flash of light of their own (lights are what cost on a
+  phone); the meteors' and the spells' keep theirs.
+
 ## 1.4.1
 - Dimension car (experimental mode): the computer adventurers have cars too. Each of them gets a
   Riftrunner of their own ("Aldric's Riftrunner", a few at a time so nothing stutters); it

@@ -60,7 +60,7 @@ static func save(hero: Entity, property: Property) -> bool:
 		"gold": hero.gold,
 		"reagents": hero.reagents,
 		"inventory": hero.inventory,
-		"weapon": hero.weapon,
+		"weapon": String(hero.get_meta("veil_weapon", hero.weapon)),   # (a Shardveil gun isn't kept: the weapon it replaced is)
 		"armor": hero.armor_id,
 		"ring": hero.ring_id,
 		"wear": hero.wear,

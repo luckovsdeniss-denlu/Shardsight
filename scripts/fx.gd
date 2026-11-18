@@ -79,7 +79,7 @@ static func embers(radius: float, amount := 14) -> CPUParticles3D:
 
 
 ## A one-shot fiery blast at `at` that frees itself.
-static func burst(parent: Node, at: Vector3, size := 1.0) -> void:
+static func burst(parent: Node, at: Vector3, size := 1.0, with_light := true) -> void:
 	var p := CPUParticles3D.new()
 	p.one_shot = true
 	p.explosiveness = 0.95
@@ -99,19 +99,22 @@ static func burst(parent: Node, at: Vector3, size := 1.0) -> void:
 	parent.add_child(p)
 	p.global_position = at
 	p.emitting = true
-	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.6, 0.25)
-	light.light_energy = 3.0 * size
-	light.omni_range = 4.0 * size
-	p.add_child(light)
 	var tw := p.create_tween()
-	tw.tween_property(light, "light_energy", 0.0, 0.5)
+	if with_light:                                  # (the guns' many blasts go without it: lights cost)
+		var light := OmniLight3D.new()
+		light.light_color = Color(1.0, 0.6, 0.25)
+		light.light_energy = 3.0 * size
+		light.omni_range = 4.0 * size
+		p.add_child(light)
+		tw.tween_property(light, "light_energy", 0.0, 0.5)
+	else:
+		tw.tween_interval(0.5)
 	tw.tween_interval(0.4)
 	tw.tween_callback(p.queue_free)
 
 
 ## A fireball flying from `from` to `to` with a flame trail, bursting on arrival.
-static func fireball(parent: Node, from: Vector3, to: Vector3, size := 1.0, seconds := 0.35) -> void:
+static func fireball(parent: Node, from: Vector3, to: Vector3, size := 1.0, seconds := 0.35, with_light := true) -> void:
 	var ball := Node3D.new()
 	parent.add_child(ball)
 	ball.global_position = from
@@ -137,7 +140,7 @@ static func fireball(parent: Node, from: Vector3, to: Vector3, size := 1.0, seco
 	var tw := ball.create_tween()
 	tw.tween_property(ball, "global_position", to, seconds)
 	tw.tween_callback(func() -> void:
-		burst(parent, to, size)
+		burst(parent, to, size, with_light)
 		trail.emitting = false
 		core.visible = false)
 	tw.tween_interval(0.4)
