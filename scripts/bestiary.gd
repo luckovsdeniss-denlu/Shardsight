@@ -135,6 +135,18 @@ const OSTARD := {
 	"loot": {"gold_min": 0, "gold_max": 0, "drops": []},
 	"skills": {Hero.Skill.SWORDSMANSHIP: 30.0, Hero.Skill.TACTICS: 30.0},
 }
+## The Riftrunner, the dimension car (the "Dimension car" experiment): everyone's in experimental
+## mode. A vehicle, not an animal: it can't be tamed, hurt or poisoned, never fights, and nobody
+## fights it; it drives itself after you, and you get in to go fast - and through to the Shardveil.
+const CAR := {
+	"look": "car",
+	"species": "car", "tame": -1.0, "passive": true, "danger": 0, "color": "6a3cc8", "mount_speed": 2.5, "saddle": 0.0,
+	"vehicle": true,
+	"str": 200, "dex": 60, "int": 5, "wspeed": 40, "dmg_min": 0, "dmg_max": 0,
+	"move": 6.0, "leash": 99, "aggro": 0.0, "respawn": 9999.0, "scale": 1.0,
+	"loot": {"gold_min": 0, "gold_max": 0, "drops": []},
+	"skills": {},
+}
 const BEETLE := {
 	"look": "beetle",
 	"species": "beetle", "tame": 40.0, "passive": true, "danger": 2, "color": "283040", "mount_speed": 1.4,

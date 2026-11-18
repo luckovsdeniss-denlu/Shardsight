@@ -30,6 +30,9 @@ var rain: CPUParticles3D
 var rain_sound := AudioStreamPlayer.new()
 var retreat_button: Button
 var ride_button: Button
+var car_button: Button                 # (experimental mode) the dimension car: get in, get out
+var jump_button: Button                # (experimental mode) drive through to the other dimension and back
+var dimension: Dimension               # the dimension car and the Shardveil
 var players_panel: Control
 var players_box: VBoxContainer
 var bag_panel: Control
@@ -242,6 +245,15 @@ func _ready() -> void:
 	top_row.add_theme_constant_override("separation", 8)
 	top_row.size_flags_horizontal = Control.SIZE_SHRINK_END
 	corner.add_child(top_row)
+	# the dimension car (experimental mode): get in and out, and the jump to the other dimension
+	car_button = _menu_button("Car", _on_car)
+	car_button.custom_minimum_size = Vector2(150, 80)
+	car_button.visible = false
+	top_row.add_child(car_button)
+	jump_button = _menu_button("Rift jump", _on_rift_jump)
+	jump_button.custom_minimum_size = Vector2(190, 80)
+	jump_button.visible = false
+	top_row.add_child(jump_button)
 	var perf_button := _menu_button("Performance", _open_perf)
 	top_row.add_child(perf_button)
 	corner_toggle = _menu_button("Menu", _toggle_corner)
@@ -352,6 +364,9 @@ func _ready() -> void:
 	await get_tree().process_frame
 	frontier = Frontier.new()
 	frontier.setup(self, layer)
+	dimension = Dimension.new()                 # the dimension car and the other dimension (experimental mode)
+	add_child(dimension)
+	dimension.setup(self)
 	_halve_monsters()
 	for e in creatures:
 		e.show_name(property.names_on)
@@ -2779,7 +2794,7 @@ func _restore_pets() -> void:
 	for item in saved_pets:
 		var d: Dictionary = item
 		var cfg := Bestiary.by_species(String(d.get("species", "")))
-		if cfg.is_empty() or hero.pets.size() >= Entity.MAX_PETS:
+		if cfg.is_empty() or hero.animal_count() >= Entity.MAX_PETS:
 			continue
 		var p := _spawn(Entity.Kind.MONSTER, String(d.get("name", "Pet")), cfg,
 			Color(String(cfg.get("color", "8a6a4a"))), world.to_tile(hero.position))
@@ -2811,7 +2826,7 @@ func _refresh_animals() -> void:
 		for offer in [["Horse", Bestiary.HORSE, STABLE_HORSE], ["Llama", Bestiary.LLAMA, STABLE_LLAMA],
 			["Forest Ostard", Bestiary.OSTARD, 500], ["Giant Beetle", Bestiary.BEETLE, 450]]:
 			animals_box.add_child(_action("Buy a %s (%d gold)" % [String(offer[0]).to_lower(), int(offer[2])],
-				_on_buy_mount.bind(offer[0], offer[2]), property.bank_gold >= int(offer[2]) and hero.pets.size() < Entity.MAX_PETS))
+				_on_buy_mount.bind(offer[0], offer[2]), property.bank_gold >= int(offer[2]) and hero.animal_count() < Entity.MAX_PETS))
 	else:
 		animals_box.add_child(_info("Hal the Stablemaster in town sells horses, llamas, ostards and giant beetles. Wild mounts: horses on the eastern plains, a llama and giant beetles in the south-east hills, forest ostards in the southern forest, a swamp dragon in the swamp (it bites!) and a nightmare deep in the dungeon (very dangerous; Animal Taming 90)."))
 	if hero.pets.is_empty():
@@ -2823,7 +2838,7 @@ func _refresh_animals() -> void:
 			ceili(p.hp), p.stats.max_hp(), p.stats.strength, p.stats.dexterity, (p.pet_level - 1) * 2]))
 		if hero.can_ride(p) and hero.mounted_on == null:
 			animals_box.add_child(_action("Ride the %s" % p.display_name, _on_mount.bind(p), p.position.distance_to(hero.position) <= 3.0))
-		if p != hero.mounted_on:
+		if p != hero.mounted_on and not p.is_vehicle:   # (the dimension car stays yours)
 			animals_box.add_child(_menu_button("Release the %s" % p.display_name, _on_release_pet.bind(p)))
 	# The nearest wild animal: Animal Lore tells you about it.
 	var wild: Entity = null
@@ -3923,6 +3938,18 @@ func _on_switch_weapon() -> void:
 			hero.arrows, int(hero.attack_range())])
 
 
+## The Car button (experimental mode): into the dimension car, or out of it.
+func _on_car() -> void:
+	if dimension != null:
+		dimension.car_pressed()
+
+
+## Rift jump (in the dimension car): through to the other dimension, or home again.
+func _on_rift_jump() -> void:
+	if dimension != null:
+		dimension.jump()
+
+
 ## The Ride button: mount the nearest own mount, or get off.
 func _on_ride() -> void:
 	if hero.dead:
@@ -4321,14 +4348,14 @@ func _refresh_experiments() -> void:
 	exp_box.add_child(_info("New ideas tried out here first, in a game with its own save. Switch them on and off; the ordinary game is never touched."))
 	for e: Dictionary in Experiments.LIST:
 		var id := String(e["id"])
-		var is_on := bool(Experiments.enabled.get(id, false))
+		var is_on := Experiments.is_enabled(id)
 		exp_box.add_child(_action("%s: %s" % [e["name"], "On" if is_on else "Off"], _toggle_experiment.bind(id), true))
 		exp_box.add_child(_small(String(e["desc"])))
 	exp_box.add_child(_menu_button("Back", _close_experiments))
 
 
 func _toggle_experiment(id: String) -> void:
-	Experiments.enabled[id] = not bool(Experiments.enabled.get(id, false))
+	Experiments.enabled[id] = not Experiments.is_enabled(id)
 	Experiments.save_cfg()
 	_refresh_experiments()
 
@@ -5433,6 +5460,8 @@ func _process(delta: float) -> void:
 	_gates_tick(delta)
 	day_time = fmod(day_time + delta / DAY_SECONDS * (4.0 if Experiments.on("fast_time") else 1.0), 1.0)
 	_apply_daylight()
+	if dimension != null:
+		dimension.step(delta)
 	_quest_tick()
 	if property.has_house() and _someone_minds_house():
 		property.refresh()             # the owner or a co-owner nearby keeps it from decaying
@@ -6567,6 +6596,8 @@ func _music_piece(t: Vector2i) -> String:
 	if _battle_hold > 0.0:
 		_battle_hold -= 1.0
 		return music._area if music._area in ["battle", "boss"] else "battle"
+	if dimension != null and dimension.active:
+		return "veil"                           # the Shardveil has its own music
 	if frontier != null and not frontier.sail.is_empty():
 		return "sea"                            # out on the water
 	if frontier != null and (not frontier.duel.is_empty() or not frontier.bout.is_empty()) \
@@ -6671,6 +6702,12 @@ func _apply_daylight() -> void:
 	if weather == "clear":
 		env.fog_light_color = env.background_color       # the haze takes the sky's colour
 	env.ambient_light_energy = lerpf(0.42, 0.6, light) * (0.86 if Art.rich else 1.0)   # (...and deeper shade)
+	var veil := dimension.veil if dimension != null else 0.0
+	if veil > 0.0:                                    # the Shardveil: violet light, and never quite dark
+		sun.light_color = sun.light_color.lerp(Color(0.78, 0.6, 1.0), veil * 0.85)
+		sun.light_energy = lerpf(sun.light_energy, maxf(sun.light_energy, 0.85), veil)
+		env.background_color = env.background_color.lerp(Color("1d0b33"), veil)
+		env.ambient_light_energy = lerpf(env.ambient_light_energy, maxf(env.ambient_light_energy, 0.55), veil)
 	_sky_acc += get_process_delta_time()
 	# The sky changes slowly, and each change re-lights the world from it, so it's updated at most
 	# every 3 seconds and only when it has visibly changed (lightning at once).
@@ -6702,6 +6739,7 @@ uniform float light = 1.0;          // 0 night .. 1 day
 uniform float dusk = 0.0;           // sunrise / sunset glow
 uniform float cloudy = 0.0;         // greyer under rain and fog
 uniform vec3 sun_dir = vec3(0.0, 1.0, 0.0);
+uniform float veil = 0.0;           // the Shardveil: a violet sky with ribbons of light across it
 
 float hash(vec3 p) {
 	p = fract(p * 0.3183099 + 0.1);
@@ -6731,6 +6769,20 @@ void sky() {
 	}
 	if (h < 0.0) {
 		col = mix(col, vec3(0.12, 0.16, 0.1) * (0.3 + 0.7 * L), smoothstep(0.0, 0.15, -h));   // the ground below
+	}
+	if (veil > 0.0) {
+		// the Shardveil's sky: deep violet overhead, rose and magenta at the horizon, never black,
+		// and still ribbons of teal light (an aurora) across the upper sky
+		float VL = max(L, 0.3);
+		vec3 vtop = mix(vec3(0.05, 0.01, 0.12), vec3(0.3, 0.13, 0.52), VL);
+		vec3 vhor = mix(vec3(0.18, 0.05, 0.24), vec3(0.85, 0.42, 0.7), VL);
+		vec3 vcol = mix(vhor, vtop, smoothstep(0.0, 0.55, h));
+		float band = sin(d.x * 6.0 + d.z * 3.0) * 0.5 + 0.5;
+		vcol += vec3(0.2, 0.9, 0.8) * pow(band, 8.0) * smoothstep(0.15, 0.6, h) * 0.5;
+		if (h < 0.0) {
+			vcol = mix(vcol, vec3(0.08, 0.04, 0.12) * (0.3 + 0.7 * VL), smoothstep(0.0, 0.15, -h));
+		}
+		col = mix(col, vcol, veil);
 	}
 	COLOR = col;
 }

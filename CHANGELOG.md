@@ -3,6 +3,29 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.4.0
+- The dimension car - a new experiment, on for everyone in experimental mode (Main Menu >
+  Experiments > "Dimension car" switches it off and on; the ordinary game is untouched):
+  - everyone gets the Riftrunner: a low open car of violet metal on four turning wheels, glowing
+    strips down its sides, lamps before and behind, and a shard of crystal spinning in a cradle
+    behind the seat. It drives itself after you when you walk; it can't be hurt or poisoned,
+    never fights, and nobody fights it; it isn't one of your two animals (taming and the stable
+    still allow two) and can't be released. Lost or switched back on, it's back beside you.
+  - Car (beside Performance and Menu): get in, get out - from far off it comes to you through
+    a little rift. Riding it is fast (2.5 times walking), smooth (no stride or sway), with the
+    hero at the wheel. Ride in Menu works too.
+  - Rift jump (while driving): a ring of light opens on the road ahead - a violet ring, a teal
+    one inside it, a swirling disc of light - the car runs into it, and in a white flash and a
+    deep boom you're through to the Shardveil, the same land in another dimension: a violet sky
+    with ribbons of teal light, two moons and a great ring of light, the rift, across it; violet
+    light that never quite goes dark; the ground violet with veins of light; trees and grass of
+    glassy, glowing teal; water glowing violet and teal; motes of light drifting up round you;
+    everything else in its light; its own music (a choir and bells over dark chords, a flute
+    high above); and gold found there counts double. "THE SHARDVEIL" flies past as you arrive.
+    Drive home the same way (the button says Drive home). Not in the dungeon or a cave.
+  - Nothing of it is saved: a new start is always at home, the car beside you. The trailers
+    always show the world as it is.
+
 ## 1.3.6
 - Start screen: every button on the screen. The eleven buttons were too many for the old sizes
   (the bottom line fell off the screen); now they're sized to the screen so they all fit in two

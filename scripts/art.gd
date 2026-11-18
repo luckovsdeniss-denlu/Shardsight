@@ -42,6 +42,16 @@ static var _mat_cache := {}
 ## creatures built finer (rounder limbs and heads, bevelled edges). Set before the world is built.
 static var rich := false
 static var _hi := false                 # (while a creature is being built: the finer shapes)
+## The light of the other dimension (the Shardveil) on everything built from shapes: walls, rocks,
+## creatures, the car. White at home.
+static var tint := Color.WHITE
+
+
+static func set_tint(c: Color) -> void:
+	tint = c
+	for m in _mat_cache.values():
+		if m is StandardMaterial3D and (m as StandardMaterial3D).vertex_color_use_as_albedo:
+			(m as StandardMaterial3D).albedo_color = c
 
 
 # --- materials ------------------------------------------------------------
@@ -53,6 +63,7 @@ static func vc_mat(alpha := false) -> StandardMaterial3D:
 		var m := StandardMaterial3D.new()
 		m.vertex_color_use_as_albedo = true
 		m.roughness = 0.9
+		m.albedo_color = tint
 		if rich:
 			m.rim_enabled = true                   # a soft rim of light round every edge against the sky
 			m.rim = 0.3
@@ -280,6 +291,63 @@ static func set_rich(on: bool) -> void:
 	rich = on
 
 
+## The Riftrunner (the "Dimension car" experiment): a low open car of violet metal on four wheels,
+## glowing strips along its sides, lamps before and behind, and a shard of crystal turning slowly
+## in a cradle behind the seat - the heart that tears a way through to another dimension. The
+## wheels turn as it goes ("wheels"); the shard spins ("spin"). Forward is -Z, like the rest.
+static func _car(model: Dictionary) -> void:
+	var root: Node3D = model["root"]
+	var meshes: Array = model["meshes"]
+	var body := _cached("car|body", func() -> Array:
+		var paint := Color(0.36, 0.16, 0.62)
+		var dark := Color(0.1, 0.08, 0.14)
+		var chrome := Color(0.78, 0.8, 0.86)
+		return [[Art.box(1.16, 0.26, 2.2), Art.at(0, 0.42, 0), paint],                                  # the body
+			[Art.box(1.1, 0.14, 0.72), Art.at(0, 0.6, -0.74, Vector3(-0.1, 0, 0)), paint.lightened(0.1)],   # the bonnet
+			[Art.box(1.1, 0.16, 0.56), Art.at(0, 0.6, 0.82), paint.darkened(0.1)],                       # the back
+			[Art.box(1.0, 0.3, 0.04), Art.at(0, 0.78, -0.36, Vector3(0.55, 0, 0)), Color(0.6, 0.85, 0.95)],   # the windscreen
+			[Art.box(0.52, 0.1, 0.44), Art.at(0, 0.6, 0.16), dark],                                      # the seat
+			[Art.box(0.52, 0.42, 0.1), Art.at(0, 0.78, 0.4, Vector3(-0.15, 0, 0)), dark],                # and its back
+			[Art.box(1.2, 0.08, 0.16), Art.at(0, 0.36, -1.12), chrome],                                  # the bumpers
+			[Art.box(1.2, 0.08, 0.16), Art.at(0, 0.36, 1.12), chrome],
+			[Art.box(0.08, 0.3, 0.32), Art.at(-0.5, 0.8, 0.98, Vector3(0.3, 0, 0)), paint.darkened(0.2)],   # two fins
+			[Art.box(0.08, 0.3, 0.32), Art.at(0.5, 0.8, 0.98, Vector3(0.3, 0, 0)), paint.darkened(0.2)],
+			[Art.cone(0.16, 0.1, 0.12, 8), Art.at(0, 0.73, 0.72), chrome],                               # the shard's cradle
+			[Art.box(0.96, 0.05, 1.6), Art.at(0, 0.28, 0), dark]])                                       # the floor
+	_instance(root, body, vc_mat(), meshes)
+	var neon := _cached("car|neon", func() -> Array:
+		return [[Art.box(0.04, 0.05, 1.7), Art.at(-0.59, 0.38, 0), Color.WHITE],
+			[Art.box(0.04, 0.05, 1.7), Art.at(0.59, 0.38, 0), Color.WHITE]])
+	_instance(root, neon, glow_mat(Color(0.3, 0.95, 1.0)), meshes).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var lamps := _cached("car|lamps", func() -> Array:
+		return [[Art.ball(0.08, 6, 4), Art.at(-0.42, 0.47, -1.1), Color.WHITE],
+			[Art.ball(0.08, 6, 4), Art.at(0.42, 0.47, -1.1), Color.WHITE]])
+	_instance(root, lamps, glow_mat(Color(1.0, 0.95, 0.8)), meshes).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var tails := _cached("car|tails", func() -> Array:
+		return [[Art.box(0.16, 0.06, 0.03), Art.at(-0.42, 0.47, 1.11), Color.WHITE],
+			[Art.box(0.16, 0.06, 0.03), Art.at(0.42, 0.47, 1.11), Color.WHITE]])
+	_instance(root, tails, glow_mat(Color(1.0, 0.2, 0.3)), meshes).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# the shard, turning in its cradle
+	var spin := _pivot(root, Vector3(0, 0.96, 0.72))
+	var shard := _cached("car|shard", func() -> Array:
+		return [[Art.cone(0.12, 0.22, 0.0, 6), Art.at(0, 0.11, 0), Color.WHITE],
+			[Art.cone(0.12, 0.16, 0.0, 6), Art.at(0, -0.08, 0, Vector3(PI, 0, 0)), Color.WHITE]])
+	_instance(spin, shard, glow_mat(Color(0.85, 0.45, 1.0)), meshes).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	model["spin"] = spin
+	# four wheels, each turning on its axle as the car goes (a spoke shows the turning)
+	var wheel := _cached("car|wheel", func() -> Array:
+		return [[Art.cone(0.28, 0.2, 0.28, 12), Art.at(0, 0, 0, Vector3(0, 0, PI * 0.5)), Color(0.08, 0.08, 0.09)],
+			[Art.cone(0.15, 0.22, 0.15, 8), Art.at(0, 0, 0, Vector3(0, 0, PI * 0.5)), Color(0.78, 0.8, 0.86)],
+			[Art.box(0.23, 0.07, 0.42), Art.at(0, 0, 0), Color(0.3, 0.3, 0.33)]])
+	var wheels: Array = []
+	for w: Vector3 in [Vector3(-0.6, 0.28, -0.72), Vector3(0.6, 0.28, -0.72), Vector3(-0.6, 0.28, 0.74), Vector3(0.6, 0.28, 0.74)]:
+		var piv := _pivot(root, w)
+		_instance(piv, wheel, vc_mat(), meshes)
+		wheels.append(piv)
+	model["wheels"] = wheels
+	model["quad"] = true
+
+
 static func _cached(key: String, parts_fn: Callable) -> ArrayMesh:
 	if not _mesh_cache.has(key):
 		_mesh_cache[key] = merge(parts_fn.call())
@@ -328,6 +396,8 @@ static func creature(look: String, style: Dictionary, scale: float) -> Dictionar
 			_elemental(model, look)
 		"vortex", "blades":
 			_spinner(model, look)
+		"car":
+			_car(model)
 		_:
 			_humanoid(model, look, style)
 	_hi = false

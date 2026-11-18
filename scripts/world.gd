@@ -913,6 +913,7 @@ const WATER_SHADER := """
 shader_type spatial;
 uniform vec4 deep : source_color = vec4(0.05, 0.15, 0.24, 1.0);
 uniform vec4 shallow : source_color = vec4(0.16, 0.36, 0.42, 1.0);
+uniform float veil = 0.0;               // the Shardveil: water that glows violet and teal
 varying vec3 wpos;
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -927,6 +928,11 @@ void fragment() {
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);   // brighter towards the horizon
 	// dark, deep water with soft ripples; the sky's pale light along the far edge; fewer, finer glints
 	ALBEDO = mix(deep.rgb, shallow.rgb, 0.3 + 0.2 * w + 0.08 * w2) + vec3(sparkle * 0.3) + vec3(0.55, 0.65, 0.72) * rim * 0.4;
+	if (veil > 0.0) {
+		vec3 glow = mix(vec3(0.32, 0.06, 0.48), vec3(0.08, 0.6, 0.62), 0.5 + 0.5 * w);
+		ALBEDO = mix(ALBEDO, glow * 0.6 + vec3(sparkle * 0.5), veil);
+		EMISSION = glow * (0.35 + 0.4 * w2) * veil;
+	}
 	ROUGHNESS = 0.08;
 	SPECULAR = 0.9;
 }
@@ -976,6 +982,18 @@ void fragment() {
 }
 """
 var window_mat: ShaderMaterial          # (richer graphics) the windows' shared glass: lit at night
+var water_material: ShaderMaterial      # the lakes' shared water
+
+
+## The other dimension (the Shardveil) over the land: 0 the world as it is, 1 all the way there -
+## the ground violet with veins of light, the trees and grass glassy teal and glowing, the water
+## glowing violet and teal.
+func set_veil(v: float) -> void:
+	if ground_material != null:
+		ground_material.set_shader_parameter("veil", v)
+	_foliage_mat().set_shader_parameter("veil", v)
+	if water_material != null:
+		water_material.set_shader_parameter("veil", v)
 var _masonry_mat: ShaderMaterial
 var _plain_wall_mat: Material
 var _wall_chunks: Array = []
@@ -1027,8 +1045,15 @@ void vertex() {
 }
 uniform vec3 season_tint = vec3(1.0);
 uniform float frost = 0.0;
+uniform float veil = 0.0;                      // the Shardveil: leaves of glassy teal and violet, glowing
 void fragment() {
-	ALBEDO = mix(COLOR.rgb * season_tint, vec3(0.88, 0.92, 0.96), frost * smoothstep(0.2, 0.8, NORMAL.y * 0.5 + 0.5));
+	vec3 a = mix(COLOR.rgb * season_tint, vec3(0.88, 0.92, 0.96), frost * smoothstep(0.2, 0.8, NORMAL.y * 0.5 + 0.5));
+	if (veil > 0.0) {
+		vec3 crystal = a.gbr * vec3(0.7, 1.15, 1.45) + vec3(0.03, 0.06, 0.14);
+		a = mix(a, crystal, veil);
+		EMISSION = crystal * 0.35 * veil;
+	}
+	ALBEDO = a;
 	ROUGHNESS = 0.9;
 }
 """
@@ -1067,6 +1092,7 @@ uniform float hmax = 4.0;
 uniform vec2 grid = vec2(96.0, 48.0);          // the map in tiles
 uniform float tile = 1.0;
 uniform vec3 season_tint = vec3(1.0);          // the seasons: golden summer, russet autumn...
+uniform float veil = 0.0;                      // the Shardveil: the land in violet, veins of light through it
 uniform float snow = 0.0;                      // ...and winter's snow, lying on the flatter ground
 uniform float detail = 0.0;                    // richer graphics: a finer grain, and the light catching it
 varying float up;
@@ -1101,6 +1127,11 @@ void fragment() {
 		col *= mix(1.0, 0.82 + 0.36 * d1, detail);
 		NORMAL_MAP = normalize(vec3(-dx * 7.0, -dz * 7.0, 1.0)) * 0.5 + 0.5;
 		NORMAL_MAP_DEPTH = detail;
+	}
+	if (veil > 0.0) {
+		float vein = 1.0 - smoothstep(0.0, 0.04, abs(g - 0.5));   // thin veins along the grain's middle
+		col = mix(col, col * vec3(0.62, 0.52, 0.95) + vec3(0.04, 0.0, 0.08), veil);
+		EMISSION = vec3(0.75, 0.35, 1.0) * vein * veil * 0.9;
 	}
 	ALBEDO = col * (1.0 - cloud_amount * 0.24 * smoothstep(0.52, 0.74, cl));
 	ROUGHNESS = 1.0;
@@ -1369,6 +1400,7 @@ func build(parent: Node3D, progress := Callable()) -> void:
 	water_mesh.subdivide_width = 2                 # a few vertices to carry the swell
 	water_mesh.subdivide_depth = 2
 	var water_mat := ShaderMaterial.new()
+	water_material = water_mat
 	var water_shader := Shader.new()
 	water_shader.code = WATER_SHADER
 	water_mat.shader = water_shader

@@ -23,7 +23,7 @@ static func erase() -> void:
 static func _pets_of(hero: Entity) -> Array:
 	var out := []
 	for p in hero.pets:
-		if not p.dead and p.species != "" and not p.summoned:   # summons fade, they aren't kept
+		if not p.dead and p.species != "" and not p.summoned and not p.is_vehicle:   # summons fade, they aren't kept (and the dimension car comes back by itself)
 			out.append({"species": p.species, "name": p.display_name, "hp": p.hp, "level": p.pet_level, "xp": p.pet_xp})
 	return out
 
@@ -52,7 +52,7 @@ static func save(hero: Entity, property: Property) -> bool:
 		"karma": hero.karma,
 		"guilds": hero.game.guilds.to_dict(hero.display_name),
 		"pets": _pets_of(hero),
-		"mounted": hero.mounted_on != null,
+		"mounted": hero.mounted_on != null and not hero.mounted_on.is_vehicle,
 		"auto_equip": hero.auto_equip,
 		"spellbook": hero.spellbook.keys(),
 		"property": property.to_dict(),

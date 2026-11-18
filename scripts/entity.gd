@@ -220,6 +220,7 @@ var mount_speed := 1.0         # how much faster a rider of this animal goes
 var mount_armor := 0.0         # armour its rider gets (a swamp dragon's scales)
 var mount_carry := 1.0         # how much more its rider can carry (a giant beetle)
 var saddle := 0.62             # how high the rider sits
+var is_vehicle := false        # the dimension car: never fights, can't be hurt, nobody fights it
 var is_boss := false
 var auto_equip := true         # put on better gear by itself (off after a choice made by hand)
 var retreating := false        # the Retreat button: break off, heal up, get to a healer
@@ -330,6 +331,7 @@ func setup(p_game, p_kind: int, p_name: String, cfg: Dictionary, color: Color, t
 	mount_armor = float(cfg.get("mount_armor", 0.0))
 	mount_carry = float(cfg.get("mount_carry", 1.0))
 	saddle = float(cfg.get("saddle", 0.62))
+	is_vehicle = bool(cfg.get("vehicle", false))
 	is_boss = bool(cfg.get("boss", false))
 	_think_every = randf_range(0.1, 0.16)    # staggered, so not everyone decides on the same frame
 	_think_acc = randf() * _think_every
@@ -1244,8 +1246,8 @@ func take_damage(amount: float, from: Entity) -> void:
 		amount *= 2.0
 	var snd := _hit_sound if _hit_sound != "" else "hit"   # what hit us (spells: the plain hit)
 	_hit_sound = ""
-	if dead or kind == Kind.NPC:
-		return
+	if dead or kind == Kind.NPC or is_vehicle:
+		return                               # (a car can't be hurt)
 	# Towns are safe: nobody inside one can be hurt, and nobody can attack out of one.
 	if town_protects(from):
 		return
@@ -1994,6 +1996,8 @@ func make_loot() -> Dictionary:
 	var dropped_reagents := 0
 	if kind == Kind.MONSTER:
 		dropped_gold = randi_range(int(loot_cfg.get("gold_min", 0)), int(loot_cfg.get("gold_max", 0)))
+		if game.dimension != null and game.dimension.active:
+			dropped_gold *= 2                    # (in the Shardveil gold glitters twice)
 		dropped_reagents = randi_range(0, int(loot_cfg.get("reagents", 0)))
 		for d in loot_cfg.get("drops", []):
 			if randf() < float(d[1]):
@@ -2427,6 +2431,8 @@ func _avoids_town() -> bool:
 func _is_fair_target(e: Entity) -> bool:
 	if e.parked:
 		return false                       # a mount under its rider
+	if e.is_vehicle:
+		return false                       # (a car: nothing to fight)
 	if _in_town() or e._in_town():
 		return false
 	if e.flags.has("invisible"):
@@ -2588,6 +2594,9 @@ func refresh_look() -> void:
 			(leg as Node3D).rotation.x = 1.2            # thighs forward, astride
 		model["legs"] = m["legs"]
 		model["quad"] = true
+		model["wheels"] = m.get("wheels", [])
+		if m.get("spin") != null:
+			model["spin"] = m["spin"]          # (the car's shard keeps turning under its driver)
 		(model["meshes"] as Array).append_array(m["meshes"])
 		model["mount_root"] = m["root"]
 	if flags.has("invisible"):
@@ -3142,7 +3151,8 @@ func _animate(delta: float) -> void:
 		return                                 # (frozen in the pose of the blow, for an instant)
 	anim_t += delta
 	swing_anim = maxf(swing_anim - delta, 0.0)
-	var moving := position.distance_to(_last_pos) > 0.001
+	var moved := position.distance_to(_last_pos)
+	var moving := moved > 0.001
 	if is_hero and game.frontier != null and not game.frontier.sail.is_empty():
 		moving = false                         # in the boat: sitting still while it glides, no running
 	_last_pos = position
@@ -3170,6 +3180,12 @@ func _animate(delta: float) -> void:
 	else:
 		y = sin(anim_t * 2.0) * 0.015
 		glance = sin(anim_t * 0.6) * 0.08 if target == null else 0.0   # glancing about while idle
+	var in_car := is_vehicle or (mounted_on != null and mounted_on.is_vehicle)
+	if in_car and casting_id == "" and not ghost:
+		y = 0.0                              # (a car rolls smoothly: no stride, no sway)
+		roll = 0.0
+		tilt = 0.0
+		glance = 0.0
 	var z := 0.0
 	if swing_anim > 0.0:
 		var k := sin(_swing_p() * PI)
@@ -3211,13 +3227,15 @@ func _animate(delta: float) -> void:
 	var spin: Node3D = model["spin"]
 	if spin != null:
 		spin.rotation.y += delta * 6.0
+	for w in model.get("wheels", []):          # a car's wheels turn with the ground they cover
+		(w as Node3D).rotation.x -= moved / 0.28
 
 
 # --- poison and potions ----------------------------------------------------
 
 ## A stronger poison replaces a weaker one; it wears off on its own after a while.
 func apply_poison(level: int, from: Entity) -> void:
-	if dead or kind == Kind.NPC or level <= poison_level or poison_immune > 0.0 or town_protects(from):
+	if dead or kind == Kind.NPC or is_vehicle or level <= poison_level or poison_immune > 0.0 or town_protects(from):
 		return
 	poison_level = clampi(level, 1, 3)
 	poison_time = 20.0 + 10.0 * poison_level
@@ -3345,6 +3363,15 @@ func _spend(n: int) -> void:
 func _pet_think() -> void:
 	if pet_owner == null or not is_instance_valid(pet_owner):
 		return
+	if is_vehicle:                           # the car never fights: it drives itself after you
+		target = null
+		if position.distance_to(pet_owner.position) > 4.0:
+			if repath_timer <= 0.0 or path.is_empty():
+				repath_timer = 0.6
+				go_to(pet_owner.position)
+		else:
+			path.clear()
+		return
 	if target == null and pet_owner.target != null and is_instance_valid(pet_owner.target) \
 			and not pet_owner.target.dead and pet_owner.target.kind == Kind.MONSTER:
 		target = pet_owner.target
@@ -3364,7 +3391,7 @@ func _pet_think() -> void:
 func can_tame(e: Entity) -> String:
 	if e == null or e.dead or e.kind != Kind.MONSTER or e.tame_min < 0.0:
 		return "that can't be tamed"
-	if pets.size() >= MAX_PETS:
+	if animal_count() >= MAX_PETS:
 		return "you already have %d pets" % MAX_PETS
 	if _skill(Hero.Skill.ANIMAL_TAMING) < e.tame_min - 10.0:
 		return "you have no chance (it needs Animal Taming %d)" % int(e.tame_min)
@@ -3391,7 +3418,7 @@ func start_taming(e: Entity) -> void:
 ## Players in Auto look for an animal they have some chance with (passive ones, or any not
 ## already attacking someone).
 func _start_taming_nearby() -> bool:
-	if pets.size() >= MAX_PETS or tame_cd > 0.0:
+	if animal_count() >= MAX_PETS or tame_cd > 0.0:
 		return false
 	var best: Entity = null
 	var best_d := 10.0
@@ -3482,6 +3509,15 @@ func adopt_pet(p: Entity) -> void:
 
 
 const PET_LEVEL_MAX := 10
+
+
+## How many animals follow this player (the dimension car doesn't count: it isn't one).
+func animal_count() -> int:
+	var n := 0
+	for p in pets:
+		if is_instance_valid(p) and not p.is_vehicle:
+			n += 1
+	return n
 
 
 ## A pet learns from every kill it shares in: each level makes it stronger and tougher.

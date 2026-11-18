@@ -48,6 +48,11 @@ const PLANS := {
 	"trailer": {"beat": 0.5, "chords": [[50, "min"], [46, "maj"], [43, "maj"], [48, "maj"], [50, "min"], [46, "maj"], [41, "maj"], [45, "maj"],
 			[50, "min"], [46, "maj"], [43, "maj"], [48, "maj"], [41, "maj"], [45, "maj"], [46, "maj"], [50, "min"]],
 		"scale": [62, 64, 65, 67, 69, 70, 72, 74, 77], "melody": 0.7, "lead": "brass", "drums": true, "ostinato": true, "choir": true, "bells": true, "double": true},
+	# the Shardveil, the other dimension: slow and strange - a choir and bells over deep, dark
+	# chords that never quite come home, a flute wandering high above
+	"veil": {"beat": 0.75, "chords": [[45, "min"], [44, "dim"], [41, "maj"], [40, "maj"], [45, "min"], [46, "maj"], [43, "maj"], [44, "dim"],
+			[42, "dim"], [41, "maj"], [45, "min"], [40, "maj"], [46, "maj"], [44, "dim"], [41, "maj"], [45, "min"]],
+		"scale": [69, 70, 72, 74, 75, 77, 80, 81], "melody": 0.3, "lead": "flute", "choir": true, "bells": true, "deep": true},
 	# the murky fen: low and slow, a breathy flute over deep water
 	"swamp": {"beat": 0.7, "chords": [[40, "min"], [40, "min"], [43, "maj"], [41, "maj"], [40, "min"], [38, "min"], [41, "maj"], [40, "min"],
 			[45, "min"], [43, "maj"], [41, "maj"], [40, "min"], [38, "min"], [41, "maj"], [43, "maj"], [40, "min"]],
