@@ -677,9 +677,9 @@ func _arm_round() -> void:
 				e.refresh_look()
 		elif d <= CHAOS_RADIUS:
 			_arm(e)
-	# the adventurers' cars: a gun on the bonnet that fires by itself (driven or driving after them)
-	for id in _npc_cars.keys():
-		var c: Entity = _npc_cars[id]
+	# the cars (the adventurers', and yours): a gun on the bonnet that fires by itself
+	for item in _all_cars():
+		var c: Entity = item
 		if c == null or not is_instance_valid(c) or c.dead:
 			continue
 		var driver: Entity = c.pet_owner
@@ -786,9 +786,17 @@ var _turret_cd := {}
 ## The adventurers' armed cars fire by themselves: at what their driver is fighting if it's in
 ## reach, else at the nearest fair target in sight - from under the driver if they're in it, or from
 ## the car as it drives after them. A hit counts as the driver's (so anyone shot turns on them).
+## Every car there is: the adventurers', and yours.
+func _all_cars() -> Array:
+	var out: Array = _npc_cars.values()
+	if car != null and is_instance_valid(car):
+		out.append(car)
+	return out
+
+
 func _car_turrets(delta: float) -> void:
-	for id in _npc_cars.keys():
-		var c: Entity = _npc_cars[id]
+	for item in _all_cars():
+		var c: Entity = item
 		if c == null or not is_instance_valid(c) or c.dead or not c.has_meta("veil_gun"):
 			continue
 		var driver: Entity = c.pet_owner
@@ -843,7 +851,8 @@ func _turret_target(driver: Entity, from: Vector3, reach: float) -> Entity:
 const VEILBORN := [["Orc", Bestiary.ORC], ["Skeleton", Bestiary.SKELETON], ["Zombie", Bestiary.ZOMBIE],
 	["Wolf", Bestiary.WOLF], ["Spider", Bestiary.GIANT_SPIDER], ["Archer", Bestiary.SKELETON_ARCHER]]
 const VEILBORN_MAX := 10
-const PICKUPS := {"mend": Color(0.35, 1.0, 0.7), "overcharge": Color(1.0, 0.35, 0.9), "haste": Color(1.0, 0.85, 0.3)}
+const PICKUPS := {"mend": Color(0.35, 1.0, 0.7), "overcharge": Color(1.0, 0.35, 0.9), "haste": Color(1.0, 0.85, 0.3),
+	"nova": Color(1.0, 0.55, 0.2), "aegis": Color(0.5, 0.8, 1.0)}
 const STREAK_WORDS := {2: "DOUBLE KILL", 3: "TRIPLE KILL", 4: "MULTI KILL", 5: "RAMPAGE", 7: "UNSTOPPABLE", 10: "LEGENDARY"}
 var overcharge := 0.0                          # seconds of double damage left (the hero)
 var haste := 0.0                               # seconds of extra speed left (the hero)
@@ -878,6 +887,7 @@ func _build_hud() -> void:
 
 
 func _action_start() -> void:
+	_action2_start()
 	_rift_t = 5.0
 	_colossus_t = randf_range(60.0, 90.0)
 	_bolt_t = 3.0
@@ -904,6 +914,7 @@ func _action_step(delta: float) -> void:
 		_bolt_t = randf_range(2.5, 5.0)
 		_rift_bolt()
 	_pickups_step(delta)
+	_action2_step(delta)
 	_hud_step()
 
 
@@ -924,6 +935,7 @@ func _action_end() -> void:
 	overcharge = 0.0
 	haste = 0.0
 	_streak = 0
+	_action2_end()
 	if _hud != null:
 		_hud.visible = false
 
@@ -965,7 +977,7 @@ func _spawn_rift() -> void:
 		if is_instance_valid(e) and not (e as Entity).dead:
 			alive.append(e)
 	_veilborn = alive
-	if _veilborn.size() >= VEILBORN_MAX:
+	if _veilborn.size() >= _veilborn_cap():
 		return
 	var at := _veil_spot(9.0, 16.0)
 	if at == Vector3.INF:
@@ -977,6 +989,7 @@ func _spawn_rift() -> void:
 		cfg["aggro"] = 14.0
 		cfg["leash"] = 40
 		cfg["passive"] = false
+		cfg["str"] = roundi(float(cfg.get("str", 30)) * _veilborn_toughness())   # (tougher with every surge)
 		var spot := at + Vector3(randf_range(-1.2, 1.2), 0.0, randf_range(-1.2, 1.2))
 		var e: Entity = game.pool_spawn("Veilborn " + String(pick[0]), cfg, Color(0.75, 0.45, 1.0), spot)
 		_mark_veilborn(e, 1.0)
@@ -1102,6 +1115,12 @@ func _take_pickup(kind: String, at: Vector3) -> void:
 		"haste":
 			haste = 12.0
 			hero._pop("HASTE!", col)
+		"nova":
+			hero._pop("NOVA!", col)
+			_nova()
+		"aegis":
+			aegis = 6.0
+			hero._pop("AEGIS!", col)
 	_sound("gain", 1.2, -4.0)
 
 
@@ -1110,6 +1129,8 @@ func _take_pickup(kind: String, at: Vector3) -> void:
 func on_kill(killer: Entity, victim: Entity) -> void:
 	if not chaos or victim == null:
 		return
+	if victim == _champ:
+		_champion_down(killer)
 	if victim == _colossus:
 		_announce("COLOSSUS DOWN", Title3D.GOLD)
 		game.log_event("The Veil Colossus falls!")
@@ -1145,7 +1166,232 @@ func _hud_step() -> void:
 		parts.append("OVERCHARGE %ds" % ceili(overcharge))
 	if haste > 0.0:
 		parts.append("HASTE %ds" % ceili(haste))
+	if aegis > 0.0:
+		parts.append("AEGIS %ds" % ceili(aegis))
+	if _surge_left > 0.0:
+		parts.append("SURGE %d: %ds" % [_surge_n, ceili(_surge_left)])
+	else:
+		parts.append("next surge %ds" % ceili(_surge_t))
+	if _champ != null and is_instance_valid(_champ) and not _champ.dead:
+		parts.append("CHAMPION: %s" % _champ.display_name)
 	if _colossus != null and is_instance_valid(_colossus) and not _colossus.dead:
 		parts.append("COLOSSUS %d%%" % roundi(100.0 * _colossus.hp / maxf(float(_colossus.stats.max_hp()), 1.0)))
 	_hud.text = "  ·  ".join(parts)
 	_hud.visible = true
+
+
+# --- still more action in the Shardveil (part of "Shardveil chaos") -------------------------------
+# Rift surges: every minute or so the rifts go wild for a while - Veilborn pouring out every few
+# seconds, more and tougher with every surge, meteors and lightning in a frenzy - and riding one
+# out pays. Your own car is armed too (its gun fires by itself) and rams whatever you drive into at
+# speed. Two more shards: Nova (a blast all round you) and Aegis (nothing touches you for a few
+# seconds). And now and then someone near you rises as the Rift Champion - a gold glow, twice the
+# life - with a bounty on their head.
+
+var aegis := 0.0                               # seconds the hero can't be hurt (the aegis shard)
+var _surge_t := 70.0                           # until the next surge
+var _surge_left := 0.0                         # of the surge under way
+var _surge_n := 0
+var _surge_fx := 0.0
+var _champ: Entity = null
+var _champ_glow: Node3D
+var _champ_t := 45.0
+var _bubble: MeshInstance3D
+var _ram_last := {}                            # who was rammed when (no ramming the same one twice in a second)
+var _last_hero_pos := Vector3.INF
+
+
+func _action2_start() -> void:
+	_surge_t = randf_range(55.0, 75.0)
+	_surge_left = 0.0
+	_surge_n = 0
+	_champ_t = randf_range(30.0, 50.0)
+	aegis = 0.0
+	_last_hero_pos = Vector3.INF
+
+
+func _action2_end() -> void:
+	_surge_left = 0.0
+	aegis = 0.0
+	if _bubble != null:
+		_bubble.visible = false
+	_clear_champion()
+
+
+func _action2_step(delta: float) -> void:
+	aegis = maxf(aegis - delta, 0.0)
+	_bubble_step()
+	_surge_step(delta)
+	_champion_step(delta)
+	_ram_step(delta)
+
+
+## The surges: every 70-90 s the rifts go wild for 14 s (a little longer each time).
+func _surge_step(delta: float) -> void:
+	if _surge_left > 0.0:
+		_surge_left -= delta
+		_rift_t = minf(_rift_t, 2.5)               # (a rift every couple of seconds)
+		_surge_fx -= delta
+		if _surge_fx <= 0.0:
+			_surge_fx = 0.6
+			_meteor()                              # (meteors and lightning in a frenzy)
+			if randf() < 0.5:
+				_rift_bolt()
+		if _surge_left <= 0.0:
+			_surge_t = randf_range(70.0, 90.0)
+			_announce("SURGE SURVIVED", Title3D.GOLD)
+			_sound("braam", 1.15, 0.0)
+			var hero: Entity = game.hero
+			if not hero.dead:
+				var purse := 100 * _surge_n
+				hero._earn(purse)
+				game.log_event("You ride out rift surge %d: %d gold, and shards." % [_surge_n, purse])
+				for k in range(2):
+					_drop_pickup(hero.position + Vector3(cos(k * PI + 0.7) * 2.0, 0.0, sin(k * PI + 0.7) * 2.0))
+		return
+	_surge_t -= delta
+	if _surge_t <= 0.0:
+		_surge_n += 1
+		_surge_left = minf(14.0 + 2.0 * float(_surge_n), 24.0)
+		_surge_fx = 0.0
+		_announce("RIFT SURGE %d" % _surge_n, Title3D.ICE)
+		_sound("braam", 0.7, 2.0)
+		game.log_event("Rift surge %d! The rifts are tearing open all round you." % _surge_n)
+
+
+## How many Veilborn may be about at once (more in a surge, more with every surge) and how tough.
+func _veilborn_cap() -> int:
+	return VEILBORN_MAX + (3 * _surge_n if _surge_left > 0.0 else 0)
+
+
+func _veilborn_toughness() -> float:
+	return 1.0 + 0.12 * float(_surge_n)
+
+
+## Ramming: driving into someone at speed knocks them flying and hurts them.
+func _ram_step(delta: float) -> void:
+	var hero: Entity = game.hero
+	if _last_hero_pos == Vector3.INF or delta <= 0.0:
+		_last_hero_pos = hero.position
+		return
+	var move := hero.position - _last_hero_pos
+	_last_hero_pos = hero.position
+	move.y = 0.0
+	if car == null or hero.mounted_on != car or hero.dead or move.length() / delta < 4.0:
+		return
+	var fwd := move.normalized()
+	var front := hero.position + fwd * 0.9
+	var now := Time.get_ticks_msec() / 1000.0
+	for item in game.creatures:
+		var e := item as Entity
+		if e == null or e == hero or e.dead or e.position.distance_to(front) > 1.5 or not hero._chaos_fair(e):
+			continue
+		var eid := e.get_instance_id()
+		if now - float(_ram_last.get(eid, -10.0)) < 1.0:
+			continue
+		_ram_last[eid] = now
+		var dmg := randf_range(14.0, 26.0) * (2.0 if overcharge > 0.0 else 1.0)
+		e.take_damage(dmg, hero)
+		var to := e.position + fwd * 1.4
+		if not e.dead and not game.world.is_blocked(game.world.to_tile(to)):
+			var tw := e.create_tween()
+			tw.tween_property(e, "position", Vector3(to.x, game.world.height_at(to), to.z), 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		e._pop("RAMMED!", Color(1.0, 0.75, 0.3))
+		Fx.sparkle(game, e.position + Vector3(0.0, 1.0, 0.0), Color(1.0, 0.75, 0.3), 14)
+		game.sound("impact", e.position, 1.3, -6.0)
+
+
+## The Rift Champion: someone near you (an adventurer or one of the Veilborn) rises, glowing gold,
+## with twice their life - and a bounty: bring them down for gold and two shards.
+func _champion_step(delta: float) -> void:
+	if _champ != null and (not is_instance_valid(_champ) or _champ.dead):
+		_clear_champion()
+	if _champ != null:
+		return
+	_champ_t -= delta
+	if _champ_t > 0.0:
+		return
+	_champ_t = randf_range(45.0, 70.0)
+	var hero: Entity = game.hero
+	var best: Entity = null
+	var best_d := 25.0
+	for item in game.creatures:
+		var e := item as Entity
+		if e == null or e == hero or e.dead or e.parked or e == _colossus or not hero._chaos_fair(e):
+			continue
+		if e.kind != Entity.Kind.PLAYER and not e.has_meta("veilborn"):
+			continue
+		var d := e.position.distance_to(hero.position)
+		if d < best_d:
+			best = e
+			best_d = d
+	if best == null:
+		return
+	_champ = best
+	_champ.hp = float(_champ.stats.max_hp()) * 2.0
+	_champ_glow = Fx.cast_glow(Color(1.0, 0.82, 0.3))
+	_champ_glow.scale = Vector3.ONE * 1.6
+	_champ.add_child(_champ_glow)
+	(_champ_glow as CPUParticles3D).emitting = true
+	_champ._pop("RIFT CHAMPION!", Color(1.0, 0.85, 0.35))
+	_announce("A CHAMPION RISES", Title3D.GOLD)
+	game.log_event("%s rises as the Rift Champion: bring them down for the bounty!" % _champ.display_name)
+
+
+func _clear_champion() -> void:
+	if _champ_glow != null and is_instance_valid(_champ_glow):
+		_champ_glow.queue_free()
+	_champ_glow = null
+	_champ = null
+
+
+## The champion is down: the bounty, if it was you.
+func _champion_down(killer: Entity) -> void:
+	var at := _champ.position
+	_clear_champion()
+	for k in range(2):
+		_drop_pickup(at + Vector3(cos(k * PI) * 1.2, 0.0, sin(k * PI) * 1.2))
+	if killer != null and killer.is_hero:
+		killer._earn(250)
+		_announce("CHAMPION SLAIN", Title3D.GOLD)
+		game.log_event("You bring down the Rift Champion: 250 gold.")
+
+
+## The aegis shard's bubble of light round the hero while it lasts.
+func _bubble_step() -> void:
+	var hero: Entity = game.hero
+	if aegis <= 0.0:
+		if _bubble != null:
+			_bubble.visible = false
+		return
+	if _bubble == null or not is_instance_valid(_bubble):
+		var m := SphereMesh.new()
+		m.radius = 1.05
+		m.height = 2.1
+		m.radial_segments = 20
+		m.rings = 10
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_color = Color(0.5, 0.8, 1.0, 0.22)
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_bubble = MeshInstance3D.new()
+		_bubble.mesh = m
+		_bubble.material_override = mat
+		_bubble.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		game.add_child(_bubble)
+	_bubble.visible = aegis > 1.5 or fmod(aegis, 0.3) > 0.15   # (flickering as it ends)
+	_bubble.global_position = hero.position + Vector3(0.0, 0.95, 0.0)
+
+
+## The nova shard: a blast all round you, burning everyone within 6 m.
+func _nova() -> void:
+	var hero: Entity = game.hero
+	Fx.burst(game, hero.position + Vector3(0.0, 1.0, 0.0), 2.4)
+	Fx.sparkle(game, hero.position + Vector3(0.0, 0.6, 0.0), Color(1.0, 0.6, 0.25), 40)
+	game.sound("blast", hero.position, 0.8, 0.0)
+	for item in game.creatures:
+		var e := item as Entity
+		if e == null or e == hero or e.dead or e.position.distance_to(hero.position) > 6.0 or not hero._chaos_fair(e):
+			continue
+		e.take_damage(randf_range(20.0, 35.0) * (2.0 if overcharge > 0.0 else 1.0), hero)

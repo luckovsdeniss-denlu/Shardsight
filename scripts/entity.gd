@@ -1256,6 +1256,8 @@ func take_damage(amount: float, from: Entity) -> void:
 	_hit_sound = ""
 	if dead or kind == Kind.NPC or is_vehicle:
 		return                               # (a car can't be hurt)
+	if is_hero and game.dimension != null and game.dimension.aegis > 0.0:
+		return                               # (the Shardveil's aegis shard: nothing touches you)
 	# Towns are safe: nobody inside one can be hurt, and nobody can attack out of one. (Not in the
 	# Shardveil's free-for-all: there nowhere is safe, and no blow there is a crime.)
 	var chaos: bool = game.chaos_at(position)

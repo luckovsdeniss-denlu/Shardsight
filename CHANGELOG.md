@@ -3,6 +3,24 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.7.0
+- Still more action in the Shardveil (part of "Shardveil chaos"):
+  - Rift surges: a minute or so after you arrive, and every 70-90 s after, "RIFT SURGE" - for
+    14 s (two more with every surge, up to 24) the rifts go wild: Veilborn pouring out every
+    couple of seconds, three more allowed about with every surge and tougher each time, meteors
+    and violet lightning in a frenzy. Ride it out for "SURGE SURVIVED": 100 gold a surge number
+    and two shards.
+  - Your car is armed too: a gun on its bonnet that fires by itself (its hits count as yours, kill
+    runs too), and it rams - drive into anyone at speed and they're knocked flying and hurt
+    ("RAMMED!"), double with Overcharge.
+  - Two more shards: Nova (a blast all round you, burning everyone within 6 m) and Aegis (nothing
+    can hurt you for 6 s, inside a bubble of light).
+  - The Rift Champion: every 45-70 s someone near you - an adventurer or one of the Veilborn -
+    rises with a gold glow and twice their life ("A CHAMPION RISES"); bring them down for 250 gold
+    and two shards ("CHAMPION SLAIN").
+  - The line across the top also shows Aegis, the surge under way (or when the next one comes)
+    and the champion's name.
+
 ## 1.6.0
 - More action in the Shardveil (part of "Shardveil chaos"):
   - Rifts keep tearing open round you (every 9-16 s) and the Veilborn step out of them - two to
