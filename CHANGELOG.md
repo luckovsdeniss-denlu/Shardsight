@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.7.2
+- Shardveil: the Veil Gauntlet - every 90-120 s three glowing rift beacons light up across the
+  land. Drive or walk through all three within 40 s for 300 gold and a nova shard ("GAUNTLET
+  CLEARED"); miss the time and they fade.
+
 ## 1.7.1
 - Shardveil: Rift Hound packs - every 40-60 s four fast violet wolves tear out of the ground round
   you from every side ("RIFT HOUNDS"), tougher with each surge. A RAMPAGE (five kills in a run)

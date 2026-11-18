@@ -1223,6 +1223,7 @@ func _action2_end() -> void:
 
 func _action2_step(delta: float) -> void:
 	aegis = maxf(aegis - delta, 0.0)
+	_gauntlet_step(delta)
 	_hound_t -= delta
 	if _hound_t <= 0.0:
 		_hound_t = randf_range(40.0, 60.0)
@@ -1234,6 +1235,73 @@ func _action2_step(delta: float) -> void:
 
 
 var _hound_t := 35.0
+var _gauntlet: Array = []                      # rift beacons still to capture: [{"node", "at"}]
+var _gauntlet_t := 90.0
+var _gauntlet_left := 0.0
+
+
+## The Veil Gauntlet: three rift beacons light up across the land; drive or walk through all three
+## within 40 s for 300 gold and a nova shard. Miss one and the beacons fade.
+func _gauntlet_step(delta: float) -> void:
+	var hero: Entity = game.hero
+	if _gauntlet.is_empty():
+		_gauntlet_t -= delta
+		if _gauntlet_t <= 0.0:
+			_gauntlet_t = randf_range(90.0, 120.0)
+			_start_gauntlet()
+		return
+	_gauntlet_left -= delta
+	for b: Dictionary in _gauntlet.duplicate():
+		var n: Node3D = b["node"]
+		n.rotation.y += delta * 3.0
+		if hero.position.distance_to(b["at"]) < 2.5:
+			n.queue_free()
+			_gauntlet.erase(b)
+			Fx.sparkle(game, b["at"] + Vector3(0.0, 1.0, 0.0), VIOLET, 20)
+			_sound("gain", 1.0 + 0.1 * float(3 - _gauntlet.size()), -4.0)
+	if _gauntlet.is_empty():
+		hero._earn(300)
+		_drop_pickup(hero.position + Vector3(1.5, 0.0, 0.0))
+		_announce("GAUNTLET CLEARED", Title3D.GOLD)
+		game.log_event("You capture every rift beacon of the Veil Gauntlet: 300 gold and a shard.")
+	elif _gauntlet_left <= 0.0:
+		for b: Dictionary in _gauntlet:
+			(b["node"] as Node3D).queue_free()
+		_gauntlet.clear()
+		game.log_event("The Veil Gauntlet fades: too slow.")
+
+
+func _start_gauntlet() -> void:
+	var hero: Entity = game.hero
+	for k in range(3):
+		var at := _veil_spot(14.0 + 4.0 * k, 22.0 + 4.0 * k)
+		if at == Vector3.INF:
+			continue
+		var n := Node3D.new()
+		game.add_child(n)
+		n.global_position = at
+		var ring := MeshInstance3D.new()
+		var t := TorusMesh.new()
+		t.inner_radius = 1.6
+		t.outer_radius = 1.9
+		t.rings = 24
+		t.ring_segments = 6
+		ring.mesh = t
+		ring.material_override = Art.glow_mat(TEAL)
+		ring.rotation.x = PI * 0.5
+		ring.position.y = 1.4
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		n.add_child(ring)
+		var glow := Fx.cast_glow(VIOLET)
+		glow.scale = Vector3.ONE * 2.0
+		n.add_child(glow)
+		glow.emitting = true
+		_gauntlet.append({"node": n, "at": at})
+	if _gauntlet.is_empty():
+		return
+	_gauntlet_left = 40.0
+	_announce("VEIL GAUNTLET", Title3D.ICE)
+	game.log_event("The Veil Gauntlet: drive through all three rift beacons within 40 seconds.")
 
 
 ## A Rift Hound pack: four fast violet wolves tear out of the ground at the hero from every side,
