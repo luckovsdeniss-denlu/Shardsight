@@ -6656,7 +6656,8 @@ func sound_here(sound_name: String, pitch := 1.0, volume_db := 0.0) -> void:
 
 ## The sounds placed in the world that still play: the land's own, not the characters' (no blows,
 ## swings, spells, cries, steps or work sounds from anyone).
-const WORLD_SOUNDS := ["toll", "thunder", "cheer", "braam", "riser", "impact"]
+const WORLD_SOUNDS := ["toll", "thunder", "cheer", "braam", "riser", "impact",
+	"gun_shotgun", "gun_rocket", "gun_spike", "gun_arc", "gun_ember", "blast"]   # (the Shardveil's guns: heard)
 
 
 func sound(sound_name: String, at: Vector3, pitch := 1.0, volume_db := 0.0) -> void:

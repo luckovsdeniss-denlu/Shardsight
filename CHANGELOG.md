@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.5.1
+- Shardveil chaos: the guns are heard (the one exception to the game's silent characters). Each
+  has its own sound, built from a formula like every other sound in the game (two or three takes
+  each, so no two shots sound quite alike): the Rift Shotgun a crack, a heavy thump and a roar of
+  shot, then the pump racked; the Shard Rocket Launcher a pop and the rocket's rushing roar with
+  a rising hum; the Spike Gun a sharp metal thwip; the Arc Caster a buzzing, crackling zap; the
+  Ember Launcher a hollow thoomp. Rockets and embers blast where they land - a deep boom, a
+  rumble and a crackle of debris. Quieter the farther off they are, and only what's on screen.
+
 ## 1.5.0
 - Shardveil chaos - a new experiment, on for everyone in experimental mode (Main Menu >
   Experiments > "Shardveil chaos"), and only in the other dimension: drive through the dimension

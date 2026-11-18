@@ -549,6 +549,65 @@ func _build_trailer() -> void:
 	_pending["impact"] = [_make(0.9, func(t: float) -> float:
 		ilp[0] = float(ilp[0]) * 0.9 + randf_range(-1.0, 1.0) * 0.1
 		return (sin(TAU * (35.0 + 120.0 * exp(-t * 30.0)) * t) * 1.1 + float(ilp[0]) * 4.0) * exp(-t * 5.5))]
+	# The Shardveil's guns (the "Shardveil chaos" experiment), two or three takes each:
+	# the shotgun: a crack, a heavy thump and a roar of shot, then the pump racked for the next
+	var shotgun := []
+	for low: float in [95.0, 80.0]:
+		var slp := [0.0]
+		shotgun.append(_make(0.5, func(t: float) -> float:
+			slp[0] = float(slp[0]) * 0.6 + randf_range(-1.0, 1.0) * 0.4
+			var crack := randf_range(-1.0, 1.0) * exp(-t * 40.0)
+			var roar := float(slp[0]) * 2.2 * exp(-t * 9.0)
+			var thump := sin(TAU * (low - 60.0 * t) * t) * exp(-t * 14.0) * 0.9
+			var pump := randf_range(-1.0, 1.0) * exp(-(t - 0.33) * 120.0) * 0.35 if t > 0.33 else 0.0
+			return crack * 0.9 + roar + thump + pump))
+	_pending["gun_shotgun"] = shotgun
+	# the rocket launcher: a pop, then the rocket's rushing roar and a rising hum as it goes
+	var rocket := []
+	for rise: float in [220.0, 300.0]:
+		var rlp := [0.0]
+		rocket.append(_make(0.7, func(t: float) -> float:
+			var k := 0.25 + 0.6 * minf(t / 0.15, 1.0)          # (the roar opens up as it lights)
+			rlp[0] = float(rlp[0]) * (1.0 - k) + randf_range(-1.0, 1.0) * k
+			var rush := float(rlp[0]) * minf(t / 0.03, 1.0) * exp(-t * 3.5) * 0.9
+			var pop := randf_range(-1.0, 1.0) * exp(-t * 60.0) * 0.7
+			var hum := sin(TAU * (140.0 + rise * t) * t) * exp(-t * 4.0) * 0.25
+			return rush + pop + hum))
+	_pending["gun_rocket"] = rocket
+	# the spike gun: a sharp metal thwip
+	var spike := []
+	for f: float in [1300.0, 1600.0, 1900.0]:
+		spike.append(_make(0.13, func(t: float) -> float:
+			return (sin(TAU * f * t) * 0.5 + sin(TAU * f * 2.7 * t) * 0.25) * exp(-t * 45.0) \
+				+ randf_range(-1.0, 1.0) * exp(-t * 120.0) * 0.6))
+	_pending["gun_spike"] = spike
+	# the arc caster: a buzzing, crackling zap
+	var arc := []
+	for f: float in [220.0, 260.0]:
+		arc.append(_make(0.35, func(t: float) -> float:
+			var buzz := signf(sin(TAU * (f + 900.0 * sin(TAU * 31.0 * t)) * t)) * exp(-t * 9.0) * 0.4
+			var crackle := (randf_range(-1.0, 1.0) if randf() < 0.35 else 0.0) * exp(-t * 10.0) * 0.6
+			return buzz + crackle))
+	_pending["gun_arc"] = arc
+	# the ember launcher: a hollow thoomp
+	var ember := []
+	for f: float in [160.0, 130.0]:
+		ember.append(_make(0.4, func(t: float) -> float:
+			var thoomp := sin(TAU * (f - 220.0 * t) * t) * exp(-t * 12.0)
+			var pop := randf_range(-1.0, 1.0) * exp(-t * 70.0) * 0.5
+			return thoomp * 0.9 + pop))
+	_pending["gun_ember"] = ember
+	# a blast (a rocket or an ember going off): a deep boom, a rumble and a crackle of debris
+	var blast := []
+	for low: float in [60.0, 48.0]:
+		var blp := [0.0]
+		blast.append(_make(0.9, func(t: float) -> float:
+			blp[0] = float(blp[0]) * 0.85 + randf_range(-1.0, 1.0) * 0.15
+			var boom := sin(TAU * (low + 90.0 * exp(-t * 25.0)) * t) * exp(-t * 6.0) * 0.9
+			var rumble := float(blp[0]) * 3.2 * exp(-t * 4.0)
+			var crackle := (randf_range(-1.0, 1.0) if randf() < 0.15 else 0.0) * exp(-t * 6.0) * 0.5
+			return boom + rumble + crackle))
+	_pending["blast"] = blast
 
 
 ## A looping ambience ("crickets", "water", "fire") once built, else null.

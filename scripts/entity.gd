@@ -3243,17 +3243,27 @@ func _animate(delta: float) -> void:
 
 # --- the Shardveil: guns and the free-for-all (the "Shardveil chaos" experiment) ----------------
 
-## What each Shardveil gun looks like going off - pellets, a rocket, spikes, an arc of lightning, an
-## ember that bursts - from the muzzle to the target (only drawn on screen).
+## How each Shardveil gun sounds going off, and how loud (the rocket and the ember also blast
+## where they land).
+const GUN_SOUND := {"shotgun": ["gun_shotgun", -2.0], "rocket": ["gun_rocket", -4.0], "spike": ["gun_spike", -8.0],
+	"arc": ["gun_arc", -6.0], "grenade": ["gun_ember", -4.0]}
+
+
+## What each Shardveil gun looks like (and sounds like) going off - pellets, a rocket, spikes, an
+## arc of lightning, an ember that bursts - from the muzzle to the target (only on screen).
 func _gun_fire(g: String, tgt: Entity) -> void:
 	if not _near or tgt == null or not is_instance_valid(tgt):
 		return
+	if GUN_SOUND.has(g):
+		var snd: Array = GUN_SOUND[g]
+		game.sound(String(snd[0]), position, 1.0, float(snd[1]))
 	var fwd := tgt.position - position
 	fwd.y = 0.0
 	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
 	var muzzle := position + Vector3(0.0, 1.15, 0.0) + fwd * 0.55
 	var to := tgt.position + Vector3(0.0, 1.0, 0.0)
 	var parent := get_parent()
+	var g_ref = game                               # (for the blasts, a moment later)
 	match g:
 		"shotgun":                                  # a spray of hot pellets
 			for k in range(5):
@@ -3262,6 +3272,9 @@ func _gun_fire(g: String, tgt: Entity) -> void:
 			Fx.sparkle(parent, muzzle, Color(1.0, 0.8, 0.4), 8)
 		"rocket":                                   # a rocket with a trail of fire, and a blast
 			Fx.fireball(parent, muzzle, to, 0.7, 0.32, false)
+			get_tree().create_timer(0.32).timeout.connect(func() -> void:
+				if is_instance_valid(g_ref):
+					g_ref.sound("blast", to, 1.0, -1.0))
 		"spike":                                    # two quick steel spikes
 			_shot(muzzle, to, Color(0.8, 0.85, 0.95), 0.04, 0.09)
 			_shot(muzzle + Vector3(0.0, 0.05, 0.0), to + Vector3(0.1, 0.0, 0.0), Color(0.8, 0.85, 0.95), 0.04, 0.11)
@@ -3272,7 +3285,9 @@ func _gun_fire(g: String, tgt: Entity) -> void:
 			Fx.orb(parent, muzzle, to, Color(1.0, 0.5, 0.2), 0.8, 0.4)
 			get_tree().create_timer(0.4).timeout.connect(func() -> void:
 				if is_instance_valid(parent):
-					Fx.burst(parent, to, 0.9, false))
+					Fx.burst(parent, to, 0.9, false)
+				if is_instance_valid(g_ref):
+					g_ref.sound("blast", to, 0.9, -2.0))
 
 
 ## A bright little shot from `from` to `to`.
