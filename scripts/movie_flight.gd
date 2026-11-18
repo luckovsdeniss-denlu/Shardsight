@@ -131,7 +131,7 @@ func _draw_route() -> void:
 	_route.draw_circle(here, 3.5, Color(1, 1, 1))
 	# the camera itself, flying by: its place, and a cone of light showing where it looks
 	var cpos: Vector2 = to_map.call(game.cam.global_position)
-	var fwd3 := -game.cam.global_transform.basis.z
+	var fwd3: Vector3 = -game.cam.global_transform.basis.z   # (typed: game is untyped here)
 	var fwd := Vector2(fwd3.x / float(world.cols) * msize.x, fwd3.z / float(world.rows) * msize.y)
 	if fwd.length() > 0.0001:
 		fwd = fwd.normalized()

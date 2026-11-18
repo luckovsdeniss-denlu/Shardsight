@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.5.4
+- Fixed the game not loading (since 1.5.1): the gun sounds reused three names already taken in the
+  same part of the sound script, so Godot rejected the whole sound script - and with it the game's
+  main script, so nothing started. Renamed; checked every script for the same slip.
+- Also typed one value in Trailer 2's map (`movie_flight.gd`) that the build's export step had been
+  reporting as an error since well before (harmless on the phone, but it hid real errors in the
+  build log).
+
 ## 1.5.3
 - Shardveil chaos: the adventurers' cars are armed too. Each one near you gets a gun of its own on
   the bonnet (a shotgun, a rocket launcher, a spike gun, an arc caster or an ember launcher,

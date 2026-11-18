@@ -553,11 +553,11 @@ func _build_trailer() -> void:
 	# the shotgun: a crack, a heavy thump and a roar of shot, then the pump racked for the next
 	var shotgun := []
 	for low: float in [95.0, 80.0]:
-		var slp := [0.0]
+		var gun_slp := [0.0]
 		shotgun.append(_make(0.5, func(t: float) -> float:
-			slp[0] = float(slp[0]) * 0.6 + randf_range(-1.0, 1.0) * 0.4
+			gun_slp[0] = float(gun_slp[0]) * 0.6 + randf_range(-1.0, 1.0) * 0.4
 			var crack := randf_range(-1.0, 1.0) * exp(-t * 40.0)
-			var roar := float(slp[0]) * 2.2 * exp(-t * 9.0)
+			var roar := float(gun_slp[0]) * 2.2 * exp(-t * 9.0)
 			var thump := sin(TAU * (low - 60.0 * t) * t) * exp(-t * 14.0) * 0.9
 			var pump := randf_range(-1.0, 1.0) * exp(-(t - 0.33) * 120.0) * 0.35 if t > 0.33 else 0.0
 			return crack * 0.9 + roar + thump + pump))
@@ -565,11 +565,11 @@ func _build_trailer() -> void:
 	# the rocket launcher: a pop, then the rocket's rushing roar and a rising hum as it goes
 	var rocket := []
 	for rise: float in [220.0, 300.0]:
-		var rlp := [0.0]
+		var gun_rlp := [0.0]
 		rocket.append(_make(0.7, func(t: float) -> float:
 			var k := 0.25 + 0.6 * minf(t / 0.15, 1.0)          # (the roar opens up as it lights)
-			rlp[0] = float(rlp[0]) * (1.0 - k) + randf_range(-1.0, 1.0) * k
-			var rush := float(rlp[0]) * minf(t / 0.03, 1.0) * exp(-t * 3.5) * 0.9
+			gun_rlp[0] = float(gun_rlp[0]) * (1.0 - k) + randf_range(-1.0, 1.0) * k
+			var rush := float(gun_rlp[0]) * minf(t / 0.03, 1.0) * exp(-t * 3.5) * 0.9
 			var pop := randf_range(-1.0, 1.0) * exp(-t * 60.0) * 0.7
 			var hum := sin(TAU * (140.0 + rise * t) * t) * exp(-t * 4.0) * 0.25
 			return rush + pop + hum))
@@ -600,11 +600,11 @@ func _build_trailer() -> void:
 	# a blast (a rocket or an ember going off): a deep boom, a rumble and a crackle of debris
 	var blast := []
 	for low: float in [60.0, 48.0]:
-		var blp := [0.0]
+		var gun_blp := [0.0]
 		blast.append(_make(0.9, func(t: float) -> float:
-			blp[0] = float(blp[0]) * 0.85 + randf_range(-1.0, 1.0) * 0.15
+			gun_blp[0] = float(gun_blp[0]) * 0.85 + randf_range(-1.0, 1.0) * 0.15
 			var boom := sin(TAU * (low + 90.0 * exp(-t * 25.0)) * t) * exp(-t * 6.0) * 0.9
-			var rumble := float(blp[0]) * 3.2 * exp(-t * 4.0)
+			var rumble := float(gun_blp[0]) * 3.2 * exp(-t * 4.0)
 			var crackle := (randf_range(-1.0, 1.0) if randf() < 0.15 else 0.0) * exp(-t * 6.0) * 0.5
 			return boom + rumble + crackle))
 	_pending["blast"] = blast
