@@ -1144,6 +1144,8 @@ func on_kill(killer: Entity, victim: Entity) -> void:
 	_streak = _streak + 1 if now - _last_kill <= 4.0 else 1
 	_last_kill = now
 	_veil_kills += 1
+	if _streak == 5:
+		_drop_pickup(victim.position)                  # (a rampage leaves a shard behind)
 	if STREAK_WORDS.has(_streak):
 		_announce(String(STREAK_WORDS[_streak]), Title3D.ICE if _streak < 5 else Title3D.GOLD)
 		_sound("braam", 1.0 + 0.08 * float(_streak), -2.0)
@@ -1202,6 +1204,7 @@ var _last_hero_pos := Vector3.INF
 
 
 func _action2_start() -> void:
+	_hound_t = randf_range(30.0, 40.0)
 	_surge_t = randf_range(55.0, 75.0)
 	_surge_left = 0.0
 	_surge_n = 0
@@ -1220,10 +1223,43 @@ func _action2_end() -> void:
 
 func _action2_step(delta: float) -> void:
 	aegis = maxf(aegis - delta, 0.0)
+	_hound_t -= delta
+	if _hound_t <= 0.0:
+		_hound_t = randf_range(40.0, 60.0)
+		_hound_pack()
 	_bubble_step()
 	_surge_step(delta)
 	_champion_step(delta)
 	_ram_step(delta)
+
+
+var _hound_t := 35.0
+
+
+## A Rift Hound pack: four fast violet wolves tear out of the ground at the hero from every side,
+## and they go for whoever is nearest (not the one who raised them), then fade when they fall.
+func _hound_pack() -> void:
+	var hero: Entity = game.hero
+	if hero.dead:
+		return
+	for k in range(4):
+		var ang := TAU * float(k) / 4.0 + randf() * 0.4
+		var at := hero.position + Vector3(cos(ang), 0.0, sin(ang)) * randf_range(10.0, 13.0)
+		at.y = game.world.height_at(at)
+		var cfg: Dictionary = Bestiary.WOLF.duplicate(true)
+		cfg["move"] = 6.5
+		cfg["aggro"] = 30.0
+		cfg["leash"] = 50
+		cfg["passive"] = false
+		cfg["scale"] = 1.0
+		cfg["str"] = roundi(float(cfg.get("str", 28)) * _veilborn_toughness())
+		var h: Entity = game.pool_spawn("Rift Hound", cfg, Color(0.6, 0.3, 1.0), at)
+		_mark_veilborn(h, 1.0)
+		h.target = hero
+		_veilborn.append(h)
+	_announce("RIFT HOUNDS", Title3D.ICE)
+	_sound("howl" if false else "wail", 1.4, -4.0)
+	game.log_event("A pack of Rift Hounds tears out of the ground!")
 
 
 ## The surges: every 70-90 s the rifts go wild for 14 s (a little longer each time).

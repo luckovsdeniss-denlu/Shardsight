@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.7.1
+- Shardveil: Rift Hound packs - every 40-60 s four fast violet wolves tear out of the ground round
+  you from every side ("RIFT HOUNDS"), tougher with each surge. A RAMPAGE (five kills in a run)
+  leaves a shard behind.
+
 ## 1.7.0
 - Still more action in the Shardveil (part of "Shardveil chaos"):
   - Rift surges: a minute or so after you arrive, and every 70-90 s after, "RIFT SURGE" - for
