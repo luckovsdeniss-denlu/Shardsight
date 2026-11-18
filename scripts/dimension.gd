@@ -77,33 +77,47 @@ func enabled() -> bool:
 ## The ring of light the car drives through: a glowing violet ring standing on the road, a
 ## second, teal one inside it, and a swirling disc of light filling it.
 func _build_portal() -> void:
-	_portal = Node3D.new()
-	_portal.visible = false
-	game.add_child(_portal)
-	for spec in [[1.45, 1.65, VIOLET], [1.2, 1.3, TEAL]]:
-		var t := TorusMesh.new()
-		t.inner_radius = float(spec[0])
-		t.outer_radius = float(spec[1])
-		t.rings = 32
-		t.ring_segments = 8
+	_portal = _new_portal()
+
+
+var _ring_meshes: Array = []
+var _disc_mesh: PlaneMesh
+var _disc_mat: ShaderMaterial
+
+
+## A ring of light (hidden, in the world): the hero's, or one an adventurer drives through.
+func _new_portal() -> Node3D:
+	if _disc_mat == null:
+		for spec in [[1.45, 1.65], [1.2, 1.3]]:
+			var t := TorusMesh.new()
+			t.inner_radius = float(spec[0])
+			t.outer_radius = float(spec[1])
+			t.rings = 32
+			t.ring_segments = 8
+			_ring_meshes.append(t)
+		var sh := Shader.new()
+		sh.code = DISC_SHADER
+		_disc_mat = ShaderMaterial.new()
+		_disc_mat.shader = sh
+		_disc_mesh = PlaneMesh.new()
+		_disc_mesh.size = Vector2(3.0, 3.0)
+	var portal := Node3D.new()
+	portal.visible = false
+	game.add_child(portal)
+	for k in range(2):
 		var ring := MeshInstance3D.new()
-		ring.mesh = t
-		ring.material_override = Art.glow_mat(spec[2])
+		ring.mesh = _ring_meshes[k]
+		ring.material_override = Art.glow_mat(VIOLET if k == 0 else TEAL)
 		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		ring.rotation.x = PI * 0.5                 # standing up across the road
-		_portal.add_child(ring)
-	var sh := Shader.new()
-	sh.code = DISC_SHADER
-	var disc_mat := ShaderMaterial.new()
-	disc_mat.shader = sh
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(3.0, 3.0)
+		portal.add_child(ring)
 	var disc := MeshInstance3D.new()
-	disc.mesh = plane
-	disc.material_override = disc_mat
+	disc.mesh = _disc_mesh
+	disc.material_override = _disc_mat
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	disc.rotation.x = PI * 0.5
-	_portal.add_child(disc)
+	portal.add_child(disc)
+	return portal
 
 
 ## Motes of light drifting up round you in the Shardveil, violet fading to teal.
@@ -179,9 +193,12 @@ func step(delta: float) -> void:
 	if game.movie != null:
 		if active or veil > 0.0:
 			_set_world(false, false)               # (the trailers show the world as it is)
+		if not _trips.is_empty():
+			_end_trips()                           # (everyone home for the cameras)
 		_buttons(false)
 		return
 	_buttons(true)
+	_npc_step(delta)
 	_cool = maxf(_cool - delta, 0.0)
 	if _jump_t >= 0.0:
 		_jump_step(delta)
@@ -218,6 +235,9 @@ func _keep_car() -> void:
 	if enabled():
 		if car == null or not is_instance_valid(car) or car.dead or not hero.pets.has(car):
 			_give_car()
+		elif not car.parked and car.position.distance_to(hero.position) > 40.0:
+			car.position = _beside(hero)           # (left far behind - a Recall, a gate: it finds you)
+			car.path.clear()
 	else:
 		if active or veil > 0.0:
 			_set_world(false, false)
@@ -390,3 +410,203 @@ func _set_world(on: bool, announce: bool) -> void:
 func _sound(sound_name: String, pitch: float, db: float) -> void:
 	if game.property.sound_on:
 		game.sfx.play(sound_name, pitch, db)
+
+
+# --- the other adventurers' cars ----------------------------------------------------------------
+# Every computer adventurer has a car of their own too (while the experiment is on): it drives
+# itself after them, and when they're idle - nothing to fight - they get in and drive. Now and
+# then one of them, on screen near you, opens a rift on the road ahead and drives off through it
+# into the Shardveil; a minute or two later they come back the same way, where they left.
+
+var _npc_cars := {}                            # an adventurer's instance id -> their car
+var _npc_check := 0.0
+var _trips: Array = []                         # each: {"who", "phase", "t", "ring", "at", "dir", "back"}
+var _trip_cd := 30.0
+
+
+func _npc_step(delta: float) -> void:
+	_npc_check -= delta
+	if _npc_check <= 0.0:
+		_npc_check = 2.0
+		_keep_npc_cars()
+	for trip: Dictionary in _trips.duplicate():
+		_trip_step(trip, delta)
+	if not enabled():
+		return
+	_trip_cd -= delta
+	if _trip_cd <= 0.0:
+		_trip_cd = 6.0
+		var who := _trip_candidate()
+		if who != null:
+			_start_trip(who)
+			_trip_cd = randf_range(35.0, 80.0)        # (one at a time, now and then)
+
+
+## Every computer adventurer with their car (a few new ones at a time, so nothing stutters); a car
+## left far behind (a Recall, a gate) finds its driver again. Switched off, the cars go.
+func _keep_npc_cars() -> void:
+	if not enabled():
+		_end_trips()
+		for id in _npc_cars.keys():
+			var c: Entity = _npc_cars[id]
+			var owner_obj := instance_from_id(id)
+			if owner_obj != null and is_instance_valid(owner_obj):
+				var o := owner_obj as Entity
+				if o.mounted_on == c:
+					o.dismount()
+				o.pets.erase(c)
+			if c != null and is_instance_valid(c):
+				c.vanish()
+		_npc_cars.clear()
+		return
+	var given := 0
+	for item in game.creatures:
+		var e := item as Entity
+		if e == null or e.kind != Entity.Kind.PLAYER or e.is_hero:
+			continue
+		var id := e.get_instance_id()
+		var c: Entity = _npc_cars.get(id, null)
+		var has := c != null and is_instance_valid(c) and not c.dead and e.pets.has(c)
+		if not has:
+			if e.dead or e.parked or given >= 3:
+				continue
+			c = game._spawn(Entity.Kind.MONSTER, "%s's %s" % [e.display_name, CAR_NAME], Bestiary.CAR, Color("6a3cc8"), game.world.to_tile(e.position))
+			e.adopt_pet(c)
+			c.position = _beside(e)
+			c.home = c.position
+			c.show_name(game.property.names_on)
+			_npc_cars[id] = c
+			given += 1
+		elif not c.parked and not e.parked and c.position.distance_to(e.position) > 30.0:
+			c.position = _beside(e)
+			c.path.clear()
+
+
+func _on_trip(e: Entity) -> bool:
+	for trip: Dictionary in _trips:
+		if trip["who"] == e:
+			return true
+	return false
+
+
+## Who might drive off through a rift: an adventurer in their car, on screen near you, with
+## nothing to fight, out in the open (not in a town, the dungeon or a cave).
+func _trip_candidate() -> Entity:
+	var hero: Entity = game.hero
+	var best: Entity = null
+	var best_d := 30.0
+	for id in _npc_cars.keys():
+		var o := instance_from_id(id)
+		if o == null or not is_instance_valid(o):
+			continue
+		var e := o as Entity
+		var c: Entity = _npc_cars[id]
+		if e == null or e.dead or e.parked or not e._near or e.mounted_on != c or e.target != null or hero.target == e:
+			continue
+		if _on_trip(e):
+			continue
+		var t: Vector2i = game.world.to_tile(e.position)
+		if game.world.is_town(t) or game.world.is_dungeon(t) or game.world.is_cave(t):
+			continue
+		var d := e.position.distance_to(hero.position)
+		if d < best_d:
+			best = e
+			best_d = d
+	return best
+
+
+func _start_trip(who: Entity) -> void:
+	var yaw: float = who._face_yaw
+	var fwd := Vector3(-sin(yaw), 0.0, -cos(yaw))
+	var way := fwd
+	for turn in [0.0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, PI]:
+		var f := fwd.rotated(Vector3.UP, float(turn))
+		if _clear_run(who.position, f, 7.5):
+			way = f
+			break
+	var at := who.position + way * 5.0
+	at.y = game.world.height_at(at)
+	var ring := _new_portal()
+	ring.global_position = at + Vector3(0.0, 1.25, 0.0)
+	ring.rotation = Vector3(0.0, atan2(-way.x, -way.z), 0.0)
+	ring.scale = Vector3.ONE * 0.05
+	ring.visible = true
+	who.target = null
+	who.path.clear()
+	who.go_to(at + way * 2.5)
+	_trips.append({"who": who, "phase": "in", "t": 0.0, "ring": ring, "at": at, "dir": way, "back": 0.0})
+
+
+func _trip_step(trip: Dictionary, delta: float) -> void:
+	var who: Entity = trip["who"]
+	var ring: Node3D = trip["ring"]
+	trip["t"] = float(trip["t"]) + delta
+	var t := float(trip["t"])
+	match String(trip["phase"]):
+		"in":                                      # the ring opens; they drive into it
+			if who.dead or who.mounted_on == null or who.target != null:
+				if ring != null and is_instance_valid(ring):
+					ring.queue_free()              # (something came up: the ring fades)
+				_trips.erase(trip)
+				return
+			ring.scale = Vector3.ONE * lerpf(0.05, 1.0, smoothstep(0.0, 0.7, t))
+			var at: Vector3 = trip["at"]
+			if who.path.is_empty():
+				who.go_to(at + (trip["dir"] as Vector3) * 2.5)
+			var near := Vector2(who.position.x - at.x, who.position.z - at.z).length() < 1.3
+			if (near and t > 0.45) or t > 2.6:
+				_away(who)
+				Fx.sparkle(game, ring.global_position, VIOLET, 20)
+				trip["phase"] = "close"
+				trip["t"] = 0.0
+		"close":                                   # through: the ring closes behind them
+			ring.scale = Vector3.ONE * lerpf(1.0, 0.02, clampf(t / 0.7, 0.0, 1.0))
+			if t >= 0.7:
+				ring.queue_free()
+				trip["ring"] = null
+				trip["phase"] = "away"
+				trip["t"] = 0.0
+				trip["back"] = randf_range(45.0, 120.0)
+		"away":                                    # in the Shardveil a while; then back
+			if t >= float(trip["back"]):
+				_back(who, true)
+				_trips.erase(trip)
+
+
+## Gone through: out of this world for now (nobody can see, find or fight them).
+func _away(who: Entity) -> void:
+	who.parked = true
+	who.visible = false
+	who.path.clear()
+	who.target = null
+	for item in game.creatures:
+		var e := item as Entity
+		if e != null and e.target == who:
+			e.target = null
+
+
+## Back from the Shardveil, where they left: through a ring of light that closes behind them.
+func _back(who: Entity, show: bool) -> void:
+	who.parked = false
+	who.visible = true
+	if not show or not game.in_view(who.position + Vector3(0.0, 1.0, 0.0), 2.0):
+		return
+	var ring := _new_portal()
+	ring.global_position = who.position + Vector3(0.0, 1.25, 0.0)
+	ring.rotation = Vector3(0.0, who._face_yaw, 0.0)
+	ring.visible = true
+	var tw := ring.create_tween()
+	tw.tween_property(ring, "scale", Vector3.ONE * 0.02, 0.9).from(Vector3.ONE).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(ring.queue_free)
+	Fx.sparkle(game, who.position + Vector3(0.0, 1.0, 0.0), TEAL, 20)
+
+
+## Everyone home at once, every ring gone (the experiment switched off, or a trailer starting).
+func _end_trips() -> void:
+	for trip: Dictionary in _trips:
+		var ring: Node3D = trip["ring"]
+		if ring != null and is_instance_valid(ring):
+			ring.queue_free()
+		if String(trip["phase"]) != "in":
+			_back(trip["who"], false)
+	_trips.clear()

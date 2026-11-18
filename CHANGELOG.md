@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.4.1
+- Dimension car (experimental mode): the computer adventurers have cars too. Each of them gets a
+  Riftrunner of their own ("Aldric's Riftrunner", a few at a time so nothing stutters); it
+  drives itself after them, and when they're idle - nothing to fight - they get in and drive
+  (and fight from the seat). Now and then one of them, on screen near you and out in the open,
+  opens a ring of light on the road ahead and drives off through it into the Shardveil - gone
+  from this world, nobody can find or fight them - and a minute or two later comes back the same
+  way, through a ring of light, where they left. One at a time, every half minute to a minute
+  and a half at most. A car left far behind (a Recall, a gate) finds its driver again - yours
+  too. Cars don't gain levels. Switched off, every car goes and everyone is home; a trailer
+  brings everyone home too.
+
 ## 1.4.0
 - The dimension car - a new experiment, on for everyone in experimental mode (Main Menu >
   Experiments > "Dimension car" switches it off and on; the ordinary game is untouched):

@@ -3365,7 +3365,7 @@ func _pet_think() -> void:
 		return
 	if is_vehicle:                           # the car never fights: it drives itself after you
 		target = null
-		if position.distance_to(pet_owner.position) > 4.0:
+		if position.distance_to(pet_owner.position) > 2.6:   # (close enough to get in)
 			if repath_timer <= 0.0 or path.is_empty():
 				repath_timer = 0.6
 				go_to(pet_owner.position)
@@ -3522,7 +3522,7 @@ func animal_count() -> int:
 
 ## A pet learns from every kill it shares in: each level makes it stronger and tougher.
 func pet_gain_xp(n: float) -> void:
-	if kind != Kind.PET or pet_level >= PET_LEVEL_MAX:
+	if kind != Kind.PET or is_vehicle or pet_level >= PET_LEVEL_MAX:   # (a car doesn't level up)
 		return
 	pet_xp += n
 	while pet_level < PET_LEVEL_MAX and pet_xp >= pet_level * 40.0:
