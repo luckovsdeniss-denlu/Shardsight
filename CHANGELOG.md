@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.5.2
+- Shardveil chaos: every monster has a gun too - not only the ones with hands. The orcs,
+  skeletons, ogres and the rest hold theirs; wolves, bears, rats, deer, spiders, scorpions,
+  beetles, swamp dragons, elementals, vortices and the rest have theirs strapped to their backs on
+  a little mount plate, pointing ahead, and shoot from range like everyone else (yes, a rat with
+  a rocket launcher). Pets get guns too. As before, everyone has their own weapons (and no gun on
+  their back) again back home.
+
 ## 1.5.1
 - Shardveil chaos: the guns are heard (the one exception to the game's silent characters). Each
   has its own sound, built from a formula like every other sound in the game (two or three takes

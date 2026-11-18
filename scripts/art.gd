@@ -924,6 +924,28 @@ static func _weapon_parts(weapon: String) -> Array:
 	return p
 
 
+## A Shardveil gun strapped onto a beast's back on a little mount plate, pointing ahead (the
+## "Shardveil chaos" experiment: beasts have no hands). Its shapes sit as a held gun's would, 0.51
+## below the hand - the mesh is placed that much higher.
+static func gun_turret(weapon: String) -> ArrayMesh:
+	return _cached("turret|" + Gear.base(weapon), func() -> Array:
+		var parts: Array = Art._weapon_parts(weapon)
+		parts.append([Art.box(0.2, 0.05, 0.32), Art.at(0, -0.51 - 0.08, 0.0), Art.DARK])
+		parts.append([Art.box(0.05, 0.08, 0.05), Art.at(0, -0.51 - 0.04, 0.0), Art.DARK])
+		return parts)
+
+
+## Where a beast's back is, in its own model (a gun strapped there sits on it).
+const BACK_HEIGHT := {"rat": 0.32, "wolf": 0.78, "bear": 1.0, "hind": 0.85, "horse": 1.3, "llama": 1.25,
+	"nightmare": 1.3, "swamp_dragon": 0.9, "beetle": 0.75, "ostard": 1.05, "spider": 0.6, "scorpion": 0.5,
+	"leech": 0.25, "earth_elemental": 1.5, "air_elemental": 1.5, "fire_elemental": 1.5, "water_elemental": 1.5,
+	"vortex": 1.1, "blades": 1.0, "ghost": 1.3}
+
+
+static func back_height(look: String) -> float:
+	return float(BACK_HEIGHT.get(look, 0.9))
+
+
 static func _quadruped(model: Dictionary, look: String) -> void:
 	var root: Node3D = model["root"]
 	var meshes: Array = model["meshes"]

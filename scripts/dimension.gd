@@ -616,18 +616,15 @@ func _end_trips() -> void:
 
 
 # --- the Shardveil's chaos (the "Shardveil chaos" experiment) ------------------------------------
-# In the Shardveil it's every one for themselves. Round you (35 m), everyone with hands has a gun
-# - you, the adventurers, the orcs and skeletons and the rest - and anyone fights anyone: the
+# In the Shardveil it's every one for themselves. Round you (35 m), everyone has a gun - you,
+# the adventurers, every monster (the orcs and skeletons in hand; the wolves, bears, spiders and
+# other beasts strapped to their backs) and the pets too - and anyone fights anyone: the
 # adventurers each other and the beasts, the beasts each other, everyone you; no town is a refuge
 # and no blow is a crime. And meteors keep falling out of the violet sky, burning whoever they
 # land near. Back home, everyone has their own weapons again.
 
 const GUNS := ["rift_shotgun", "shard_rocket", "spike_gun", "arc_caster", "ember_launcher"]
 const CHAOS_RADIUS := 35.0
-## Beasts without hands to hold a gun (they fight with tooth and claw).
-const NO_HANDS := ["rat", "wolf", "bear", "hind", "horse", "llama", "nightmare", "swamp_dragon", "beetle",
-	"ostard", "spider", "scorpion", "leech", "earth_elemental", "air_elemental", "fire_elemental",
-	"water_elemental", "vortex", "blades", "car", "ghost"]
 var chaos := false
 var _armed: Array = []
 var _arm_check := 0.0
@@ -657,15 +654,14 @@ func _chaos_step(delta: float) -> void:
 		_meteor()
 
 
-## Everyone with hands near you gets a gun (and keeps it while near); anyone who's gone far off
-## gets their own weapon back.
+## Everyone near you gets a gun (and keeps it while near) - every monster too, and the pets; a
+## beast with no hands has it strapped to its back. Anyone who's gone far off gets their own weapon
+## back.
 func _arm_round() -> void:
 	var hero: Entity = game.hero
 	for item in game.creatures:
 		var e := item as Entity
-		if e == null or e.dead or e.parked or e.is_vehicle or e.kind == Entity.Kind.NPC or e.kind == Entity.Kind.PET:
-			continue
-		if e.kind == Entity.Kind.MONSTER and e.look in NO_HANDS:
+		if e == null or e.dead or e.parked or e.is_vehicle or e.kind == Entity.Kind.NPC:
 			continue
 		var d := e.position.distance_to(hero.position)
 		if e.has_meta("veil_weapon"):

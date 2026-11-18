@@ -2590,6 +2590,14 @@ func refresh_look() -> void:
 		var sparks := Fx.embers(0.5)
 		sparks.position.y = 1.0
 		(model["root"] as Node3D).add_child(sparks)
+	if Gear.gun(weapon) != "" and model.get("arm") == null:
+		# (the Shardveil: a beast with no hands to hold its gun has it strapped to its back)
+		var turret := MeshInstance3D.new()
+		turret.mesh = Art.gun_turret(weapon)
+		turret.material_override = Art.vc_mat()
+		turret.position = Vector3(0.0, Art.back_height(look) + 0.51, -0.05)
+		(model["root"] as Node3D).add_child(turret)
+		(model["meshes"] as Array).append(turret)
 	_artifact_aura()
 	if mounted_on != null:
 		# Sitting in the saddle: the mount's legs do the walking, the rider's hang still.
