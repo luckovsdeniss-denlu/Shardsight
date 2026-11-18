@@ -946,6 +946,14 @@ static func back_height(look: String) -> float:
 	return float(BACK_HEIGHT.get(look, 0.9))
 
 
+## Where a mounted gun goes on a model (its shapes sit 0.51 below the hand, so that much higher):
+## on a beast's back, over its middle; on the dimension car, on the bonnet, pointing ahead.
+static func turret_spot(look: String) -> Vector3:
+	if look == "car":
+		return Vector3(0.0, 0.66 + 0.51, -0.85)
+	return Vector3(0.0, back_height(look) + 0.51, -0.05)
+
+
 static func _quadruped(model: Dictionary, look: String) -> void:
 	var root: Node3D = model["root"]
 	var meshes: Array = model["meshes"]

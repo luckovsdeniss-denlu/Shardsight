@@ -648,6 +648,7 @@ func _chaos_step(delta: float) -> void:
 	if _arm_check <= 0.0:
 		_arm_check = 1.0
 		_arm_round()
+	_car_turrets(delta)
 	_meteor_t -= delta
 	if _meteor_t <= 0.0:
 		_meteor_t = randf_range(0.9, 2.2)
@@ -672,6 +673,19 @@ func _arm_round() -> void:
 				e.refresh_look()
 		elif d <= CHAOS_RADIUS:
 			_arm(e)
+	# the adventurers' cars: a gun on the bonnet that fires by itself (driven or driving after them)
+	for id in _npc_cars.keys():
+		var c: Entity = _npc_cars[id]
+		if c == null or not is_instance_valid(c) or c.dead:
+			continue
+		var driver: Entity = c.pet_owner
+		var at: Vector3 = driver.position if (c.parked and driver != null and is_instance_valid(driver)) else c.position
+		var dc := at.distance_to(hero.position)
+		if c.has_meta("veil_weapon"):
+			if dc > CHAOS_RADIUS + 6.0:
+				_disarm(c)
+		elif dc <= CHAOS_RADIUS:
+			_arm(c)
 
 
 func _arm(e: Entity) -> void:
@@ -683,7 +697,15 @@ func _arm(e: Entity) -> void:
 		e.stats.skills[Hero.Skill.ARCHERY] = maxf(float(e.stats.skills.get(Hero.Skill.ARCHERY, 0.0)), 55.0)
 	e.weapon = gun
 	e.refresh_look()
+	_refresh_driver(e)
 	_armed.append(e)
+
+
+## An armed (or disarmed) car someone is driving: its driver's model carries the car, so it's
+## rebuilt too.
+func _refresh_driver(e: Entity) -> void:
+	if e.is_vehicle and e.pet_owner != null and is_instance_valid(e.pet_owner) and e.pet_owner.mounted_on == e:
+		e.pet_owner.refresh_look()
 
 
 func _disarm(e: Entity) -> void:
@@ -695,6 +717,7 @@ func _disarm(e: Entity) -> void:
 		e.remove_meta("veil_weapon")
 		e.remove_meta("veil_gun")
 		e.refresh_look()
+		_refresh_driver(e)
 	_armed.erase(e)
 
 
@@ -744,3 +767,58 @@ func _make_meteor_src() -> void:
 	_meteor_src.visible = false
 	_meteor_src.parked = true
 	_meteor_src.dead = true
+
+
+## How often an armed car's gun fires (seconds), by the kind of gun.
+const TURRET_EVERY := {"shotgun": 1.6, "rocket": 2.6, "spike": 0.6, "arc": 0.8, "grenade": 2.2}
+var _turret_cd := {}
+
+
+## The adventurers' armed cars fire by themselves: at what their driver is fighting if it's in
+## reach, else at the nearest fair target in sight - from under the driver if they're in it, or from
+## the car as it drives after them. A hit counts as the driver's (so anyone shot turns on them).
+func _car_turrets(delta: float) -> void:
+	for id in _npc_cars.keys():
+		var c: Entity = _npc_cars[id]
+		if c == null or not is_instance_valid(c) or c.dead or not c.has_meta("veil_gun"):
+			continue
+		var driver: Entity = c.pet_owner
+		if driver == null or not is_instance_valid(driver) or driver.dead or driver.parked:
+			continue
+		var cid := c.get_instance_id()
+		var cd := float(_turret_cd.get(cid, randf_range(0.2, 1.5))) - delta
+		if cd > 0.0:
+			_turret_cd[cid] = cd
+			continue
+		var g := Gear.gun(c.weapon)
+		var st: Dictionary = Gear.stats(c.weapon)
+		var shooter: Entity = driver if c.parked else c
+		var tgt := _turret_target(driver, shooter.position, float(st.get("range", 6.0)))
+		if tgt == null:
+			_turret_cd[cid] = 0.4                       # (nothing in reach: look again soon)
+			continue
+		_turret_cd[cid] = float(TURRET_EVERY.get(g, 1.5)) * randf_range(0.85, 1.2)
+		shooter._gun_fire(g, tgt)
+		if randf() < 0.7:
+			var dmg := randf_range(float(st["min"]), float(st["max"])) * 0.8
+			var hit_at := tgt.position
+			tgt.take_damage(dmg, driver)
+			if g in ["rocket", "grenade"]:
+				driver._splash(hit_at, dmg * 0.5, tgt)
+
+
+func _turret_target(driver: Entity, from: Vector3, reach: float) -> Entity:
+	var t: Entity = driver.target
+	if t != null and is_instance_valid(t) and not t.dead and t.position.distance_to(from) <= reach and driver._chaos_fair(t):
+		return t
+	var best: Entity = null
+	var best_d := reach
+	for item in game.creatures:
+		var e := item as Entity
+		if e == null or e == driver or e.dead:
+			continue
+		var d := e.position.distance_to(from)
+		if d <= best_d and driver._chaos_fair(e) and game.world.line_clear(from, e.position):
+			best = e
+			best_d = d
+	return best

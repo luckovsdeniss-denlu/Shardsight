@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.5.3
+- Shardveil chaos: the adventurers' cars are armed too. Each one near you gets a gun of its own on
+  the bonnet (a shotgun, a rocket launcher, a spike gun, an arc caster or an ember launcher,
+  pointing ahead) that fires by itself - with its own sound, shots and blasts - at whatever its
+  driver is fighting if it's in reach, or else at the nearest fair target in sight: from under the
+  driver when they're in it, or from the car itself as it drives after them. Its hits count as
+  the driver's (so whoever's shot turns on them), and rockets and embers blast everyone close by.
+  The cars still can't be hurt. Your own car stays unarmed. Back home, the guns come off.
+
 ## 1.5.2
 - Shardveil chaos: every monster has a gun too - not only the ones with hands. The orcs,
   skeletons, ogres and the rest hold theirs; wolves, bears, rats, deer, spiders, scorpions,

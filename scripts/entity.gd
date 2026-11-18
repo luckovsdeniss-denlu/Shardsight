@@ -2591,18 +2591,15 @@ func refresh_look() -> void:
 		sparks.position.y = 1.0
 		(model["root"] as Node3D).add_child(sparks)
 	if Gear.gun(weapon) != "" and model.get("arm") == null:
-		# (the Shardveil: a beast with no hands to hold its gun has it strapped to its back)
-		var turret := MeshInstance3D.new()
-		turret.mesh = Art.gun_turret(weapon)
-		turret.material_override = Art.vc_mat()
-		turret.position = Vector3(0.0, Art.back_height(look) + 0.51, -0.05)
-		(model["root"] as Node3D).add_child(turret)
-		(model["meshes"] as Array).append(turret)
+		# (the Shardveil: a beast with no hands has its gun strapped to its back; a car, on its bonnet)
+		_add_turret(model["root"], weapon, look, model["meshes"])
 	_artifact_aura()
 	if mounted_on != null:
 		# Sitting in the saddle: the mount's legs do the walking, the rider's hang still.
 		var m := Art.creature(mounted_on.look, {}, mounted_on.visual_scale)
 		rig.add_child(m["root"])
+		if Gear.gun(mounted_on.weapon) != "":
+			_add_turret(m["root"], mounted_on.weapon, mounted_on.look, m["meshes"])   # (an armed car: its gun on the bonnet)
 		(model["root"] as Node3D).position.y = mounted_on.saddle * mounted_on.visual_scale
 		if mounted_on.look == "nightmare":
 			var mane := Fx.flame(0.18, 14, 0.6)    # a burning mane
@@ -3296,6 +3293,16 @@ func _gun_fire(g: String, tgt: Entity) -> void:
 					Fx.burst(parent, to, 0.9, false)
 				if is_instance_valid(g_ref):
 					g_ref.sound("blast", to, 0.9, -2.0))
+
+
+## A Shardveil gun mounted on a model that has no hands: on a beast's back, on a car's bonnet.
+func _add_turret(root: Node3D, gun_id: String, look_name: String, meshes: Array) -> void:
+	var turret := MeshInstance3D.new()
+	turret.mesh = Art.gun_turret(gun_id)
+	turret.material_override = Art.vc_mat()
+	turret.position = Art.turret_spot(look_name)
+	root.add_child(turret)
+	meshes.append(turret)
 
 
 ## A bright little shot from `from` to `to`.
