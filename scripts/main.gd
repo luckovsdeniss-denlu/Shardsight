@@ -2159,6 +2159,8 @@ func _story_advance(subject: Vector3) -> void:
 
 
 func on_kill(killer: Entity, victim: Entity) -> void:
+	if dimension != null:
+		dimension.on_kill(killer, victim)        # (the Shardveil: shards, the Colossus, runs of kills)
 	_story_on_kill(killer, victim)
 	if killer != null and killer.is_hero and invaders.has(victim):
 		_invasion_hero_kills += 1

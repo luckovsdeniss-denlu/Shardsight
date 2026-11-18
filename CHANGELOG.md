@@ -3,6 +3,26 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.6.0
+- More action in the Shardveil (part of "Shardveil chaos"):
+  - Rifts keep tearing open round you (every 9-16 s) and the Veilborn step out of them - two to
+    four at a time, ten at most: crystal-touched orcs, skeletons, zombies, spiders, wolves and
+    archers, wreathed in violet motes, hunting from far off, and armed like everyone else.
+  - The Veil Colossus: a minute or so after you arrive, and every few minutes after, a great rift
+    opens and a giant of the Shardveil climbs out, an ember launcher in hand ("THE VEIL COLOSSUS"
+    flies past, the boss music starts). It's tough and hits hard; it leaves a big purse (doubled
+    here, like all gold) and three shards ("COLOSSUS DOWN").
+  - Violet lightning strikes out of the sky round you every few seconds, burning whoever it hits
+    ("slain by violet lightning"). Not underground.
+  - Shards to pick up - walk or drive over them: Mend (half your health back), Overcharge
+    (double damage for 12 s) and Haste (1.6 times as fast for 12 s). They glow in meteor craters
+    and where the Veilborn fall, and fade after 25 s.
+  - Runs of kills are called out in flying letters (each kill within 4 s of the last): DOUBLE
+    KILL, TRIPLE KILL, MULTI KILL, RAMPAGE, UNSTOPPABLE, LEGENDARY.
+  - A line across the top keeps the count: your kills there, your Overcharge and Haste time left,
+    and the Colossus's health while it lives.
+  - Back home, the Veilborn, the Colossus, the shards and the powers are gone.
+
 ## 1.5.4
 - Fixed the game not loading (since 1.5.1): the gun sounds reused three names already taken in the
   same part of the sound script, so Godot rejected the whole sound script - and with it the game's

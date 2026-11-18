@@ -66,6 +66,7 @@ func setup(g) -> void:
 	_build_portal()
 	_build_motes()
 	_build_sky()
+	_build_hud()
 
 
 func enabled() -> bool:
@@ -639,8 +640,10 @@ func _chaos_step(delta: float) -> void:
 		if chaos:
 			_arm_check = 0.0
 			_meteor_t = 1.2
+			_action_start()
 			game.log_event("In the Shardveil it's every one for themselves: everyone has a gun, and the sky is falling.")
 		else:
+			_action_end()
 			_disarm_all()
 	if not chaos:
 		return
@@ -653,6 +656,7 @@ func _chaos_step(delta: float) -> void:
 	if _meteor_t <= 0.0:
 		_meteor_t = randf_range(0.9, 2.2)
 		_meteor()
+	_action_step(delta)
 
 
 ## Everyone near you gets a gun (and keeps it while near) - every monster too, and the pets; a
@@ -690,6 +694,8 @@ func _arm_round() -> void:
 
 func _arm(e: Entity) -> void:
 	var gun: String = "shard_rocket" if e.is_hero else String(GUNS[absi(e.display_name.hash()) % GUNS.size()])
+	if e.has_meta("veil_pref_gun"):
+		gun = String(e.get_meta("veil_pref_gun"))
 	e.set_meta("veil_weapon", e.weapon)
 	e.set_meta("veil_gun", gun)
 	if not e.is_hero:                              # (they all know how to aim one here)
@@ -747,8 +753,10 @@ func _meteor_lands(at: Vector3) -> void:
 		return
 	game.sound("impact", at, 0.8, 2.0)
 	if _meteor_src == null or not is_instance_valid(_meteor_src):
-		_make_meteor_src()
+		_meteor_src = _make_src("a meteor")
 	_meteor_src.position = at
+	if randf() < 0.35:
+		_drop_pickup(at)                           # (a shard left glowing in the crater)
 	for item in game.creatures:
 		var e := item as Entity
 		if e == null or e.dead or e.parked or e.is_vehicle or e.kind == Entity.Kind.NPC:
@@ -759,14 +767,15 @@ func _meteor_lands(at: Vector3) -> void:
 
 ## What the meteors' burns come from (so a fall reads "slain by a meteor"): out of sight, out of
 ## the world's lists, and nobody to chase.
-func _make_meteor_src() -> void:
-	_meteor_src = Entity.new()
-	game.add_child(_meteor_src)
-	_meteor_src.setup(game, Entity.Kind.MONSTER, "a meteor", {"look": "blades", "passive": true, "str": 10, "dex": 10, "int": 10,
+func _make_src(src_name: String) -> Entity:
+	var src := Entity.new()
+	game.add_child(src)
+	src.setup(game, Entity.Kind.MONSTER, src_name, {"look": "blades", "passive": true, "str": 10, "dex": 10, "int": 10,
 		"aggro": 0.0, "loot": {"gold_min": 0, "gold_max": 0, "drops": []}}, Color.WHITE, game.world.to_tile(game.hero.position))
-	_meteor_src.visible = false
-	_meteor_src.parked = true
-	_meteor_src.dead = true
+	src.visible = false
+	src.parked = true
+	src.dead = true
+	return src
 
 
 ## How often an armed car's gun fires (seconds), by the kind of gun.
@@ -822,3 +831,321 @@ func _turret_target(driver: Entity, from: Vector3, reach: float) -> Entity:
 			best = e
 			best_d = d
 	return best
+
+
+# --- more action in the Shardveil (part of "Shardveil chaos") -------------------------------------
+# Rifts keep tearing open round you and the Veilborn - crystal-touched orcs, skeletons, zombies,
+# spiders, wolves and archers - pour out of them; every few minutes the Veil Colossus climbs out of a
+# great rift; violet lightning strikes out of the sky; glowing shards (mend, overcharge, haste) lie in
+# the craters and where the Veilborn fall; and a run of kills is called out in flying letters. A
+# line across the top keeps the count.
+
+const VEILBORN := [["Orc", Bestiary.ORC], ["Skeleton", Bestiary.SKELETON], ["Zombie", Bestiary.ZOMBIE],
+	["Wolf", Bestiary.WOLF], ["Spider", Bestiary.GIANT_SPIDER], ["Archer", Bestiary.SKELETON_ARCHER]]
+const VEILBORN_MAX := 10
+const PICKUPS := {"mend": Color(0.35, 1.0, 0.7), "overcharge": Color(1.0, 0.35, 0.9), "haste": Color(1.0, 0.85, 0.3)}
+const STREAK_WORDS := {2: "DOUBLE KILL", 3: "TRIPLE KILL", 4: "MULTI KILL", 5: "RAMPAGE", 7: "UNSTOPPABLE", 10: "LEGENDARY"}
+var overcharge := 0.0                          # seconds of double damage left (the hero)
+var haste := 0.0                               # seconds of extra speed left (the hero)
+var _veilborn: Array = []
+var _rift_t := 6.0
+var _colossus: Entity = null
+var _colossus_t := 75.0
+var _bolt_t := 3.0
+var _bolt_src: Entity
+var _pickups: Array = []                       # each: {"node", "kind", "t", "base"}
+var _gem: ArrayMesh
+var _streak := 0
+var _last_kill := -100.0
+var _veil_kills := 0
+var _hud: Label
+
+
+func _build_hud() -> void:
+	_hud = Label.new()
+	_hud.add_theme_font_size_override("font_size", 22)
+	_hud.add_theme_color_override("font_color", Color(0.92, 0.78, 1.0))
+	_hud.add_theme_color_override("font_outline_color", Color.BLACK)
+	_hud.add_theme_constant_override("outline_size", 8)
+	_hud.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_layer.add_child(_hud)
+	_hud.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_hud.offset_left = -360.0
+	_hud.offset_right = 360.0
+	_hud.offset_top = 10.0
+	_hud.visible = false
+
+
+func _action_start() -> void:
+	_rift_t = 5.0
+	_colossus_t = randf_range(60.0, 90.0)
+	_bolt_t = 3.0
+	_veil_kills = 0
+	_streak = 0
+	overcharge = 0.0
+	haste = 0.0
+
+
+func _action_step(delta: float) -> void:
+	overcharge = maxf(overcharge - delta, 0.0)
+	haste = maxf(haste - delta, 0.0)
+	_rift_t -= delta
+	if _rift_t <= 0.0:
+		_rift_t = randf_range(9.0, 16.0)
+		_spawn_rift()
+	_colossus_t -= delta
+	if _colossus_t <= 0.0:
+		_colossus_t = randf_range(150.0, 210.0)
+		if _colossus == null or not is_instance_valid(_colossus) or _colossus.dead:
+			_summon_colossus()
+	_bolt_t -= delta
+	if _bolt_t <= 0.0:
+		_bolt_t = randf_range(2.5, 5.0)
+		_rift_bolt()
+	_pickups_step(delta)
+	_hud_step()
+
+
+## Back home: the Veilborn and the Colossus gone, the shards gone, the powers gone.
+func _action_end() -> void:
+	for e in _veilborn:
+		if is_instance_valid(e) and not (e as Entity).dead:
+			(e as Entity).vanish()
+	_veilborn.clear()
+	if _colossus != null and is_instance_valid(_colossus) and not _colossus.dead:
+		_colossus.vanish()
+	_colossus = null
+	for p: Dictionary in _pickups:
+		var node: Node3D = p["node"]
+		if is_instance_valid(node):
+			node.queue_free()
+	_pickups.clear()
+	overcharge = 0.0
+	haste = 0.0
+	_streak = 0
+	if _hud != null:
+		_hud.visible = false
+
+
+## Somewhere open near you (not in a wall, a house, a tree or the water), or INF.
+func _veil_spot(min_d: float, max_d: float) -> Vector3:
+	var hero: Entity = game.hero
+	for _try in range(10):
+		var a := randf() * TAU
+		var d := randf_range(min_d, max_d)
+		var p: Vector3 = hero.position + Vector3(cos(a) * d, 0.0, sin(a) * d)
+		var t: Vector2i = game.world.to_tile(p)
+		if game.world.in_bounds(t) and not game.world.is_blocked(t) \
+				and game.world.tiles[t.y * game.world.cols + t.x] != World.Tile.WATER:
+			return Vector3(p.x, game.world.height_at(p), p.z)
+	return Vector3.INF
+
+
+## A rift tearing open for a moment (facing you), sparks flying out of it.
+func _rift_at(at: Vector3, size: float) -> void:
+	var ring := _new_portal()
+	var to_hero: Vector3 = game.hero.position - at
+	ring.global_position = at + Vector3(0.0, 1.25 * size, 0.0)
+	ring.rotation = Vector3(0.0, atan2(to_hero.x, to_hero.z), 0.0)
+	ring.scale = Vector3.ONE * 0.05
+	ring.visible = true
+	var tw := ring.create_tween()
+	tw.tween_property(ring, "scale", Vector3.ONE * size, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.9)
+	tw.tween_property(ring, "scale", Vector3.ONE * 0.02, 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(ring.queue_free)
+	Fx.sparkle(game, at + Vector3(0.0, 1.0, 0.0), VIOLET, 22)
+
+
+## A rift opens and two to four Veilborn step out of it (ten at most at a time).
+func _spawn_rift() -> void:
+	var alive: Array = []
+	for e in _veilborn:
+		if is_instance_valid(e) and not (e as Entity).dead:
+			alive.append(e)
+	_veilborn = alive
+	if _veilborn.size() >= VEILBORN_MAX:
+		return
+	var at := _veil_spot(9.0, 16.0)
+	if at == Vector3.INF:
+		return
+	_rift_at(at, 0.75)
+	for k in range(randi_range(2, 4)):
+		var pick: Array = VEILBORN[randi() % VEILBORN.size()]
+		var cfg: Dictionary = (pick[1] as Dictionary).duplicate(true)
+		cfg["aggro"] = 14.0
+		cfg["leash"] = 40
+		cfg["passive"] = false
+		var spot := at + Vector3(randf_range(-1.2, 1.2), 0.0, randf_range(-1.2, 1.2))
+		var e: Entity = game.pool_spawn("Veilborn " + String(pick[0]), cfg, Color(0.75, 0.45, 1.0), spot)
+		_mark_veilborn(e, 1.0)
+		_veilborn.append(e)
+
+
+func _mark_veilborn(e: Entity, size: float) -> void:
+	if e.has_meta("veilborn"):
+		return
+	e.set_meta("veilborn", true)
+	var glow := Fx.cast_glow(VIOLET)                # (motes of violet light rising off them)
+	glow.scale = Vector3.ONE * size
+	e.add_child(glow)
+	glow.emitting = true
+
+
+## The Veil Colossus: a giant of the Shardveil climbs out of a great rift, an ember launcher in hand.
+func _summon_colossus() -> void:
+	var at := _veil_spot(12.0, 18.0)
+	if at == Vector3.INF:
+		return
+	_rift_at(at, 1.8)
+	var cfg: Dictionary = Bestiary.OGRE.duplicate(true)
+	cfg["scale"] = 2.6
+	cfg["str"] = 420
+	cfg["danger"] = 12
+	cfg["dmg_min"] = 18
+	cfg["dmg_max"] = 34
+	cfg["armor"] = 6.0
+	cfg["aggro"] = 20.0
+	cfg["leash"] = 60
+	cfg["boss"] = true
+	cfg["passive"] = false
+	cfg["loot"] = {"gold_min": 400, "gold_max": 900, "drops": [["platemail", 0.5], ["heater_shield", 0.4], ["double_axe", 0.3]]}
+	_colossus = game.pool_spawn("the Veil Colossus", cfg, Color(0.6, 0.35, 0.95), at)
+	_colossus.set_meta("veil_pref_gun", "ember_launcher")
+	_mark_veilborn(_colossus, 2.2)
+	_colossus.target = game.hero
+	_announce("THE VEIL COLOSSUS", Title3D.GOLD)
+	_sound("braam", 0.8, 2.0)
+	game.log_event("A great rift tears open: the Veil Colossus climbs out of it!")
+
+
+## Violet lightning out of the Shardveil's sky, near you; it burns whoever it strikes by.
+func _rift_bolt() -> void:
+	var hero: Entity = game.hero
+	var t: Vector2i = game.world.to_tile(hero.position)
+	if game.world.is_dungeon(t) or game.world.is_cave(t):
+		return
+	var a := randf() * TAU
+	var d := randf_range(2.0, 5.0) if randf() < 0.25 else randf_range(5.0, 20.0)
+	var at := hero.position + Vector3(cos(a) * d, 0.0, sin(a) * d)
+	at.y = game.world.height_at(at)
+	Fx.lightning(game, at, Color(0.85, 0.55, 1.0))
+	game.sound("thunder", at, 1.3, -6.0)
+	if _bolt_src == null or not is_instance_valid(_bolt_src):
+		_bolt_src = _make_src("violet lightning")
+	_bolt_src.position = at
+	for item in game.creatures:
+		var e := item as Entity
+		if e == null or e.dead or e.parked or e.is_vehicle or e.kind == Entity.Kind.NPC:
+			continue
+		if e.position.distance_to(at) <= 2.0:
+			e.take_damage(randf_range(8.0, 18.0), _bolt_src)
+
+
+## A glowing shard left lying: mend (half your health back), overcharge (double damage for 12 s)
+## or haste (faster for 12 s). Walk (or drive) over it to take it; it fades after 25 s.
+func _drop_pickup(at: Vector3) -> void:
+	if _pickups.size() >= 6:
+		return
+	if _gem == null:
+		_gem = Art.merge([[Art.cone(0.22, 0.3, 0.0, 6), Art.at(0, 0.15, 0), Color.WHITE],
+			[Art.cone(0.22, 0.3, 0.0, 6), Art.at(0, -0.15, 0, Vector3(PI, 0, 0)), Color.WHITE]])
+	var kinds: Array = PICKUPS.keys()
+	var kind := String(kinds[randi() % kinds.size()])
+	var col: Color = PICKUPS[kind]
+	var node := Node3D.new()
+	game.add_child(node)
+	node.global_position = Vector3(at.x, game.world.height_at(at) + 0.6, at.z)
+	var gem := MeshInstance3D.new()
+	gem.mesh = _gem
+	gem.material_override = Art.glow_mat(col)
+	gem.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.add_child(gem)
+	Fx.sparkle(game, node.global_position, col, 14)
+	_pickups.append({"node": node, "kind": kind, "t": 25.0, "base": node.global_position.y})
+
+
+func _pickups_step(delta: float) -> void:
+	var hero: Entity = game.hero
+	for p: Dictionary in _pickups.duplicate():
+		var node: Node3D = p["node"]
+		if not is_instance_valid(node):
+			_pickups.erase(p)
+			continue
+		p["t"] = float(p["t"]) - delta
+		var left := float(p["t"])
+		node.rotation.y += delta * 2.5
+		node.position.y = float(p["base"]) + sin(Time.get_ticks_msec() * 0.004) * 0.12
+		node.visible = left > 5.0 or fmod(left, 0.4) > 0.2     # (blinking as it fades)
+		var flat := Vector2(node.position.x - hero.position.x, node.position.z - hero.position.z).length()
+		if not hero.dead and flat < 1.3:
+			_take_pickup(String(p["kind"]), node.global_position)
+			node.queue_free()
+			_pickups.erase(p)
+		elif left <= 0.0:
+			node.queue_free()
+			_pickups.erase(p)
+
+
+func _take_pickup(kind: String, at: Vector3) -> void:
+	var hero: Entity = game.hero
+	var col: Color = PICKUPS[kind]
+	Fx.sparkle(game, at, col, 24)
+	match kind:
+		"mend":
+			hero.hp = minf(hero.hp + float(hero.stats.max_hp()) * 0.5, float(hero.stats.max_hp()))
+			hero._pop("MEND!", col)
+		"overcharge":
+			overcharge = 12.0
+			hero._pop("OVERCHARGE!", col)
+		"haste":
+			haste = 12.0
+			hero._pop("HASTE!", col)
+	_sound("gain", 1.2, -4.0)
+
+
+## Every death in the Shardveil: the Veilborn may leave a shard, the Colossus leaves three - and a
+## run of the hero's kills (each within 4 s of the last) is called out.
+func on_kill(killer: Entity, victim: Entity) -> void:
+	if not chaos or victim == null:
+		return
+	if victim == _colossus:
+		_announce("COLOSSUS DOWN", Title3D.GOLD)
+		game.log_event("The Veil Colossus falls!")
+		for k in range(3):
+			_drop_pickup(victim.position + Vector3(cos(k * 2.1) * 1.5, 0.0, sin(k * 2.1) * 1.5))
+	elif victim.has_meta("veilborn") and randf() < 0.3:
+		_drop_pickup(victim.position)
+	if killer == null or not killer.is_hero:
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	_streak = _streak + 1 if now - _last_kill <= 4.0 else 1
+	_last_kill = now
+	_veil_kills += 1
+	if STREAK_WORDS.has(_streak):
+		_announce(String(STREAK_WORDS[_streak]), Title3D.ICE if _streak < 5 else Title3D.GOLD)
+		_sound("braam", 1.0 + 0.08 * float(_streak), -2.0)
+
+
+## Big words flying past (the Colossus coming, a run of kills).
+func _announce(text: String, colour: Color) -> void:
+	var vs: Vector2 = game.get_viewport().get_visible_rect().size
+	var word := Title3D.make_flying(text, minf(vs.x * 0.6, 900.0), colour, vs)
+	_layer.add_child(word)
+	word.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+
+## The line across the top: your kills here, the powers you have and for how long, the Colossus.
+func _hud_step() -> void:
+	if _hud == null:
+		return
+	var parts: Array[String] = ["THE SHARDVEIL", "kills %d" % _veil_kills]
+	if overcharge > 0.0:
+		parts.append("OVERCHARGE %ds" % ceili(overcharge))
+	if haste > 0.0:
+		parts.append("HASTE %ds" % ceili(haste))
+	if _colossus != null and is_instance_valid(_colossus) and not _colossus.dead:
+		parts.append("COLOSSUS %d%%" % roundi(100.0 * _colossus.hp / maxf(float(_colossus.stats.max_hp()), 1.0)))
+	_hud.text = "  ·  ".join(parts)
+	_hud.visible = true

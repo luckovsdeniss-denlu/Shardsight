@@ -847,7 +847,7 @@ func _follow_path(delta: float) -> void:
 	if path.size() > 1 and position.distance_to(path[0]) < 0.9 and world.walk_clear(position, path[1]):
 		path.remove_at(0)
 	_accel = move_toward(_accel, 1.0, delta * 5.0) if not path.is_empty() else 0.4   # a step to get going
-	var budget := speed * delta * (mounted_on.mount_speed if mounted_on != null else 1.0) * _accel * form_value("speed", 1.0)
+	var budget := speed * delta * (mounted_on.mount_speed if mounted_on != null else 1.0) * _accel * form_value("speed", 1.0) * _haste_mult()
 	if game.movie != null and not path.is_empty() and _near:
 		# the trailer: fluid movement - cut the path's corners (straight to the furthest point
 		# that can be walked to directly), ease off on the last stretch, and a livelier hero
@@ -1000,6 +1000,8 @@ func _resolve_blow(wielded: String, lo: float, hi: float) -> void:
 			dmg *= Rules.PLAYER_MELEE_BONUS
 		if bless_timer > 0.0:
 			dmg *= BLESS_DAMAGE
+		if is_hero and game.dimension != null and game.dimension.overcharge > 0.0:
+			dmg *= 2.0                           # (the Shardveil's overcharge shard)
 		if mounted_on != null and (wielded == "" or not Gear.is_ranged(wielded)):
 			dmg *= 1.15 + 0.01 * mounted_on.pet_level     # striking down from the saddle
 		if wielded == "" or not Gear.is_ranged(wielded):
@@ -3303,6 +3305,11 @@ func _add_turret(root: Node3D, gun_id: String, look_name: String, meshes: Array)
 	turret.position = Art.turret_spot(look_name)
 	root.add_child(turret)
 	meshes.append(turret)
+
+
+## The Shardveil's haste shard: the hero goes 1.6 times as fast while it lasts.
+func _haste_mult() -> float:
+	return 1.6 if is_hero and game != null and game.dimension != null and game.dimension.haste > 0.0 else 1.0
 
 
 ## A bright little shot from `from` to `to`.
