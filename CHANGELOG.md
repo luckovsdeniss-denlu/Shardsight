@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.9.0
+- Death and resurrection animations (experimental mode, "Death and resurrection", on by default):
+  - The slain stagger, lurch, their knees buckle and they crash to the ground - backwards on two
+    legs, onto their side for beasts - with a puff of dust, a small bounce and a wisp of spirit
+    leaving the body. Pets fall the same way.
+  - A fallen adventurer (you too) falls first; then the ghost rises up out of the body, swelling
+    out of the ground in a shimmer of pale light.
+  - Raised - by a healer or priest, at an ankh shrine or a shrine - a beam of golden light comes
+    down, a halo descends through it, and they come back kneeling, head bowed, then rise to their
+    feet as the light fades (with a shimmer of sound for you).
+
 ## 1.8.3
 - Fixed: in the Shardveil the towns still kept the peace - nobody could fight in them. Now no
   town is a refuge there: near you in the Shardveil anyone can fight anyone, in town or out, and

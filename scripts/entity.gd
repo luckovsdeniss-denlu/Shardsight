@@ -1365,6 +1365,9 @@ func _die(killer: Entity) -> void:
 	dead = true
 	anim_lift = 0.0
 	anim_spin = 0.0
+	_rise_t = 0.0
+	if rig != null:
+		rig.scale = Vector3.ONE
 	form = ""
 	form_timer = 0.0
 	effects.clear()
@@ -1390,17 +1393,26 @@ func _die(killer: Entity) -> void:
 		game.count("hero_deaths")
 		game.count("hero_killed_by_" + killer.display_name)
 	game.sound("death", position, 1.2 / maxf(visual_scale, 0.4))   # big creatures die lower
+	var anims := Experiments.on("death_anims") and _near and game.movie == null and rig != null
 	if kind == Kind.PLAYER:
 		ghost = true                   # players become ghosts and look for a resurrection spot
 		dead_timer = RED_GHOST_TIMEOUT if died_red else GHOST_TIMEOUT
-		refresh_look()
+		if anims:
+			_dying = DEATH_FALL        # (the body falls first; the ghost rises out of it after)
+			_dying_started = _dying
+		else:
+			refresh_look()
 	elif kind == Kind.PET:
 		dead_timer = INF                 # a dead pet is gone for good
-		visible = false
+		_dying = DEATH_FALL if anims else 0.0
+		_dying_started = _dying
+		visible = _dying > 0.0
 		game.on_pet_died(self)
 	else:
 		dead_timer = respawn_time
 		_dying = 0.7 if _near else 0.0         # topples over before vanishing (its corpse stays)
+		if anims:
+			_dying = DEATH_FALL
 		if game.movie != null and _near and not pro_combat():
 			_dying = COMIC_FLIGHT              # the trailer: sent flying, cartoon-style
 			game.movie.punch(1.0)
@@ -1414,7 +1426,7 @@ func _die(killer: Entity) -> void:
 
 ## Whether this fall is the trailer's cartoon flight (it starts longer than a plain topple).
 func _comic_flying() -> bool:
-	return _dying_started > 0.75
+	return _dying_started > DEATH_FALL + 0.05
 
 
 var _dying_started := 0.0
@@ -1446,6 +1458,11 @@ func _respawn() -> void:
 		else:
 			game.event_about("%s was raised at a shrine (-10%% skills)." % display_name, is_hero)
 	died_red = false
+	_rise_t = 0.0
+	if rig != null:
+		rig.scale = Vector3.ONE
+	if kind == Kind.PLAYER:
+		_resurrect_fx()
 
 
 func _heal_aura(delta: float) -> void:
@@ -2713,8 +2730,7 @@ func _raise_at(spot: Dictionary) -> void:
 	else:
 		game.event_about("%s is raised at an ankh shrine." % display_name, is_hero)
 	died_red = false
-	if _near_hero():
-		Fx.sparkle(get_parent(), position + Vector3(0.0, 0.7, 0.0), Color(0.75, 0.9, 1.0), 26)
+	_resurrect_fx()
 
 
 func _resurrect_free(healer: Entity) -> void:
@@ -2727,6 +2743,7 @@ func _resurrect_free(healer: Entity) -> void:
 	swing_cd = 1.0
 	path.clear()
 	game.event_about("%s resurrects %s." % [healer.display_name, display_name], is_hero)
+	_resurrect_fx()
 
 
 # --- gathering and crafting ------------------------------------------------
@@ -3235,6 +3252,8 @@ func _animate(delta: float) -> void:
 	rig.rotation = Vector3(-tilt, glance + anim_spin, roll)
 	if model.is_empty():
 		return
+	if _rise_t > 0.0 and _rise_kind == "ghost":
+		_rise_apply(delta)
 	var stride := sin(walk_phase) * 0.6 * _stride_k if not ghost else 0.0
 	var legs: Array = model["legs"]
 	for i in range(legs.size()):
@@ -3252,6 +3271,8 @@ func _animate(delta: float) -> void:
 		spin.rotation.y += delta * 6.0
 	for w in model.get("wheels", []):          # a car's wheels turn with the ground they cover
 		(w as Node3D).rotation.x -= moved / 0.28
+	if _rise_t > 0.0 and _rise_kind == "life":
+		_rise_apply(delta)                     # (raised: kneeling, then up)
 
 
 # --- the Shardveil: guns and the free-for-all (the "Shardveil chaos" experiment) ----------------
@@ -5085,6 +5106,9 @@ func _fall_step(delta: float) -> void:
 			rig.scale = Vector3.ONE
 			Fx.sparkle(get_parent(), position + Vector3(0.0, 2.0, -2.5), Color(1.0, 0.95, 0.6), 18)   # a twinkle as it goes
 		return
+	if absf(_dying_started - DEATH_FALL) < 0.01:
+		_death_fall_step(delta)
+		return
 	_dying -= delta
 	var k := clampf(1.0 - _dying / 0.7, 0.0, 1.0)
 	var e := 1.0 - (1.0 - k) * (1.0 - k)          # quick at first, settling at the end
@@ -5097,6 +5121,152 @@ func _fall_step(delta: float) -> void:
 		if rig != null:
 			rig.rotation = Vector3.ZERO
 			rig.position = Vector3.ZERO
+
+
+## Death and resurrection (the "Death and resurrection" experiment).
+const DEATH_FALL := 1.1                        # seconds of falling
+const RISE_GHOST := 0.9                        # a ghost rising out of its body
+const RISE_LIFE := 1.3                         # the raised getting to their feet
+
+
+## The fall: a stagger, the knees buckling, then down - backwards for those on two legs, onto the
+## side for beasts - hitting the ground with a puff of dust and a small bounce, while a wisp of
+## spirit leaves the body. A fallen adventurer's ghost then rises out of it.
+func _death_fall_step(delta: float) -> void:
+	var before := 1.0 - _dying / DEATH_FALL
+	_dying -= delta
+	var k := clampf(1.0 - _dying / DEATH_FALL, 0.0, 1.0)
+	var quad := bool(model.get("quad", false)) and model.get("arm_l") == null
+	var side := 1.0 if get_instance_id() % 2 == 0 else -1.0
+	var fall := 0.0
+	var y := 0.0
+	var wob := 0.0
+	if k < 0.25:                                   # struck: a stagger, the knees going
+		var a := k / 0.25
+		wob = sin(a * PI * 2.0) * 0.12 * (1.0 - a)
+		fall = -0.12 * sin(a * PI)                 # (a lurch the other way first)
+		y = -0.1 * a
+	elif k < 0.7:                                  # down, faster and faster
+		var f := (k - 0.25) / 0.45
+		fall = f * f * 1.5
+		y = -0.1 - 0.08 * f
+	else:                                          # the ground: a small bounce, then still
+		var b := (k - 0.7) / 0.3
+		fall = 1.5 - 0.14 * sin(b * PI) * (1.0 - b * 0.5)
+		y = -0.18 + 0.05 * sin(b * PI) * (1.0 - b)
+	if rig != null:
+		if quad:
+			rig.rotation = Vector3(0.0, 0.0, side * fall)
+			rig.position = Vector3(side * 0.12 * clampf(fall, 0.0, 1.5), y * 0.6, 0.0)
+		else:
+			rig.rotation = Vector3(fall, 0.0, wob)
+			rig.position = Vector3(0.0, y, 0.28 * clampf(fall, 0.0, 1.5) / 1.5)
+	if before < 0.7 and k >= 0.7:                  # the impact
+		var at := position + Vector3(0.0, 0.15, 0.0)
+		Fx.sparkle(get_parent(), at, Color(0.55, 0.47, 0.36), int(14 * clampf(visual_scale, 0.6, 2.0)))   # dust
+		Fx.sparkle(get_parent(), at + Vector3(0.0, 0.6, 0.0), Color(0.85, 0.9, 1.0), 10)               # a wisp of spirit
+	if _dying <= 0.0:
+		_dying = 0.0
+		if rig != null:
+			rig.rotation = Vector3.ZERO
+			rig.position = Vector3.ZERO
+		if ghost:                                  # the ghost rises out of the body
+			refresh_look()
+			_rise_kind = "ghost"
+			_rise_t = RISE_GHOST
+			_rise_apply(0.0)
+			Fx.sparkle(get_parent(), position + Vector3(0.0, 0.5, 0.0), Color(0.75, 0.85, 1.0), 20)
+		else:
+			visible = false
+
+
+var _rise_t := 0.0
+var _rise_kind := ""
+
+
+## Raised: in a beam of light, under a halo coming down, kneeling - then up onto their feet.
+func _resurrect_fx() -> void:
+	if not Experiments.on("death_anims") or not _near or rig == null or game.movie != null:
+		if _near_hero():
+			Fx.sparkle(get_parent(), position + Vector3(0.0, 0.7, 0.0), Color(0.75, 0.9, 1.0), 26)
+		return
+	_rise_kind = "life"
+	_rise_t = RISE_LIFE
+	var holder := Node3D.new()
+	get_parent().add_child(holder)
+	holder.global_position = position
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.albedo_color = Color(1.0, 0.92, 0.65, 0.55)
+	var beam := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.55
+	cyl.bottom_radius = 0.55
+	cyl.height = 9.0
+	cyl.radial_segments = 16
+	cyl.cap_top = false
+	cyl.cap_bottom = false
+	beam.mesh = cyl
+	beam.material_override = mat
+	beam.position.y = 4.5
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	holder.add_child(beam)
+	var halo := MeshInstance3D.new()
+	var tor := TorusMesh.new()
+	tor.inner_radius = 0.42
+	tor.outer_radius = 0.52
+	tor.rings = 24
+	tor.ring_segments = 6
+	halo.mesh = tor
+	halo.material_override = Art.glow_mat(Color(1.0, 0.9, 0.55))
+	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	halo.position.y = 3.2
+	holder.add_child(halo)
+	beam.scale = Vector3(0.05, 1.0, 0.05)
+	var tw := holder.create_tween()
+	tw.tween_property(beam, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(halo, "position:y", 0.15, RISE_LIFE * 0.85).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_interval(0.3)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.8)
+	tw.parallel().tween_property(beam, "scale", Vector3(0.05, 1.0, 0.05), 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(halo, "scale", Vector3.ONE * 1.8, 0.8)
+	tw.parallel().tween_property(halo, "transparency", 1.0, 0.8)
+	tw.tween_callback(holder.queue_free)
+	Fx.sparkle(get_parent(), position + Vector3(0.0, 0.4, 0.0), Color(1.0, 0.92, 0.6), 30)
+	Fx.sparkle(get_parent(), position + Vector3(0.0, 1.4, 0.0), Color(0.8, 0.95, 1.0), 20)
+	if is_hero:
+		game.sound_here("shimmer", 1.0, -4.0)
+	_rise_apply(0.0)
+
+
+## Rising (after _animate has placed the body): a ghost swelling up out of the ground; the raised
+## kneeling, then standing.
+func _rise_apply(delta: float) -> void:
+	if rig == null:
+		return
+	_rise_t = maxf(_rise_t - delta, 0.0)
+	if _rise_kind == "ghost":
+		var k := 1.0 - _rise_t / RISE_GHOST
+		var e := 1.0 - pow(1.0 - k, 3.0)
+		rig.position.y += lerpf(-0.9, 0.0, e)
+		rig.scale = Vector3(lerpf(0.5, 1.0, e), lerpf(0.2, 1.0, e), lerpf(0.5, 1.0, e))
+	else:
+		var k := 1.0 - _rise_t / RISE_LIFE
+		var up := smoothstep(0.45, 1.0, k)         # kneeling in the light, then up
+		var kneel := 1.0 - up
+		rig.position.y += -0.42 * kneel + 0.04 * sin(up * PI)
+		rig.rotation.x += 0.5 * kneel              # head bowed, leaning in
+		rig.scale = Vector3.ONE
+		for knee in model.get("knees", []):
+			(knee as Node3D).rotation.x = -1.4 * kneel
+		for hip in model.get("hips", []):
+			(hip as Node3D).rotation.x = 1.0 * kneel
+	if _rise_t <= 0.0:
+		rig.scale = Vector3.ONE
+		_rise_kind = ""
 
 
 ## On a long walk across the map: keep going (round obstacles, path by path) until there. Anyone
