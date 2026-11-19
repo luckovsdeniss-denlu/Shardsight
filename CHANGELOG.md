@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.6.0
+- The warband (experimental mode, "Warband", on by default):
+  - The hero raises a guild of their own - "<name>'s Warband", free - and declares war on every
+    other guild (the Order of the Silver Serpent, the Wardens of Southmoor, the Shadowclan).
+  - Every 20 seconds the nearest guildless player close by is asked to join, and half the time
+    does (a green shimmer); one who says no isn't asked again for two minutes.
+  - At war, the hero on Auto and every member of the warband go after the other guilds' players
+    - no crime in a guild war - and the warring guilds come after you.
+  - Any player who falls leaves a treasure chest a third of the time: gold, an artifact, often a
+    ring or an amulet.
+
 ## 2.5.0
 - Steady growth (experimental mode, "Steady growth", on by default): every second of play the
   hero grows a little - 0.1 a second - in the way they've chosen by how they play: the fighting

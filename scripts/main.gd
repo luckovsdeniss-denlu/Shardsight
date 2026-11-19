@@ -2321,6 +2321,8 @@ func _story_advance(subject: Vector3) -> void:
 
 
 func on_kill(killer: Entity, victim: Entity) -> void:
+	if Experiments.on("warband") and victim != null and victim != hero and victim.kind == Entity.Kind.PLAYER and randf() < 0.33:
+		_drop_chest(victim)                      # (a fallen player leaves a treasure chest, a third of the time)
 	if victim == hero:
 		score.sting("fall")
 	elif killer != null and killer == hero:
@@ -5726,6 +5728,7 @@ func _process(delta: float) -> void:
 		_check_achievements()
 	property.play_time += delta
 	_growth_tick(delta)
+	_warband_tick(delta)
 	_hud_timer -= delta
 	if _hud_timer <= 0.0:
 		_hud_timer = 0.2                     # the HUD text five times a second
@@ -5736,6 +5739,58 @@ func _process(delta: float) -> void:
 
 var _hud_timer := 0.0
 var _tick_n := 0
+
+
+## The warband (the "Warband" experiment): the hero raises a guild of their own - for free - and
+## declares war on every other guild, then gathers players into it: every 20 seconds the nearest
+## guildless player close by is asked, and half the time joins. At war, the hero (on Auto) and
+## every member go after the other guilds' players for their loot - no crime in a guild war - and
+## any player who falls leaves a treasure chest a third of the time.
+var _warband_acc := 0.0
+var _warband_ask := 10.0
+var _warband_war_set := false
+
+
+func _warband_tick(delta: float) -> void:
+	if not Experiments.on("warband") or hero == null or hero.dead or movie != null or autotest:
+		return
+	_warband_acc += delta
+	if _warband_acc < 2.0:
+		return
+	_warband_acc = 0.0
+	if hero.guild_id() != "player":
+		guilds.found(hero.display_name, "%s's Warband" % hero.display_name, hero.display_name.left(3).to_upper())
+		_warband_war_set = false
+		log_event("You raise a guild of your own: %s. Every other guild is now at war with you." % guilds.list["player"]["name"])
+	if not _warband_war_set:
+		_warband_war_set = true
+		for id in guilds.list.keys():
+			if id != "player":
+				guilds.set_war("player", id, true)
+	_warband_ask -= 2.0
+	if _warband_ask > 0.0:
+		return
+	_warband_ask = 20.0
+	var best: Entity = null
+	var best_d := 25.0
+	for c in creatures:
+		if c.kind != Entity.Kind.PLAYER or c.is_hero or c.dead or c.parked or not c.visible:
+			continue
+		if c.guild_id() != "" or guilds.invite_cd.has(c.display_name):
+			continue
+		var d := c.position.distance_to(hero.position)
+		if d < best_d:
+			best = c
+			best_d = d
+	if best == null:
+		return
+	if randf() < 0.5:
+		guilds.join(best.display_name, "player")
+		best.target = null
+		log_event("%s joins %s!" % [best.display_name, guilds.list["player"]["name"]])
+		Fx.sparkle(self, best.position + Vector3(0.0, 1.2, 0.0), Color(0.5, 1.0, 0.6), 18)
+	else:
+		guilds.invite_cd[best.display_name] = Guilds.INVITE_COOLDOWN
 
 
 ## Steady growth (the "Steady growth" experiment): every second of play the hero grows a little
