@@ -535,7 +535,7 @@ func tick(delta: float) -> void:
 		return
 	# Decisions a few times a second (they scan everyone around); moving and swinging every frame.
 	_think_acc += delta
-	if _think_acc >= _think_every * (1.0 if _near or is_hero else 3.0):   # far off screen: think less often
+	if _think_acc >= _think_every * (1.0 if _near or is_hero else 3.0) * (1.5 if game._sim_lite and not is_hero else 1.0):   # far off screen (and a lighter crowd): think less often
 		_think(_think_acc)
 		_think_acc = 0.0
 	_follow_path(delta)
@@ -1822,9 +1822,20 @@ func _finish_cast() -> void:
 
 
 ## Heals itself when hurt, otherwise casts the best affordable attack spell in range.
+var _next_cast_think := 0
+
+
 func _try_auto_cast(d: float) -> bool:
 	if casting_id != "" or cast_cd > 0.0 or (is_hero and game.movie != null):
 		return false                          # (the trailer times the hero's spells itself: blade and magic in turn)
+	if mana < 4.0 or spellbook.is_empty():
+		return false                          # (not even the cheapest spell: no need to look)
+	# Choosing a spell looks through every spell and everyone around: three times a second is
+	# plenty (every frame, with a crowd in a fight, it was most of the game's work).
+	var now := Time.get_ticks_msec()
+	if now < _next_cast_think:
+		return false
+	_next_cast_think = now + 280 + randi() % 120
 	if poison_level > 0:
 		var cure_id := _best_spell("cure")
 		if cure_id != "":
@@ -3199,8 +3210,8 @@ func _count_fair_targets(radius: float) -> int:
 	var list: Array = game.creatures
 	for item in list:
 		var e := item as Entity
-		if e != self and not e.dead and _is_fair_target(e) and position.distance_to(e.position) <= radius:
-			n += 1
+		if e != self and not e.dead and position.distance_squared_to(e.position) <= radius * radius and _is_fair_target(e):
+			n += 1                                 # (the distance first: it's the cheap test)
 	return n
 
 

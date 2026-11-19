@@ -3,6 +3,23 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.4.0
+- Much smoother, especially in a crowd (measured: the work each frame for everyone's doings is
+  down from 9.4 ms to 3.5 ms on average, and frames over 12 ms from 614 to under 15 in a minute
+  of the Shardveil's free-for-all):
+  - Everyone in a fight was choosing a spell every frame - looking through every spell in the
+    game and counting everyone round them twice - even monsters that can't cast at all. Now only
+    those with a spellbook and the mana for one look, three times a second, and the count checks
+    the distance first.
+  - In the Shardveil the guns and the gunslinger look were put on everyone near at once (each a
+    whole model rebuilt in one frame: up to 27 ms). Now three at a time, a fifth of a second
+    apart (worst frame 8 ms).
+  - A lighter crowd (Max optimization, or when Auto needs it) also thinks less often off camera.
+- Max optimization fixed and made the only choice when it's on: it used to fail at start-up
+  (when it had been left on), leaving shadows, grass and the rest on. Now it works, and turning
+  it on turns Auto-optimize and every look off, light rain only - the Performance panel then shows
+  just Max optimization (and the frame counter). Turning it off brings Auto-optimize back.
+
 ## 2.3.4
 - Getting out stays out: press Car (or Ride) to get out of the Riftrunner (or off your mount) and
   the hero stays on foot - Auto no longer puts you straight back in, nor does Follow story - until

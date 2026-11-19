@@ -1254,7 +1254,7 @@ func _chaos_step(delta: float) -> void:
 		return
 	_arm_check -= delta
 	if _arm_check <= 0.0:
-		_arm_check = 1.0
+		_arm_check = 0.2                           # (often, but only a few new looks each time: no stutter)
 		_arm_round()
 	_car_turrets(delta)
 	_meteor_t -= delta
@@ -1267,9 +1267,15 @@ func _chaos_step(delta: float) -> void:
 ## Everyone near you gets a gun (and keeps it while near) - every monster too, and the pets; a
 ## beast with no hands has it strapped to its back. Anyone who's gone far off gets their own weapon
 ## back.
+const REBUILDS_PER_ROUND := 3                  # new looks (a model rebuilt each) per round, at most
+
+
 func _arm_round() -> void:
 	var hero: Entity = game.hero
+	var budget := REBUILDS_PER_ROUND
 	for item in game.creatures:
+		if budget <= 0:
+			break                                  # (the rest next round, a fifth of a second on)
 		var e := item as Entity
 		if e == null or e.dead or e.parked or e.is_vehicle:
 			continue
@@ -1277,19 +1283,24 @@ func _arm_round() -> void:
 		if e.kind == Entity.Kind.NPC:              # the townsfolk: the look, but no gun
 			if e.has_meta("veil_look") and d > CHAOS_RADIUS + 6.0:
 				_undress(e)
+				budget -= 1
 			elif not e.has_meta("veil_look") and d <= CHAOS_RADIUS:
 				e.set_meta("veil_look", true)
 				e.refresh_look()
 				_dressed.append(e)
+				budget -= 1
 			continue
 		if e.has_meta("veil_weapon"):
 			if d > CHAOS_RADIUS + 6.0:
 				_disarm(e)
+				budget -= 1
 			elif Gear.gun(e.weapon) == "":
 				e.weapon = String(e.get_meta("veil_gun"))   # (put away: in the Shardveil the gun's back in hand)
 				e.refresh_look()
+				budget -= 1
 		elif d <= CHAOS_RADIUS:
 			_arm(e)
+			budget -= 1
 	# the cars (the adventurers', and yours): a gun on the bonnet that fires by itself
 	for item in _all_cars():
 		var c: Entity = item
@@ -1298,11 +1309,15 @@ func _arm_round() -> void:
 		var driver: Entity = c.pet_owner
 		var at: Vector3 = driver.position if (c.parked and driver != null and is_instance_valid(driver)) else c.position
 		var dc := at.distance_to(hero.position)
+		if budget <= 0:
+			break
 		if c.has_meta("veil_weapon"):
 			if dc > CHAOS_RADIUS + 6.0:
 				_disarm(c)
+				budget -= 1
 		elif dc <= CHAOS_RADIUS:
 			_arm(c)
+			budget -= 1
 
 
 func _arm(e: Entity) -> void:

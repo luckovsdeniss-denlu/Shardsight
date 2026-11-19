@@ -1167,7 +1167,15 @@ func _set_max_opt(on: bool) -> void:
 	if on:
 		_set_goal(30)
 		_render_scale = 0.6
+		_auto_opt = false                          # (everything else off: Max optimization alone decides)
+		for id in _perf:
+			_perf[id] = false
+		if rain != null:
+			rain.amount = 90                       # (light rain)
 	else:
+		_auto_opt = true                           # (back to Auto-optimize, every look allowed again)
+		for id in _perf:
+			_perf[id] = true
 		_render_scale = _render_base
 		_scale_cap = _render_base
 		_q = 0
@@ -1229,9 +1237,10 @@ func _apply_features() -> void:
 	for n in world.decor:
 		if n != null:
 			(n as Node3D).visible = _feat("grass")
-	if not _feat("ambient"):
+	if not _feat("ambient") and _butterflies != null:
 		_butterflies.emitting = false
-		_leaves.emitting = false
+		if _leaves != null:
+			_leaves.emitting = false
 	if not _feat("far"):
 		cam.far = minf(cam.far, 70.0)
 	elif cam.far < 80.0 and not property.first_person:
@@ -1273,7 +1282,14 @@ func _refresh_perf() -> void:
 	mx.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6) if _max_opt else Color(1.0, 0.85, 0.45))
 	box.add_child(mx)
 	box.add_child(_info("Max optimization: the cheapest of everything - every look off, few particles, a lighter crowd, 60% resolution - locked at a steady 30 frames a second." if not _max_opt
-		else "On: everything at its cheapest, locked at 30. Turn it off to let Auto-optimize decide again."))
+		else "On: everything at its cheapest, locked at 30 - Auto-optimize and every look are off. Turn it off to let Auto-optimize decide again."))
+	if _max_opt:                                   # (Max optimization alone: nothing else to choose)
+		box.add_child(_menu_button("Frame counter: %s" % ("Shown" if _fps_label.get_parent().visible else "Hidden"), func() -> void:
+			var fl := _fps_label.get_parent() as CanvasLayer
+			fl.visible = not fl.visible
+			_refresh_perf()))
+		box.add_child(_menu_button("Close", _close_perf))
+		return
 	box.add_child(_menu_button("Auto-optimize: %s" % ("On" if _auto_opt else "Off"), func() -> void:
 		_auto_opt = not _auto_opt
 		if _auto_opt:
