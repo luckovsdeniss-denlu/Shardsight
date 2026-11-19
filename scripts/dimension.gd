@@ -313,7 +313,7 @@ func car_pressed() -> void:
 
 ## Rift jump: the car changes. It stops; its wheels fold up flat into glowing hover pads; wings of
 ## violet metal swing out from its sides with thrusters behind; the shard rises from its cradle,
-## swelling and spinning fast; the car lifts off the ground, rings of light whirling round it -
+## swelling and spinning fast; the car lifts off the ground, energy swirling in round it -
 ## then it shoots ahead and, in a white flash, it's through to the other side, where it settles
 ## back down, folds its wings and drops onto its wheels again.
 const TF_RISE := 1.5                           # seconds of changing before the dash
@@ -506,14 +506,7 @@ class CarChange:
 			fire.color_ramp = ramp
 			jet.add_child(fire)
 			jets.append(jet)
-		rings = Node3D.new()
-		root.add_child(rings)
-		for i in range(3):
-			var ring := MeshInstance3D.new()
-			ring.mesh = rings_from[i % rings_from.size()]
-			ring.material_override = Art.glow_mat(VIOLET if i != 1 else TEAL)
-			ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			rings.add_child(ring)
+		rings = null                               # (no rings of light round it: the car alone)
 		# the cyber skin: every plain-painted part of the car (its new wings too) wears it
 		if cyber_shader == null:
 			cyber_shader = Shader.new()
@@ -768,6 +761,8 @@ class CarChange:
 			if fire != null:
 				fire.emitting = k_wing > 0.5
 				fire.scale = Vector3.ONE * (1.8 if burning else 1.0)
+		if rings == null:
+			return
 		rings.visible = k_ring > 0.01
 		for i in range(rings.get_child_count()):   # rings of light whirling round it
 			var ring := rings.get_child(i) as Node3D

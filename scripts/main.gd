@@ -5118,21 +5118,66 @@ func _render_log(l: RichTextLabel, lines: Array[String], right: bool) -> void:
 
 
 func log_event(text: String) -> void:
+	if _repeat(log_lines, text):
+		_render_log(log_label, log_lines, false)
+		return
 	log_lines.append(text)
 	while log_lines.size() > LOG_LINES:
 		log_lines.remove_at(0)
 	_render_log(log_label, log_lines, false)
 
 
+## No flooding: a line already among the last few is counted on that line ("... x3") and moved to
+## the bottom, instead of being written again and again.
+func _repeat(lines: Array[String], text: String) -> bool:
+	for i in range(lines.size() - 1, maxi(lines.size() - 4, 0) - 1, -1):
+		var line := lines[i]
+		var base := line
+		var n := 1
+		var cut := line.rfind("  x")
+		if cut > 0 and line.substr(cut + 3).is_valid_int():
+			base = line.substr(0, cut)
+			n = int(line.substr(cut + 3))
+		if base == text:
+			lines.remove_at(i)
+			lines.append("%s  x%d" % [text, n + 1])
+			return true
+	return false
+
+
+## Others raised from the dead (by healers, priests, shrines) come in floods where many fall: in
+## the world log at most one line about it every 20 seconds, with how many others meanwhile.
+var _raise_said := -100.0
+var _raise_more := 0
+
+
+func _raise_line(text: String) -> bool:
+	if not (text.contains(" resurrects ") or text.contains(" raised at ")):
+		return false
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _raise_said < 20.0:
+		_raise_more += 1
+		return true
+	_raise_said = now
+	if _raise_more > 0:
+		text += "  (and %d more raised meanwhile)" % _raise_more
+	_raise_more = 0
+	world_event(text)
+	return true
+
+
 ## Goes to the player's log (left) if it involves the hero, otherwise to the world log (right).
 func event_about(text: String, mine: bool) -> void:
 	if mine:
 		log_event(text)
-	else:
+	elif not _raise_line(text):
 		world_event(text)
 
 
 func world_event(text: String) -> void:
+	if _repeat(world_lines, text):
+		_render_log(world_label, world_lines, true)
+		return
 	world_lines.append(text)
 	while world_lines.size() > LOG_LINES:
 		world_lines.remove_at(0)

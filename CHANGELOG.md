@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.3.3
+- The Riftrunner's change has no rings of light round it any more: just the car changing, the
+  energy swirling in, the sparks and the trail.
+- The logs no longer flood: a line already among the last few is counted on it ("... x3") instead
+  of written again and again; others raised from the dead (by healers, priests and shrines) get
+  at most one line in the world log every 20 seconds, with how many more meanwhile; and "You
+  break off and retreat to heal" / "You are healed and ready" at most every 15 seconds.
+
 ## 2.3.2
 - The stats always start hidden (Show stats, top left, brings them up).
 - Nothing left behind by the Riftrunners: every two seconds any car change no longer in use (a

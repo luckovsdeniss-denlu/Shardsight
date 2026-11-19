@@ -5659,8 +5659,13 @@ func start_retreat() -> void:
 	crafting_trip = false
 	if casting_id != "" and String(Spells.LIST[casting_id]["kind"]) in HARMFUL_KINDS:
 		_fizzle("you break off")
-	if is_hero:
+	if is_hero and _now() - _retreat_said > 15.0:
+		_retreat_said = _now()                 # (not every time it flickers on and off)
 		game.log_event("You break off and retreat to heal.")
+
+
+var _retreat_said := -100.0
+var _ready_said := -100.0
 
 
 func stop_retreat() -> void:
@@ -5672,7 +5677,8 @@ func _retreat_step() -> void:
 	var max_hp := float(stats.max_hp())
 	if hp >= max_hp * 0.95 and poison_level <= 0:
 		retreating = false
-		if is_hero:
+		if is_hero and _now() - _ready_said > 15.0:
+			_ready_said = _now()
 			game.log_event("You are healed and ready.")
 		return
 	_try_potion()
