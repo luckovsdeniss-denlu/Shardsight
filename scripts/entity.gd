@@ -947,7 +947,7 @@ func _fight() -> void:
 		hi = 6.0
 	if flags.has("invisible"):
 		_end_flag("invisible")              # attacking reveals you
-	swing_cd = Rules.swing_seconds(maxi(1, int(stamina)), ws)   # tired fighters swing slower
+	swing_cd = Rules.swing_seconds(maxi(1, int(stamina)), ws) / _attack_haste()   # tired fighters swing slower; seasoned ones faster
 	stamina = maxf(stamina - SWING_STAMINA, 0.0)
 	_swing_len = SWING_ANIM
 	swing_anim = SWING_ANIM
@@ -5517,6 +5517,15 @@ func _story_foe(e: Entity) -> bool:
 	return e == game.story_boss or (String(step["kind"]) == "kill" and e.display_name == String(step.get("target", "")))
 
 
+## The seasoned hero (the "Seasoned hero" experiment): blows come faster with the level and with
+## skill in the weapon and in Tactics - up to about twice as fast at the top.
+func _attack_haste() -> float:
+	if not is_hero or not Experiments.on("seasoned"):
+		return 1.0
+	var lv := float(stats.level() - 1) / float(Hero.LEVEL_MAX - 1)
+	return 1.0 + 0.55 * lv + 0.3 * _skill(_weapon_skill()) / 100.0 + 0.15 * _skill(Hero.Skill.TACTICS) / 100.0
+
+
 ## On the story's way: following it by the button, or Auto's story errand (between its legs too).
 func _on_story_way() -> bool:
 	if not is_hero:
@@ -5835,6 +5844,8 @@ func pvp_problem(v: Entity) -> String:
 func _on_level_up(lv: int) -> void:
 	if is_hero:
 		game.count("levels_gained")
+		if game.frontier != null:
+			game.frontier.check_armour_level(lv)
 	# Announced every 5 levels. A gain can jump a level or two, so announce on passing a
 	# multiple of 5, not only on landing on one.
 	if _announced_level == 0:              # first gain this session (a loaded hero may be high)

@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.11.0
+- The seasoned hero (experimental mode, "Seasoned hero", on by default):
+  - Every couple of levels the hero (on Auto) looks for better armour: the best of leather,
+    studded, chainmail and platemail it's strong enough to wear and can afford (from the purse,
+    then the bank, keeping a little back) - a mage keeps off metal, which stops Meditation. In
+    the bag already, it's put on at once; otherwise the hero goes to the nearest merchant, buys it
+    and puts it on.
+  - The hero's blows come faster as it grows: with every level, and with skill in the weapon and
+    in Tactics - up to about twice as fast at the top.
+
 ## 2.10.1
 - The story goes on in the Shardveil too: following it (by the button, or Auto), the hero no
   longer picks new fights on the way - in the Shardveil's free-for-all that never ended - and

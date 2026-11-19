@@ -2466,6 +2466,8 @@ func _auto_tick(delta: float) -> void:
 		_errand_step()
 		return
 	_auto_wait -= step
+	if armour_due and hero.target == null and not hero.has_journey:
+		_auto_wait = 0.0                           # (better armour first)
 	if _auto_wait > 8.0 and auto_on("story") and hero.target == null and not hero.has_journey \
 			and not game.property.story_done and game.has_story_target \
 			and hero.position.distance_to(game.story_target) > 3.0:
@@ -2481,6 +2483,8 @@ func _pick_errand() -> void:
 		if randf() < 0.3:                          # time to sail home from the isle
 			_go("sail_home", world.tile_center(DOCKS[7]["tile"]), _sail.bind(7, false), null, 1.8)
 		return
+	if armour_due and _errand_armour():
+		return                                     # (a couple of levels on: better armour, if there's any to be had)
 	if auto_on("story") and _errand_story():
 		auto_last["story"] = _now()
 		return                                     # (the main story first, whenever it leads somewhere)
@@ -2593,6 +2597,84 @@ func _hunt(kind: String, n: String) -> bool:
 func _engage(e: Entity) -> void:
 	if is_instance_valid(e) and not e.dead:
 		hero.target = e
+
+
+## The seasoned hero (the "Seasoned hero" experiment): every couple of levels the hero (on Auto)
+## looks for better armour - the best it's strong enough for and can afford (a mage keeps off
+## metal, which stops Meditation) - puts it on at once if it's in the bag, or goes to the nearest
+## merchant to buy it.
+var armour_due := false
+var _armour_level := 0
+const ARMOUR_TIERS := ["platemail", "chainmail", "studded_armor", "leather_armor"]
+
+
+func check_armour_level(lv: int) -> void:
+	if not Experiments.on("seasoned"):
+		return
+	if _armour_level == 0:
+		_armour_level = lv
+	elif lv >= _armour_level + 2:
+		_armour_level = lv
+		armour_due = true
+
+
+func _nearest_merchant() -> Entity:
+	var best: Entity = null
+	var best_d := INF
+	for item in game.creatures:
+		var e := item as Entity
+		if e.shop == null or e.dead:
+			continue
+		var d := e.position.distance_to(hero.position)
+		if d < best_d:
+			best = e
+			best_d = d
+	return best
+
+
+func _armour_upgrade(m: Entity) -> String:
+	var cur := 0.0
+	if hero.armor_id != "":
+		cur = float(Gear.stats(hero.armor_id).get("rating", 0.0))
+	var mage := hero._skill(Hero.Skill.MAGERY) > hero._skill(hero._weapon_skill())
+	var purse: int = hero.gold + int(game.property.bank_gold)
+	for id: String in ARMOUR_TIERS:
+		var g: Dictionary = Gear.stats(id)
+		if float(g["rating"]) <= cur or (mage and bool(g.get("metal", false))) or hero.stats.eff_str() < int(g.get("str", 0)):
+			continue
+		if hero.inventory.has(id):
+			return id
+		if m != null and purse >= m.shop.price(Items.value(id)) + 40:
+			return id
+	return ""
+
+
+func _errand_armour() -> bool:
+	armour_due = false
+	var m := _nearest_merchant()
+	var id := _armour_upgrade(m)
+	if id == "":
+		return false
+	if hero.inventory.has(id):
+		hero._equip(id)
+		game.log_event("A couple of levels stronger, you put on your %s." % Gear.stats(id)["name"])
+		return false
+	return _go("armour", m.position, _auto_buy_armour.bind(m, id), m, 2.5)
+
+
+func _auto_buy_armour(m: Entity, id: String) -> void:
+	if m == null or not is_instance_valid(m) or m.shop == null:
+		return
+	var cost: int = m.shop.price(Items.value(id))
+	if hero.gold + game.property.bank_gold < cost:
+		return
+	var from_purse := mini(hero.gold, cost)
+	hero.gold -= from_purse
+	game.property.bank_gold -= cost - from_purse
+	m.shop.take_payment(cost)
+	hero.inventory[id] = int(hero.inventory.get(id, 0)) + 1
+	hero._equip(id)
+	game.log_event("A couple of levels stronger, you buy %s from %s for %d gold and put it on." % [Gear.stats(id)["name"], m.display_name, cost])
 
 
 ## The main story: off to wherever it leads now (the person to see, a shrine, the lair, the Broken
