@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.9.2
+- Player bars (experimental mode, "Player bars", on by default): a health bar over every player -
+  you and every adventurer - all the time, not only when hurt or fighting; and a blue casting bar
+  under it, filling while they speak a spell.
+
 ## 1.9.1
 - Safe zones are safe everywhere: nobody can fight in a town, or into or out of one - in the
   Shardveil too (its free-for-all, guns, car turrets and meteors stop at the town's edge, and the

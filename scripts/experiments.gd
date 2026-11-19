@@ -14,6 +14,7 @@ const LIST := [
 	{"id": "rich_graphics", "name": "Richer graphics", "desc": "Rounder, smoother creatures with bevelled armour; soft shadows under everyone; a rim of light; finer ground; stone walls with windows that glow at night (from the next start).", "restart": true},
 	{"id": "wild_life", "name": "Wild life", "desc": "Deer grazing at the edges of the woods, rabbits in the meadows, ducks on the lakes, fish leaping, and bats at night - they bolt when you come close.", "restart": false},
 	{"id": "death_anims", "name": "Death and resurrection", "desc": "The slain stagger, buckle and crash to the ground (beasts onto their sides) with a puff of dust and a wisp of spirit; a fallen adventurer's ghost rises out of the body; and the raised come back kneeling in a beam of light under a descending halo, then rise to their feet.", "restart": false, "default": true},
+	{"id": "player_bars", "name": "Player bars", "desc": "A health bar over every player - you and every adventurer - all the time, and a blue casting bar under it while they speak a spell.", "restart": false, "default": true},
 	{"id": "pro_combat", "name": "Weighty combat", "desc": "Blows are drawn back, struck and followed through, and land at the moment of impact with a brief freeze; clean flinches.", "restart": false},
 ]
 const CFG := "user://shardsight_experiments.json"

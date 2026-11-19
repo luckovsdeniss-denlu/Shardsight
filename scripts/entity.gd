@@ -370,6 +370,7 @@ func _build_visual(color: Color, s: float) -> void:
 	label.visible = bool(game.property.names_on)
 	hp_bar = Art.hp_bar()
 	hp_bar.position = Vector3(0.0, 1.5 * s + 0.18, 0.0)
+	_bar_y = hp_bar.position.y
 	add_child(hp_bar)
 	if Art.rich:
 		_contact = Art.contact_shadow(s)       # (richer graphics: a soft shadow sits it on the ground)
@@ -5642,8 +5643,8 @@ func _start_cast_fx(c: Color) -> void:
 		add_child(_cast_fx)
 		_cast_fx.position = Vector3(0.0, 0.15, 0.0)
 		_cast_fx.emitting = true
-	# the casting bar under the hero's health bar - in the trailer only (in the game nothing shows there)
-	if is_hero and game.movie != null:
+	# the casting bar under the health bar - the hero's in the trailer; every player's with "Player bars"
+	if (is_hero and game.movie != null) or (kind == Kind.PLAYER and _near and game.movie == null and Experiments.on("player_bars")):
 		if cast_bar == null:
 			cast_bar = Art.hp_bar()
 			(cast_bar.material_override as ShaderMaterial).set_shader_parameter("tint", Color(0.45, 0.65, 1.0, 1.0))
@@ -5722,12 +5723,20 @@ func _maybe_label(delta: float) -> void:
 		_refresh_label()
 
 
+var _bar_y := 0.0
+
+
 ## The health bar shows over anyone hurt or fighting (and always over the hero), not townsfolk.
 func _update_hp_bar() -> void:
 	var max_hp := float(stats.max_hp())
-	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self and (game.movie != null or not is_hero) \
-		and (is_hero or hp < max_hp - 0.5 or target != null)
+	var all_bars := kind == Kind.PLAYER and game.movie == null and Experiments.on("player_bars")   # (over every player, always)
+	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self and (game.movie != null or not is_hero or all_bars) \
+		and (is_hero or all_bars or hp < max_hp - 0.5 or target != null)
 	hp_bar.visible = show
+	if show and all_bars:                    # (riding: up over the rider's head)
+		hp_bar.position.y = _bar_y + (mounted_on.saddle * mounted_on.visual_scale if mounted_on != null else 0.0)
+		if cast_bar != null:
+			cast_bar.position.y = hp_bar.position.y - 0.14
 	if show:
 		(hp_bar.material_override as ShaderMaterial).set_shader_parameter("fill", clampf(hp / max_hp, 0.0, 1.0))
 
