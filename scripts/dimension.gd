@@ -370,11 +370,10 @@ func _jump_step(delta: float) -> void:
 		elif not _dashing or hero.path.is_empty():
 			_dashing = true
 			hero.go_to(_portal_pos + _jump_dir * 6.0)   # (and then away, straight ahead)
-		var k_fold := smoothstep(0.1, 0.7, _jump_t)
-		var k_wing := smoothstep(0.45, 1.15, _jump_t)
+		if _change == null:
+			_change = _new_change(hero)
+		_change.pose_out(delta, _jump_t)
 		var k_lift := smoothstep(0.6, 1.4, _jump_t)
-		var k_ring := smoothstep(0.9, 1.5, _jump_t) * (1.0 - smoothstep(TF_CROSS - 0.15, TF_CROSS, _jump_t) * 0.5)
-		_tf_pose(delta, k_fold, k_wing, k_lift, k_ring, _jump_t >= TF_RISE)
 		_spark -= delta
 		if _spark <= 0.0:
 			_spark = 0.12 if _jump_t > 0.9 else 0.25
@@ -395,179 +394,209 @@ func _jump_step(delta: float) -> void:
 	var k := clampf((_jump_t - _cross_t) / TF_SETTLE, 0.0, 1.0)
 	if k < 0.35 and hero.mounted_on == car:
 		hero.target = null
-	var back := 1.0 - k
-	_tf_pose(delta, 1.0 - smoothstep(0.55, 1.0, k), 1.0 - smoothstep(0.3, 0.85, k), 1.0 - smoothstep(0.1, 0.7, k),
-		1.0 - smoothstep(0.0, 0.35, k), back > 0.6)
+	if _change == null:
+		_change = _new_change(hero)
+	_change.pose_back(delta, _jump_t, k)
 	if k >= 1.0 or hero.mounted_on != car:
 		_tf_clear()
 		_jump_t = -1.0
 		_cool = 2.5
 
 
-# --- the car changing (its parts, on the hero's model while they drive it) ---
+# --- the car changing (its parts, on the driver's model while they drive it) ---
 
 var _dashing := false
-var _tf_root: Node3D = null                    # the car's model under the hero the parts belong to
-var _tf_rider: Node3D = null
-var _tf_rider_y := 0.0
-var _tf_wheel_base: Array = []
-var _tf_spin_base := Vector3.ZERO
-var _tf_wings: Array = []                      # [left, right]
-var _tf_jets: Array = []
-var _tf_rings: Node3D = null
-var _tf_wing_mesh: ArrayMesh = null
-var _tf_jet_mesh: ArrayMesh = null
+var _change: CarChange = null                  # the hero's car changing
 
 
-## Finds the car's parts on the hero's model and fits the new ones on (again, if the model was
-## rebuilt meanwhile - a refresh makes it afresh, in its plain shape).
-func _tf_attach() -> bool:
-	var hero: Entity = game.hero
-	var m: Dictionary = hero.model
-	var root: Node3D = m.get("mount_root") as Node3D
-	if root == null or not is_instance_valid(root):
-		return false
-	if root == _tf_root:
+## A car changing under its driver: finds the car's parts on the driver's model and fits the new
+## ones on (again, if the model was rebuilt meanwhile - a refresh makes it afresh, plain), then
+## poses it at a point in the change; clear() makes it a plain car again.
+class CarChange:
+	var who: Entity
+	var rings_from: Array                      # the ring meshes to whirl round it
+	var root: Node3D = null
+	var rider: Node3D = null
+	var rider_y := 0.0
+	var wheel_base: Array = []
+	var spin_base := Vector3.ZERO
+	var wings: Array = []
+	var jets: Array = []
+	var rings: Node3D = null
+	static var wing_mesh: ArrayMesh = null
+	static var jet_mesh: ArrayMesh = null
+
+	func _init(p_who: Entity, p_rings: Array) -> void:
+		who = p_who
+		rings_from = p_rings
+
+	func _attach() -> bool:
+		if who == null or not is_instance_valid(who):
+			return false
+		var m: Dictionary = who.model
+		var r: Variant = m.get("mount_root")
+		if r == null or not is_instance_valid(r):
+			return false
+		if r == root:
+			return true
+		root = r as Node3D
+		rider = m.get("root") as Node3D
+		rider_y = rider.position.y if rider != null else 0.0
+		wheel_base.clear()
+		for w in m.get("wheels", []):
+			wheel_base.append([w, (w as Node3D).position])
+		var spin: Node3D = m.get("spin") as Node3D
+		spin_base = spin.position if spin != null else Vector3.ZERO
+		if wing_mesh == null:
+			var paint := Color(0.36, 0.16, 0.62)
+			wing_mesh = Art.merge([[Art.box(1.1, 0.05, 0.55), Art.at(-0.55, 0, 0.0), paint.lightened(0.05)],
+				[Art.box(0.7, 0.05, 0.3), Art.at(-1.0, 0.0, 0.32, Vector3(0, 0.5, 0)), paint.darkened(0.15)],
+				[Art.box(1.05, 0.07, 0.06), Art.at(-0.55, 0.01, -0.27), Color(0.78, 0.8, 0.86)]])
+			jet_mesh = Art.merge([[Art.cone(0.13, 0.3, 0.09, 8), Art.at(0, 0, 0, Vector3(PI * 0.5, 0, 0)), Color(0.25, 0.25, 0.3)]])
+		wings.clear()
+		jets.clear()
+		for side: float in [-1.0, 1.0]:
+			var piv := Node3D.new()                # hinged at the car's side, swinging out
+			piv.position = Vector3(side * 0.56, 0.5, 0.1)
+			root.add_child(piv)
+			var wing := MeshInstance3D.new()
+			wing.mesh = wing_mesh
+			wing.material_override = Art.vc_mat()
+			wing.scale = Vector3(-side, 1.0, 1.0)  # (mirrored on the right)
+			piv.add_child(wing)
+			var edge := MeshInstance3D.new()       # a glowing line along the wing's back edge
+			var em := BoxMesh.new()
+			em.size = Vector3(1.0, 0.03, 0.04)
+			edge.mesh = em
+			edge.material_override = Art.glow_mat(TEAL if side < 0.0 else VIOLET)
+			edge.position = Vector3(side * 0.55, 0.03, 0.28)
+			edge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			piv.add_child(edge)
+			wings.append(piv)
+			var jet := Node3D.new()                # a thruster behind, sliding out of the back
+			jet.position = Vector3(side * 0.34, 0.45, 1.05)
+			root.add_child(jet)
+			var body := MeshInstance3D.new()
+			body.mesh = jet_mesh
+			body.material_override = Art.vc_mat()
+			jet.add_child(body)
+			var fire := Fx.flame(0.09, 16, 0.5)
+			fire.rotation.x = PI * 0.5             # (blowing out behind)
+			fire.position.z = 0.16
+			fire.gravity = Vector3.ZERO
+			var ramp := Gradient.new()             # (rift fire: white, violet, teal, gone)
+			ramp.set_color(0, Color(1.0, 0.95, 1.0, 1.0))
+			ramp.set_color(1, Color(0.3, 0.95, 1.0, 0.0))
+			ramp.add_point(0.35, Color(0.85, 0.45, 1.0, 0.9))
+			fire.color_ramp = ramp
+			jet.add_child(fire)
+			jets.append(jet)
+		rings = Node3D.new()
+		root.add_child(rings)
+		for i in range(3):
+			var ring := MeshInstance3D.new()
+			ring.mesh = rings_from[i % rings_from.size()]
+			ring.material_override = Art.glow_mat(VIOLET if i != 1 else TEAL)
+			ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			rings.add_child(ring)
 		return true
-	_tf_root = root
-	_tf_rider = m.get("root") as Node3D
-	_tf_rider_y = _tf_rider.position.y if _tf_rider != null else 0.0
-	_tf_wheel_base.clear()
-	for w in m.get("wheels", []):
-		_tf_wheel_base.append([w, (w as Node3D).position])
-	var spin: Node3D = m.get("spin") as Node3D
-	_tf_spin_base = spin.position if spin != null else Vector3.ZERO
-	if _tf_wing_mesh == null:
-		var paint := Color(0.36, 0.16, 0.62)
-		_tf_wing_mesh = Art.merge([[Art.box(1.1, 0.05, 0.55), Art.at(-0.55, 0, 0.0), paint.lightened(0.05)],
-			[Art.box(0.7, 0.05, 0.3), Art.at(-1.0, 0.0, 0.32, Vector3(0, 0.5, 0)), paint.darkened(0.15)],
-			[Art.box(1.05, 0.07, 0.06), Art.at(-0.55, 0.01, -0.27), Color(0.78, 0.8, 0.86)]])
-		_tf_jet_mesh = Art.merge([[Art.cone(0.13, 0.3, 0.09, 8), Art.at(0, 0, 0, Vector3(PI * 0.5, 0, 0)), Color(0.25, 0.25, 0.3)]])
-	_tf_wings.clear()
-	_tf_jets.clear()
-	for side: float in [-1.0, 1.0]:
-		var piv := Node3D.new()                    # hinged at the car's side, swinging out
-		piv.position = Vector3(side * 0.56, 0.5, 0.1)
-		root.add_child(piv)
-		var wing := MeshInstance3D.new()
-		wing.mesh = _tf_wing_mesh
-		wing.material_override = Art.vc_mat()
-		wing.scale = Vector3(-side, 1.0, 1.0)      # (mirrored on the right)
-		piv.add_child(wing)
-		var edge := MeshInstance3D.new()           # a glowing line along the wing's back edge
-		var em := BoxMesh.new()
-		em.size = Vector3(1.0, 0.03, 0.04)
-		edge.mesh = em
-		edge.material_override = Art.glow_mat(TEAL if side < 0.0 else VIOLET)
-		edge.position = Vector3(side * 0.55, 0.03, 0.28)
-		edge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		piv.add_child(edge)
-		_tf_wings.append(piv)
-		var jet := Node3D.new()                    # a thruster behind, sliding out of the back
-		jet.position = Vector3(side * 0.34, 0.45, 1.05)
-		root.add_child(jet)
-		var body := MeshInstance3D.new()
-		body.mesh = _tf_jet_mesh
-		body.material_override = Art.vc_mat()
-		jet.add_child(body)
-		var fire := Fx.flame(0.09, 16, 0.5)
-		fire.rotation.x = PI * 0.5                 # (blowing out behind)
-		fire.position.z = 0.16
-		fire.gravity = Vector3.ZERO
-		var ramp := Gradient.new()                 # (rift fire: white, violet, teal, gone)
-		ramp.set_color(0, Color(1.0, 0.95, 1.0, 1.0))
-		ramp.set_color(1, Color(0.3, 0.95, 1.0, 0.0))
-		ramp.add_point(0.35, Color(0.85, 0.45, 1.0, 0.9))
-		fire.color_ramp = ramp
-		jet.add_child(fire)
-		_tf_jets.append(jet)
-	_tf_rings = Node3D.new()
-	root.add_child(_tf_rings)
+
+	## The car at a point in its change: wheels folded flat (0-1), wings out, lifted, rings of
+	## light, thrusters burning.
+	func pose(delta: float, t: float, k_fold: float, k_wing: float, k_lift: float, k_ring: float, burning: bool) -> void:
+		if not _attach():
+			return
+		var lift := k_lift * 0.75 + sin(t * 5.0) * 0.06 * k_lift
+		root.position.y = lift
+		if rider != null and is_instance_valid(rider):
+			rider.position.y = rider_y + lift
+		for pair in wheel_base:                    # the wheels fold up flat, out from the body: hover pads
+			var w: Node3D = pair[0]
+			if not is_instance_valid(w):
+				continue
+			var base: Vector3 = pair[1]
+			var side := signf(base.x)
+			w.position = base + Vector3(side * 0.12 * k_fold, 0.06 * k_fold, 0.0)
+			if k_fold > 0.0:
+				w.rotation = Vector3(w.rotation.x * (1.0 - k_fold), 0.0, side * k_fold * PI * 0.5)
+			else:
+				w.rotation.z = 0.0
+		var spin: Node3D = who.model.get("spin") as Node3D
+		if spin != null and is_instance_valid(spin):   # the shard rises, swells and spins fast
+			spin.position = spin_base + Vector3(0.0, 0.45 * k_wing, 0.0)
+			spin.scale = Vector3.ONE * (1.0 + 0.8 * k_wing)
+			spin.rotation.y += delta * 18.0 * k_wing
+		for i in range(wings.size()):
+			var piv: Node3D = wings[i]
+			var side := -1.0 if i == 0 else 1.0
+			piv.visible = k_wing > 0.01
+			piv.scale = Vector3(maxf(k_wing, 0.01), 1.0, maxf(k_wing, 0.01))
+			piv.rotation = Vector3(0.0, side * (1.0 - k_wing) * 1.2, side * -0.12 * k_wing)   # (swept back, then out)
+		for jet in jets:
+			var j: Node3D = jet
+			j.visible = k_wing > 0.05
+			j.scale = Vector3.ONE * maxf(k_wing, 0.01)
+			var fire := j.get_child(1) as CPUParticles3D
+			if fire != null:
+				fire.emitting = k_wing > 0.5
+				fire.scale = Vector3.ONE * (1.8 if burning else 1.0)
+		rings.visible = k_ring > 0.01
+		for i in range(rings.get_child_count()):   # rings of light whirling round it
+			var ring := rings.get_child(i) as Node3D
+			var r := (1.25 - 0.18 * i) * (0.6 + 0.4 * k_ring)
+			ring.scale = Vector3.ONE * r * k_ring
+			ring.position = Vector3(0.0, 0.25 + 0.3 * i + 0.1 * sin(t * 4.0 + i), 0.0)
+			ring.rotation = Vector3(0.25 * sin(t * 3.0 + i * 2.0), t * (4.0 + i * 1.5) * (1.0 if i % 2 == 0 else -1.0), 0.2 * cos(t * 2.5 + i))
+
+	## The change at time t of the way out (t up to TF_CROSS).
+	func pose_out(delta: float, t: float) -> void:
+		var k_ring := smoothstep(0.9, 1.5, t) * (1.0 - smoothstep(TF_CROSS - 0.15, TF_CROSS, t) * 0.5)
+		pose(delta, t, smoothstep(0.1, 0.7, t), smoothstep(0.45, 1.15, t), smoothstep(0.6, 1.4, t), k_ring, t >= TF_RISE)
+
+	## The change back, k from 0 (just through) to 1 (a plain car).
+	func pose_back(delta: float, t: float, k: float) -> void:
+		pose(delta, t, 1.0 - smoothstep(0.55, 1.0, k), 1.0 - smoothstep(0.3, 0.85, k), 1.0 - smoothstep(0.1, 0.7, k),
+			1.0 - smoothstep(0.0, 0.35, k), k < 0.4)
+
+	## Back to a plain car: the new parts off, the rest as it was.
+	func clear() -> void:
+		if root != null and is_instance_valid(root):
+			root.position.y = 0.0
+			for n in wings + jets:
+				if is_instance_valid(n):
+					(n as Node).queue_free()
+			if rings != null and is_instance_valid(rings):
+				rings.queue_free()
+			if rider != null and is_instance_valid(rider):
+				rider.position.y = rider_y
+			for pair in wheel_base:
+				var w: Node3D = pair[0]
+				if is_instance_valid(w):
+					w.position = pair[1]
+					w.rotation.z = 0.0
+			if who != null and is_instance_valid(who):
+				var spin: Node3D = who.model.get("spin") as Node3D
+				if spin != null and is_instance_valid(spin):
+					spin.position = spin_base
+					spin.scale = Vector3.ONE
+		root = null
+		rider = null
+		wings.clear()
+		jets.clear()
+		rings = null
+		wheel_base.clear()
+
+
+func _new_change(who: Entity) -> CarChange:
 	if _ring_meshes.is_empty():
 		_new_portal().queue_free()                 # (makes the ring meshes)
-	for i in range(3):
-		var ring := MeshInstance3D.new()
-		ring.mesh = _ring_meshes[i % 2]
-		ring.material_override = Art.glow_mat(VIOLET if i != 1 else TEAL)
-		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_tf_rings.add_child(ring)
-	return true
+	return CarChange.new(who, _ring_meshes)
 
 
-## The car at a point in its change: wheels folded flat (0-1), wings out, lifted, rings of light,
-## thrusters burning.
-func _tf_pose(delta: float, k_fold: float, k_wing: float, k_lift: float, k_ring: float, burning: bool) -> void:
-	if not _tf_attach():
-		return
-	var lift := k_lift * 0.75 + sin(_jump_t * 5.0) * 0.06 * k_lift
-	_tf_root.position.y = lift
-	if _tf_rider != null and is_instance_valid(_tf_rider):
-		_tf_rider.position.y = _tf_rider_y + lift
-	for pair in _tf_wheel_base:                    # the wheels fold up flat, out from the body: hover pads
-		var w: Node3D = pair[0]
-		if not is_instance_valid(w):
-			continue
-		var base: Vector3 = pair[1]
-		var side := signf(base.x)
-		w.position = base + Vector3(side * 0.12 * k_fold, 0.06 * k_fold, 0.0)
-		if k_fold > 0.0:
-			w.rotation = Vector3(w.rotation.x * (1.0 - k_fold), 0.0, side * k_fold * PI * 0.5)
-		else:
-			w.rotation.z = 0.0
-	var spin: Node3D = game.hero.model.get("spin") as Node3D
-	if spin != null and is_instance_valid(spin):   # the shard rises, swells and spins fast
-		spin.position = _tf_spin_base + Vector3(0.0, 0.45 * k_wing, 0.0)
-		spin.scale = Vector3.ONE * (1.0 + 0.8 * k_wing)
-		spin.rotation.y += delta * 18.0 * k_wing
-	for i in range(_tf_wings.size()):
-		var piv: Node3D = _tf_wings[i]
-		var side := -1.0 if i == 0 else 1.0
-		piv.visible = k_wing > 0.01
-		piv.scale = Vector3(maxf(k_wing, 0.01), 1.0, maxf(k_wing, 0.01))
-		piv.rotation = Vector3(0.0, side * (1.0 - k_wing) * 1.2, side * -0.12 * k_wing)   # (swept back, then out)
-	for jet in _tf_jets:
-		var j: Node3D = jet
-		j.visible = k_wing > 0.05
-		j.scale = Vector3.ONE * maxf(k_wing, 0.01)
-		var fire := j.get_child(1) as CPUParticles3D
-		if fire != null:
-			fire.emitting = k_wing > 0.5
-			fire.scale = Vector3.ONE * (1.8 if burning else 1.0)
-	_tf_rings.visible = k_ring > 0.01
-	for i in range(_tf_rings.get_child_count()):   # rings of light whirling round it
-		var ring := _tf_rings.get_child(i) as Node3D
-		var r := (1.25 - 0.18 * i) * (0.6 + 0.4 * k_ring)
-		ring.scale = Vector3.ONE * r * k_ring
-		ring.position = Vector3(0.0, 0.25 + 0.3 * i + 0.1 * sin(_jump_t * 4.0 + i), 0.0)
-		ring.rotation = Vector3(0.25 * sin(_jump_t * 3.0 + i * 2.0), _jump_t * (4.0 + i * 1.5) * (1.0 if i % 2 == 0 else -1.0), 0.2 * cos(_jump_t * 2.5 + i))
-
-
-## Back to a plain car: the new parts off, the rest as it was.
 func _tf_clear() -> void:
-	if _tf_root != null and is_instance_valid(_tf_root):
-		_tf_root.position.y = 0.0
-		for n in _tf_wings + _tf_jets:
-			if is_instance_valid(n):
-				(n as Node).queue_free()
-		if _tf_rings != null and is_instance_valid(_tf_rings):
-			_tf_rings.queue_free()
-		if _tf_rider != null and is_instance_valid(_tf_rider):
-			_tf_rider.position.y = _tf_rider_y
-		for pair in _tf_wheel_base:
-			var w: Node3D = pair[0]
-			if is_instance_valid(w):
-				w.position = pair[1]
-				w.rotation.z = 0.0
-		var spin: Node3D = game.hero.model.get("spin") as Node3D
-		if spin != null and is_instance_valid(spin):
-			spin.position = _tf_spin_base
-			spin.scale = Vector3.ONE
-	_tf_root = null
-	_tf_rider = null
-	_tf_wings.clear()
-	_tf_jets.clear()
-	_tf_rings = null
-	_tf_wheel_base.clear()
+	if _change != null:
+		_change.clear()
+	_change = null
 	_dashing = false
 
 
@@ -612,7 +641,7 @@ func _sound(sound_name: String, pitch: float, db: float) -> void:
 
 var _npc_cars := {}                            # an adventurer's instance id -> their car
 var _npc_check := 0.0
-var _trips: Array = []                         # each: {"who", "phase", "t", "ring", "at", "dir", "back"}
+var _trips: Array = []                         # each: {"who", "phase" (in, away, settle), "t", "change", ...}
 var _trip_cd := 30.0
 
 
@@ -716,52 +745,60 @@ func _start_trip(who: Entity) -> void:
 		if _clear_run(who.position, f, 7.5):
 			way = f
 			break
-	var at := who.position + way * 5.0
+	var at := who.position + way * 9.0
 	at.y = game.world.height_at(at)
-	var ring := _new_portal()
-	ring.global_position = at + Vector3(0.0, 1.25, 0.0)
-	ring.rotation = Vector3(0.0, atan2(-way.x, -way.z), 0.0)
-	ring.scale = Vector3.ONE * 0.05
-	ring.visible = true
 	who.target = null
 	who.path.clear()
-	who.go_to(at + way * 2.5)
-	_trips.append({"who": who, "phase": "in", "t": 0.0, "ring": ring, "at": at, "dir": way, "back": 0.0})
+	_trips.append({"who": who, "phase": "in", "t": 0.0, "change": _new_change(who), "at": at, "dir": way, "back": 0.0,
+		"spark": 0.0, "dash": false})
 
 
 func _trip_step(trip: Dictionary, delta: float) -> void:
 	var who: Entity = trip["who"]
-	var ring: Node3D = trip["ring"]
+	var change: CarChange = trip.get("change") as CarChange
 	trip["t"] = float(trip["t"]) + delta
 	var t := float(trip["t"])
 	match String(trip["phase"]):
-		"in":                                      # the ring opens; they drive into it
+		"in":                                      # the car changes, lifts off and shoots away
 			if who.dead or who.mounted_on == null or who.target != null:
-				if ring != null and is_instance_valid(ring):
-					ring.queue_free()              # (something came up: the ring fades)
+				if change != null:
+					change.clear()                 # (something came up: just a car again)
 				_trips.erase(trip)
 				return
-			ring.scale = Vector3.ONE * lerpf(0.05, 1.0, smoothstep(0.0, 0.7, t))
-			var at: Vector3 = trip["at"]
-			if who.path.is_empty():
-				who.go_to(at + (trip["dir"] as Vector3) * 2.5)
-			var near := Vector2(who.position.x - at.x, who.position.z - at.z).length() < 1.3
-			if (near and t > 0.45) or t > 2.6:
+			if t < TF_RISE:
+				who.path.clear()
+			elif not bool(trip["dash"]) or who.path.is_empty():
+				trip["dash"] = true
+				who.go_to((trip["at"] as Vector3) + (trip["dir"] as Vector3) * 6.0)
+				if game.in_view(who.position, 3.0):
+					_sound("whoosh", 1.3, -9.0)
+			change.pose_out(delta, t)
+			trip["spark"] = float(trip["spark"]) - delta
+			if float(trip["spark"]) <= 0.0:
+				trip["spark"] = 0.15 if t > 0.9 else 0.3
+				Fx.sparkle(game, who.position + Vector3(randf_range(-1.0, 1.0), 1.0, randf_range(-1.0, 1.0)),
+					VIOLET if randf() < 0.5 else TEAL, 6)
+			if t >= TF_CROSS:
+				var at := who.position + Vector3(0.0, 1.2, 0.0)
+				Fx.sparkle(game, at, VIOLET, 30)   # gone in a burst of light
+				Fx.sparkle(game, at, TEAL, 20)
+				change.clear()
 				_away(who)
-				Fx.sparkle(game, ring.global_position, VIOLET, 20)
-				trip["phase"] = "close"
-				trip["t"] = 0.0
-		"close":                                   # through: the ring closes behind them
-			ring.scale = Vector3.ONE * lerpf(1.0, 0.02, clampf(t / 0.7, 0.0, 1.0))
-			if t >= 0.7:
-				ring.queue_free()
-				trip["ring"] = null
+				trip["change"] = null
 				trip["phase"] = "away"
 				trip["t"] = 0.0
 				trip["back"] = randf_range(45.0, 120.0)
 		"away":                                    # in the Shardveil a while; then back
 			if t >= float(trip["back"]):
+				_trips.erase(trip)
 				_back(who, true)
+		"settle":                                  # back: settling down, folding up, onto its wheels
+			var k := clampf(t / TF_SETTLE, 0.0, 1.0)
+			if change != null:
+				change.pose_back(delta, t, k)
+			if k >= 1.0 or who.dead or who.mounted_on == null:
+				if change != null:
+					change.clear()
 				_trips.erase(trip)
 
 
@@ -783,25 +820,23 @@ func _back(who: Entity, show: bool) -> void:
 	who.visible = true
 	if not show or not game.in_view(who.position + Vector3(0.0, 1.0, 0.0), 2.0):
 		return
-	var ring := _new_portal()
-	ring.global_position = who.position + Vector3(0.0, 1.25, 0.0)
-	ring.rotation = Vector3(0.0, who._face_yaw, 0.0)
-	ring.visible = true
-	var tw := ring.create_tween()
-	tw.tween_property(ring, "scale", Vector3.ONE * 0.02, 0.9).from(Vector3.ONE).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	tw.tween_callback(ring.queue_free)
-	Fx.sparkle(game, who.position + Vector3(0.0, 1.0, 0.0), TEAL, 20)
+	var at := who.position + Vector3(0.0, 1.2, 0.0)
+	Fx.sparkle(game, at, TEAL, 30)                 # out of a burst of light, wings out, still changed
+	Fx.sparkle(game, at, VIOLET, 20)
+	if who.mounted_on != null and who.mounted_on.is_vehicle:
+		_trips.append({"who": who, "phase": "settle", "t": 0.0, "change": _new_change(who)})
 
 
 ## Everyone home at once, every ring gone (the experiment switched off, or a trailer starting).
 func _end_trips() -> void:
-	for trip: Dictionary in _trips:
-		var ring: Node3D = trip["ring"]
-		if ring != null and is_instance_valid(ring):
-			ring.queue_free()
-		if String(trip["phase"]) != "in":
-			_back(trip["who"], false)
+	var trips := _trips.duplicate()
 	_trips.clear()
+	for trip: Dictionary in trips:
+		var change: CarChange = trip.get("change") as CarChange
+		if change != null:
+			change.clear()
+		if String(trip["phase"]) == "away":
+			_back(trip["who"], false)
 
 
 # --- the Shardveil's chaos (the "Shardveil chaos" experiment) ------------------------------------

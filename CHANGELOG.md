@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.8.2
+- The adventurers' cars change too: when one of them heads off to the Shardveil, their car stops,
+  folds its wheels into hover pads, swings its wings out, lifts off in its whirling rings of light
+  and shoots away, vanishing in a burst of violet and teal. When they come back, they burst out of
+  the light still changed, settle down, fold up and drop onto their wheels. No more portals.
+
 ## 1.8.1
 - The Riftrunner changes instead of opening a portal: on Rift jump the car stops, its wheels fold
   up flat into glowing hover pads, wings of violet metal swing out from its sides with thrusters
