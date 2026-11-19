@@ -155,6 +155,16 @@ func play_area(area: String) -> void:
 	tw.chain().tween_callback(old.stop)
 
 
+## Nothing playing, and nothing waiting to (a trailer's silent opening).
+func silence() -> void:
+	_wanted = ""
+	_area = ""
+	player_a.stop()
+	player_b.stop()
+	player_a.volume_db = -80.0
+	player_b.volume_db = -80.0
+
+
 func set_enabled(on: bool) -> void:
 	enabled = on
 	if on:

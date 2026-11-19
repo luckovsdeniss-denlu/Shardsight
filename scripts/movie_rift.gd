@@ -21,10 +21,10 @@ func start(p_game) -> void:
 	_exp_was = Experiments.active
 	Experiments.active = true          # (the experiments' world, for this trailer: the car, the Shardveil, its chaos)
 	super.start(p_game)
-	game.music.play_area("rift_intro")             # its own music: calm and high-tech over the loading screen...
+	game.music.silence()                           # no music over the loading screen (not the other trailers' score either)...
 
 
-## ...and the score's drop the moment the first scene comes up: epic and electronic.
+## ...and the new score the moment the first scene comes up: epic and electronic.
 func _begin() -> void:
 	game.music.play_area("rift_epic")
 	_sound("tech_hit", 0.8, 0.0)
