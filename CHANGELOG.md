@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.11.1
+- Auto-optimize is off by default (Performance): the game starts with every look on and leaves
+  them as you set them; switch Auto-optimize on there if you want the game to lower the
+  resolution and turn looks off by itself. Reset to default, and turning Max optimization off,
+  come back to the same: Auto-optimize off, every look on.
+
 ## 2.11.0
 - The seasoned hero (experimental mode, "Seasoned hero", on by default):
   - Every couple of levels the hero (on Auto) looks for better armour: the best of leather,

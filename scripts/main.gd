@@ -1173,7 +1173,7 @@ func _set_max_opt(on: bool) -> void:
 		if rain != null:
 			rain.amount = 90                       # (light rain)
 	else:
-		_auto_opt = true                           # (back to Auto-optimize, every look allowed again)
+		_auto_opt = false                          # (back to your own choices: every look on; Auto-optimize is yours to switch on)
 		for id in _perf:
 			_perf[id] = true
 		_render_scale = _render_base
@@ -1222,7 +1222,7 @@ const FEATURE_LEVEL := {"glow": 1, "particles": 2, "shadows": 3, "crowd": 4, "am
 const FEATURE_NAMES := {"glow": "Glow, vignette and smooth edges", "particles": "All particles (off: 40%)", "shadows": "Sun shadows",
 	"crowd": "Full-rate crowd (off: far figures at half rate)", "ambient": "Butterflies and falling leaves",
 	"grass": "Grass and flowers", "far": "Far view (170 m; off: 70 m)"}
-var _auto_opt := true                 # the frame-rate keeper decides (on), or the player does (off)
+var _auto_opt := false                # the frame-rate keeper decides (on), or the player does (off: as it comes)
 var _perf := {"glow": true, "particles": true, "shadows": true, "crowd": true, "ambient": true, "grass": true, "far": true}
 
 
@@ -1333,10 +1333,10 @@ func _refresh_perf() -> void:
 	box.add_child(_menu_button("Close", _close_perf))
 
 
-## Everything back as it comes: Auto-optimize on, every look on, the starting resolution, the
+## Everything back as it comes: Auto-optimize off, every look on, the starting resolution, the
 ## frame counter shown - and the keeper forgets what it had learned.
 func _reset_graphics() -> void:
-	_auto_opt = true
+	_auto_opt = false
 	_max_opt = false
 	_set_goal(FPS_GOAL)
 	_probe_wait = 25.0
@@ -1363,7 +1363,7 @@ func _reset_graphics() -> void:
 	for e in creatures:
 		e.show_name(property.names_on)
 	_update_corner_buttons()
-	log_event("All graphics settings reset to default: Auto-optimize on, every look on, the starting resolution, the camera above, the map, stats and weather on.")
+	log_event("All graphics settings reset to default: Auto-optimize off, every look on, the starting resolution, the camera above, the map, stats and weather on.")
 	_refresh_perf()
 
 
@@ -1398,7 +1398,7 @@ func _load_graphics() -> void:
 	var cf := ConfigFile.new()
 	if cf.load(GRAPHICS_PATH) != OK:
 		return
-	_auto_opt = bool(cf.get_value("graphics", "auto", true))
+	_auto_opt = bool(cf.get_value("graphics", "auto", false))
 	var f: Variant = cf.get_value("graphics", "features", {})
 	if typeof(f) == TYPE_DICTIONARY:
 		for id in f:
