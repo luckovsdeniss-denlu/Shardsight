@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.5.0
+- Steady growth (experimental mode, "Steady growth", on by default): every second of play the
+  hero grows a little - 0.1 a second - in the way they've chosen by how they play: the fighting
+  skill used most lately (sword, fencing, mace, bow, wrestling or magic; at first, the weapon in
+  hand), and every four seconds the one used next most. So the level keeps climbing, about a
+  level every 13 seconds, stats rising with it. Recent use fades (about half every two minutes),
+  so changing your way of fighting turns the growth with it. Within every cap; not while dead.
+
 ## 2.4.3
 - Fixed: tapping a monster sometimes didn't attack it - near a spot where you (or someone near
   you) had fallen, the "No death loops" caution made your hero drop the target and run off, on

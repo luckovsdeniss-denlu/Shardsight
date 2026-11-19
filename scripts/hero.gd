@@ -46,6 +46,7 @@ var dexterity := 20
 var intelligence := 20
 var skills := {}
 var locks := {}
+var use_count := {}              # skill -> how much it's been used lately (for steady growth's direction)
 
 
 func _init() -> void:
@@ -138,6 +139,7 @@ func set_stat(stat: int, value: int) -> void:
 ## Skills rise only by use: gains slow as a skill climbs. At the skill cap a gain must be
 ## paid for by a skill marked "down"; if there is none, the gain is refused.
 func try_gain(skill: int) -> bool:
+	use_count[skill] = float(use_count.get(skill, 0.0)) + 1.0
 	if int(locks.get(skill, Lock.UP)) != Lock.UP:
 		return false
 	var v: float = skills[skill]
@@ -161,6 +163,53 @@ func try_gain(skill: int) -> bool:
 		level_up.emit(level())
 	_try_stat_gain(skill)
 	return true
+
+
+## Steady growth: a little in one skill (its stat may rise with it), within every cap.
+func grow(skill: int, amount: float) -> bool:
+	if int(locks.get(skill, Lock.UP)) != Lock.UP:
+		return false
+	var v: float = skills[skill]
+	if v >= Rules.SKILL_MAX:
+		return false
+	var room := float(Rules.SKILL_CAP_TOTAL) - skill_total()
+	var gain := minf(minf(amount, Rules.SKILL_MAX - v), maxf(room, 0.0))
+	if gain < 0.05:
+		return false
+	var before := level()
+	var nv := snappedf(minf(v + gain, Rules.SKILL_MAX), 0.1)
+	skills[skill] = nv
+	if floorf(nv / 5.0) > floorf(v / 5.0) or nv >= Rules.SKILL_MAX:
+		skill_gained.emit(skill_name(skill), nv)
+	if level() > before:
+		level_up.emit(level())
+	_try_stat_gain(skill)
+	return true
+
+
+## The way the hero is growing: the fighting skill used most lately (the sword, the bow, magic...),
+## or, with nothing used yet, `fallback`. The second most used comes along more slowly.
+func growth_direction(fallback: int) -> Array[int]:
+	var ranked: Array = []
+	for s in COMBAT_SKILLS:
+		if float(use_count.get(s, 0.0)) > 0.0 and float(skills[s]) < Rules.SKILL_MAX and int(locks.get(s, Lock.UP)) == Lock.UP:
+			ranked.append(s)
+	ranked.sort_custom(func(a, b) -> bool: return float(use_count[a]) > float(use_count[b]))
+	var out: Array[int] = []
+	if ranked.is_empty():
+		out.append(fallback)
+		out.append(Skill.TACTICS if fallback != Skill.MAGERY else Skill.MEDITATION)
+	else:
+		out.append(int(ranked[0]))
+		out.append(int(ranked[1]) if ranked.size() > 1 else (Skill.TACTICS if int(ranked[0]) != Skill.MAGERY else Skill.EVALUATING_INTELLECT))
+	return out
+
+
+## Recent use fades (about half every two minutes), so a change of style turns the growth too.
+func fade_use(seconds: float) -> void:
+	var k := pow(0.5, seconds / 120.0)
+	for s in use_count:
+		use_count[s] = float(use_count[s]) * k
 
 
 ## Lowers the highest skill marked "down" by up to `amount`; returns how much it gave.

@@ -5725,6 +5725,7 @@ func _process(delta: float) -> void:
 		_achieve_acc = 0.0
 		_check_achievements()
 	property.play_time += delta
+	_growth_tick(delta)
 	_hud_timer -= delta
 	if _hud_timer <= 0.0:
 		_hud_timer = 0.2                     # the HUD text five times a second
@@ -5735,6 +5736,32 @@ func _process(delta: float) -> void:
 
 var _hud_timer := 0.0
 var _tick_n := 0
+
+
+## Steady growth (the "Steady growth" experiment): every second of play the hero grows a little
+## in the way they've chosen by how they play - the fighting skill used most lately (sword,
+## fencing, mace, bow, wrestling, magic...), and every few seconds the one used next most - so the
+## level keeps climbing (about a level every 13 seconds), stats rising with it.
+const GROWTH_PER_SECOND := 0.1
+var _grow_acc := 0.0
+var _grow_n := 0
+
+
+func _growth_tick(delta: float) -> void:
+	if not Experiments.on("steady_growth") or hero == null or hero.dead or movie != null or autotest:
+		return
+	_grow_acc += delta
+	if _grow_acc < 1.0:
+		return
+	_grow_acc -= 1.0
+	_grow_n += 1
+	var st: Hero = hero.stats
+	st.fade_use(1.0)
+	var way := st.growth_direction(hero._weapon_skill() if hero._skill(Hero.Skill.MAGERY) < hero._skill(hero._weapon_skill()) + 10.0 else Hero.Skill.MAGERY)
+	if not st.grow(way[0], GROWTH_PER_SECOND):
+		st.grow(way[1], GROWTH_PER_SECOND)       # (the first at its top: the next one instead)
+	elif _grow_n % 4 == 0:
+		st.grow(way[1], GROWTH_PER_SECOND)
 
 
 ## The frame counter: top middle, over everything (the movie too), green at 55+, yellow, red under 40,
