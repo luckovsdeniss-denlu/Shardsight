@@ -47,6 +47,7 @@ var intelligence := 20
 var skills := {}
 var locks := {}
 var use_count := {}              # skill -> how much it's been used lately (for steady growth's direction)
+var boost := 1.0                 # skills learned this many times as fast (the Shardveil apocalypse: 3)
 
 
 func _init() -> void:
@@ -147,7 +148,7 @@ func try_gain(skill: int) -> bool:
 		return false
 	# Every use teaches: +1 each time (1% of the 100 maximum, no dice), up to 100 and the
 	# skill cap (every skill at 100); at the cap the gain is paid for by a skill marked "down".
-	var gain := minf(SKILL_GAIN * (2.0 if Experiments.on("quick_learning") else 1.0), Rules.SKILL_MAX - v)
+	var gain := minf(SKILL_GAIN * (2.0 if Experiments.on("quick_learning") else 1.0) * boost, Rules.SKILL_MAX - v)
 	var room := float(Rules.SKILL_CAP_TOTAL) - skill_total()
 	if room < gain - 0.001:
 		gain = maxf(room, 0.0) + _take_from_down_skill(skill, gain - maxf(room, 0.0))
@@ -173,7 +174,7 @@ func grow(skill: int, amount: float) -> bool:
 	if v >= Rules.SKILL_MAX:
 		return false
 	var room := float(Rules.SKILL_CAP_TOTAL) - skill_total()
-	var gain := minf(minf(amount, Rules.SKILL_MAX - v), maxf(room, 0.0))
+	var gain := minf(minf(amount * boost, Rules.SKILL_MAX - v), maxf(room, 0.0))
 	if gain < 0.05:
 		return false
 	var before := level()

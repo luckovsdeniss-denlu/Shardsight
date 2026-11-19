@@ -4791,7 +4791,8 @@ func spawn_corpse(victim: Entity) -> void:
 		victim.get_instance_id(), at, victim.make_loot())
 	corpses.append(c)
 	c.label.visible = property.corpse_names_on
-	if victim.kind == Entity.Kind.MONSTER and not victim.summoned and randf() < CHEST_CHANCE:
+	var chest_chance := CHEST_CHANCE * (5.0 if dimension != null and dimension._apoc else 1.0)   # (the apocalypse: five times as often)
+	if victim.kind == Entity.Kind.MONSTER and not victim.summoned and randf() < chest_chance:
 		_drop_chest(victim)
 
 

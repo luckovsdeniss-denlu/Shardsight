@@ -2061,10 +2061,14 @@ func make_loot() -> Dictionary:
 		dropped_gold = randi_range(int(loot_cfg.get("gold_min", 0)), int(loot_cfg.get("gold_max", 0)))
 		if game.dimension != null and game.dimension.active:
 			dropped_gold *= 2                    # (in the Shardveil gold glitters twice)
-		dropped_reagents = randi_range(0, int(loot_cfg.get("reagents", 0)))
+		var apoc: bool = game.dimension != null and game.dimension._apoc
+		if apoc:
+			dropped_gold *= 3                    # (and at the end of the world, three times over again)
+		dropped_reagents = randi_range(0, int(loot_cfg.get("reagents", 0))) * (2 if apoc else 1)
 		for d in loot_cfg.get("drops", []):
-			if randf() < float(d[1]):
-				items[d[0]] = int(items.get(d[0], 0)) + 1
+			for roll in range(2 if apoc else 1):   # (the apocalypse: every drop has two chances)
+				if randf() < float(d[1]):
+					items[d[0]] = int(items.get(d[0], 0)) + 1
 		# A treasure map, now and then.
 		if int(loot_cfg.get("gold_max", 0)) > 0 and randf() < MAP_DROP_CHANCE:
 			items[game.make_treasure_map()] = 1

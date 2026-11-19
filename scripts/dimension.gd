@@ -2191,6 +2191,7 @@ func _apoc_start() -> void:
 	if not _apoc_on():
 		return
 	_apoc = true
+	game.hero.stats.boost = 3.0                    # (you learn three times as fast at the end of the world)
 	_quake_t = randf_range(15.0, 25.0)
 	_wave_t = 40.0
 	_storm_t = randf_range(20.0, 30.0)
@@ -2246,7 +2247,7 @@ func _apoc_start() -> void:
 	var word := Title3D.make_flying("APOCALYPSE", minf(vs.x * 0.75, 1100.0), Title3D.GOLD, vs)
 	_layer.add_child(word)
 	word.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	game.log_event("The Shardveil is ending: the sky burns, the ground splits, the dead pour out of the rifts.")
+	game.log_event("The Shardveil is ending: the sky burns, the ground splits, the dead pour out of the rifts. But the spoils are rich - gold three times over, double drops, chests five times as often - and you learn three times as fast.")
 	_sound("braam", 0.6, 2.0)
 
 
@@ -2254,6 +2255,8 @@ func _apoc_end() -> void:
 	if not _apoc:
 		return
 	_apoc = false
+	if game.hero != null:
+		game.hero.stats.boost = 1.0
 	Art.set_tint(TINT if active else Color.WHITE)
 	if _apoc_glow != null:
 		_apoc_glow.visible = false

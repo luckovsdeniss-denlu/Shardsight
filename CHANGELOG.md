@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.7.1
+- The Shardveil apocalypse pays: monsters there drop three times the gold (six times home's, with
+  the Shardveil's double), twice the reagents and two chances at every item, treasure chests
+  fall five times as often, and you learn three times as fast - every skill gain, and steady
+  growth too. Back home it's as before.
+
 ## 2.7.0
 - The Shardveil apocalypse (experimental mode, "Shardveil apocalypse", on by default, with the
   chaos): the Shardveil at the end of the world.
