@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.14.1-b393
+- The Riftrunner trailer as a video to download: "Record trailer video" can record it ("rift", or
+  "all" three), publishing shardsight-trailer-rift.mp4 to the "trailer" release; and a "Download
+  Riftrunner trailer" button on the start screen opens it.
+
 ## 2.14.0-b392
 - A new trailer, "Riftrunner trailer" on the start screen: the story of experimental mode in
   about a minute. Out in the meadows a car of violet metal hums into being beside the hero ("The

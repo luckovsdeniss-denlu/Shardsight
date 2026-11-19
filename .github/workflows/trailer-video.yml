@@ -4,6 +4,7 @@ name: Record trailer video
 # release, where the start screen's "Download trailer" buttons find them:
 #   trailer 1 (the scenes)      -> shardsight-trailer.mp4   (+ shardsight-trailer-v<version>.mp4)
 #   trailer 2 (the long flight) -> shardsight-trailer-2.mp4 (+ shardsight-trailer-2-v<version>.mp4)
+#   the Riftrunner trailer      -> shardsight-trailer-rift.mp4 (+ shardsight-trailer-rift-v<version>.mp4)
 # Recording one replaces only that trailer's videos; the other stays. Started by hand only
 # (Actions > Record trailer video > Run workflow). The game draws in software here, so each
 # trailer takes a while (about half an hour).
@@ -13,7 +14,7 @@ on:
       which:
         description: "Which trailer to record"
         type: choice
-        options: ["1", "2", "both"]
+        options: ["1", "2", "rift", "both", "all"]
         default: "both"
       source:
         description: "Record from this version of the game: a commit or tag (empty: the latest)"
@@ -57,9 +58,13 @@ jobs:
           WHICH: ${{ inputs.which }}
         run: |
           mkdir -p build
-          case "$WHICH" in 1) LIST="1";; 2) LIST="2";; *) LIST="1 2";; esac
+          case "$WHICH" in 1) LIST="1";; 2) LIST="2";; rift) LIST="rift";; all) LIST="1 2 rift";; *) LIST="1 2";; esac
           for N in $LIST; do
-            if [ "$N" = "2" ]; then ARG="--trailer-video-2"; NAME="shardsight-trailer-2"; else ARG="--trailer-video"; NAME="shardsight-trailer"; fi
+            case "$N" in
+              2) ARG="--trailer-video-2"; NAME="shardsight-trailer-2";;
+              rift) ARG="--trailer-video-rift"; NAME="shardsight-trailer-rift";;
+              *) ARG="--trailer-video"; NAME="shardsight-trailer";;
+            esac
             echo "== recording trailer $N"
             set +e
             timeout 6000 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 \
@@ -90,7 +95,7 @@ jobs:
               --notes "The Shardsight trailers."
           fi
           NOTES=""
-          for NAME in shardsight-trailer shardsight-trailer-2; do
+          for NAME in shardsight-trailer shardsight-trailer-2 shardsight-trailer-rift; do
             [ -f "build/$NAME.mp4" ] || continue
             for A in $(gh release view trailer --json assets -q '.assets[].name'); do
               case "$A" in

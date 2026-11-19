@@ -4472,12 +4472,13 @@ func _open_menu() -> void:
 ## Where the trailer's video is published (recorded by the "Record trailer video" workflow).
 const TRAILER_VIDEO_URL := "https://github.com/luckovsdeniss-denlu/Shardsight/releases/download/trailer/shardsight-trailer.mp4"
 const TRAILER_2_VIDEO_URL := "https://github.com/luckovsdeniss-denlu/Shardsight/releases/download/trailer/shardsight-trailer-2.mp4"
+const TRAILER_RIFT_VIDEO_URL := "https://github.com/luckovsdeniss-denlu/Shardsight/releases/download/trailer/shardsight-trailer-rift.mp4"
 
 
 ## Recording a trailer as a video (CI): either trailer.
 static func _recording_trailer() -> bool:
 	var args := OS.get_cmdline_user_args()
-	return "--trailer-video" in args or "--trailer-video-2" in args
+	return "--trailer-video" in args or "--trailer-video-2" in args or "--trailer-video-rift" in args
 
 
 ## The movie is over (or skipped) and has put the hero back as they were: the interface returns
@@ -6192,6 +6193,8 @@ func _show_title(layer: CanvasLayer) -> void:
 		OS.shell_open(TRAILER_VIDEO_URL)))
 	row.add_child(_menu_button("Download trailer 2", func() -> void:
 		OS.shell_open(TRAILER_2_VIDEO_URL)))
+	row.add_child(_menu_button("Download Riftrunner trailer", func() -> void:
+		OS.shell_open(TRAILER_RIFT_VIDEO_URL)))
 	row.add_child(exp_b)
 	# every button on the screen: sized so they all fit in two lines across it
 	var vs := get_viewport().get_visible_rect().size
@@ -6223,6 +6226,8 @@ func _show_title(layer: CanvasLayer) -> void:
 		tw.tween_property(row, "modulate:a", 1.0, 0.5)
 		if "--trailer-video-2" in OS.get_cmdline_user_args():
 			film2.pressed.emit()                   # (CI: record the second trailer as a video)
+		elif "--trailer-video-rift" in OS.get_cmdline_user_args():
+			film_rift.pressed.emit()               # (CI: record the Riftrunner trailer as a video)
 		elif "--movie-test" in OS.get_cmdline_user_args() or "--trailer-video" in OS.get_cmdline_user_args():
 			film.pressed.emit()                    # (CI: play the trailer by itself, or record it as a video)
 	card.gui_input.connect(func(ev: InputEvent) -> void:
