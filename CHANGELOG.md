@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.2.1
+- Fixed: the Riftrunner's change left traces on the ground - dust lying flat round where it took
+  off and landed, sparks and crystal shards falling onto the ground and lingering there. Now every
+  bit of it stays in the air and fades out quickly (the dust rises as it spreads, the sparks and
+  shards are gone before they land, the trail behind it is shorter), and each burst is removed
+  the moment it ends.
+
 ## 2.2.0
 - No death loops (experimental mode, "No death loops", on by default):
   - Nobody fights within 7 m of a resurrection shrine - no blows, arrows, spells or guns in or

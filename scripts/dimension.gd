@@ -537,17 +537,17 @@ class CarChange:
 		inflow.gravity = Vector3.ZERO
 		inflow.color_ramp = _ramp([Color(0.3, 0.95, 1.0, 0.0), Color(0.6, 0.7, 1.0, 1.0), Color(1.0, 0.6, 1.0, 1.0)])
 		inflow.position = Vector3(0.0, 0.6, 0.0)
-		sparks = _emitter(40, 0.9, 0.07)
+		sparks = _emitter(40, 0.45, 0.07)        # (short-lived: gone before they reach the ground)
 		sparks.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 		sparks.emission_box_extents = Vector3(0.7, 0.05, 0.8)
 		sparks.direction = Vector3.UP
 		sparks.spread = 65.0
 		sparks.initial_velocity_min = 2.0
 		sparks.initial_velocity_max = 4.5
-		sparks.gravity = Vector3(0.0, -9.8, 0.0)   # (real arcs: up, over and down)
-		sparks.color_ramp = _ramp([Color(1.0, 1.0, 0.9, 1.0), Color(1.0, 0.75, 0.3, 1.0), Color(1.0, 0.3, 0.1, 0.0)])
+		sparks.gravity = Vector3(0.0, -6.0, 0.0)   # (real arcs: up and over, fading as they fall)
+		sparks.color_ramp = _ramp([Color(1.0, 1.0, 0.9, 1.0), Color(1.0, 0.75, 0.3, 0.8), Color(1.0, 0.3, 0.1, 0.0)])
 		sparks.position = Vector3(0.0, 0.3, 0.0)
-		trail = _emitter(70, 0.6, 0.16)
+		trail = _emitter(60, 0.35, 0.16)
 		trail.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 		trail.emission_box_extents = Vector3(0.45, 0.12, 0.1)
 		trail.direction = Vector3(0.0, 0.0, 1.0)   # out behind
@@ -638,8 +638,8 @@ class CarChange:
 		p.global_position = at
 		p.emitting = true
 		var tw := p.create_tween()
-		tw.tween_interval(life + 0.3)
-		tw.tween_callback(p.queue_free)
+		tw.tween_interval(life + 0.1)
+		tw.tween_callback(p.queue_free)            # (gone the moment it's done: no trace)
 
 	func _play(sound_name: String, pitch: float, db: float) -> void:
 		if sound.is_valid():
@@ -713,8 +713,8 @@ class CarChange:
 		if prev < 0.6 and t >= 0.6:                # wheels locked flat: it charges
 			_play("car_charge", 1.0, -3.0)
 		if prev < 0.75 and t >= 0.75:              # lift-off: dust blown out flat all round
-			_burst(at + Vector3(0.0, 0.1, 0.0), [Color(0.6, 0.52, 0.42, 0.9), Color(0.5, 0.42, 0.55, 0.5), Color(0.4, 0.35, 0.45, 0.0)],
-				36, 7.0, -0.4, 1.1, 0.4, true)
+			_burst(at + Vector3(0.0, 0.35, 0.0), [Color(0.6, 0.52, 0.42, 0.7), Color(0.5, 0.42, 0.55, 0.25), Color(0.4, 0.35, 0.45, 0.0)],
+				30, 6.0, -1.5, 0.6, 0.35, true)   # (rising as it spreads, gone in a moment: nothing left on the ground)
 		if prev < TF_RISE and t >= TF_RISE:        # the thrusters fire: away
 			_play("car_jet", 1.0, -1.0)
 			_burst(at + Vector3(0.0, 0.6, 0.0) - who.basis.z * -1.2, [Color(1.0, 1.0, 1.0, 1.0), Color(0.85, 0.45, 1.0, 0.8), Color(0.3, 0.95, 1.0, 0.0)],
@@ -722,9 +722,9 @@ class CarChange:
 		if prev < TF_CROSS - 0.12 and t >= TF_CROSS - 0.12:   # through: crystal shards and sparks fly everywhere
 			_play("car_warp", 1.0, 0.0)
 			_burst(at + Vector3(0.0, 0.8, 0.0), [Color(0.95, 0.75, 1.0, 1.0), Color(0.3, 0.95, 1.0, 1.0), Color(0.5, 0.3, 0.9, 0.0)],
-				30, 7.0, 9.8, 1.4, 0.1, false, true)
+				30, 7.0, 9.8, 0.7, 0.1, false, true)
 			_burst(at + Vector3(0.0, 0.8, 0.0), [Color(1.0, 1.0, 1.0, 1.0), Color(0.85, 0.45, 1.0, 0.8), Color(0.3, 0.95, 1.0, 0.0)],
-				50, 9.0, 4.0, 0.9, 0.16, false)
+				50, 9.0, 4.0, 0.6, 0.16, false)
 
 	## The change back, k from 0 (just through) to 1 (a plain car).
 	func pose_back(delta: float, t: float, k: float) -> void:
@@ -737,13 +737,13 @@ class CarChange:
 		var at := who.position
 		if prev < 0.0:                             # out the other side in a spray of light
 			_burst(at + Vector3(0.0, 0.8, 0.0), [Color(1.0, 1.0, 1.0, 1.0), Color(0.3, 0.95, 1.0, 0.8), Color(0.85, 0.45, 1.0, 0.0)],
-				50, 8.0, 3.0, 0.9, 0.16, false)
-			_burst(at + Vector3(0.0, 0.8, 0.0), [Color(0.95, 0.75, 1.0, 1.0), Color(0.5, 0.3, 0.9, 0.0)], 18, 5.0, 9.8, 1.2, 0.1, false, true)
+				50, 8.0, 3.0, 0.6, 0.16, false)
+			_burst(at + Vector3(0.0, 0.8, 0.0), [Color(0.95, 0.75, 1.0, 1.0), Color(0.5, 0.3, 0.9, 0.0)], 18, 5.0, 9.8, 0.6, 0.1, false, true)
 		if prev < 0.4 and k >= 0.4:                # folding back up: the servos again, lower
 			_play("car_servo", 0.85, -3.0)
 		if prev < 0.7 and k >= 0.7:                # down on its wheels: a hiss, a clunk, dust
 			_play("car_land", 1.0, -2.0)
-			_burst(at + Vector3(0.0, 0.1, 0.0), [Color(0.6, 0.52, 0.42, 0.9), Color(0.4, 0.35, 0.45, 0.0)], 30, 5.0, -0.3, 1.0, 0.35, true)
+			_burst(at + Vector3(0.0, 0.35, 0.0), [Color(0.6, 0.52, 0.42, 0.7), Color(0.4, 0.35, 0.45, 0.0)], 24, 5.0, -1.5, 0.55, 0.3, true)
 
 	## Back to a plain car: the new parts off, the rest as it was.
 	func clear() -> void:
