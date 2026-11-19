@@ -240,10 +240,125 @@ var _logo: SubViewportContainer
 var _name3d: Title3D
 var _crystal: Node3D
 var _ring_nodes: Array[Node3D] = []
+var _rings_root: Node3D
+var _ticks: Node3D                             # the finest details: a ring of tiny ticks...
+var _dots: Node3D                              # ...a ring of tiny points of light inside...
+var _flecks: Node3D                            # ...eight shards of crystal circling between the rings...
+var _gems: Array[Node3D] = []                  # ...and four small diamonds at the four points
+
+
+func _glow(c: Color, energy: float) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = c
+	m.emission_enabled = true
+	m.emission = c
+	m.emission_energy_multiplier = energy
+	return m
+
+
+## An arc of a ring, facing the camera (in the X-Y plane): a thin tube of `thick` round a circle of
+## `radius`, from angle `from` to `to`.
+func _arc_mesh(radius: float, thick: float, from: float, to: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var segs := maxi(int((to - from) / TAU * 96.0), 4)
+	var sides := 6
+	var pt := func(a: float, s: float) -> Vector3:
+		var radial := Vector3(cos(a), sin(a), 0.0)
+		return radial * radius + (radial * cos(s) + Vector3(0.0, 0.0, 1.0) * sin(s)) * thick
+	for i in range(segs):
+		var a0 := lerpf(from, to, float(i) / segs)
+		var a1 := lerpf(from, to, float(i + 1) / segs)
+		for j in range(sides):
+			var s0 := TAU * j / sides
+			var s1 := TAU * (j + 1) / sides
+			var p00: Vector3 = pt.call(a0, s0)
+			var p10: Vector3 = pt.call(a1, s0)
+			var p11: Vector3 = pt.call(a1, s1)
+			var p01: Vector3 = pt.call(a0, s1)
+			for p in [p00, p10, p11, p00, p11, p01]:
+				st.add_vertex(p)
+	return st.commit()
+
+
+## The smallest details, each turning: 72 tiny gold ticks round the outside (every sixth longer),
+## 24 points of light inside the inner ring, eight little shards of crystal circling between the
+## rings (each spinning), and four small diamonds at the top, bottom and sides, turning in place.
+func _build_details(blue: Color, gold: Color) -> void:
+	_ticks = Node3D.new()
+	_rings_root.add_child(_ticks)
+	var tick_mat := _glow(gold, 1.2)
+	for i in range(72):
+		var a := TAU * i / 72.0
+		var long := i % 6 == 0
+		var t := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.007, 0.05 if long else 0.025, 0.007)
+		t.mesh = bm
+		t.material_override = tick_mat
+		t.position = Vector3(cos(a), sin(a), 0.0) * 1.47
+		t.rotation.z = a - PI * 0.5
+		_ticks.add_child(t)
+	_dots = Node3D.new()
+	_rings_root.add_child(_dots)
+	var dot_mat := _glow(Color(0.7, 0.92, 1.0), 1.6)
+	var dm := SphereMesh.new()
+	dm.radius = 0.009
+	dm.height = 0.018
+	dm.radial_segments = 6
+	dm.rings = 3
+	for i in range(24):
+		var a := TAU * i / 24.0
+		var d := MeshInstance3D.new()
+		d.mesh = dm
+		d.material_override = dot_mat
+		d.position = Vector3(cos(a), sin(a), 0.0) * 0.86
+		_dots.add_child(d)
+	_flecks = Node3D.new()
+	_rings_root.add_child(_flecks)
+	var fleck_mat := _glow(Color(0.6, 0.88, 1.0), 1.3)
+	for i in range(8):
+		var a := TAU * (i + 0.5) / 8.0
+		var f := _diamond(0.028, fleck_mat)
+		f.position = Vector3(cos(a), sin(a), 0.0) * 1.135
+		_flecks.add_child(f)
+	var gem_mat := StandardMaterial3D.new()
+	gem_mat.albedo_color = Color(0.5, 0.82, 1.0)
+	gem_mat.metallic = 0.4
+	gem_mat.roughness = 0.1
+	gem_mat.emission_enabled = true
+	gem_mat.emission = blue
+	gem_mat.emission_energy_multiplier = 0.8
+	for i in range(4):
+		var a := TAU * i / 4.0
+		var g := _diamond(0.05, gem_mat)
+		g.position = Vector3(cos(a), sin(a), 0.0) * 1.53
+		_rings_root.add_child(g)
+		_gems.append(g)
+
+
+## A little diamond: two four-sided points, base to base.
+func _diamond(size: float, mat: Material) -> Node3D:
+	var n := Node3D.new()
+	for up in [true, false]:
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0 if up else size
+		cone.bottom_radius = size if up else 0.0
+		cone.height = size * 1.6
+		cone.radial_segments = 4
+		cone.rings = 1
+		var mi := MeshInstance3D.new()
+		mi.mesh = cone
+		mi.material_override = mat
+		mi.position.y = size * 0.8 if up else -size * 0.8
+		n.add_child(mi)
+	return n
 
 
 ## The Shard in 3D: a glowing six-sided crystal turning slowly inside three rings of light (gold
-## and blue, each spinning on its own axis), lit warm and cool, with a soft glow - and below it the
+## and blue, cut into arcs and turning symmetrically), with the finest turning details round them,
+## lit warm and cool, with a soft glow - and below it the
 ## name in the 3D gold letters of the title. Hidden until laid out, so the first frame is centred.
 func _build_logo3d() -> void:
 	_logo = SubViewportContainer.new()
@@ -308,24 +423,40 @@ func _build_logo3d() -> void:
 		mi.mesh = cone
 		mi.position = Vector3(0, 0.475 if up else -0.3, 0)
 		_crystal.add_child(mi)
-	# three rings of light round it
-	for r: Array in [[1.05, 0.025, Color(0.3, 0.8, 1.0)], [1.25, 0.018, Color(0.98, 0.76, 0.3)], [1.45, 0.03, Color(0.3, 0.8, 1.0)]]:
-		var tm := TorusMesh.new()
-		tm.inner_radius = float(r[0]) - float(r[1])
-		tm.outer_radius = float(r[0]) + float(r[1])
-		tm.rings = 48
-		tm.ring_segments = 8
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.albedo_color = r[2]
-		m.emission_enabled = true
-		m.emission = r[2]
-		m.emission_energy_multiplier = 1.5
-		tm.material = m
-		var ring := MeshInstance3D.new()
-		ring.mesh = tm
-		vp.add_child(ring)
+	# three rings of light round it, facing you, each cut into arcs on symmetrical sides: the blue
+	# one inside in two halves (cut left and right), the gold one in four (cut at the four
+	# points), the blue one outside in four (cut on the diagonals, between the gold ones'). A pearl
+	# of light at each arc's end.
+	_rings_root = Node3D.new()
+	vp.add_child(_rings_root)
+	var blue := Color(0.3, 0.8, 1.0)
+	var gold := Color(0.98, 0.76, 0.3)
+	var pearl := _glow(Color(0.85, 0.95, 1.0), 2.0)
+	for spec: Array in [[1.02, 0.022, blue, [[20.0, 160.0], [200.0, 340.0]]],
+			[1.25, 0.03, gold, [[25.0, 65.0], [115.0, 155.0], [205.0, 245.0], [295.0, 335.0]]],
+			[1.38, 0.016, blue, [[55.0, 125.0], [145.0, 215.0], [235.0, 305.0], [325.0, 395.0]]]]:
+		var ring := Node3D.new()
+		_rings_root.add_child(ring)
+		var mat := _glow(spec[2], 1.5)
+		var radius := float(spec[0])
+		for arc: Array in spec[3]:
+			var mi := MeshInstance3D.new()
+			mi.mesh = _arc_mesh(radius, float(spec[1]), deg_to_rad(float(arc[0])), deg_to_rad(float(arc[1])))
+			mi.material_override = mat
+			ring.add_child(mi)
+			for end: float in [float(arc[0]), float(arc[1])]:
+				var cap := MeshInstance3D.new()
+				var sm := SphereMesh.new()
+				sm.radius = float(spec[1]) * 1.9
+				sm.height = sm.radius * 2.0
+				sm.radial_segments = 10
+				sm.rings = 5
+				cap.mesh = sm
+				cap.material_override = pearl
+				cap.position = Vector3(cos(deg_to_rad(end)), sin(deg_to_rad(end)), 0.0) * radius
+				ring.add_child(cap)
 		_ring_nodes.append(ring)
+	_build_details(blue, gold)
 	# the name, in 3D gold
 	_name3d = Title3D.make("SHARDSIGHT", 900.0, 0.8)
 	_name3d.visible = false
@@ -349,12 +480,23 @@ func _layout(vs: Vector2) -> void:
 	_name3d.visible = true
 	_crystal.rotation = Vector3(0.12 * sin(_t * 0.7), _t * 0.8, 0.0)
 	_crystal.position.y = 0.06 * sin(_t * 1.6)          # it floats
-	var axes: Array[Vector3] = [Vector3(1, 0.2, 0).normalized(), Vector3(0.3, 1, 0.2).normalized(), Vector3(0.2, 0.4, 1).normalized()]
+	# Symmetrical turning: the inner and outer blue rings turn the same speed opposite ways, the
+	# gold one swings to and fro about where it rests - so the whole stays balanced, mirror for
+	# mirror, at every moment - and all of it rocks gently forward and back together.
+	_rings_root.rotation = Vector3(0.16 * sin(_t * 0.55), 0.0, 0.0)
+	var spin := _t * 0.45
 	for i in range(_ring_nodes.size()):
-		var tilt := Basis(Vector3(1, 0, 0), deg_to_rad(70.0 - i * 20.0))
-		_ring_nodes[i].basis = Basis(axes[i], _t * (0.6 - i * 0.25) * (1.0 if i % 2 == 0 else -1.0)) * tilt
-		var sc := 1.0 + 0.02 * sin(_t * 2.0 + i) + (_shown * 0.05 if i == 1 else 0.0)   # the gold ring swells with the loading
+		var z := spin if i == 0 else (-spin if i == 2 else 0.22 * sin(_t * 0.8))
+		_ring_nodes[i].rotation = Vector3(0.0, 0.0, z)
+		var sc := 1.0 + 0.012 * sin(_t * 2.0) + (_shown * 0.04 if i == 1 else 0.0)   # breathing together; the gold one swells with the loading
 		_ring_nodes[i].scale = Vector3.ONE * sc
+	_ticks.rotation.z = -_t * 0.12                     # the finest details turning too
+	_dots.rotation.z = _t * 0.3
+	_flecks.rotation.z = -_t * 0.2
+	for f in _flecks.get_children():
+		(f as Node3D).rotation = Vector3(0.0, _t * 2.2, 0.0)
+	for g in _gems:
+		g.rotation.y = _t * 1.4
 
 
 ## A ring of `n` arcs with gaps between, turned by `turn`.

@@ -175,7 +175,7 @@ func _mix(delta: float) -> void:
 			rate = 5.0
 		_levels[s] = move_toward(cur, tgt, rate * delta)
 	for b in range(2):
-		var on := b == _bank and _bank_scene[b] != ""
+		var on: bool = b == _bank and String(_bank_scene[b]) != ""
 		_fade[b] = move_toward(float(_fade[b]), 1.0 if on else 0.0, delta / (1.2 if on else 2.5))
 		var bank: Dictionary = _banks[b]
 		for s in STEMS:

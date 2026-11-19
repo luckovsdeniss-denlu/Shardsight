@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.1.1
+- Fixed: the game didn't load in 2.0.0 and 2.1.0 - a script error in the living score's mixer
+  stopped the main script from compiling.
+- The loading screen's logo (everywhere it shows: the game's start and the trailers' opening):
+  - The three rings are cut into arcs on symmetrical sides - the inner blue one in two halves cut
+    left and right, the gold one in four cut at the four points, the outer blue one in four cut on
+    the diagonals - with a pearl of light at each arc's end, all facing you.
+  - They turn symmetrically: the inner and outer blue rings at the same speed opposite ways, the
+    gold one swinging to and fro about where it rests, all rocking gently together.
+  - The finest turning details round them: 72 tiny gold ticks (every sixth longer), 24 points of
+    light inside the inner ring, eight little crystal shards circling between the rings, each
+    spinning, and four small diamonds at the top, bottom and sides turning in place.
+
 ## 2.1.0
 - Max optimization (Settings, and Performance): one button for the cheapest of everything - every
   look off (no glow, shadows, grass, butterflies or leaves; few particles; a lighter crowd; a 70 m
