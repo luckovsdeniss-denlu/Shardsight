@@ -176,34 +176,76 @@ func _to_map(p: Vector3) -> Vector2:
 	return Vector2(p.x, p.z) / World.TILE * px
 
 
-func _draw() -> void:
-	if world == null:
-		return
+## What never moves - the frame, the land, the town names, north and the shrines - painted once
+## into a picture of its own (again only when the land changes), and drawn as that one picture:
+## drawn bit by bit, it was dozens of draws every frame.
+var _static_vp: SubViewport = null
+var _static_draw: Control = null
+var _static_rev := -2
+const PAD := 4.0
+
+
+func _ensure_static() -> void:
 	if _terrain == null or _revision != world.revision:
 		_bake_terrain()
+	if _static_vp == null:
+		_static_vp = SubViewport.new()
+		_static_vp.transparent_bg = true
+		_static_vp.disable_3d = true
+		_static_vp.size = Vector2i(custom_minimum_size + Vector2(PAD * 2.0, PAD * 2.0))
+		add_child(_static_vp)
+		_static_draw = Control.new()
+		_static_draw.size = Vector2(_static_vp.size)
+		_static_draw.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		_static_draw.draw.connect(_draw_static)
+		_static_vp.add_child(_static_draw)
+	if _static_rev != world.revision or (_static_rev == -2):
+		_static_rev = world.revision
+		_static_draw.queue_redraw()
+		_static_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+
+func _draw_static() -> void:
+	var c := _static_draw
+	var o := Vector2(PAD, PAD)
 	var vsize := custom_minimum_size
 	# the frame: a dark border with a thin gold line
-	draw_rect(Rect2(Vector2(-4, -4), vsize + Vector2(8, 8)), FRAME)
-	draw_texture_rect(_terrain, Rect2(Vector2.ZERO, vsize), false)
-	draw_rect(Rect2(Vector2(-1, -1), vsize + Vector2(2, 2)), GOLD, false, 1.5)
+	c.draw_rect(Rect2(Vector2.ZERO, vsize + Vector2(PAD * 2.0, PAD * 2.0)), FRAME)
+	c.draw_texture_rect(_terrain, Rect2(o, vsize), false)
+	c.draw_rect(Rect2(o - Vector2(1, 1), vsize + Vector2(2, 2)), GOLD, false, 1.5)
 	var font := ThemeDB.fallback_font
 	# town names and the dungeon
 	for i in range(World.TOWNS.size()):
 		var r: Rect2i = World.TOWNS[i]
-		_label(font, String(World.TOWN_NAMES[i]).capitalize(), (Vector2(r.position) + Vector2(r.size) / 2.0) * px)
-	_label(font, "Dungeon", (Vector2(World.DUNGEON.position) + Vector2(World.DUNGEON.size) / 2.0) * px)
-	_label(font, "Cemetery", (Vector2(World.CEMETERY.position) + Vector2(World.CEMETERY.size) / 2.0) * px)
+		_label_on(c, font, String(World.TOWN_NAMES[i]).capitalize(), o + (Vector2(r.position) + Vector2(r.size) / 2.0) * px)
+	_label_on(c, font, "Dungeon", o + (Vector2(World.DUNGEON.position) + Vector2(World.DUNGEON.size) / 2.0) * px)
+	_label_on(c, font, "Cemetery", o + (Vector2(World.CEMETERY.position) + Vector2(World.CEMETERY.size) / 2.0) * px)
 	# north
-	draw_string_outline(font, Vector2(4, 13), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color.BLACK)
-	draw_string(font, Vector2(4, 13), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, GOLD)
+	c.draw_string_outline(font, o + Vector2(4, 13), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color.BLACK)
+	c.draw_string(font, o + Vector2(4, 13), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, GOLD)
 	# ankh shrines: little glowing ankhs
 	for s in game.shrines:
-		var sp := _to_map(s)
+		var sp := o + _to_map(s)
 		var glow := Color(0.7, 0.88, 1.0)
-		draw_circle(sp, 4.5, Color(0.5, 0.75, 1.0, 0.25))
-		draw_line(sp + Vector2(0, -1), sp + Vector2(0, 4), glow, 1.5)
-		draw_line(sp + Vector2(-2.5, 0), sp + Vector2(2.5, 0), glow, 1.5)
-		draw_arc(sp + Vector2(0, -2.5), 1.5, 0.0, TAU, 8, glow, 1.2)
+		c.draw_circle(sp, 4.5, Color(0.5, 0.75, 1.0, 0.25))
+		c.draw_line(sp + Vector2(0, -1), sp + Vector2(0, 4), glow, 1.5)
+		c.draw_line(sp + Vector2(-2.5, 0), sp + Vector2(2.5, 0), glow, 1.5)
+		c.draw_arc(sp + Vector2(0, -2.5), 1.5, 0.0, TAU, 8, glow, 1.2)
+
+
+func _label_on(c: Control, font: Font, text: String, centre: Vector2) -> void:
+	var fs := 10
+	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var at := centre + Vector2(-w / 2.0, 4.0)
+	c.draw_string_outline(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 3, Color(0, 0, 0, 0.85))
+	c.draw_string(font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1.0, 0.94, 0.78))
+
+
+func _draw() -> void:
+	if world == null:
+		return
+	_ensure_static()
+	draw_texture(_static_vp.get_texture(), Vector2(-PAD, -PAD))
 	# where the story leads: a violet diamond
 	if game.has_story_target and not game.property.story_done:
 		var sp2 := _to_map(game.story_target)
@@ -234,7 +276,10 @@ func _draw() -> void:
 			var cp := _to_map(c.position)
 			draw_circle(cp, 3.0, Color(0.0, 0.0, 0.0, 0.6))
 			draw_circle(cp, 2.2, Color(1.0, 0.82, 0.3))
-	# everyone else, then the hero on top
+	# everyone else, then the hero on top - all the dots in one batch (one draw for the lot: a
+	# circle each was two draws a creature, hundreds a frame, the most of the screen's whole cost)
+	var verts := PackedVector2Array()
+	var cols := PackedColorArray()
 	var list: Array = game.creatures
 	for item in list:
 		var e := item as Entity
@@ -242,11 +287,19 @@ func _draw() -> void:
 			continue
 		var p := _to_map(e.position)
 		if e.is_boss:                              # champions, warlords, the Bone King
-			draw_circle(p, 4.2, Color(0.0, 0.0, 0.0, 0.6))
-			draw_circle(p, 3.2, Color(1.0, 0.55, 0.15))
+			_dot(verts, cols, p, 4.2, Color(0.0, 0.0, 0.0, 0.6))
+			_dot(verts, cols, p, 3.2, Color(1.0, 0.55, 0.15))
 			continue
-		draw_circle(p, 2.6, Color(0.0, 0.0, 0.0, 0.55))
-		draw_circle(p, 1.8, _dot_color(e))
+		_dot(verts, cols, p, 2.6, Color(0.0, 0.0, 0.0, 0.55))
+		_dot(verts, cols, p, 1.8, _dot_color(e))
+	if not verts.is_empty():
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = verts
+		arrays[Mesh.ARRAY_COLOR] = cols
+		_dots_mesh.clear_surfaces()
+		_dots_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		draw_mesh(_dots_mesh, null)
 	var hero: Entity = game.hero
 	if hero != null:
 		var hp := _to_map(hero.position)
@@ -257,6 +310,22 @@ func _draw() -> void:
 		draw_colored_polygon(pts, Color.WHITE if not hero.dead else Color(0.75, 0.88, 1.0))
 		pts.append(tip)
 		draw_polyline(pts, Color.BLACK, 1.0)
+
+
+var _dots_mesh := ArrayMesh.new()
+
+
+## A round dot (an octagon of triangles) added to the batch.
+func _dot(verts: PackedVector2Array, cols: PackedColorArray, at: Vector2, r: float, c: Color) -> void:
+	for i in range(8):
+		var a0 := TAU * i / 8.0
+		var a1 := TAU * (i + 1) / 8.0
+		verts.append(at)
+		verts.append(at + Vector2(cos(a0), sin(a0)) * r)
+		verts.append(at + Vector2(cos(a1), sin(a1)) * r)
+		cols.append(c)
+		cols.append(c)
+		cols.append(c)
 
 
 func _label(font: Font, text: String, centre: Vector2) -> void:

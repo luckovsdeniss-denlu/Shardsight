@@ -2302,7 +2302,12 @@ func _apoc_step(delta: float) -> void:
 	if _wave_t <= 0.0:
 		_wave_t = randf_range(55.0, 70.0)
 		game.log_event("A wave of the Veilborn pours out of the rifts!")
-		for k in range(3):
+		_rifts_due += 3                            # (one after another, not all in one frame)
+	if _rifts_due > 0:
+		_rift_gap -= delta
+		if _rift_gap <= 0.0:
+			_rift_gap = 0.5
+			_rifts_due -= 1
 			_spawn_rift()
 
 
@@ -2384,8 +2389,9 @@ func _quake() -> void:
 	tw.tween_property(mat, "albedo_color", Color(0.2, 0.05, 0.02, 0.8), 6.0)
 	tw.tween_property(mat, "albedo_color:a", 0.0, 4.0)
 	tw.tween_callback(holder.queue_free)
-	_spawn_rift()
-	_spawn_rift()
+	_rifts_due += 2
 
 
 var _quake_src: Entity = null
+var _rifts_due := 0                            # rifts still to open, one every half second
+var _rift_gap := 0.0

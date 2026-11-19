@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.9.0
+- Optimised for a steady 30 frames a second (measured):
+  - What was costing the most was the screen's own furniture, not the world: the world in view
+    was only about 30 draws a frame (what's off screen was already never drawn), but the
+    buttons, text and map were nearly 500 - and 456 of them were the minimap, which drew every
+    dot on it (two circles for each of 200-odd creatures) and every name and shrine as separate
+    draws, every frame. Now everything on the map that never moves (the frame, the land, the
+    names, north and the shrines) is painted once into a picture of its own, and all the dots go
+    in one batch: the whole screen is down from 481 draws a frame to 56.
+  - In the Shardveil apocalypse, a wave's rifts (and an earthquake's) open one after another,
+    half a second apart, instead of all in one frame.
+
 ## 2.8.0
 - First person, cleaner and more cinematic:
   - A clean picture: no stats text, map or world log while in first person (your own log stays,
