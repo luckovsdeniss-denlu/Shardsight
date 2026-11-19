@@ -547,6 +547,11 @@ func tick(delta: float) -> void:
 # --- decisions -------------------------------------------------------------
 
 func _think(delta: float) -> void:
+	if is_hero and journey_direct and has_journey and target != null:
+		# following the story: fight only what's at you and close; anything else, walk on
+		if not is_instance_valid(target) or target.dead or target.target != self \
+				or position.distance_to(target.position) > 6.0:
+			target = null
 	if _loops_on():
 		_loops_tick(delta)
 		if kind == Kind.PLAYER and not is_hero and not shun.is_empty() and _shun_step():
@@ -861,7 +866,9 @@ func _follow_path(delta: float) -> void:
 		path.remove_at(0)
 	if is_hero and has_journey and path.size() > 1 and world.walk_clear(position, path[1]):
 		path.remove_at(0)                     # (on a long walk: straight on to the next point it can see)
-	_accel = move_toward(_accel, 1.0, delta * 5.0) if not path.is_empty() else 0.4   # a step to get going
+	if is_hero and has_journey and journey_direct and path.is_empty() and target == null and position.distance_to(journey) > 1.6:
+		go_to(journey)                        # (the next leg at once: no standing about till the next thought)
+	_accel = move_toward(_accel, 1.0, delta * 5.0) if not path.is_empty() else (_accel if has_journey else 0.4)   # a step to get going (not again on every leg of a long walk)
 	var budget := speed * delta * (mounted_on.mount_speed if mounted_on != null else 1.0) * _accel * form_value("speed", 1.0) * _haste_mult()
 	if game.movie != null and not path.is_empty() and _near:
 		# the trailer: fluid movement - cut the path's corners (straight to the furthest point
@@ -1325,6 +1332,8 @@ func take_damage(amount: float, from: Entity) -> void:
 	if target == null and not recovering and not retreating:
 		if _outmatched(from) and (kind != Kind.PLAYER or ai_enabled or not is_hero):
 			start_retreat()            # far too strong: run for a healer in a safe town
+		elif journey_direct and has_journey and from != null and position.distance_to(from.position) > 4.0:
+			pass                       # (following the story: a shot from afar doesn't stop you)
 		else:
 			target = from              # fight back
 	if hp <= 0.0:

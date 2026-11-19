@@ -2434,7 +2434,7 @@ func _b(text: String, cb: Callable, enabled := true) -> void:
 ## cooking, brewing, the tavern, fishing from a boat, the arena, the dungeon's depths, the guild
 ## towers, its house, and now and then a look at a cave or a biome. In a fight it drinks a
 ## strength or agility potion and poisons its blade against tough foes, and it keeps itself fed.
-const ERRANDS := {"world_boss": 2.5, "race": 0.8, "enchant": 0.8, "farm": 1.2, "quest": 3.0, "bounty": 2.0, "cook": 1.5, "brew": 1.0, "tavern": 1.0, "fishing": 1.0,
+const ERRANDS := {"story": 6.0, "world_boss": 2.5, "race": 0.8, "enchant": 0.8, "farm": 1.2, "quest": 3.0, "bounty": 2.0, "cook": 1.5, "brew": 1.0, "tavern": 1.0, "fishing": 1.0,
 	"arena": 1.0, "depths": 1.0, "tower": 1.0, "house": 1.0, "explore": 0.7}
 ## Where a fetched item comes from: the creature that drops it.
 const DROPPED_BY := {"swamp_herb": "Bog Leech", "scorpion_venom": "Sand Scorpion", "frost_pelt": "Frost Wolf"}
@@ -2466,6 +2466,10 @@ func _auto_tick(delta: float) -> void:
 		_errand_step()
 		return
 	_auto_wait -= step
+	if _auto_wait > 8.0 and auto_on("story") and hero.target == null and not hero.has_journey \
+			and not game.property.story_done and game.has_story_target \
+			and hero.position.distance_to(game.story_target) > 3.0:
+		_auto_wait = 0.0                           # (the main story waits for nobody: on with it)
 	if _auto_wait > 0.0 or hero.target != null or hero.recovering or hero.retreating or hero.has_journey:
 		return
 	_auto_wait = randf_range(35.0, 60.0)
@@ -2477,7 +2481,11 @@ func _pick_errand() -> void:
 		if randf() < 0.3:                          # time to sail home from the isle
 			_go("sail_home", world.tile_center(DOCKS[7]["tile"]), _sail.bind(7, false), null, 1.8)
 		return
+	if auto_on("story") and _errand_story():
+		auto_last["story"] = _now()
+		return                                     # (the main story first, whenever it leads somewhere)
 	var kinds: Array = ERRANDS.keys()
+	kinds.erase("story")
 	kinds.sort_custom(func(a, b) -> bool:
 		return (_now() - float(auto_last.get(a, -1000.0))) * float(ERRANDS[a]) > (_now() - float(auto_last.get(b, -1000.0))) * float(ERRANDS[b]))
 	for k in kinds:
@@ -2486,6 +2494,8 @@ func _pick_errand() -> void:
 		auto_last[k] = _now()
 		var started := false
 		match String(k):
+			"story":
+				started = _errand_story()
 			"quest":
 				started = _errand_quest()
 			"bounty":
@@ -2549,6 +2559,8 @@ func _errand_step() -> void:
 			and hero.pause <= 0.0:                 # (never cut short a fight or the looting of a corpse)
 		if not hero.has_journey or hero.journey.distance_to(dest) > 2.5:
 			hero.set_journey(dest)
+			if String(errand["kind"]) == "story":
+				hero.journey_direct = true         # (the story: straight there, no detours)
 	hero.roam_timer = maxf(hero.roam_timer, 30.0)   # don't wander off to another region meanwhile
 
 
@@ -2581,6 +2593,22 @@ func _hunt(kind: String, n: String) -> bool:
 func _engage(e: Entity) -> void:
 	if is_instance_valid(e) and not e.dead:
 		hero.target = e
+
+
+## The main story: off to wherever it leads now (the person to see, a shrine, the lair, the Broken
+## Circle), straight there; the chapter moves on by itself on arrival (or once the foe falls).
+func _errand_story() -> bool:
+	if game.property.story_done or not game.property.story_started or not game._story_goal_pos():
+		return false
+	var dest: Vector3 = game.story_target
+	if hero.position.distance_to(dest) < 3.0:
+		return false                               # (there already: the fight, or the moment, is here)
+	var who: Entity = null
+	var step: Dictionary = Story.STEPS[game.property.story_step]
+	if String(step["kind"]) == "talk":
+		who = _nearest_named(String(step["who"]))
+	return _go("story", dest, func() -> void:
+		_auto_wait = 3.0, who, 2.5)                # (and soon after, the next chapter's errand)
 
 
 # side quests: take one, work at it, hand it in
@@ -3341,14 +3369,14 @@ func _auto_enchant(gem: String, target: String, enchant_ok: bool) -> void:
 
 # --- what Auto does: its switches --------------------------------------------------------------
 const AUTO_NAMES := {
-	"quest": "Side quests", "bounty": "Bounties", "cook": "Cooking", "brew": "Brewing potions and poisons",
+	"story": "Following the main story", "quest": "Side quests", "bounty": "Bounties", "cook": "Cooking", "brew": "Brewing potions and poisons",
 	"tavern": "Visiting the tavern", "fishing": "Boats and fishing", "arena": "Arena duels", "race": "Horse races",
 	"depths": "The dungeon's depths", "tower": "Taking guild towers", "house": "Home: rest, garden, furniture",
 	"farm": "Farming", "enchant": "Enchanting and gems", "explore": "Exploring caves and biomes",
 	"world_boss": "Joining the fight against world bosses",
 	"potions": "Potions and blade poison in a fight", "meals": "Eating cooked meals",
 }
-const AUTO_ORDER := ["quest", "bounty", "world_boss", "cook", "meals", "brew", "potions", "tavern", "fishing", "arena", "race",
+const AUTO_ORDER := ["story", "quest", "bounty", "world_boss", "cook", "meals", "brew", "potions", "tavern", "fishing", "arena", "race",
 	"depths", "tower", "house", "farm", "enchant", "explore"]
 
 

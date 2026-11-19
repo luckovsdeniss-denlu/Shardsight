@@ -2146,7 +2146,8 @@ func _story_tick(delta: float) -> void:
 	if has_story_target and hero.has_journey and hero.journey_direct and hero.journey.distance_to(story_target) > 3.0 \
 			and not world.is_blocked(world.to_tile(story_target)):
 		hero.journey = story_target                # (the one you're going to has moved: after them)
-		hero.path.clear()
+		if hero.path.is_empty() or hero.path[hero.path.size() - 1].distance_to(story_target) > 5.0:
+			hero.go_to(story_target)               # (a new way there, straight on - no stopping)
 	if story_go != null:
 		var near := has_story_target and hero.position.distance_to(story_target) < 3.0
 		story_go.visible = has_story_target and not hero.dead and not near

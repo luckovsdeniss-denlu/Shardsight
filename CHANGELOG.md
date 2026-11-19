@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.10.0
+- Follow story really smooth now (measured: the hero used to stand still about a quarter of the
+  way): anything that shot at you from afar made the hero stop and stand, targeting it, unable to
+  reach it; now, following the story, only what's at you and close is fought - the rest, you walk
+  on. The next leg of the way is found at once (no standing about between legs, no slowing to a
+  fresh start on each), and a moving person is followed without stopping.
+- Auto follows the main story by itself: "Following the main story" is the first of Auto's
+  errands - your hero sets off for the next chapter's goal straight away whenever nothing
+  presses, and on to the next chapter soon after each one. (It can be switched off with the
+  others in Menu > Auto.)
+
 ## 2.9.1
 - Max optimization goes further: the Riftrunner's change and every burst in it use the thinner
   particles too; in the Shardveil apocalypse no ash, embers or red glow, and three fires at most;
