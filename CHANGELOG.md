@@ -3,6 +3,15 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.2.0
+- No death loops (experimental mode, "No death loops", on by default):
+  - Nobody fights within 7 m of a resurrection shrine - no blows, arrows, spells or guns in or
+    out - and the newly raised (by a healer, a priest, a shrine) can't be harmed, and can't strike,
+    for 12 seconds, shimmering gold meanwhile. Monsters give up the chase.
+  - Everyone remembers where they fell - and the players near them remember it too - for two and a
+    half minutes: they won't wander there or pick fights there, and if they find themselves in one
+    of those spots they drop what they're doing and run far off, away from it.
+
 ## 2.1.1
 - Fixed: the game didn't load in 2.0.0 and 2.1.0 - a script error in the living score's mixer
   stopped the main script from compiling.

@@ -546,6 +546,10 @@ func tick(delta: float) -> void:
 # --- decisions -------------------------------------------------------------
 
 func _think(delta: float) -> void:
+	if _loops_on():
+		_loops_tick(delta)
+		if kind == Kind.PLAYER and (not is_hero or ai_enabled) and not shun.is_empty() and _shun_step():
+			return                             # (running from where we fell)
 	if role == "escort":
 		_escort_follow()
 		return
@@ -587,7 +591,7 @@ func _think(delta: float) -> void:
 			target = null                    # calmed by music
 		elif target == null and pause <= 0.0:
 			target = _pick_target()
-		elif target != null and (target._in_town() or position.distance_to(home) > leash + aggro_range * 1.5):
+		elif target != null and (target._in_town() or target._sheltered() or position.distance_to(home) > leash + aggro_range * 1.5):
 			target = null       # gave up: prey fled into the safe town, or too far from its lair
 			pause = 3.0
 			go_to(home)
@@ -768,6 +772,8 @@ func _wander() -> void:
 	var center: Vector2i = world.to_tile(position if kind == Kind.PLAYER else home)
 	for _i in range(12):
 		var c := center + Vector2i(randi_range(-leash, leash), randi_range(-leash, leash))
+		if not shun.is_empty() and _shunned(world.tile_center(c)):
+			continue
 		if c != center and go_to(world.tile_center(c)):
 			return
 
@@ -784,6 +790,8 @@ func _wander_in_region() -> void:
 				roam.position, roam.end - Vector2i.ONE)
 		else:
 			c = roam.position + Vector2i(randi_range(0, roam.size.x - 1), randi_range(0, roam.size.y - 1))
+		if not shun.is_empty() and _shunned(world.tile_center(c)):
+			continue
 		if c != here and not world.is_blocked(c) and go_to(world.tile_center(c)):
 			return
 
@@ -1394,6 +1402,12 @@ func _die(killer: Entity) -> void:
 		game.count("hero_deaths")
 		game.count("hero_killed_by_" + killer.display_name)
 	game.sound("death", position, 1.2 / maxf(visual_scale, 0.4))   # big creatures die lower
+	if _loops_on() and kind != Kind.PET:
+		shun_spot(position)                    # (never here again, for a while)
+		for item in game.creatures:            # and the players who saw it keep away too
+			var w := item as Entity
+			if w != null and w != self and not w.dead and w.kind == Kind.PLAYER and w.position.distance_squared_to(position) < 196.0:
+				w.shun_spot(position)
 	var anims := Experiments.on("death_anims") and _near and game.movie == null and rig != null
 	if kind == Kind.PLAYER:
 		ghost = true                   # players become ghosts and look for a resurrection spot
@@ -1463,6 +1477,8 @@ func _respawn() -> void:
 	if rig != null:
 		rig.scale = Vector3.ONE
 	if kind == Kind.PLAYER:
+		if _loops_on():
+			shield_t = RAISE_SHIELD
 		_resurrect_fx()
 
 
@@ -2441,11 +2457,105 @@ func _town_notice() -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	if is_hero and now - _town_notice_at >= 5.0:
 		_town_notice_at = now
-		game.log_event("Nobody can be hurt in town.")
+		game.log_event("Nobody can be hurt in town." if _in_town() or (target != null and target._in_town())
+			else "No fighting here: by a resurrection shrine, or with the newly raised.")
 
 
 func town_protects(from: Entity) -> bool:
-	return _in_town() or (from != null and is_instance_valid(from) and from != self and from._in_town())
+	return _in_town() or _sheltered() or (from != null and is_instance_valid(from) and from != self and (from._in_town() or from._sheltered()))
+
+
+# --- no death loops (the "No death loops" experiment) -----------------------------------------
+# Nobody fights by a resurrection shrine, and the newly raised are untouchable (and can't strike)
+# for a while; and everyone remembers where they - and those near them - fell, keeps away from
+# those spots, and runs far off if they find themselves in one.
+
+const RAISE_SHIELD := 12.0                     # seconds the newly raised can't be harmed
+const SHRINE_PEACE := 7.0                      # metres round a shrine where nobody fights
+const SHUN_RADIUS := 16.0                      # how wide a berth a death spot gets
+const SHUN_SECONDS := 150.0                    # how long it's remembered
+var shield_t := 0.0
+var shun: Array = []                           # [where, until (seconds)]
+var _by_shrine := false
+var _shield_spark := 0.0
+
+
+func _sheltered() -> bool:
+	return (shield_t > 0.0 or _by_shrine) and not dead
+
+
+func _loops_on() -> bool:
+	return Experiments.on("safe_rising")
+
+
+func _now() -> float:
+	return Time.get_ticks_msec() / 1000.0
+
+
+## Remember a death spot for a while (the last four).
+func shun_spot(p: Vector3) -> void:
+	shun.append([p, _now() + SHUN_SECONDS])
+	if shun.size() > 4:
+		shun.pop_front()
+
+
+## Whether a place lies in a remembered death spot.
+func _shunned(p: Vector3) -> bool:
+	for s in shun:
+		if p.distance_to(s[0]) < SHUN_RADIUS:
+			return true
+	return false
+
+
+## Each think: the shield wears off, the shrine's peace checked, and old memories forgotten.
+func _loops_tick(delta: float) -> void:
+	shield_t = maxf(shield_t - delta, 0.0)
+	_by_shrine = false
+	for p in game.shrines:
+		if position.distance_squared_to(p) < SHRINE_PEACE * SHRINE_PEACE:
+			_by_shrine = true
+			break
+	if shield_t > 0.0 and _near_hero():
+		_shield_spark -= delta
+		if _shield_spark <= 0.0:                   # a soft golden shimmer while untouchable
+			_shield_spark = 0.8
+			Fx.sparkle(get_parent(), position + Vector3(0.0, 1.0, 0.0), Color(1.0, 0.88, 0.5), 8)
+	var now := _now()
+	for i in range(shun.size() - 1, -1, -1):
+		if float(shun[i][1]) < now:
+			shun.remove_at(i)
+
+
+## In a remembered death spot: drop whatever it was and run far off, away from it.
+func _shun_step() -> bool:
+	for s in shun:
+		var p: Vector3 = s[0]
+		var d := position.distance_to(p)
+		if d >= SHUN_RADIUS:
+			continue
+		if target != null and target.target == self and position.distance_to(target.position) < 2.0 and d > SHUN_RADIUS * 0.6:
+			return false                           # (cornered on the way out: fight it off)
+		target = null
+		loot_target = null
+		gather_tile = Vector2i(-1, -1)
+		if not path.is_empty() and _fleeing:
+			return true                            # (already on the way out)
+		var away := Vector3(position.x - p.x, 0.0, position.z - p.z)
+		if away.length() < 0.5:
+			away = Vector3(randf_range(-1.0, 1.0), 0.0, randf_range(-1.0, 1.0))
+		away = away.normalized()
+		for turn: float in [0.0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9]:
+			var dest := p + away.rotated(Vector3.UP, turn) * (SHUN_RADIUS + 14.0)
+			var c := world.to_tile(dest)
+			if not world.is_blocked(c) and go_to(world.tile_center(c)):
+				_fleeing = true
+				return true
+		return false
+	_fleeing = false
+	return false
+
+
+var _fleeing := false
 
 
 ## Monsters keep out of the towns (and give up a chase at the edge). Players of any repute may
@@ -2461,6 +2571,10 @@ func _avoids_town() -> bool:
 func _is_fair_target(e: Entity) -> bool:
 	if e.parked:
 		return false                       # a mount under its rider
+	if _sheltered() or e._sheltered():
+		return false                       # (by a shrine, or just raised: no fight)
+	if not shun.is_empty() and _shunned(e.position):
+		return false                       # (not over there: that's where we fell)
 	if e.is_vehicle:
 		return false                       # (a car: nothing to fight)
 	if game.chaos_at(position):
@@ -2729,6 +2843,8 @@ func _raise_at(spot: Dictionary) -> void:
 	else:
 		game.event_about("%s is raised at an ankh shrine." % display_name, is_hero)
 	died_red = false
+	if _loops_on():
+		shield_t = RAISE_SHIELD
 	_resurrect_fx()
 
 
@@ -2742,6 +2858,8 @@ func _resurrect_free(healer: Entity) -> void:
 	swing_cd = 1.0
 	path.clear()
 	game.event_about("%s resurrects %s." % [healer.display_name, display_name], is_hero)
+	if _loops_on():
+		shield_t = RAISE_SHIELD
 	_resurrect_fx()
 
 
@@ -3377,6 +3495,8 @@ func _chaos_fair(e: Entity) -> bool:
 	if e.kind == Kind.PET and e.pet_owner == self:
 		return false
 	if kind == Kind.PET and (pet_owner == e or (e.kind == Kind.PET and e.pet_owner == pet_owner)):
+		return false
+	if _sheltered() or e._sheltered():
 		return false
 	if _in_town() or e._in_town():
 		return false                       # (the towns keep the peace, even in the Shardveil)
