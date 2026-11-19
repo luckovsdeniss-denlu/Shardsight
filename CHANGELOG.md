@@ -3,6 +3,24 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.1.0
+- Max optimization (Settings, and Performance): one button for the cheapest of everything - every
+  look off (no glow, shadows, grass, butterflies or leaves; few particles; a lighter crowd; a 70 m
+  view), the 3D at 60% resolution - locked at a steady 30 frames a second. Kept between starts.
+- Auto-optimize rebuilt to hold at least 30 frames a second, steadily:
+  - It watches every frame, not only the average: a second with stutters counts as a bad one.
+  - It holds 60 at full looks only if it can; otherwise it locks to an even 30 (steadier than a
+    wobbling 40-60) instead of chasing 60 by switching looks on and off.
+  - If 30 slips it gives way within a second (two steps at once when it's bad): resolution down
+    to 75%, then the looks one by one - glow, particles, shadows, crowd, butterflies and leaves,
+    grass, far view - then resolution down to half.
+  - It brings things back slowly (ten smooth seconds per step) and remembers what caused stutter.
+  - With everything back at 30 and running light, it tries 60 again now and then, less often each
+    time that fails.
+  - Two new savings it can use: fewer particles (40%), and a lighter crowd (figures far off move
+    at half rate; the unseen world ticks half as often).
+- The frame counter shows the rate it's holding ("30/30 FPS"), and MAX when Max optimization is on.
+
 ## 2.0.0
 - The living score (experimental mode, "Living score", on by default): new music that mirrors
   what happens on the screen.

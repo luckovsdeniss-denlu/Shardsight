@@ -1036,49 +1036,100 @@ var _fps_acc := 0.0
 var _fps_frames := 0
 
 
-## Holding 60 frames a second. Measured every second: under 55, the 3D picture is drawn at a
-## slightly lower resolution, a step at a time down to 75%; then the looks go one by one (see
-## _set_quality); then the resolution again, down to half. After eight smooth seconds it all comes
-## back a step at a time in the reverse order; whatever brings the stutter back stays off.
-## Buttons and text always stay sharp.
+## Holding a steady frame rate - never under 30. Every frame's time is watched, not only the
+## average: a second with stutters (frames slower than 1/30 s) counts as a bad second even if the
+## average looks fine.
+##  - It aims for 60 at full looks. If it can't hold 60, it settles at a locked, even 30 (a steady
+##    30 is smoother than a wobbling 40-60), rather than giving up looks.
+##  - At 30, if even that slips, it gives way quickly - in a second, two steps at once when it's
+##    bad: first the 3D resolution down to 75%, then the looks one by one (see _set_quality: the
+##    glow, fewer particles, shadows, lighter crowds, butterflies and leaves, grass, the far
+##    view), then the resolution down to half.
+##  - It brings things back slowly (after ten smooth seconds, one step at a time, in the reverse
+##    order), and whatever brings the stutter back stays off (it learns).
+##  - Everything back at 30 and running light, it tries 60 again now and then (less and less
+##    often if that keeps failing).
+## Max optimization skips all that: the cheapest of everything, locked at 30.
 const FPS_GOAL := 60
-var _fps_good := 0                    # smooth two-second spells in a row
+var _goal := 60                       # the frame rate held now: 60, or a steady 30
+var _fps_good := 0                    # smooth seconds in a row
 var _scale_cap := 1.0                 # the resolution it has learned not to go above
 var _fps_windows := 0
-var _raised_ago := 99                 # two-second spells since the resolution last went up
+var _raised_ago := 99                 # seconds since something last came back
+var _slow := 0                        # frames this second slower than 1/30 s
+var _bad60 := 0
+var _probe_t := 0.0                   # seconds at 30, all back, before trying 60 again
+var _probe_wait := 25.0
+var _probing := 0                     # seconds left of a try at 60
+var _max_opt := false                 # Max optimization: the cheapest of everything, 30 locked
+
+
+func _set_goal(fps: int) -> void:
+	_goal = fps
+	_fps_good = 0
+	if not autotest and DisplayServer.get_name() != "headless":
+		Engine.max_fps = fps
 
 
 func _adapt_resolution(delta: float) -> void:
 	_fps_acc += delta
 	_fps_frames += 1
+	if delta > 1.0 / 30.0 + 0.006:
+		_slow += 1                             # a stutter: this frame came late even for 30
 	if _fps_acc < 1.0:
 		return
 	var fps := _fps_frames / _fps_acc
+	var slow := _slow
 	_fps_acc = 0.0
 	_fps_frames = 0
+	_slow = 0
 	_fps_windows += 1
-	if _fps_windows <= 6 or not _auto_opt or movie != null:
-		return                                 # (the trailer: the picture holds steady - no looks switching mid-scene)
-	if false:
-		return                                 # the first seconds stutter while everything loads (and with Auto-optimize off, the player decides)
+	if _fps_windows <= 6 or not _auto_opt or _max_opt or movie != null:
+		return                                 # (the first seconds stutter while it all loads; the trailer holds steady)
 	_raised_ago += 1
+	var short := fps < _goal * 0.9 or slow >= (2 if _goal == 30 else 4)
+	var severe := fps < 26.0 or slow >= 6
+	if _goal == 60:
+		# 60 at full looks, or a steady 30: it never gives up looks to chase 60
+		if _probing > 0:
+			_probing -= 1
+			if short:
+				_probing = 0
+				_probe_wait = minf(_probe_wait * 2.0, 600.0)   # (not yet: try again later, less often)
+				_set_goal(30)
+			return
+		if short:
+			_bad60 += 1
+			if _bad60 >= 2 or severe:
+				_bad60 = 0
+				_set_goal(30)
+		else:
+			_bad60 = 0
+		return
 	var want := _render_scale
 	var floor_scale := SCALE_FLOOR if _q < Q_MAX else 0.5   # the resolution goes below this only once everything else is off
-	if fps < FPS_GOAL * 0.92:
+	if short:
 		_fps_good = 0
-		if _raised_ago <= 2 and _last_raise == "q":
-			_q_floor = mini(_q + 1, Q_MAX)       # bringing that back cost too much: keep it off
-			_set_quality(_q + 1)
-		else:
-			if _raised_ago <= 2:
+		_probe_t = 0.0
+		var steps := 2 if severe else 1
+		for k in range(steps):
+			if _raised_ago <= 3 and _last_raise == "q" and k == 0:
+				_q_floor = mini(_q + 1, Q_MAX)   # bringing that back cost too much: keep it off
+				_set_quality(_q + 1)
+				continue
+			if _raised_ago <= 3 and k == 0:
 				_scale_cap = maxf(_render_scale - 0.05, 0.5)   # going up again cost too much: stay below
-			if _render_scale > floor_scale + 0.001:
-				want = maxf(_render_scale - (0.1 if fps < FPS_GOAL * 0.8 else 0.05), floor_scale)
+			if want > floor_scale + 0.001:
+				want = maxf(want - (0.1 if severe else 0.05), floor_scale)
 			elif _q < Q_MAX:
 				_set_quality(_q + 1)              # the next thing off
-	elif fps > FPS_GOAL * 0.97:
+				floor_scale = SCALE_FLOOR if _q < Q_MAX else 0.5
+			elif want > 0.5 + 0.001:
+				want = maxf(want - 0.05, 0.5)
+		_raised_ago = 99
+	elif fps >= 29.0 and slow == 0:
 		_fps_good += 1
-		if _fps_good >= 8:
+		if _fps_good >= 10:
 			_fps_good = 0
 			# back up in the reverse order: resolution to its floor, then the looks, then full resolution
 			if _q == Q_MAX and _render_scale < SCALE_FLOOR - 0.001:
@@ -1089,10 +1140,17 @@ func _adapt_resolution(delta: float) -> void:
 				_set_quality(_q - 1)
 				_raised_ago = 0
 				_last_raise = "q"
-			elif _render_scale < minf(_render_base, _scale_cap):
+			elif _render_scale < minf(_render_base, _scale_cap) - 0.001:
 				want = minf(_render_scale + 0.05, minf(_render_base, _scale_cap))
 				_raised_ago = 0
 				_last_raise = "scale"
+		# all back, and light: try 60 again now and then
+		if _q == 0 and _render_scale >= minf(_render_base, _scale_cap) - 0.001:
+			_probe_t += 1.0
+			if _probe_t >= _probe_wait and Performance.get_monitor(Performance.TIME_PROCESS) < 0.011:
+				_probe_t = 0.0
+				_probing = 5
+				_set_goal(60)
 	else:
 		_fps_good = 0
 	if not is_equal_approx(want, _render_scale):
@@ -1100,15 +1158,40 @@ func _adapt_resolution(delta: float) -> void:
 		get_viewport().scaling_3d_scale = _render_scale
 
 
-## What is drawn, by how much has had to go to hold 60 (each level adds to the ones before):
-## 1 no glow, vignette or edge smoothing, 2 no sun shadows, 3 no grass and flowers, 4 no butterflies or
-## leaves, 5 the camera sees 70 m (then the resolution may drop as low as half).
-const Q_MAX := 5
+## Max optimization: everything at its cheapest, held at a locked 30 frames a second - every look
+## off (no glow, shadows, grass, butterflies or leaves; few particles; a lighter crowd; a 70 m
+## view) and the 3D at 60% resolution. Off: back to Auto-optimize from the top.
+func _set_max_opt(on: bool) -> void:
+	_max_opt = on
+	if on:
+		_set_goal(30)
+		_render_scale = 0.6
+	else:
+		_render_scale = _render_base
+		_scale_cap = _render_base
+		_q = 0
+		_q_floor = 0
+		_probe_wait = 25.0
+		_set_goal(FPS_GOAL)
+	get_viewport().scaling_3d_scale = _render_scale
+	_apply_features()
+	var cf := ConfigFile.new()
+	cf.load(GRAPHICS_PATH)
+	cf.set_value("graphics", "max", on)
+	cf.save(GRAPHICS_PATH)
+
+
+## What is drawn, by how much has had to go to hold the frame rate (each level adds to the ones
+## before): 1 no glow, vignette or edge smoothing, 2 fewer particles, 3 no sun shadows, 4 a lighter
+## crowd (figures far off move at half rate, the unseen world ticks less), 5 no butterflies or
+## leaves, 6 no grass and flowers, 7 the camera sees 70 m (then the resolution may drop to half).
+const Q_MAX := 7
 const VIEW_FAR := 170.0               # the camera sees across the whole land (from the fly-by's height too), not 4 km
 const SCALE_FLOOR := 0.75
 var _q := 0
 var _q_floor := 0                     # learned: the looks that couldn't be afforded stay off
 var _last_raise := ""
+var _sim_lite := false                # a lighter crowd (see the creatures' loop in _process)
 
 
 func _set_quality(level: int) -> void:
@@ -1119,19 +1202,24 @@ func _set_quality(level: int) -> void:
 ## Whether a look is on: chosen by the frame-rate keeper (Auto-optimize), or by the player
 ## in the Performance panel.
 func _feat(id: String) -> bool:
+	if _max_opt:
+		return false
 	if not _auto_opt:
 		return bool(_perf.get(id, true))
 	return _q < int(FEATURE_LEVEL[id])
 
 
-const FEATURE_LEVEL := {"glow": 1, "shadows": 2, "grass": 3, "ambient": 4, "far": 5}
-const FEATURE_NAMES := {"glow": "Glow, vignette and smooth edges", "shadows": "Sun shadows", "grass": "Grass and flowers",
-	"ambient": "Butterflies and falling leaves", "far": "Far view (170 m; off: 70 m)"}
+const FEATURE_LEVEL := {"glow": 1, "particles": 2, "shadows": 3, "crowd": 4, "ambient": 5, "grass": 6, "far": 7}
+const FEATURE_NAMES := {"glow": "Glow, vignette and smooth edges", "particles": "All particles (off: 40%)", "shadows": "Sun shadows",
+	"crowd": "Full-rate crowd (off: far figures at half rate)", "ambient": "Butterflies and falling leaves",
+	"grass": "Grass and flowers", "far": "Far view (170 m; off: 70 m)"}
 var _auto_opt := true                 # the frame-rate keeper decides (on), or the player does (off)
-var _perf := {"glow": true, "shadows": true, "grass": true, "ambient": true, "far": true}
+var _perf := {"glow": true, "particles": true, "shadows": true, "crowd": true, "ambient": true, "grass": true, "far": true}
 
 
 func _apply_features() -> void:
+	Fx.thin = 1.0 if _feat("particles") else 0.4
+	_sim_lite = not _feat("crowd")
 	env.glow_enabled = _feat("glow")
 	if _grade != null:
 		_grade.visible = _feat("glow") and movie == null   # the vignette overlay (a full-screen layer) goes first
@@ -1178,6 +1266,13 @@ func _refresh_perf() -> void:
 	_perf_live = _info("")
 	box.add_child(_perf_live)
 	_update_perf_live()
+	var mx := _menu_button("Max optimization: %s" % ("On" if _max_opt else "Off"), func() -> void:
+		_set_max_opt(not _max_opt)
+		_refresh_perf())
+	mx.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6) if _max_opt else Color(1.0, 0.85, 0.45))
+	box.add_child(mx)
+	box.add_child(_info("Max optimization: the cheapest of everything - every look off, few particles, a lighter crowd, 60% resolution - locked at a steady 30 frames a second." if not _max_opt
+		else "On: everything at its cheapest, locked at 30. Turn it off to let Auto-optimize decide again."))
 	box.add_child(_menu_button("Auto-optimize: %s" % ("On" if _auto_opt else "Off"), func() -> void:
 		_auto_opt = not _auto_opt
 		if _auto_opt:
@@ -1189,14 +1284,14 @@ func _refresh_perf() -> void:
 				_perf[id] = _q < int(FEATURE_LEVEL[id])
 		_apply_features()
 		_refresh_perf()))
-	box.add_child(_info("On: to hold 60 frames a second the game lowers the resolution and turns looks off by itself, and brings them back when it can. Off: you choose below." if _auto_opt
+	box.add_child(_info("On: the game holds 60 frames a second at full looks if it can, else a steady 30 - never under: if 30 slips it lowers the resolution and turns looks off at once, and brings them back slowly when it can. Off: you choose below." if _auto_opt
 		else "Your own choices (the game no longer changes them):"))
 	for id in FEATURE_LEVEL:
 		var b := _menu_button("%s: %s" % [FEATURE_NAMES[id], "On" if _feat(id) else "Off"], func() -> void:
 			_perf[id] = not bool(_perf.get(id, true))
 			_apply_features()
 			_refresh_perf())
-		b.disabled = _auto_opt
+		b.disabled = _auto_opt or _max_opt
 		box.add_child(b)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
@@ -1208,7 +1303,7 @@ func _refresh_perf() -> void:
 			get_viewport().scaling_3d_scale = _render_scale
 			_refresh_perf())
 		rb.custom_minimum_size = Vector2(84, 52)
-		rb.disabled = _auto_opt or roundi(_render_scale * 100.0) == pct
+		rb.disabled = _auto_opt or _max_opt or roundi(_render_scale * 100.0) == pct
 		row.add_child(rb)
 	box.add_child(row)
 	box.add_child(_menu_button("Frame counter: %s" % ("Shown" if _fps_label.get_parent().visible else "Hidden"), func() -> void:
@@ -1225,6 +1320,9 @@ func _refresh_perf() -> void:
 ## frame counter shown - and the keeper forgets what it had learned.
 func _reset_graphics() -> void:
 	_auto_opt = true
+	_max_opt = false
+	_set_goal(FPS_GOAL)
+	_probe_wait = 25.0
 	for id in _perf:
 		_perf[id] = true
 	_q = 0
@@ -1255,7 +1353,7 @@ func _reset_graphics() -> void:
 ## The settings in force now, in a line: Auto or the player's own choices, each look, the
 ## resolution and the counter.
 func _graphics_summary() -> String:
-	var parts: Array[String] = ["Auto-optimize " + ("on" if _auto_opt else "off")]
+	var parts: Array[String] = ["Max optimization " + ("on" if _max_opt else "off"), "Auto-optimize " + ("on" if _auto_opt else "off")]
 	for id in FEATURE_LEVEL:
 		parts.append("%s %s" % [String(FEATURE_NAMES[id]).get_slice(" (", 0).to_lower(), "on" if _feat(id) else "off"])
 	parts.append("resolution %d%%" % roundi(_render_scale * 100.0))
@@ -1273,6 +1371,7 @@ func _keep_graphics() -> void:
 	cf.set_value("graphics", "features", _perf if not _auto_opt else {})
 	cf.set_value("graphics", "scale", _render_scale)
 	cf.set_value("graphics", "counter", (_fps_label.get_parent() as CanvasLayer).visible)
+	cf.set_value("graphics", "max", _max_opt)
 	cf.save(GRAPHICS_PATH)
 	log_event("Performance settings kept: " + _graphics_summary())
 	_refresh_perf()
@@ -1293,13 +1392,16 @@ func _load_graphics() -> void:
 		get_viewport().scaling_3d_scale = _render_scale
 	if _fps_label != null:
 		(_fps_label.get_parent() as CanvasLayer).visible = bool(cf.get_value("graphics", "counter", true))
+	if bool(cf.get_value("graphics", "max", false)):
+		_set_max_opt(true)
+		return
 	_apply_features()
 
 
 func _update_perf_live() -> void:
 	if _perf_live == null or not is_instance_valid(_perf_live):
 		return
-	_perf_live.text = "Now: %d FPS, 3D at %d%% resolution%s." % [Engine.get_frames_per_second(), roundi(_render_scale * 100.0),
+	_perf_live.text = "Now: %d FPS (holding %d), 3D at %d%% resolution%s." % [Engine.get_frames_per_second(), _goal, roundi(_render_scale * 100.0),
 		(", %d look%s off by Auto" % [_q, "" if _q == 1 else "s"]) if _auto_opt and _q > 0 else ""]
 
 
@@ -5452,17 +5554,24 @@ func _process(delta: float) -> void:
 	# Everyone on screen (and the hero, and whoever is after the hero) lives every frame; the rest
 	# of the world every fourth frame, a quarter of them at a time, with the time they missed.
 	_tick_n += 1
+	var lite := _sim_lite and movie == null      # (a lighter crowd: see _set_quality)
 	for i in range(creatures.size()):
 		var e := creatures[i]
 		if e._near or e.is_hero or e.parked or e.target == hero:
-			e.tick(delta + e.tick_debt)
-			e.tick_debt = 0.0
+			if lite and not e.is_hero and not e.parked and e.target != hero and (i + _tick_n) % 2 == 0 \
+					and e.position.distance_squared_to(hero.position) > 484.0:
+				e.tick_debt += delta               # (far off, though seen: every other frame)
+			else:
+				e.tick(delta + e.tick_debt)
+				e.tick_debt = 0.0
 		elif movie != null:
 			pass                                  # the movie: the world off camera holds still (nothing of it is kept)
 		else:
 			e.tick_debt += delta
 			# off screen: every fourth frame; far away (more than 50 m from you) every eighth
 			var every := 8 if e.position.distance_squared_to(hero.position) > 2500.0 else 4
+			if lite:
+				every *= 2
 			if (i + _tick_n) % every == 0:
 				e.tick(e.tick_debt)
 				e.tick_debt = 0.0
@@ -5555,9 +5664,9 @@ func _update_fps_counter() -> void:
 	if perf_panel != null and perf_panel.visible:
 		_update_perf_live()
 	var fps := Engine.get_frames_per_second()
-	_fps_label.text = "%d FPS  ·  %d%%" % [fps, roundi(_render_scale * 100.0)] + ("  ·  -%d" % _q if _q > 0 else "")
+	_fps_label.text = "%d/%d FPS  ·  %d%%" % [fps, _goal, roundi(_render_scale * 100.0)] + ("  ·  MAX" if _max_opt else ("  ·  -%d" % _q if _q > 0 else ""))
 	_fps_label.add_theme_color_override("font_color",
-		Color(0.45, 1.0, 0.45) if fps >= 55 else (Color(1.0, 0.85, 0.3) if fps >= 40 else Color(1.0, 0.4, 0.35)))
+		Color(0.45, 1.0, 0.45) if fps >= _goal - 3 else (Color(1.0, 0.85, 0.3) if fps >= 28 else Color(1.0, 0.4, 0.35)))
 
 
 ## Bodies don't pass through each other: any two that overlap are eased apart (each by half the
@@ -6899,6 +7008,10 @@ func _refresh_settings() -> void:
 	title.add_theme_font_size_override("font_size", 30)
 	settings_box.add_child(title)
 	settings_box.add_child(_menu_button("Sound: " + ("On" if property.sound_on else "Off"), _toggle_sound))
+	settings_box.add_child(_menu_button("Max optimization: " + ("On" if _max_opt else "Off"), func() -> void:
+		_set_max_opt(not _max_opt)
+		log_event("Max optimization " + ("on: everything at its cheapest, locked at 30 frames a second." if _max_opt else "off: Auto-optimize decides again."))
+		_refresh_settings()))
 	settings_box.add_child(_menu_button("Music: " + ("On" if property.music_on else "Off"), _toggle_music))
 	settings_box.add_child(_menu_button("Weather: " + ("On" if property.weather_on else "Off (always clear)"), _toggle_weather))
 	settings_box.add_child(_menu_button("Ruleset: " + ("Trammel (no player killing)" if property.ruleset == "trammel" else "Felucca (open player-vs-player)"), _toggle_ruleset))
@@ -6951,6 +7064,8 @@ func _apply_graphics() -> void:
 		_grade.visible = true
 	if rain != null:
 		rain.amount = 450 if weather == "storm" else 280
+	if _max_opt:
+		_set_max_opt(true)                         # (Max optimization holds: back to its cheapest)
 
 
 func _toggle_music() -> void:
