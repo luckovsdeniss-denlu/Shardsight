@@ -1987,7 +1987,7 @@ func _follow_story() -> void:
 	if not _story_goal_pos():
 		log_event("The story leads nowhere in particular just now: " + String(Story.STEPS[property.story_step]["goal"]))
 		return
-	if hero.mounted_on == null and dimension != null and dimension.car != null and is_instance_valid(dimension.car) \
+	if hero.mounted_on == null and not hero.stay_out and dimension != null and dimension.car != null and is_instance_valid(dimension.car) \
 			and hero.position.distance_to(story_target) > 40.0 and dimension.car.position.distance_to(hero.position) < 8.0:
 		dimension.car_pressed()                   # (a long way: in the car, if it's to hand)
 	hero_journey(world.to_tile(story_target))
@@ -3033,6 +3033,7 @@ func _on_buy_mount(animal: String, price: int) -> void:
 
 
 func _on_mount(p: Entity) -> void:
+	hero.stay_out = false
 	hero.mount(p)
 	_refresh_animals()
 

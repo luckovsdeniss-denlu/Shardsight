@@ -295,7 +295,10 @@ func car_pressed() -> void:
 		return
 	if hero.mounted_on == car:
 		hero.dismount()
+		hero.stay_out = true                       # (out, and staying out - even on Auto - till Car again)
+		game.log_event("You get out of the %s. You'll stay out until you press Car again." % CAR_NAME)
 		return
+	hero.stay_out = false                          # (in again, by choice)
 	if game.frontier != null and not game.frontier.sail.is_empty():
 		game.log_event("Not out on the water.")
 		return

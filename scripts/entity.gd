@@ -5116,8 +5116,11 @@ func mounted_by_position() -> Vector3:
 
 
 ## Players with a mount pet close by get on it (computer players and the hero on Auto).
+var stay_out := false            # the hero got off by hand (Car or Ride): no getting back on by itself
+
+
 func _auto_mount() -> void:
-	if mounted_on != null or dead or kind != Kind.PLAYER:
+	if mounted_on != null or dead or kind != Kind.PLAYER or (is_hero and stay_out):
 		return
 	for p in pets:
 		if can_ride(p) and position.distance_to(p.position) <= 3.0:
@@ -5818,7 +5821,9 @@ func carry_limit() -> int:
 func toggle_ride() -> String:
 	if mounted_on != null:
 		dismount()
+		stay_out = true                        # (on foot until Ride again, even on Auto)
 		return ""
+	stay_out = false
 	var best: Entity = null
 	var best_d := INF
 	for p in pets:

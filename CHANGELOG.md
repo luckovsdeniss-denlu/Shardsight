@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.3.4
+- Getting out stays out: press Car (or Ride) to get out of the Riftrunner (or off your mount) and
+  the hero stays on foot - Auto no longer puts you straight back in, nor does Follow story - until
+  you press Car (or Ride) again.
+
 ## 2.3.3
 - The Riftrunner's change has no rings of light round it any more: just the car changing, the
   energy swirling in, the sparks and the trail.
