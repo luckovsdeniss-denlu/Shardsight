@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.9.1
+- Max optimization goes further: the Riftrunner's change and every burst in it use the thinner
+  particles too; in the Shardveil apocalypse no ash, embers or red glow, and three fires at most;
+  the map redrawn once a second; and no bars over every player.
+
 ## 2.9.0
 - Optimised for a steady 30 frames a second (measured):
   - What was costing the most was the screen's own furniture, not the world: the world in view

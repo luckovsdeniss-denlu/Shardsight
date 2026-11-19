@@ -566,7 +566,7 @@ class CarChange:
 	## A stream of glowing motes on the car, left behind in the world.
 	func _emitter(n: int, life: float, size: float) -> CPUParticles3D:
 		var p := CPUParticles3D.new()
-		p.amount = n
+		p.amount = maxi(int(n * Fx.thin), 6)       # (fewer with fewer particles: Max optimization)
 		p.lifetime = life
 		p.local_coords = false
 		p.mesh = Fx._quad(size, Color.WHITE)
@@ -595,7 +595,7 @@ class CarChange:
 		var p := CPUParticles3D.new()
 		p.one_shot = true
 		p.explosiveness = 0.95
-		p.amount = n
+		p.amount = maxi(int(n * Fx.thin), 4)
 		p.lifetime = life
 		p.local_coords = false
 		if shards:
@@ -2241,8 +2241,9 @@ func _apoc_start() -> void:
 		game.add_child(_embers)
 	_ash.amount = maxi(int(70 * Fx.thin), 20)
 	_embers.amount = maxi(int(40 * Fx.thin), 12)
-	_ash.emitting = true
-	_embers.emitting = true
+	_ash.emitting = not game._max_opt               # (Max optimization: no ash or embers, no red glow)
+	_embers.emitting = not game._max_opt
+	_apoc_glow.visible = not game._max_opt
 	var vs: Vector2 = game.get_viewport().get_visible_rect().size
 	var word := Title3D.make_flying("APOCALYPSE", minf(vs.x * 0.75, 1100.0), Title3D.GOLD, vs)
 	_layer.add_child(word)
@@ -2314,7 +2315,7 @@ func _apoc_step(delta: float) -> void:
 ## The ground left burning where a meteor struck: a flame and a scorch, for a dozen seconds (eight
 ## at most at once: the oldest goes out first).
 func _burning_patch(at: Vector3) -> void:
-	if _fires.size() >= MAX_FIRES:
+	if _fires.size() >= (3 if game._max_opt else MAX_FIRES):
 		var old: Array = _fires.pop_front()
 		if is_instance_valid(old[0]):
 			(old[0] as Node).queue_free()

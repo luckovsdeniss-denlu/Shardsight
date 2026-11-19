@@ -5940,7 +5940,7 @@ var _bar_y := 0.0
 ## The health bar shows over anyone hurt or fighting (and always over the hero), not townsfolk.
 func _update_hp_bar() -> void:
 	var max_hp := float(stats.max_hp())
-	var all_bars := kind == Kind.PLAYER and game.movie == null and Experiments.on("player_bars")   # (over every player, always)
+	var all_bars: bool = kind == Kind.PLAYER and game.movie == null and Experiments.on("player_bars") and not game._max_opt   # (over every player, always - not with Max optimization)
 	var show := _near and visible and kind != Kind.NPC and max_hp > 0.0 and not hide_self and (game.movie != null or not is_hero or all_bars) \
 		and (is_hero or all_bars or hp < max_hp - 0.5 or target != null)
 	hp_bar.visible = show

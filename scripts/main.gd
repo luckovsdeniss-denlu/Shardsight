@@ -1281,7 +1281,7 @@ func _refresh_perf() -> void:
 		_refresh_perf())
 	mx.add_theme_color_override("font_color", Color(0.5, 1.0, 0.6) if _max_opt else Color(1.0, 0.85, 0.45))
 	box.add_child(mx)
-	box.add_child(_info("Max optimization: the cheapest of everything - every look off, few particles, a lighter crowd, 60% resolution - locked at a steady 30 frames a second." if not _max_opt
+	box.add_child(_info("Max optimization: the cheapest of everything - every look off, few particles (the Riftrunner's change and the Shardveil's too: no ash, embers or red glow, three fires at most), a lighter crowd, the map redrawn once a second, no bars over every player, 60% resolution - locked at a steady 30 frames a second." if not _max_opt
 		else "On: everything at its cheapest, locked at 30 - Auto-optimize and every look are off. Turn it off to let Auto-optimize decide again."))
 	if _max_opt:                                   # (Max optimization alone: nothing else to choose)
 		box.add_child(_menu_button("Frame counter: %s" % ("Shown" if _fps_label.get_parent().visible else "Hidden"), func() -> void:

@@ -66,7 +66,7 @@ func _gui_input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	_timer -= delta
 	if _timer <= 0.0:
-		_timer = 0.5
+		_timer = 1.0 if game != null and game._max_opt else 0.5   # (Max optimization: once a second)
 		queue_redraw()
 
 
