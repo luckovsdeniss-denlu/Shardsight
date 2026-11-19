@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.13.3-b391
+- Follow story is a switch: press it and the button reads "Stop following"; press it again and the
+  hero stops where they are - and Auto leaves the story be too - until you press Follow story
+  again. (It also reads "Stop following" while Auto is on its way with the story.)
+
 ## 2.13.2-b390
 - No more twitching (measured on Auto: six steps back and their whip-rounds in twenty seconds,
   now gone): a fresh path started at the middle of the tile you stood on - often a step behind -

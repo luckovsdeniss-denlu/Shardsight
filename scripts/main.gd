@@ -1995,11 +1995,34 @@ func _build_story_ui(layer: CanvasLayer) -> void:
 var story_go: Button
 
 
+func _story_button_text() -> void:
+	if story_go == null:
+		return
+	var auto_on_way: bool = frontier != null and String(frontier.errand.get("kind", "")) == "story"
+	story_go.text = "Stop following" if story_following or auto_on_way else "Follow story"
+
+
 ## Follow story: off you go, right across the map if need be, to where the current chapter leads -
 ## the person to speak with, the nearest shrine, the lair of the one to slay, the Broken Circle.
+var story_following := false          # Follow story on (the button), until it's pressed again
+var story_paused := false             # pressed again: Auto leaves the story be too, till the next press
+
+
 func _follow_story() -> void:
 	if property.story_done or hero == null:
 		return
+	if story_following or (frontier != null and String(frontier.errand.get("kind", "")) == "story"):   # pressed again: stop following
+		story_following = false
+		story_paused = true
+		hero.journey_direct = false
+		hero.has_journey = false
+		hero.path.clear()
+		if frontier != null and String(frontier.errand.get("kind", "")) == "story":
+			frontier.errand = {}
+		log_event("You stop following the story. Press Follow story to take it up again.")
+		_story_button_text()
+		return
+	story_paused = false
 	if hero.dead:
 		log_event("Find a healer or a shrine first: the story waits for the living.")
 		return
@@ -2011,6 +2034,8 @@ func _follow_story() -> void:
 		dimension.car_pressed()                   # (a long way: in the car, if it's to hand)
 	hero_journey(world.to_tile(story_target))
 	hero.journey_direct = true                     # (straight there: no detours for spoils, no wandering off)
+	story_following = true
+	_story_button_text()
 
 
 ## The Broken Circle: eight standing stones round an altar in the heart of the land, where the
@@ -2154,7 +2179,9 @@ func _story_tick(delta: float) -> void:
 	if story_go != null:
 		var near := has_story_target and hero.position.distance_to(story_target) < 3.0
 		story_go.visible = has_story_target and not hero.dead and not near
-		story_go.text = "Following story..." if hero.has_journey and hero.journey.distance_to(story_target) < 6.0 else "Follow story"
+		if story_following and not (hero.has_journey and hero.journey_direct):
+			story_following = false                # (arrived, or the walk was ended by a tap)
+		_story_button_text()
 	if hero.dead:
 		return
 	match String(step["kind"]):

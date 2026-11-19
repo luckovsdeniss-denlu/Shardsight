@@ -2468,7 +2468,7 @@ func _auto_tick(delta: float) -> void:
 	_auto_wait -= step
 	if armour_due and hero.target == null and not hero.has_journey:
 		_auto_wait = 0.0                           # (better armour first)
-	if _auto_wait > 8.0 and auto_on("story") and hero.target == null and not hero.has_journey \
+	if _auto_wait > 8.0 and auto_on("story") and not game.story_paused and hero.target == null and not hero.has_journey \
 			and not game.property.story_done and game.has_story_target \
 			and hero.position.distance_to(game.story_target) > 3.0:
 		_auto_wait = 0.0                           # (the main story waits for nobody: on with it)
@@ -2485,7 +2485,7 @@ func _pick_errand() -> void:
 		return
 	if armour_due and _errand_armour():
 		return                                     # (a couple of levels on: better armour, if there's any to be had)
-	if auto_on("story") and _errand_story():
+	if auto_on("story") and not game.story_paused and _errand_story():
 		auto_last["story"] = _now()
 		return                                     # (the main story first, whenever it leads somewhere)
 	var kinds: Array = ERRANDS.keys()
