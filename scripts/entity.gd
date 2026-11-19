@@ -2631,6 +2631,8 @@ func _look_style() -> Dictionary:
 		"amulet": amulet_id,
 		"hat": "mage" if mage else "",
 	}
+	if has_meta("veil_weapon") or has_meta("veil_look"):
+		st["veil"] = absi(display_name.hash()) % Art.VEIL_LOOKS.size()   # (the Shardveil's gunslinger look)
 	match role:
 		"merchant", "banker", "vendor":
 			st["hat"] = "cap"
@@ -3254,7 +3256,7 @@ func _animate(delta: float) -> void:
 
 ## How each Shardveil gun sounds going off, and how loud (the rocket and the ember also blast
 ## where they land).
-const GUN_SOUND := {"shotgun": ["gun_shotgun", -2.0], "rocket": ["gun_rocket", -4.0], "spike": ["gun_spike", -8.0],
+const GUN_SOUND := {"pistol": ["gun_spike", -5.0], "shotgun": ["gun_shotgun", -2.0], "rocket": ["gun_rocket", -4.0], "spike": ["gun_spike", -8.0],
 	"arc": ["gun_arc", -6.0], "grenade": ["gun_ember", -4.0]}
 
 
@@ -3284,6 +3286,9 @@ func _gun_fire(g: String, tgt: Entity) -> void:
 			get_tree().create_timer(0.32).timeout.connect(func() -> void:
 				if is_instance_valid(g_ref):
 					g_ref.sound("blast", to, 1.0, -1.0))
+		"pistol":                                   # twin bolts of violet light, one from each hand
+			_shot(muzzle, to, Color(0.8, 0.45, 1.0), 0.045, 0.1)
+			_shot(muzzle + fwd.rotated(Vector3.UP, PI * 0.5) * 0.4, to + Vector3(0.0, 0.1, 0.0), Color(0.4, 0.9, 1.0), 0.045, 0.12)
 		"spike":                                    # two quick steel spikes
 			_shot(muzzle, to, Color(0.8, 0.85, 0.95), 0.04, 0.09)
 			_shot(muzzle + Vector3(0.0, 0.05, 0.0), to + Vector3(0.1, 0.0, 0.0), Color(0.8, 0.85, 0.95), 0.04, 0.11)

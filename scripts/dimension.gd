@@ -624,7 +624,7 @@ func _end_trips() -> void:
 # and no blow is a crime. And meteors keep falling out of the violet sky, burning whoever they
 # land near. Back home, everyone has their own weapons again.
 
-const GUNS := ["rift_shotgun", "shard_rocket", "spike_gun", "arc_caster", "ember_launcher"]
+const GUNS := ["veil_pistol", "rift_shotgun", "shard_rocket", "spike_gun", "arc_caster", "ember_launcher", "veil_pistol"]
 const CHAOS_RADIUS := 35.0
 var chaos := false
 var _armed: Array = []
@@ -666,9 +666,17 @@ func _arm_round() -> void:
 	var hero: Entity = game.hero
 	for item in game.creatures:
 		var e := item as Entity
-		if e == null or e.dead or e.parked or e.is_vehicle or e.kind == Entity.Kind.NPC:
+		if e == null or e.dead or e.parked or e.is_vehicle:
 			continue
 		var d := e.position.distance_to(hero.position)
+		if e.kind == Entity.Kind.NPC:              # the townsfolk: the look, but no gun
+			if e.has_meta("veil_look") and d > CHAOS_RADIUS + 6.0:
+				_undress(e)
+			elif not e.has_meta("veil_look") and d <= CHAOS_RADIUS:
+				e.set_meta("veil_look", true)
+				e.refresh_look()
+				_dressed.append(e)
+			continue
 		if e.has_meta("veil_weapon"):
 			if d > CHAOS_RADIUS + 6.0:
 				_disarm(e)
@@ -731,6 +739,19 @@ func _disarm_all() -> void:
 	for e in _armed.duplicate():
 		_disarm(e)
 	_armed.clear()
+	for e in _dressed.duplicate():
+		_undress(e)
+	_dressed.clear()
+
+
+var _dressed: Array = []
+
+
+func _undress(e: Entity) -> void:
+	if e != null and is_instance_valid(e) and e.has_meta("veil_look"):
+		e.remove_meta("veil_look")
+		e.refresh_look()
+	_dressed.erase(e)
 
 
 ## A meteor out of the violet sky, somewhere near you (now and then very near): it burns
@@ -779,7 +800,7 @@ func _make_src(src_name: String) -> Entity:
 
 
 ## How often an armed car's gun fires (seconds), by the kind of gun.
-const TURRET_EVERY := {"shotgun": 1.6, "rocket": 2.6, "spike": 0.6, "arc": 0.8, "grenade": 2.2}
+const TURRET_EVERY := {"pistol": 0.9, "shotgun": 1.6, "rocket": 2.6, "spike": 0.6, "arc": 0.8, "grenade": 2.2}
 var _turret_cd := {}
 
 

@@ -409,6 +409,18 @@ const KNEE := 0.32                  # the knee below the hip, and the elbow belo
 const ELBOW := 0.26
 
 
+## The Shardveil's gunslinger look (the "Shardveil chaos" experiment): a long trench coat with
+## glowing trim and runes, a high collar, a glowing visor, spiky silver-blue hair, dark gloves and
+## boots, a gun belt - and four variations on it, in coat, glow, hair and armour (shoulder plates,
+## a chest plate, bracers), some with a second pistol in the off hand.
+const VEIL_LOOKS := [
+	{"coat": Color(0.86, 0.82, 0.95), "trim": Color(0.75, 0.4, 1.0), "hair": Color(0.72, 0.8, 1.0), "pauldrons": false, "plate": false, "bracers": false, "dual": true},
+	{"coat": Color(0.14, 0.11, 0.2), "trim": Color(0.3, 0.9, 1.0), "hair": Color(0.92, 0.94, 1.0), "pauldrons": true, "plate": false, "bracers": true, "dual": false},
+	{"coat": Color(0.62, 0.52, 0.85), "trim": Color(1.0, 0.35, 0.85), "hair": Color(0.45, 0.6, 1.0), "pauldrons": false, "plate": true, "bracers": false, "dual": false},
+	{"coat": Color(0.1, 0.22, 0.26), "trim": Color(1.0, 0.8, 0.35), "hair": Color(0.7, 0.5, 1.0), "pauldrons": true, "plate": true, "bracers": true, "dual": true},
+]
+
+
 static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> void:
 	var root: Node3D = model["root"]
 	var meshes: Array = model["meshes"]
@@ -480,6 +492,15 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			cloth = skin
 			pants = skin.darkened(0.06)
 			build = 1.45
+	var veil := int(style.get("veil", -1))
+	var vl: Dictionary = VEIL_LOOKS[veil % VEIL_LOOKS.size()] if veil >= 0 else {}
+	if veil >= 0:
+		robe = false
+		hat = ""
+		shield = ""
+		armor = ""
+		if not bony and look != "mummy" and look != "yeti":
+			hair = vl["hair"]
 	var torso_col := cloth
 	var ab := Gear.base(armor)                  # armor kind
 	var ex := armor.contains("@ex")             # exceptional: gold trim
@@ -505,10 +526,17 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 		"leather_armor":
 			torso_col = LEATHER
 			pants = LEATHER.darkened(0.25)
-	var ranged := Gear.is_ranged(weapon)
+	if veil >= 0:                                  # the coat over a dark shirt, dark gloves, boots, trousers
+		torso_col = vl["coat"]
+		cloth = Color(0.08, 0.07, 0.12)
+		pants = Color(0.1, 0.09, 0.14)
+		boots = Color(0.07, 0.06, 0.09)
+		hands = Color(0.12, 0.1, 0.16)
+		belt = Color(0.25, 0.16, 0.12)
+	var ranged := Gear.is_ranged(weapon) and veil < 0
 	var w := 0.7 if bony else build
-	var key := "hum|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [look, skin.to_html(), hair.to_html(), cloth.to_html(),
-		torso_col.to_html(), robe, hat, shield, w, ab, ex, ranged, holy]
+	var key := "hum|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s" % [look, skin.to_html(), hair.to_html(), cloth.to_html(),
+		torso_col.to_html(), robe, hat, shield, w, ab, ex, ranged, holy, veil]
 	var frame_parts := func() -> Array:
 		var p := []
 		# a human frame: broad chest tapering to the waist, shoulders, a neck; belt and tabard
@@ -553,6 +581,22 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 			p.append([box(0.22, 0.16, 0.03), at(0, 1.42, -0.16), Color(0.55, 0.68, 0.85)])
 			p.append([cone(0.05, 0.2), at(-0.13, 1.6, 0, Vector3(0, 0, 0.5)), Color(0.75, 0.88, 1.0)])
 			p.append([cone(0.05, 0.2), at(0.13, 1.6, 0, Vector3(0, 0, -0.5)), Color(0.75, 0.88, 1.0)])
+		if veil >= 0:
+			var coat: Color = vl["coat"]
+			var strap := Color(0.25, 0.16, 0.12)
+			p.append([box(0.46 * w, 0.5, 0.04), at(0, 0.46, 0.15 * w, Vector3(-0.06, 0, 0)), coat])   # the coat's tails
+			for side: float in [-1.0, 1.0]:
+				p.append([box(0.15 * w, 0.5, 0.04), at(side * 0.16 * w, 0.46, -0.15 * w, Vector3(0.06, 0, 0)), coat])
+				p.append([box(0.04, 0.5, 0.26 * w), at(side * 0.24 * w, 0.46, 0), coat.darkened(0.06)])
+				p.append([box(0.06, 0.32, 0.03), at(side * 0.11, 1.12, -0.16 * w, Vector3(0, 0, side * 0.3)), coat.lightened(0.08)])  # lapels
+			p.append([box(0.38, 0.14, 0.07), at(0, 1.34, 0.13), coat])                  # the high collar
+			p.append([box(0.5 * w, 0.04, 0.31 * w), at(0, 0.64, 0), strap])             # a gun belt, slung
+			p.append([box(0.07, 0.17, 0.09), at(0.25 * w, 0.56, -0.02), strap])         # and a holster
+			if bool(vl["pauldrons"]):
+				for side: float in [-1.0, 1.0]:
+					p.append([ball(0.12, 7, 4), at(side * 0.29 * w, 1.27, 0, Vector3.ZERO, Vector3(1.1, 0.7, 1.1)), Color(0.3, 0.3, 0.38)])
+			if bool(vl["plate"]):
+				p.append([box(0.3 * w, 0.22, 0.03), at(0, 1.13, -0.165 * w), Color(0.35, 0.34, 0.42)])
 		# head, hair, eyes
 		p.append([ball(0.165, 8, 5), at(0, 1.44, 0, Vector3.ZERO, Vector3(0.92, 1.08, 0.98)), skin])
 		p.append([box(0.2, 0.09, 0.2), at(0, 1.34, -0.02), skin])                    # the jaw
@@ -564,6 +608,11 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 		if not bony and not hat in ["hood", "plate_helm", "coif"]:
 			p.append([box(0.32, 0.1, 0.32), at(0, 1.57, 0.02), hair])
 			p.append([box(0.32, 0.18, 0.08), at(0, 1.47, 0.14), hair])
+			if veil >= 0:                              # swept-back spikes
+				for i in range(5):
+					var sx := -0.12 + 0.06 * i
+					p.append([cone(0.05, 0.2), at(sx, 1.63, 0.08, Vector3(1.0, 0, -sx * 2.0)), hair])
+				p.append([cone(0.05, 0.16), at(-0.08, 1.58, -0.13, Vector3(-0.6, 0, 0.4)), hair])   # a fringe
 		p.append([box(0.05, 0.05, 0.03), at(-0.07, 1.45, -0.16), DARK])
 		p.append([box(0.05, 0.05, 0.03), at(0.07, 1.45, -0.16), DARK])
 		if look == "orc":
@@ -624,6 +673,22 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 		var halo := _cached("halo", func() -> Array:
 			return [[ring_mesh(0.17, 0.2), at(0, 1.78, 0.02), Color(1.0, 0.86, 0.4)]])
 		_instance(head_frame, halo, glow_mat(Color(1.0, 0.82, 0.35)), meshes)
+	if veil >= 0:
+		var trim: Color = vl["trim"]
+		var vglow := _cached("veilglow|%s|%s" % [veil, w], func() -> Array:
+			var g := [[box(0.47 * w, 0.03, 0.05), at(0, 0.22, 0.16 * w), Color.WHITE],
+				[box(0.08, 0.06, 0.03), at(0, 0.75, -0.165 * w), Color.WHITE],                 # the buckle
+				[ball(0.035, 6, 3), at(0, 1.2, -0.165 * w), Color.WHITE],                       # a core on the chest
+				[box(0.39, 0.03, 0.075), at(0, 1.41, 0.13), Color.WHITE]]                      # the collar's edge
+			for side: float in [-1.0, 1.0]:
+				g.append([box(0.16 * w, 0.03, 0.05), at(side * 0.16 * w, 0.22, -0.16 * w), Color.WHITE])
+				g.append([box(0.045, 0.4, 0.05), at(side * 0.1 * w, 0.52, 0.17 * w), Color.WHITE])    # runes down the back
+				g.append([box(0.02, 0.5, 0.045), at(side * 0.235 * w, 0.46, -0.17 * w), Color.WHITE])
+			return g)
+		_instance(root, vglow, glow_mat(trim), meshes).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var visor := _cached("veilvisor", func() -> Array:
+			return [[box(0.27, 0.05, 0.03), at(0, 1.455, -0.17), Color.WHITE]])
+		_instance(head_frame, visor, glow_mat(trim), meshes)
 	if look == "lich":
 		var eyes := _cached("lich_eyes", func() -> Array:
 			return [[box(0.05, 0.04, 0.02), at(-0.07, 1.45, -0.19), Color(0.6, 1.0, 0.7)],
@@ -662,10 +727,19 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 		return [[box(0.12 * w, 0.27, 0.14 * w), at(0, -0.13, 0), torso_col]])
 	_instance(arm_l, upper_l, vc_mat(), meshes)
 	var elbow_l := _pivot(arm_l, Vector3(0, -ELBOW, 0))
-	var fore_l := _cached("forel|%s|%s|%s|%s|%s" % [torso_col.to_html(), hands.to_html(), shield, w, cloth.to_html()], func() -> Array:
+	var dual := veil >= 0 and bool(vl["dual"])
+	var bracers := veil >= 0 and bool(vl["bracers"])
+	var fore_l := _cached("forel|%s|%s|%s|%s|%s|%s|%s" % [torso_col.to_html(), hands.to_html(), shield, w, cloth.to_html(), dual, bracers], func() -> Array:
 		var fp := [[box(0.11 * w, 0.24, 0.13 * w), at(-0.3 * w, 0.85, 0), torso_col], [ball(0.07, 6, 3), at(-0.3 * w, 0.71, 0), hands]]
 		if shield != "":
 			_shield_parts(fp, shield, cloth, w)
+		if bracers:
+			fp.append([box(0.14 * w, 0.14, 0.16 * w), at(-0.3 * w, 0.84, 0), Color(0.3, 0.3, 0.38)])
+		if dual:                                   # a second pistol in the off hand (the parts sit at the hand)
+			for part in _weapon_parts("veil_pistol"):
+				var xf: Transform3D = part[1]
+				xf.origin += Vector3(-0.3 * w, 1.22, 0.0)
+				fp.append([part[0], xf, part[2]])
 		return fp)
 	_instance(_pivot(elbow_l, -(sh_l + Vector3(0, -ELBOW, 0))), fore_l, vc_mat(), meshes)   # (its parts are in body coordinates)
 	arm_l.rotation.x = float(model["arm_rest"])
@@ -681,9 +755,11 @@ static func _humanoid(model: Dictionary, look: String, style: Dictionary) -> voi
 	_instance(arm_piv, upper, vc_mat(), meshes)
 	var elbow := _pivot(arm_piv, Vector3(0, -ELBOW, 0))
 	var hand_frame := _pivot(elbow, Vector3(0, ELBOW, 0))     # the forearm's parts keep the arm's coordinates
-	var fore := _cached("fore|%s|%s|%s|%s|%s" % [torso_col.to_html(), hands.to_html(), weapon, w, ab], func() -> Array:
+	var fore := _cached("fore|%s|%s|%s|%s|%s|%s" % [torso_col.to_html(), hands.to_html(), weapon, w, ab, bracers], func() -> Array:
 		var rp := [[box(0.11 * w, 0.24, 0.13 * w), at(0, -0.37, 0), torso_col],
 			[ball(0.07, 6, 3), at(0, -0.51, 0), hands]]
+		if bracers:
+			rp.append([box(0.14 * w, 0.14, 0.16 * w), at(0, -0.38, 0), Color(0.3, 0.3, 0.38)])
 		if ab in ["leather_armor", "studded_armor"]:  # a bracer
 			rp.append([box(0.14 * w, 0.14, 0.16 * w), at(0, -0.38, 0), Color(0.22, 0.15, 0.1)])
 		rp.append_array(_weapon_parts(weapon))
@@ -891,6 +967,11 @@ static func _weapon_parts(weapon: String) -> Array:
 			p.append([box(0.06, 0.06, 0.55), at(0, hy, -0.22), WOOD])
 			p.append([box(0.55, 0.04, 0.04), at(0, hy, -0.42), WOOD.darkened(0.3)])
 			p.append([box(0.5, 0.01, 0.01), at(0, hy + 0.035, -0.36), Color(0.9, 0.9, 0.85)])   # the string
+		"veil_pistol":                                 # a sleek violet pistol, a cyan line down the slide
+			p.append([box(0.05, 0.07, 0.3), at(0, hy + 0.03, -0.14), Color(0.32, 0.22, 0.48)])
+			p.append([box(0.052, 0.015, 0.26), at(0, hy + 0.07, -0.14), Color(0.4, 0.9, 1.0)])
+			p.append([box(0.045, 0.12, 0.06), at(0, hy - 0.04, 0.0, Vector3(0.25, 0, 0)), DARK])
+			p.append([cone(0.02, 0.06, 0.02, 6), at(0, hy + 0.03, -0.31, Vector3(PI / 2, 0, 0)), Color(0.5, 0.52, 0.56)])
 		"rift_shotgun":                                # two barrels, a dark body, a wooden stock
 			p.append([box(0.08, 0.09, 0.22), at(0, hy, 0.0), Color(0.16, 0.15, 0.18)])
 			p.append([cone(0.032, 0.5, 0.032, 8), at(-0.03, hy + 0.03, -0.34, Vector3(PI / 2, 0, 0)), Color(0.5, 0.52, 0.56)])

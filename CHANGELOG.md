@@ -3,6 +3,19 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.8.0
+- Shardveil: everyone in the gunslinger look (from the owner's picture) - near you in the other
+  dimension, every figure (you, the adventurers, the townsfolk, the orcs and skeletons) wears a
+  long trench coat with glowing trim and runes down its tails, a high glowing collar, lapels over a
+  dark shirt, a glowing visor across the eyes, swept-back spiky hair, dark gloves and boots, and a
+  gun belt with a holster. Four variations, by name: a pale coat with violet glow and silver-blue
+  hair, carrying two pistols; a black coat with cyan glow, white hair, shoulder plates and
+  bracers; a lavender coat with magenta glow, blue hair and a chest plate; a dark teal coat with
+  gold glow, violet hair, shoulder plates, chest plate, bracers and two pistols.
+- A new gun: Veil Pistols - a sleek violet pistol with a cyan line down the slide, firing twin
+  bolts of violet and cyan light; the most common gun in the Shardveil.
+- Back home, everyone's own clothes, armour and weapons again.
+
 ## 1.7.2
 - Shardveil: the Veil Gauntlet - every 90-120 s three glowing rift beacons light up across the
   land. Drive or walk through all three within 40 s for 300 gold and a nova shard ("GAUNTLET

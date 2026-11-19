@@ -51,6 +51,7 @@ const LIST := {
 	"platemail": {"name": "Platemail", "slot": "armor", "rating": 7.0, "str": 60, "value": 260, "metal": true},
 	# The Shardveil's guns (the "Shardveil chaos" experiment): never sold, made or dropped - in the
 	# other dimension everyone simply has one in hand. They shoot without arrows and never wear out.
+	"veil_pistol": {"name": "Veil Pistols", "slot": "weapon", "skill": "archery", "speed": 48, "min": 6.0, "max": 11.0, "str": 10, "value": 0, "range": 7.0, "gun": "pistol"},
 	"rift_shotgun": {"name": "Rift Shotgun", "slot": "weapon", "skill": "archery", "speed": 26, "min": 9.0, "max": 18.0, "str": 10, "value": 0, "range": 5.0, "gun": "shotgun"},
 	"shard_rocket": {"name": "Shard Rocket Launcher", "slot": "weapon", "skill": "archery", "speed": 16, "min": 14.0, "max": 26.0, "str": 10, "value": 0, "range": 9.0, "gun": "rocket"},
 	"spike_gun": {"name": "Spike Gun", "slot": "weapon", "skill": "archery", "speed": 58, "min": 4.0, "max": 8.0, "str": 10, "value": 0, "range": 8.0, "gun": "spike"},
