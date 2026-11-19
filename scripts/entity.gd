@@ -566,7 +566,7 @@ func _think(delta: float) -> void:
 	if kind == Kind.PLAYER and (_try_potion() or _try_bandage()):
 		return
 	# Players wander the whole map: after a while in one region they set off for another.
-	if kind == Kind.PLAYER and roam.size != Vector2i.ZERO and (not is_hero or ai_enabled):
+	if kind == Kind.PLAYER and roam.size != Vector2i.ZERO and (not is_hero or ai_enabled) and not (has_journey and journey_direct):
 		roam_timer -= delta
 		if roam_timer <= 0.0:
 			game.next_region(self)
@@ -574,7 +574,7 @@ func _think(delta: float) -> void:
 		# on the way somewhere: stop for spoils lying near the road, then carry on
 		if loot_target != null and _loot_step():
 			return
-		if (not is_hero or ai_enabled) and pause <= 0.0 and _seek_loot():
+		if (not is_hero or ai_enabled) and pause <= 0.0 and not journey_direct and _seek_loot():
 			path.clear()                           # off the road to it
 			if _loot_step():
 				return
@@ -802,21 +802,24 @@ func go_to(dest: Vector3) -> bool:
 	var p: Array[Vector3] = world.find_path(position, dest, _avoids_town())
 	if p.is_empty():
 		return false
-	path = _smooth_path(p) if _near else p     # straight lines and cut corners where it's clear
+	if is_hero and has_journey and _near:
+		path = _smooth_path(p, 24)               # a long walk: pulled tight over long straight runs
+	else:
+		path = _smooth_path(p) if _near else p     # straight lines and cut corners where it's clear
 	return true
 
 
 ## Pulls a tile-by-tile path tight: from each point, jump to the furthest of the next few that
 ## can be walked to in a straight line, so walkers go diagonally and round corners smoothly
 ## instead of zig-zagging from tile centre to tile centre.
-func _smooth_path(p: Array[Vector3]) -> Array[Vector3]:
+func _smooth_path(p: Array[Vector3], reach := 4) -> Array[Vector3]:
 	if p.size() < 3:
 		return p
 	var out: Array[Vector3] = []
 	var anchor := position
 	var i := 0
 	while i < p.size():
-		var j := mini(i + 4, p.size() - 1)
+		var j := mini(i + reach, p.size() - 1)
 		while j > i and not world.walk_clear(anchor, p[j]):
 			j -= 1
 		out.append(p[j])
@@ -856,6 +859,8 @@ func _follow_path(delta: float) -> void:
 	# here and the next point is in reach (no little step back - the twitch on every new path)
 	if path.size() > 1 and position.distance_to(path[0]) < 0.9 and world.walk_clear(position, path[1]):
 		path.remove_at(0)
+	if is_hero and has_journey and path.size() > 1 and world.walk_clear(position, path[1]):
+		path.remove_at(0)                     # (on a long walk: straight on to the next point it can see)
 	_accel = move_toward(_accel, 1.0, delta * 5.0) if not path.is_empty() else 0.4   # a step to get going
 	var budget := speed * delta * (mounted_on.mount_speed if mounted_on != null else 1.0) * _accel * form_value("speed", 1.0) * _haste_mult()
 	if game.movie != null and not path.is_empty() and _near:
@@ -5483,9 +5488,13 @@ func _journey_step() -> bool:
 
 
 ## Sets off for `dest` across the map.
+var journey_direct := false     # following the story: straight there, no stopping for spoils or roaming
+
+
 func set_journey(dest: Vector3) -> void:
 	journey = dest
 	has_journey = true
+	journey_direct = false
 	target = null
 	loot_target = null
 	gather_tile = Vector2i(-1, -1)

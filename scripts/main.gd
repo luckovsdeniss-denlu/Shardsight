@@ -2007,6 +2007,7 @@ func _follow_story() -> void:
 			and hero.position.distance_to(story_target) > 40.0 and dimension.car.position.distance_to(hero.position) < 8.0:
 		dimension.car_pressed()                   # (a long way: in the car, if it's to hand)
 	hero_journey(world.to_tile(story_target))
+	hero.journey_direct = true                     # (straight there: no detours for spoils, no wandering off)
 
 
 ## The Broken Circle: eight standing stones round an altar in the heart of the land, where the
@@ -2142,6 +2143,10 @@ func _story_tick(delta: float) -> void:
 	else:
 		story_hint.text = String(step["goal"])
 	story_hint.visible = true
+	if has_story_target and hero.has_journey and hero.journey_direct and hero.journey.distance_to(story_target) > 3.0 \
+			and not world.is_blocked(world.to_tile(story_target)):
+		hero.journey = story_target                # (the one you're going to has moved: after them)
+		hero.path.clear()
 	if story_go != null:
 		var near := has_story_target and hero.position.distance_to(story_target) < 3.0
 		story_go.visible = has_story_target and not hero.dead and not near

@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.4.2
+- Follow story goes smoothly: the walk there is pulled tight into long straight runs (no zigzag
+  from square to square), and on the way the hero heads straight on to the furthest point it can
+  see; on Auto it no longer stops for spoils by the road or wanders off to another region
+  halfway; and if the person you're going to talk to walks off, the hero follows them instead of
+  stopping where they were. (Set upon on the way, it still fights, then carries on.)
+
 ## 2.4.1
 - The Riftrunner follows you smoothly: instead of driving a new path to you every moment and
   stopping dead beside you (stop-and-go, twitching on every new path, shoved about by the
