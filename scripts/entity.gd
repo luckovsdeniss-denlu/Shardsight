@@ -547,11 +547,16 @@ func tick(delta: float) -> void:
 # --- decisions -------------------------------------------------------------
 
 func _think(delta: float) -> void:
-	if is_hero and journey_direct and has_journey and target != null:
-		# following the story: fight only what's at you and close; anything else, walk on
-		if not is_instance_valid(target) or target.dead or target.target != self \
-				or position.distance_to(target.position) > 6.0:
-			target = null
+	if _on_story_way():
+		# following the story: fight only what's at you and close (or the one the story says to
+		# slay); anything else, walk on - and no spoils far off the way
+		if target != null and not _story_foe(target):
+			var close := 3.5 if game.chaos_at(position) else 6.0   # (the Shardveil's free-for-all: only what's right on you)
+			if not is_instance_valid(target) or target.dead or target.target != self \
+					or position.distance_to(target.position) > close:
+				target = null
+		if loot_target != null and is_instance_valid(loot_target) and position.distance_to(loot_target.position) > 8.0:
+			loot_target = null
 	if _loops_on():
 		_loops_tick(delta)
 		if kind == Kind.PLAYER and not is_hero and not shun.is_empty() and _shun_step():
@@ -615,7 +620,7 @@ func _think(delta: float) -> void:
 			return
 		if _recover() or _resupply():
 			return
-		if target == null:
+		if target == null and not _on_story_way():   # (following the story: no picking fights on the way)
 			target = _pick_target()
 			# Lure a far-off monster away from its friends before fighting it.
 			if target != null and position.distance_to(target.position) > 4.0 \
@@ -629,7 +634,7 @@ func _think(delta: float) -> void:
 	if kind == Kind.PLAYER:
 		if _loot_step():
 			return
-		if autonomous and pause <= 0.0 and _seek_loot():
+		if autonomous and pause <= 0.0 and not _on_story_way() and _seek_loot():
 			return
 		if autonomous and pause <= 0.0 and crafter and _craft_trip():
 			return
@@ -5502,6 +5507,23 @@ func _journey_step() -> bool:
 
 ## Sets off for `dest` across the map.
 var journey_direct := false     # following the story: straight there, no stopping for spoils or roaming
+
+
+## The one the story says to slay now (the Ogre, the Lich, the Shardbreaker...).
+func _story_foe(e: Entity) -> bool:
+	if e == null or not is_instance_valid(e) or game.property.story_done:
+		return false
+	var step: Dictionary = Story.STEPS[game.property.story_step]
+	return e == game.story_boss or (String(step["kind"]) == "kill" and e.display_name == String(step.get("target", "")))
+
+
+## On the story's way: following it by the button, or Auto's story errand (between its legs too).
+func _on_story_way() -> bool:
+	if not is_hero:
+		return false
+	if journey_direct and has_journey:
+		return true
+	return game.frontier != null and String(game.frontier.errand.get("kind", "")) == "story"
 
 
 func set_journey(dest: Vector3) -> void:

@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.10.1
+- The story goes on in the Shardveil too: following it (by the button, or Auto), the hero no
+  longer picks new fights on the way - in the Shardveil's free-for-all that never ended - and
+  there only fights back at what's right on top of it (3.5 m), walking on through the rest. The
+  story's goals are the same places in both worlds. And when the story says slay someone (the
+  Ogre, the Lich...), Auto now goes after that very creature and fights it, instead of stopping
+  in the middle of its lair.
+
 ## 2.10.0
 - Follow story really smooth now (measured: the hero used to stand still about a quarter of the
   way): anything that shot at you from afar made the hero stop and stand, targeting it, unable to

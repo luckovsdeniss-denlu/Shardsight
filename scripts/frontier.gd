@@ -2601,12 +2601,17 @@ func _errand_story() -> bool:
 	if game.property.story_done or not game.property.story_started or not game._story_goal_pos():
 		return false
 	var dest: Vector3 = game.story_target
-	if hero.position.distance_to(dest) < 3.0:
-		return false                               # (there already: the fight, or the moment, is here)
 	var who: Entity = null
 	var step: Dictionary = Story.STEPS[game.property.story_step]
-	if String(step["kind"]) == "talk":
-		who = _nearest_named(String(step["who"]))
+	match String(step["kind"]):
+		"talk":
+			who = _nearest_named(String(step["who"]))
+		"kill", "boss":                            # (the one to slay: after it, and at it)
+			var foe: Entity = game.story_boss if String(step["kind"]) == "boss" else _nearest_named(String(step["target"]))
+			if foe != null and is_instance_valid(foe) and not foe.dead:
+				return _go("story", foe.position, _engage.bind(foe), foe, 6.0)
+	if hero.position.distance_to(dest) < 3.0:
+		return false
 	return _go("story", dest, func() -> void:
 		_auto_wait = 3.0, who, 2.5)                # (and soon after, the next chapter's errand)
 
