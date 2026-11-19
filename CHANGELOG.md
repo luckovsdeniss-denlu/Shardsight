@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.13.1-b389
+- First person, rock steady: no head bob, no breathing, no sway, no leaning into turns, no jolt
+  when hit and no earthquake shake - the horizon stays level - and the eye glides after the hero
+  instead of stepping with it, so the ground's little bumps never shake the view. Turning and the
+  lens widening with speed stay smooth.
+
 ## 2.13.0-b388
 - Versions now carry a build too: MAJOR.MINOR.PATCH, then a letter for the stage (b: beta) and
   the build number - this is 2.13.0, beta, build 388. The release page is v2.13.0-b388.

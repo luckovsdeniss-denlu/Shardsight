@@ -5729,7 +5729,7 @@ func _process(delta: float) -> void:
 		pass                                      # a story scene has the camera
 	elif not _flyby_step(delta):
 		_follow_camera()
-		if cam_shake > 0.0:                       # (an earthquake: the picture shakes, settling)
+		if cam_shake > 0.0 and not property.first_person:   # (an earthquake: the picture shakes, settling - not in first person)
 			cam.position += Vector3(randf_range(-1.0, 1.0), randf_range(-0.6, 0.6), randf_range(-1.0, 1.0)) * cam_shake * 0.25
 			cam_shake = maxf(cam_shake - delta * 0.7, 0.0)
 	_update_rings()
@@ -6477,6 +6477,7 @@ var _fp_fov := 72.0
 var _fp_kick := 0.0                    # a jolt when hit (1 -> 0)
 var _fp_hp := -1.0
 var _fp_last := Vector3.ZERO
+var _eye_at := Vector3.INF             # the first-person eye, glided after the hero
 var fp_rift_fov := 0.0                  # the lens flung wide as the Riftrunner tears through (set by the dimension)
 var fp_car_lift := 0.0                  # the view rising with the car as it lifts off
 var aimed: Entity                      # whoever is under the crosshair (first person)
@@ -6518,23 +6519,19 @@ func _fp_step(delta: float) -> void:
 	var walking := not hero.path.is_empty() and not hero.dead
 	var in_car := hero.mounted_on != null and hero.mounted_on.is_vehicle
 	_bob_t += delta * (1.0 if walking else 0.0)
-	var bob_amp := 0.012 if in_car else (0.028 if hero.mounted_on != null else 0.035)
-	_bob = lerpf(_bob, sin(_bob_t * 9.0) * bob_amp if walking else sin(now * 1.6) * 0.006, minf(1.0, 8.0 * delta))   # (still: just breathing)
+	_bob = 0.0                              # (first person: a steady view - no bob, no breathing)
 	# cinematic: lean into turns and sway with the stride; the lens widens with speed, tightens on a
 	# foe in your sights, and jolts when you're hit
 	var turn := wrapf(_fp_yaw - yaw_before, -PI, PI) / maxf(delta, 0.001)
-	var sway := sin(_bob_t * 4.5) * (0.006 if walking and not in_car else 0.0)
-	_fp_roll = lerpf(_fp_roll, clampf(-turn * 0.035, -0.07, 0.07) + sway, minf(1.0, 6.0 * delta))
+	_fp_roll = 0.0                          # (no lean, no sway: the horizon stays level)
 	var moved := Vector2(hero.position.x - _fp_last.x, hero.position.z - _fp_last.z).length() / maxf(delta, 0.001)
 	_fp_last = hero.position
 	var fov := 72.0 + clampf(moved - 2.5, 0.0, 10.0) * 1.1
 	if aimed != null and aimed.kind == Entity.Kind.MONSTER and hero.target == aimed:
 		fov -= 4.0
-	if hero.hp < _fp_hp - 0.5:
-		_fp_kick = 1.0
+	_fp_kick = 0.0                          # (no jolt when hit: the red rim tells you)
 	_fp_hp = hero.hp
-	_fp_kick = maxf(_fp_kick - delta * 3.0, 0.0)
-	_fp_fov = lerpf(_fp_fov, fov - _fp_kick * 5.0 + fp_rift_fov, minf(1.0, 3.0 * delta))
+	_fp_fov = lerpf(_fp_fov, fov + fp_rift_fov, minf(1.0, 2.0 * delta))
 	if _cine_phase == 0:
 		cam.fov = _fp_fov
 	_aim_acc -= delta
@@ -6568,7 +6565,7 @@ func _update_viewmodel(_delta: float, walking: bool) -> void:
 	var cast_lift := 0.25 + 0.05 * sin(Time.get_ticks_msec() * 0.008) if hero.casting_id != "" else 0.0
 	# it lags a little behind a turn and settles back - weight in the hand
 	_vm_sway = lerpf(_vm_sway, clampf(_fp_roll * 3.0, -0.2, 0.2), minf(1.0, 5.0 * _delta))
-	_viewmodel.position = Vector3(0.34 + _vm_sway * 0.25, -0.2 + _bob * 0.5 + cast_lift * 0.3, -0.05 - 0.12 * k)
+	_viewmodel.position = Vector3(0.34 + _vm_sway * 0.25, -0.2 + cast_lift * 0.3, -0.05 - 0.12 * k)
 	_viewmodel.rotation = Vector3(1.25 + 0.9 * k - cast_lift, 0.15 + _vm_sway, 0.1 - _vm_sway * 0.5)
 
 
@@ -6579,8 +6576,16 @@ func _eye() -> Vector3:
 		h += hero.mounted_on.saddle * hero.mounted_on.visual_scale
 		if hero.mounted_on.is_vehicle:
 			h = 1.18 * hero.visual_scale + _bob + fp_car_lift   # (in the driver's seat, low, the bonnet ahead)
-	var right := Vector3(cos(_fp_yaw), 0.0, -sin(_fp_yaw))
-	return hero.position + Vector3(0.0, h, 0.0) + _fp_forward() * 0.2 + right * sin(_bob_t * 4.5) * 0.02
+	var want := hero.position + Vector3(0.0, h, 0.0) + _fp_forward() * 0.2
+	# glided, not stepped: the eye follows the hero smoothly, so the ground's little bumps and every
+	# frame's step never shake the view (a jump of more than a few metres - a gate, a rift - is taken at once)
+	if _eye_at == Vector3.INF or _eye_at.distance_to(want) > 4.0:
+		_eye_at = want
+	else:
+		var dt := get_process_delta_time()
+		_eye_at = _eye_at.lerp(want, minf(1.0, 14.0 * dt))
+		_eye_at.y = lerpf(_eye_at.y, want.y, minf(1.0, 6.0 * dt))   # (up and down gentler still)
+	return _eye_at
 
 
 func _toggle_view() -> void:
@@ -7361,10 +7366,6 @@ func _follow_camera() -> void:
 				(hero.model["root"] as Node3D).visible = false
 	cam.position = _hero_cam_pos()
 	cam.look_at(_hero_cam_look(), Vector3.UP)
-	if property.first_person:
-		cam.rotate_object_local(Vector3.FORWARD, _fp_roll)
-		if _fp_kick > 0.0:
-			cam.rotate_object_local(Vector3.RIGHT, randf_range(-1.0, 1.0) * 0.02 * _fp_kick)
 	view_planes = cam.get_frustum()
 
 
