@@ -851,6 +851,7 @@ func _set_world(on: bool, announce: bool) -> void:
 	game._music_timer = 0.0                        # (its music at once)
 	game._apply_daylight()
 	if announce:
+		game.score.sting("rift")
 		var vs: Vector2 = game.get_viewport().get_visible_rect().size
 		var word := Title3D.make_flying("THE SHARDVEIL" if on else "HOME", minf(vs.x * 0.75, 1100.0),
 			Title3D.ICE if on else Title3D.GOLD, vs)

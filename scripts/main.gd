@@ -20,6 +20,7 @@ var hero: Entity
 var guilds := Guilds.new()
 var frontier: Frontier                 # the wider world: depths, biomes, boats, tavern, side quests, arena...
 var music := Music.new()
+var score := Score.new()                       # the living score (an experiment)
 var weather := "clear"           # clear, rain or storm
 const CLEAR_HAZE := 0.011        # fog density on a clear day: just a little depth
 var _weather_timer := 240.0
@@ -2159,6 +2160,10 @@ func _story_advance(subject: Vector3) -> void:
 
 
 func on_kill(killer: Entity, victim: Entity) -> void:
+	if victim == hero:
+		score.sting("fall")
+	elif killer != null and killer == hero:
+		score.sting("kill")
 	if dimension != null:
 		dimension.on_kill(killer, victim)        # (the Shardveil: shards, the Colossus, runs of kills)
 	_story_on_kill(killer, victim)
@@ -4818,6 +4823,7 @@ func _build_environment() -> void:
 	add_child(we)
 
 	add_child(music)
+	add_child(score)
 	music.prebuild("trailer")                # the trailer's score, written while the game loads
 	add_child(rain_sound)
 	rain_sound.volume_db = -14.0
@@ -6577,6 +6583,12 @@ func _weather_tick(delta: float) -> void:
 
 ## The music follows you: town, the wilds or the dungeon.
 func _music_tick(delta: float) -> void:
+	var living := Experiments.on("living_score") and movie == null and not autotest
+	score.tick(self, delta, living and property.music_on)
+	if music.hold != living:
+		music.hold = living                        # (the old pieces stand aside for it)
+		music._area = ""
+		_music_timer = 0.0
 	_music_timer -= delta
 	if _music_timer > 0.0 or autotest:
 		return
@@ -6605,6 +6617,13 @@ func _music_piece(t: Vector2i) -> String:
 	if _battle_hold > 0.0:
 		_battle_hold -= 1.0
 		return music._area if music._area in ["battle", "boss"] else "battle"
+	return _place_piece(t)
+
+
+## The piece for the place alone (no fight): the Shardveil, the sea, the arena, the cave or the
+## dungeon, the church, the cemetery, the tavern, a town, the snow, the desert, the swamp, the
+## ash - then night or day.
+func _place_piece(t: Vector2i) -> String:
 	if dimension != null and dimension.active:
 		return "veil"                           # the Shardveil has its own music
 	if frontier != null and not frontier.sail.is_empty():

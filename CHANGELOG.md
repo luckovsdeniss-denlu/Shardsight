@@ -3,6 +3,25 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.0.0
+- The living score (experimental mode, "Living score", on by default): new music that mirrors
+  what happens on the screen.
+  - Every place has a new piece (wilds, town, night, dungeon, cave, frost, desert, swamp, ash,
+    the Shardveil, the sea, church, cemetery, tavern, arena), each in its own key and mode, with
+    a motif that grows through its chords.
+  - Each piece plays in five layers, always in step, mixed live: the chords and bass (always);
+    the motion - arpeggios, hand drums or a soft tick - rising as you walk and full as you run or
+    drive, a murmur when you stand still; the tune, up while you explore in peace and drawn back
+    when danger comes; tension - a low pulsing ostinato, toms and a thin dissonant shimmer -
+    swelling as foes close in (and in the Shardveil's chaos); and battle - drums, brass stabs, a
+    brass counter-line and a choir - the moment you fight, stronger against a boss, fading slowly
+    after the last blow.
+  - Moments land as stingers in the piece's key, on the next half beat: a brass hit for every
+    kill of yours, a swelling chord and bells through a rift, a falling bell line when you die.
+  - As a ghost the score slows and sinks, the tune and drums gone. Places change with a
+    cross-fade.
+  - The trailers keep their own score; the ordinary game keeps the old music.
+
 ## 1.9.3
 - The Riftrunner's change, bigger:
   - A cyber skin: a wipe of white light runs over the car from bonnet to tail, and behind it the

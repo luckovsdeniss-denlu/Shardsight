@@ -86,6 +86,7 @@ var player_a := AudioStreamPlayer.new()
 var player_b := AudioStreamPlayer.new()
 var player: AudioStreamPlayer          # the one playing now
 var enabled := true
+var hold := false                     # the living score is playing instead (the trailer's still ours)
 var _tracks := {}                 # piece -> AudioStreamWAV, once written
 var _building := {}               # piece -> its worker task's id while it runs
 
@@ -119,7 +120,7 @@ func play_area(area: String) -> void:
 	if not PLANS.has(area):
 		area = "wilds"
 	_wanted = area
-	if not enabled:
+	if not enabled or (hold and area != "trailer"):
 		player_a.stop()
 		player_b.stop()
 		_area = ""
