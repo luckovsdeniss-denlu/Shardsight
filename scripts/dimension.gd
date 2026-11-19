@@ -4,8 +4,9 @@ extends Node
 ##
 ## Everyone gets the Riftrunner: a low open car of violet metal with a shard of crystal turning in
 ## its back. It drives itself after you when you walk, and you get in and out with the Car button
-## (or Ride). It can't be hurt and never fights. Driving it, Rift jump opens a ring of light on
-## the road ahead: the car runs into it and, in a white flash, through to the Shardveil - the same
+## (or Ride). It can't be hurt and never fights. Driving it, Rift jump changes the car - wheels
+## folding into hover pads, wings out, the shard rising, lifting off - and it shoots ahead and, in
+## a white flash, through to the Shardveil - the same
 ## land in another dimension: a violet sky with ribbons of light, two moons and a great rift
 ## across it; the ground violet with veins of light; trees and grass of glassy teal; glowing
 ## water; motes of light drifting up round you; its own music; and gold that glitters twice
@@ -309,7 +310,16 @@ func car_pressed() -> void:
 
 # --- the jump ----------------------------------------------------------------------------------------
 
-## Rift jump: a ring of light opens on the road ahead and the car runs into it.
+## Rift jump: the car changes. It stops; its wheels fold up flat into glowing hover pads; wings of
+## violet metal swing out from its sides with thrusters behind; the shard rises from its cradle,
+## swelling and spinning fast; the car lifts off the ground, rings of light whirling round it -
+## then it shoots ahead and, in a white flash, it's through to the other side, where it settles
+## back down, folds its wings and drops onto its wheels again.
+const TF_RISE := 1.5                           # seconds of changing before the dash
+const TF_CROSS := 2.35                         # when it's through
+const TF_SETTLE := 1.3                         # changing back on the other side
+
+
 func jump() -> void:
 	var hero: Entity = game.hero
 	if _jump_t >= 0.0 or _cool > 0.0 or hero.dead or car == null or hero.mounted_on != car:
@@ -327,19 +337,14 @@ func jump() -> void:
 			way = f
 			break
 	_jump_dir = way
-	_portal_pos = hero.position + way * 6.0
-	_portal_pos.y = game.world.height_at(_portal_pos)
-	_portal.global_position = _portal_pos + Vector3(0.0, 1.25, 0.0)
-	_portal.rotation = Vector3(0.0, atan2(-way.x, -way.z), 0.0)
-	_portal.scale = Vector3.ONE * 0.05
-	_portal.visible = true
+	_portal_pos = hero.position + way * 9.0
 	_jump_t = 0.0
 	_crossed = false
 	_spark = 0.0
+	_dashing = false
 	hero.target = null
 	hero.path.clear()
-	hero.go_to(_portal_pos + way * 2.5)
-	_sound("riser", 1.0, -2.0)
+	_sound("riser", 0.8, -2.0)
 
 
 func _clear_run(from: Vector3, dir: Vector3, length: float) -> bool:
@@ -356,31 +361,214 @@ func _jump_step(delta: float) -> void:
 	_jump_t += delta
 	if not _crossed:
 		if hero.dead or hero.mounted_on != car:
-			_portal.visible = false                # (out of the car: the ring fades away)
+			_tf_clear()                            # (out of the car: it's just a car again)
 			_jump_t = -1.0
 			return
-		_portal.scale = Vector3.ONE * lerpf(0.05, 1.0, smoothstep(0.0, 0.7, _jump_t))
+		hero.target = null
+		if _jump_t < TF_RISE:
+			hero.path.clear()                      # (standing still while it changes)
+		elif not _dashing or hero.path.is_empty():
+			_dashing = true
+			hero.go_to(_portal_pos + _jump_dir * 6.0)   # (and then away, straight ahead)
+		var k_fold := smoothstep(0.1, 0.7, _jump_t)
+		var k_wing := smoothstep(0.45, 1.15, _jump_t)
+		var k_lift := smoothstep(0.6, 1.4, _jump_t)
+		var k_ring := smoothstep(0.9, 1.5, _jump_t) * (1.0 - smoothstep(TF_CROSS - 0.15, TF_CROSS, _jump_t) * 0.5)
+		_tf_pose(delta, k_fold, k_wing, k_lift, k_ring, _jump_t >= TF_RISE)
 		_spark -= delta
 		if _spark <= 0.0:
-			_spark = 0.22
-			Fx.sparkle(game, _portal.global_position, VIOLET if randf() < 0.5 else TEAL, 10)
-		hero.target = null
-		if hero.path.is_empty():
-			hero.go_to(_portal_pos + _jump_dir * 2.5)   # (straight on into it)
-		var near := Vector2(hero.position.x - _portal_pos.x, hero.position.z - _portal_pos.z).length() < 1.3
-		if (near and _jump_t > 0.45) or _jump_t > 2.4:
+			_spark = 0.12 if _jump_t > 0.9 else 0.25
+			Fx.sparkle(game, hero.position + Vector3(randf_range(-1.0, 1.0), 0.6 + k_lift, randf_range(-1.0, 1.0)),
+				VIOLET if randf() < 0.5 else TEAL, 8)
+		if _jump_t >= 0.45 and _jump_t - delta < 0.45:
+			_sound("whoosh", 0.7, -6.0)           # (the wings swinging out)
+		if _jump_t >= TF_RISE and _jump_t - delta < TF_RISE:
+			_sound("whoosh", 1.3, -3.0)           # (away!)
+		if _jump_t >= TF_CROSS:
 			_crossed = true
 			_cross_t = _jump_t
 			_flash.color.a = 1.0                   # through: a white flash...
 			_sound("braam", 1.0, 0.0)
 			_set_world(not active, true)           # ...and the other side
 		return
-	var k := clampf((_jump_t - _cross_t) / 0.7, 0.0, 1.0)   # the ring closes behind you
-	_portal.scale = Vector3.ONE * lerpf(1.0, 0.02, k)
-	if k >= 1.0:
-		_portal.visible = false
+	# the other side: it slows, settles down, folds its wings and drops back onto its wheels
+	var k := clampf((_jump_t - _cross_t) / TF_SETTLE, 0.0, 1.0)
+	if k < 0.35 and hero.mounted_on == car:
+		hero.target = null
+	var back := 1.0 - k
+	_tf_pose(delta, 1.0 - smoothstep(0.55, 1.0, k), 1.0 - smoothstep(0.3, 0.85, k), 1.0 - smoothstep(0.1, 0.7, k),
+		1.0 - smoothstep(0.0, 0.35, k), back > 0.6)
+	if k >= 1.0 or hero.mounted_on != car:
+		_tf_clear()
 		_jump_t = -1.0
 		_cool = 2.5
+
+
+# --- the car changing (its parts, on the hero's model while they drive it) ---
+
+var _dashing := false
+var _tf_root: Node3D = null                    # the car's model under the hero the parts belong to
+var _tf_rider: Node3D = null
+var _tf_rider_y := 0.0
+var _tf_wheel_base: Array = []
+var _tf_spin_base := Vector3.ZERO
+var _tf_wings: Array = []                      # [left, right]
+var _tf_jets: Array = []
+var _tf_rings: Node3D = null
+var _tf_wing_mesh: ArrayMesh = null
+var _tf_jet_mesh: ArrayMesh = null
+
+
+## Finds the car's parts on the hero's model and fits the new ones on (again, if the model was
+## rebuilt meanwhile - a refresh makes it afresh, in its plain shape).
+func _tf_attach() -> bool:
+	var hero: Entity = game.hero
+	var m: Dictionary = hero.model
+	var root: Node3D = m.get("mount_root") as Node3D
+	if root == null or not is_instance_valid(root):
+		return false
+	if root == _tf_root:
+		return true
+	_tf_root = root
+	_tf_rider = m.get("root") as Node3D
+	_tf_rider_y = _tf_rider.position.y if _tf_rider != null else 0.0
+	_tf_wheel_base.clear()
+	for w in m.get("wheels", []):
+		_tf_wheel_base.append([w, (w as Node3D).position])
+	var spin: Node3D = m.get("spin") as Node3D
+	_tf_spin_base = spin.position if spin != null else Vector3.ZERO
+	if _tf_wing_mesh == null:
+		var paint := Color(0.36, 0.16, 0.62)
+		_tf_wing_mesh = Art.merge([[Art.box(1.1, 0.05, 0.55), Art.at(-0.55, 0, 0.0), paint.lightened(0.05)],
+			[Art.box(0.7, 0.05, 0.3), Art.at(-1.0, 0.0, 0.32, Vector3(0, 0.5, 0)), paint.darkened(0.15)],
+			[Art.box(1.05, 0.07, 0.06), Art.at(-0.55, 0.01, -0.27), Color(0.78, 0.8, 0.86)]])
+		_tf_jet_mesh = Art.merge([[Art.cone(0.13, 0.3, 0.09, 8), Art.at(0, 0, 0, Vector3(PI * 0.5, 0, 0)), Color(0.25, 0.25, 0.3)]])
+	_tf_wings.clear()
+	_tf_jets.clear()
+	for side: float in [-1.0, 1.0]:
+		var piv := Node3D.new()                    # hinged at the car's side, swinging out
+		piv.position = Vector3(side * 0.56, 0.5, 0.1)
+		root.add_child(piv)
+		var wing := MeshInstance3D.new()
+		wing.mesh = _tf_wing_mesh
+		wing.material_override = Art.vc_mat()
+		wing.scale = Vector3(-side, 1.0, 1.0)      # (mirrored on the right)
+		piv.add_child(wing)
+		var edge := MeshInstance3D.new()           # a glowing line along the wing's back edge
+		var em := BoxMesh.new()
+		em.size = Vector3(1.0, 0.03, 0.04)
+		edge.mesh = em
+		edge.material_override = Art.glow_mat(TEAL if side < 0.0 else VIOLET)
+		edge.position = Vector3(side * 0.55, 0.03, 0.28)
+		edge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		piv.add_child(edge)
+		_tf_wings.append(piv)
+		var jet := Node3D.new()                    # a thruster behind, sliding out of the back
+		jet.position = Vector3(side * 0.34, 0.45, 1.05)
+		root.add_child(jet)
+		var body := MeshInstance3D.new()
+		body.mesh = _tf_jet_mesh
+		body.material_override = Art.vc_mat()
+		jet.add_child(body)
+		var fire := Fx.flame(0.09, 16, 0.5)
+		fire.rotation.x = PI * 0.5                 # (blowing out behind)
+		fire.position.z = 0.16
+		fire.gravity = Vector3.ZERO
+		var ramp := Gradient.new()                 # (rift fire: white, violet, teal, gone)
+		ramp.set_color(0, Color(1.0, 0.95, 1.0, 1.0))
+		ramp.set_color(1, Color(0.3, 0.95, 1.0, 0.0))
+		ramp.add_point(0.35, Color(0.85, 0.45, 1.0, 0.9))
+		fire.color_ramp = ramp
+		jet.add_child(fire)
+		_tf_jets.append(jet)
+	_tf_rings = Node3D.new()
+	root.add_child(_tf_rings)
+	if _ring_meshes.is_empty():
+		_new_portal().queue_free()                 # (makes the ring meshes)
+	for i in range(3):
+		var ring := MeshInstance3D.new()
+		ring.mesh = _ring_meshes[i % 2]
+		ring.material_override = Art.glow_mat(VIOLET if i != 1 else TEAL)
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_tf_rings.add_child(ring)
+	return true
+
+
+## The car at a point in its change: wheels folded flat (0-1), wings out, lifted, rings of light,
+## thrusters burning.
+func _tf_pose(delta: float, k_fold: float, k_wing: float, k_lift: float, k_ring: float, burning: bool) -> void:
+	if not _tf_attach():
+		return
+	var lift := k_lift * 0.75 + sin(_jump_t * 5.0) * 0.06 * k_lift
+	_tf_root.position.y = lift
+	if _tf_rider != null and is_instance_valid(_tf_rider):
+		_tf_rider.position.y = _tf_rider_y + lift
+	for pair in _tf_wheel_base:                    # the wheels fold up flat, out from the body: hover pads
+		var w: Node3D = pair[0]
+		if not is_instance_valid(w):
+			continue
+		var base: Vector3 = pair[1]
+		var side := signf(base.x)
+		w.position = base + Vector3(side * 0.12 * k_fold, 0.06 * k_fold, 0.0)
+		if k_fold > 0.0:
+			w.rotation = Vector3(w.rotation.x * (1.0 - k_fold), 0.0, side * k_fold * PI * 0.5)
+		else:
+			w.rotation.z = 0.0
+	var spin: Node3D = game.hero.model.get("spin") as Node3D
+	if spin != null and is_instance_valid(spin):   # the shard rises, swells and spins fast
+		spin.position = _tf_spin_base + Vector3(0.0, 0.45 * k_wing, 0.0)
+		spin.scale = Vector3.ONE * (1.0 + 0.8 * k_wing)
+		spin.rotation.y += delta * 18.0 * k_wing
+	for i in range(_tf_wings.size()):
+		var piv: Node3D = _tf_wings[i]
+		var side := -1.0 if i == 0 else 1.0
+		piv.visible = k_wing > 0.01
+		piv.scale = Vector3(maxf(k_wing, 0.01), 1.0, maxf(k_wing, 0.01))
+		piv.rotation = Vector3(0.0, side * (1.0 - k_wing) * 1.2, side * -0.12 * k_wing)   # (swept back, then out)
+	for jet in _tf_jets:
+		var j: Node3D = jet
+		j.visible = k_wing > 0.05
+		j.scale = Vector3.ONE * maxf(k_wing, 0.01)
+		var fire := j.get_child(1) as CPUParticles3D
+		if fire != null:
+			fire.emitting = k_wing > 0.5
+			fire.scale = Vector3.ONE * (1.8 if burning else 1.0)
+	_tf_rings.visible = k_ring > 0.01
+	for i in range(_tf_rings.get_child_count()):   # rings of light whirling round it
+		var ring := _tf_rings.get_child(i) as Node3D
+		var r := (1.25 - 0.18 * i) * (0.6 + 0.4 * k_ring)
+		ring.scale = Vector3.ONE * r * k_ring
+		ring.position = Vector3(0.0, 0.25 + 0.3 * i + 0.1 * sin(_jump_t * 4.0 + i), 0.0)
+		ring.rotation = Vector3(0.25 * sin(_jump_t * 3.0 + i * 2.0), _jump_t * (4.0 + i * 1.5) * (1.0 if i % 2 == 0 else -1.0), 0.2 * cos(_jump_t * 2.5 + i))
+
+
+## Back to a plain car: the new parts off, the rest as it was.
+func _tf_clear() -> void:
+	if _tf_root != null and is_instance_valid(_tf_root):
+		_tf_root.position.y = 0.0
+		for n in _tf_wings + _tf_jets:
+			if is_instance_valid(n):
+				(n as Node).queue_free()
+		if _tf_rings != null and is_instance_valid(_tf_rings):
+			_tf_rings.queue_free()
+		if _tf_rider != null and is_instance_valid(_tf_rider):
+			_tf_rider.position.y = _tf_rider_y
+		for pair in _tf_wheel_base:
+			var w: Node3D = pair[0]
+			if is_instance_valid(w):
+				w.position = pair[1]
+				w.rotation.z = 0.0
+		var spin: Node3D = game.hero.model.get("spin") as Node3D
+		if spin != null and is_instance_valid(spin):
+			spin.position = _tf_spin_base
+			spin.scale = Vector3.ONE
+	_tf_root = null
+	_tf_rider = null
+	_tf_wings.clear()
+	_tf_jets.clear()
+	_tf_rings = null
+	_tf_wheel_base.clear()
+	_dashing = false
 
 
 # --- the other side --------------------------------------------------------------------------------
@@ -406,9 +594,9 @@ func _set_world(on: bool, announce: bool) -> void:
 		_layer.add_child(word)
 		word.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		if on:
-			game.log_event("You drive through the rift into the Shardveil, the land in another dimension. Gold found here counts double.")
+			game.log_event("The Riftrunner tears through into the Shardveil, the land in another dimension. Gold found here counts double.")
 		else:
-			game.log_event("You drive back through the rift. Home again.")
+			game.log_event("The Riftrunner tears back through. Home again.")
 
 
 func _sound(sound_name: String, pitch: float, db: float) -> void:

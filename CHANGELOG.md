@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.8.1
+- The Riftrunner changes instead of opening a portal: on Rift jump the car stops, its wheels fold
+  up flat into glowing hover pads, wings of violet metal swing out from its sides with thrusters
+  sliding out of the back (burning violet and teal), the crystal shard rises from its cradle,
+  swelling and spinning fast, and the car lifts off the ground with rings of light whirling round
+  it - then it shoots ahead and, in the white flash, it's through. On the other side it settles
+  back down, folds its wings away and drops onto its wheels again. The same both ways.
+
 ## 1.8.0
 - Shardveil: everyone in the gunslinger look (from the owner's picture) - near you in the other
   dimension, every figure (you, the adventurers, the townsfolk, the orcs and skeletons) wears a
