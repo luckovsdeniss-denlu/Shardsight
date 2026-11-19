@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.4.1
+- The Riftrunner follows you smoothly: instead of driving a new path to you every moment and
+  stopping dead beside you (stop-and-go, twitching on every new path, shoved about by the
+  crowd), it glides after you to a spot behind you and to your right, its speed eased up and down
+  - faster the further behind, slowing as it arrives - turning as it goes and coming gently to
+  rest when you stop. Far off, or round a wall, it finds its way as before.
+
 ## 2.4.0
 - Much smoother, especially in a crowd (measured: the work each frame for everyone's doings is
   down from 9.4 ms to 3.5 ms on average, and frames over 12 ms from 614 to under 15 in a minute

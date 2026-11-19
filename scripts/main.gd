@@ -5778,8 +5778,8 @@ func _separate_bodies() -> void:
 	var cells := {}
 	var list: Array[Entity] = []
 	for e in creatures:
-		if e.dead or e.ghost or e.parked or (e.is_hero and frontier != null and not frontier.sail.is_empty()):
-			continue
+		if e.dead or e.ghost or e.parked or e.is_vehicle or (e.is_hero and frontier != null and not frontier.sail.is_empty()):
+			continue                              # (the car keeps its own smooth line: nobody shoves it)
 		if not e._near and not e.is_hero:
 			continue                              # off screen nobody sees them overlap: only those in view
 		var key := Vector2i(floori(e.position.x), floori(e.position.z))

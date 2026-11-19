@@ -538,7 +538,8 @@ func tick(delta: float) -> void:
 	if _think_acc >= _think_every * (1.0 if _near or is_hero else 3.0) * (1.5 if game._sim_lite and not is_hero else 1.0):   # far off screen (and a lighter crowd): think less often
 		_think(_think_acc)
 		_think_acc = 0.0
-	_follow_path(delta)
+	if not (is_vehicle and _vehicle_follow(delta)):
+		_follow_path(delta)
 	_fight()
 	_maybe_label(delta)
 
@@ -3648,6 +3649,8 @@ func _pet_think() -> void:
 		return
 	if is_vehicle:                           # the car never fights: it drives itself after you
 		target = null
+		if _vehicle_near_owner():
+			return                               # (near, the way clear: it glides after you by itself)
 		if position.distance_to(pet_owner.position) > 2.6:   # (close enough to get in)
 			if repath_timer <= 0.0 or path.is_empty():
 				repath_timer = 0.6
@@ -3669,6 +3672,59 @@ func _pet_think() -> void:
 			go_to(pet_owner.position)
 	else:
 		path.clear()
+
+
+## The car glides after you: it heads for a spot behind you and to your right, speeding up and
+## easing off smoothly (its speed eased towards where it wants to be, never jumping), turning as
+## it goes, and coming gently to rest there when you stop - no stop-and-go, no twitching on
+## every new path. Far off, or with something in the way, the path finder takes over.
+const CAR_SLOT_BACK := 2.6
+const CAR_SLOT_SIDE := 1.3
+var _vvel := Vector3.ZERO
+var _slot_yaw := 0.0                           # your facing, as the car sees it: eased, so a quick turn doesn't fling it round
+
+
+func _car_slot() -> Vector3:
+	var o := pet_owner
+	var yaw := _slot_yaw
+	var back := Vector3(sin(yaw), 0.0, cos(yaw))
+	var right := Vector3(cos(yaw), 0.0, -sin(yaw))
+	return o.position + back * CAR_SLOT_BACK + right * CAR_SLOT_SIDE
+
+
+func _vehicle_near_owner() -> bool:
+	var o := pet_owner
+	if o == null or not is_instance_valid(o) or o.dead or game.movie != null:
+		return false
+	var spot := _car_slot()
+	return position.distance_to(spot) < 12.0 and not world.is_blocked(world.to_tile(spot)) and world.walk_clear(position, spot)
+
+
+func _vehicle_follow(delta: float) -> bool:
+	if pet_owner == null or not _vehicle_near_owner():
+		_vvel = _vvel.lerp(Vector3.ZERO, 1.0 - exp(-8.0 * delta))
+		return false                           # (far, or something in the way: the path finder takes it)
+	path.clear()
+	_slot_yaw = lerp_angle(_slot_yaw, pet_owner._face_yaw, 1.0 - exp(-1.5 * delta))
+	var spot := _car_slot()
+	var to := Vector3(spot.x - position.x, 0.0, spot.z - position.z)
+	var dist := to.length()
+	var top := speed * maxf(mount_speed, 1.0) * 1.2
+	var want := to * 2.0                       # (faster the further behind, easing in as it arrives)
+	if want.length() > top:
+		want = want.normalized() * top
+	if dist < 0.3:
+		want = Vector3.ZERO
+	_vvel = _vvel.lerp(want, 1.0 - exp(-4.0 * delta))
+	var next := position + _vvel * delta
+	if world.is_blocked(world.to_tile(next)):
+		_vvel = Vector3.ZERO
+		return true
+	position.x = next.x
+	position.z = next.z
+	if _vvel.length() > 0.5:
+		_face_yaw = atan2(-_vvel.x, -_vvel.z)  # (turning the way it's going; the body eases round)
+	return true
 
 
 func can_tame(e: Entity) -> String:
