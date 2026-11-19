@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.3.0
+- A "Follow story" button on the screen, in the top right corner under the map: tap it and the hero
+  sets off for wherever the main story leads now - the person to speak with, the nearest shrine,
+  the lair of the one to slay, the Broken Circle - right across the map if need be (in the
+  Riftrunner, in experimental mode, when it's a long way and the car is beside you). It shows
+  "Following story..." on the way; tap the ground to stop. Hidden when you're there, dead, or the
+  story is done.
+
 ## 2.2.1
 - Fixed: the Riftrunner's change left traces on the ground - dust lying flat round where it took
   off and landed, sparks and crystal shards falling onto the ground and lingering there. Now every

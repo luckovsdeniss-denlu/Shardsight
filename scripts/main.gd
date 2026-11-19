@@ -1959,6 +1959,37 @@ func _build_story_ui(layer: CanvasLayer) -> void:
 	layer.add_child(story_hint)
 	story_hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 14)
 	story_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	# in the top right corner, under the map: a button that sets you off for wherever the story leads
+	story_go = _menu_button("Follow story", _follow_story)
+	story_go.custom_minimum_size = Vector2(220, 64)
+	story_go.add_theme_font_size_override("font_size", 22)
+	story_go.add_theme_color_override("font_color", Color(0.85, 0.7, 1.0))
+	story_go.size_flags_horizontal = Control.SIZE_SHRINK_END
+	story_go.visible = false
+	if minimap != null and minimap.get_parent() != null:
+		minimap.get_parent().add_child(story_go)
+	else:
+		layer.add_child(story_go)
+
+
+var story_go: Button
+
+
+## Follow story: off you go, right across the map if need be, to where the current chapter leads -
+## the person to speak with, the nearest shrine, the lair of the one to slay, the Broken Circle.
+func _follow_story() -> void:
+	if property.story_done or hero == null:
+		return
+	if hero.dead:
+		log_event("Find a healer or a shrine first: the story waits for the living.")
+		return
+	if not _story_goal_pos():
+		log_event("The story leads nowhere in particular just now: " + String(Story.STEPS[property.story_step]["goal"]))
+		return
+	if hero.mounted_on == null and dimension != null and dimension.car != null and is_instance_valid(dimension.car) \
+			and hero.position.distance_to(story_target) > 40.0 and dimension.car.position.distance_to(hero.position) < 8.0:
+		dimension.car_pressed()                   # (a long way: in the car, if it's to hand)
+	hero_journey(world.to_tile(story_target))
 
 
 ## The Broken Circle: eight standing stones round an altar in the heart of the land, where the
@@ -2073,6 +2104,8 @@ func _story_tick(delta: float) -> void:
 	if autotest or hero == null or property.story_done or movie != null:   # (the story waits for the real game)
 		if story_hint != null:
 			story_hint.visible = false
+		if story_go != null:
+			story_go.visible = false
 		return
 	_story_acc += delta
 	if _story_acc < 0.5:
@@ -2092,6 +2125,10 @@ func _story_tick(delta: float) -> void:
 	else:
 		story_hint.text = String(step["goal"])
 	story_hint.visible = true
+	if story_go != null:
+		var near := has_story_target and hero.position.distance_to(story_target) < 3.0
+		story_go.visible = has_story_target and not hero.dead and not near
+		story_go.text = "Following story..." if hero.has_journey and hero.journey.distance_to(story_target) < 6.0 else "Follow story"
 	if hero.dead:
 		return
 	match String(step["kind"]):
