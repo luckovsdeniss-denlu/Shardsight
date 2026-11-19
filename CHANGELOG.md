@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.9.1
+- Safe zones are safe everywhere: nobody can fight in a town, or into or out of one - in the
+  Shardveil too (its free-for-all, guns, car turrets and meteors stop at the town's edge, and the
+  monsters keep out of town again). This undoes the 1.8.3 change.
+
 ## 1.9.0
 - Death and resurrection animations (experimental mode, "Death and resurrection", on by default):
   - The slain stagger, lurch, their knees buckle and they crash to the ground - backwards on two

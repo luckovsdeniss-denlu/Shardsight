@@ -843,7 +843,7 @@ func _end_trips() -> void:
 # In the Shardveil it's every one for themselves. Round you (35 m), everyone has a gun - you,
 # the adventurers, every monster (the orcs and skeletons in hand; the wolves, bears, spiders and
 # other beasts strapped to their backs) and the pets too - and anyone fights anyone: the
-# adventurers each other and the beasts, the beasts each other, everyone you; no town is a refuge
+# adventurers each other and the beasts, the beasts each other, everyone you; but the towns keep the peace
 # and no blow is a crime. And meteors keep falling out of the violet sky, burning whoever they
 # land near. Back home, everyone has their own weapons again.
 

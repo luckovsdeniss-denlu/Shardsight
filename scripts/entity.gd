@@ -896,7 +896,7 @@ func _fight() -> void:
 		return
 	if swing_cd > 0.0 or d > attack_range():
 		return
-	if target.town_protects(self) and not game.chaos_at(position):
+	if target.town_protects(self):
 		_town_notice()
 		target = null                        # break off: no blows into, or out of, a town
 		return
@@ -1261,7 +1261,7 @@ func take_damage(amount: float, from: Entity) -> void:
 	# Towns are safe: nobody inside one can be hurt, and nobody can attack out of one. (Not in the
 	# Shardveil's free-for-all: there nowhere is safe, and no blow there is a crime.)
 	var chaos: bool = game.chaos_at(position)
-	if town_protects(from) and not chaos:
+	if town_protects(from):                # (towns are safe, even in the Shardveil)
 		return
 	# Hitting an innocent player makes the attacker a criminal and, if the victim dies soon
 	# after, a murderer. The victim can fight back freely.
@@ -2427,8 +2427,6 @@ func _settle_crimes(killer: Entity) -> void:
 
 
 func _in_town() -> bool:
-	if game != null and game.chaos_at(position):
-		return false                       # (the Shardveil's free-for-all: no town is a refuge)
 	return world.is_town(world.to_tile(position))
 
 
@@ -2452,8 +2450,8 @@ func town_protects(from: Entity) -> bool:
 ## Monsters keep out of the towns (and give up a chase at the edge). Players of any repute may
 ## come in: towns are safe for everyone.
 func _avoids_town() -> bool:
-	if dead or game.chaos_at(position):
-		return false                       # (the Shardveil: monsters come into town too)
+	if dead:
+		return false
 	return kind == Kind.MONSTER
 
 
@@ -3379,6 +3377,8 @@ func _chaos_fair(e: Entity) -> bool:
 		return false
 	if kind == Kind.PET and (pet_owner == e or (e.kind == Kind.PET and e.pet_owner == pet_owner)):
 		return false
+	if _in_town() or e._in_town():
+		return false                       # (the towns keep the peace, even in the Shardveil)
 	return game.chaos_at(e.position)
 
 
