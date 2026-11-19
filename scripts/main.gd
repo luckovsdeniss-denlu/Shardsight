@@ -6478,6 +6478,7 @@ var _fp_kick := 0.0                    # a jolt when hit (1 -> 0)
 var _fp_hp := -1.0
 var _fp_last := Vector3.ZERO
 var _eye_at := Vector3.INF             # the first-person eye, glided after the hero
+var _cam_follow := Vector3.INF          # where the top-view camera looks, glided after the hero
 var fp_rift_fov := 0.0                  # the lens flung wide as the Riftrunner tears through (set by the dimension)
 var fp_car_lift := 0.0                  # the view rising with the car as it lifts off
 var aimed: Entity                      # whoever is under the crosshair (first person)
@@ -7364,8 +7365,22 @@ func _follow_camera() -> void:
 			hero.rig.visible = in_car
 			if in_car and hero.model.has("root"):
 				(hero.model["root"] as Node3D).visible = false
-	cam.position = _hero_cam_pos()
-	cam.look_at(_hero_cam_look(), Vector3.UP)
+	if property.first_person:
+		cam.position = _hero_cam_pos()
+		cam.look_at(_hero_cam_look(), Vector3.UP)
+	else:
+		# the camera glides after the hero (gentler still up and down), so the land's bumps and
+		# every little step never jerk the picture; a jump of more than a few metres is taken at once
+		var want := hero.position
+		var dt := get_process_delta_time()
+		if _cam_follow == Vector3.INF or _cam_follow.distance_to(want) > 6.0:
+			_cam_follow = want
+		else:
+			_cam_follow.x = lerpf(_cam_follow.x, want.x, minf(1.0, 10.0 * dt))
+			_cam_follow.z = lerpf(_cam_follow.z, want.z, minf(1.0, 10.0 * dt))
+			_cam_follow.y = lerpf(_cam_follow.y, want.y, minf(1.0, 4.0 * dt))
+		cam.position = _cam_follow + CAM_OFFSET.rotated(Vector3.UP, property.cam_yaw) * property.cam_zoom
+		cam.look_at(_cam_follow + Vector3(0.0, 0.5, 0.0), Vector3.UP)
 	view_planes = cam.get_frustum()
 
 

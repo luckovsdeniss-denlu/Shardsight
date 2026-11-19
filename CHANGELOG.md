@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.13.2-b390
+- No more twitching (measured on Auto: six steps back and their whip-rounds in twenty seconds,
+  now gone): a fresh path started at the middle of the tile you stood on - often a step behind -
+  so the hero stepped back and spun round at the start of every new path (and every repath in a
+  fight). Now a first point behind, or right underfoot, is skipped when the next can be walked to
+  straight. And the top-view camera glides after the hero (gentler still up and down) instead of
+  jerking with every bump in the land, and the hero turns round a touch more gently.
+
 ## 2.13.1-b389
 - First person, rock steady: no head bob, no breathing, no sway, no leaning into turns, no jolt
   when hit and no earthquake shake - the horizon stays level - and the eye glides after the hero

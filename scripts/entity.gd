@@ -699,6 +699,7 @@ func _chase() -> void:
 		if repath_timer <= 0.0 or path.is_empty():
 			repath_timer = 0.4
 			var p: Array[Vector3] = world.find_path(position, target.position, _avoids_town())
+			_trim_start(p)
 			path = p
 	else:
 		path.clear()
@@ -816,7 +817,21 @@ func go_to(dest: Vector3) -> bool:
 		path = _smooth_path(p, 24)               # a long walk: pulled tight over long straight runs
 	else:
 		path = _smooth_path(p) if _near else p     # straight lines and cut corners where it's clear
+	_trim_start(path)
 	return true
+
+
+## A fresh path starts at the middle of the tile we stand on - often a step behind us. Skip any
+## first point that lies behind (or right here) when the next can be walked to straight: no
+## step back and whip round at the start of every new path.
+func _trim_start(p: Array[Vector3]) -> void:
+	while p.size() > 1:
+		var a := Vector3(p[0].x - position.x, 0.0, p[0].z - position.z)
+		var ahead := Vector3(p[1].x - p[0].x, 0.0, p[1].z - p[0].z)
+		if (a.length() < 0.6 or a.dot(ahead) < 0.0) and world.walk_clear(position, p[1]):
+			p.remove_at(0)
+		else:
+			break
 
 
 ## Pulls a tile-by-tile path tight: from each point, jump to the furthest of the next few that
@@ -3348,7 +3363,7 @@ func _animate(delta: float) -> void:
 	if is_hero and game.frontier != null and not game.frontier.sail.is_empty():
 		moving = false                         # in the boat: sitting still while it glides, no running
 	_last_pos = position
-	rotation.y = lerp_angle(rotation.y, _face_yaw, minf(1.0, 12.0 * delta))   # turn smoothly
+	rotation.y = lerp_angle(rotation.y, _face_yaw, minf(1.0, (7.0 if is_hero else 12.0) * delta))   # turn smoothly (the hero a touch gentler: no snapping round)
 	_stride_k = move_toward(_stride_k, 1.0 if moving else 0.0, delta * 6.0)
 	hit_anim = maxf(hit_anim - delta, 0.0)
 	# the walking rhythm follows the actual pace (faster walkers, and mounts, step quicker)
