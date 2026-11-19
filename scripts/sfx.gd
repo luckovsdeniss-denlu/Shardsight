@@ -608,6 +608,73 @@ func _build_trailer() -> void:
 			var crackle := (randf_range(-1.0, 1.0) if randf() < 0.15 else 0.0) * exp(-t * 6.0) * 0.5
 			return boom + rumble + crackle))
 	_pending["blast"] = blast
+	_build_car()
+
+
+## The Riftrunner changing: servos and plates locking (a whine sliding up and down over a ratchet
+## of clicks, two heavy clunks), the charge (a hum climbing and buzzing as it fills, with a
+## wobbling shimmer), the thrusters lighting (a deep ignition thump into a roaring jet), the warp
+## (a sucked-in reverse swell, a sub-bass drop and a crackling zap) and the landing (a hydraulic
+## hiss, then the wheels clunking down).
+func _build_car() -> void:
+	_pending["car_servo"] = [_make(1.0, func(t: float) -> float:
+		var k := t / 1.0
+		var f := 320.0 + 520.0 * sin(PI * minf(k * 1.3, 1.0))      # the servo's whine, up and back
+		var whine := (sin(TAU * f * t) * 0.5 + sin(TAU * f * 2.01 * t) * 0.25) * 0.22 * sin(PI * k)
+		var tick := fmod(t, 0.045)
+		var ratchet := randf_range(-1.0, 1.0) * exp(-tick * 260.0) * 0.45 * (1.0 if k < 0.75 else 0.0)
+		var clunk := 0.0
+		for at: float in [0.32, 0.78]:
+			var lt := t - at
+			if lt > 0.0:
+				clunk += (sin(TAU * (90.0 + 160.0 * exp(-lt * 40.0)) * lt) + randf_range(-0.4, 0.4)) * exp(-lt * 22.0) * 0.8
+		return clampf(whine + ratchet + clunk, -1.0, 1.0))]
+	var clp := [0.0]
+	_pending["car_charge"] = [_make(1.1, func(t: float) -> float:
+		var k := t / 1.1
+		var f := 90.0 + 520.0 * k * k                              # climbing as it fills
+		var hum := sin(TAU * f * t + 1.2 * sin(TAU * f * 0.5 * t)) * 0.35
+		var buzz := signf(sin(TAU * f * 0.5 * t)) * 0.12 * k
+		clp[0] = lerpf(float(clp[0]), randf_range(-1.0, 1.0), 0.2 + 0.5 * k)
+		var shimmer := sin(TAU * (1800.0 + 900.0 * k) * t) * (0.5 + 0.5 * sin(TAU * 14.0 * t)) * 0.08 * k
+		var env := minf(t / 0.1, 1.0) * (0.4 + 0.6 * k) * (1.0 if k < 0.96 else (1.0 - k) / 0.04)
+		return clampf((hum + buzz + float(clp[0]) * 0.25 * k + shimmer) * env, -1.0, 1.0))]
+	var jlp := [0.0]
+	_pending["car_jet"] = [_make(1.2, func(t: float) -> float:
+		var thump := sin(TAU * (45.0 + 110.0 * exp(-t * 25.0)) * t) * exp(-t * 7.0) * 1.0
+		jlp[0] = lerpf(float(jlp[0]), randf_range(-1.0, 1.0), 0.35)
+		var roar := float(jlp[0]) * 1.5 * minf(t / 0.05, 1.0) * exp(-t * 1.6)
+		var whine := sin(TAU * (700.0 + 500.0 * t) * t) * 0.1 * exp(-t * 2.0)
+		return clampf(thump + roar + whine, -1.0, 1.0))]
+	var wlo := [0.0]
+	var whp := [0.0]
+	_pending["car_warp"] = [_make(1.8, func(t: float) -> float:
+		var v := 0.0
+		if t < 0.35:                                               # sucked in: a reverse swell
+			var k := t / 0.35
+			var n := randf_range(-1.0, 1.0)
+			var bright := n - float(whp[0])
+			whp[0] = lerpf(float(whp[0]), n, 0.3)
+			v += (bright * 0.8 + sin(TAU * (300.0 + 2400.0 * k * k) * t) * 0.3) * k * k * k
+		else:                                                      # then the drop and the zap
+			var lt := t - 0.35
+			v += sin(TAU * (28.0 + 140.0 * exp(-lt * 9.0)) * lt) * exp(-lt * 2.4) * 1.1
+			wlo[0] = float(wlo[0]) * 0.92 + randf_range(-1.0, 1.0) * 0.08
+			v += float(wlo[0]) * 3.5 * exp(-lt * 3.0)
+			v += sin(TAU * (2600.0 * exp(-lt * 6.0) + 200.0) * lt) * exp(-lt * 7.0) * 0.3
+			v += (randf_range(-1.0, 1.0) if randf() < 0.08 else 0.0) * exp(-lt * 4.0) * 0.6
+		return clampf(v, -1.0, 1.0))]
+	var hlp := [0.0]
+	_pending["car_land"] = [_make(0.9, func(t: float) -> float:
+		var n := randf_range(-1.0, 1.0)
+		var hiss := (n - float(hlp[0])) * 0.5 * exp(-t * 5.0) * minf(t / 0.03, 1.0)
+		hlp[0] = lerpf(float(hlp[0]), n, 0.4)
+		var clunk := 0.0
+		for at: float in [0.28, 0.4]:
+			var lt := t - at
+			if lt > 0.0:
+				clunk += (sin(TAU * (70.0 + 130.0 * exp(-lt * 35.0)) * lt) + randf_range(-0.3, 0.3)) * exp(-lt * 18.0) * 0.9
+		return clampf(hiss + clunk, -1.0, 1.0))]
 
 
 ## A looping ambience ("crickets", "water", "fire") once built, else null.

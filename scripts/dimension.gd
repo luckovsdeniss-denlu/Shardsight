@@ -344,7 +344,7 @@ func jump() -> void:
 	_dashing = false
 	hero.target = null
 	hero.path.clear()
-	_sound("riser", 0.8, -2.0)
+	_sound("riser", 0.8, -6.0)
 
 
 func _clear_run(from: Vector3, dir: Vector3, length: float) -> bool:
@@ -379,15 +379,11 @@ func _jump_step(delta: float) -> void:
 			_spark = 0.12 if _jump_t > 0.9 else 0.25
 			Fx.sparkle(game, hero.position + Vector3(randf_range(-1.0, 1.0), 0.6 + k_lift, randf_range(-1.0, 1.0)),
 				VIOLET if randf() < 0.5 else TEAL, 8)
-		if _jump_t >= 0.45 and _jump_t - delta < 0.45:
-			_sound("whoosh", 0.7, -6.0)           # (the wings swinging out)
-		if _jump_t >= TF_RISE and _jump_t - delta < TF_RISE:
-			_sound("whoosh", 1.3, -3.0)           # (away!)
 		if _jump_t >= TF_CROSS:
 			_crossed = true
 			_cross_t = _jump_t
 			_flash.color.a = 1.0                   # through: a white flash...
-			_sound("braam", 1.0, 0.0)
+			_sound("braam", 1.0, -4.0)
 			_set_world(not active, true)           # ...and the other side
 		return
 	# the other side: it slows, settles down, folds its wings and drops back onto its wheels
@@ -425,10 +421,23 @@ class CarChange:
 	var rings: Node3D = null
 	static var wing_mesh: ArrayMesh = null
 	static var jet_mesh: ArrayMesh = null
+	static var cyber_shader: Shader = null
+	static var chunk_mesh: BoxMesh = null
+	var sound: Callable                        # (name, pitch, dB): heard as the car changes
+	var world: Node                            # where the bursts of dust, sparks and shards fly
+	var cyber: ShaderMaterial = null           # the cyber skin spreading over the car
+	var swapped: Array = []                    # [mesh, its own material] while it wears the skin
+	var inflow: CPUParticles3D = null          # energy pulled in, swirling, as it charges
+	var sparks: CPUParticles3D = null          # sparks off the folding wheels, falling
+	var trail: CPUParticles3D = null           # a streaming trail behind it as it shoots away
+	var last_t := -1.0
+	var last_k := -1.0
 
-	func _init(p_who: Entity, p_rings: Array) -> void:
+	func _init(p_who: Entity, p_rings: Array, p_sound: Callable, p_world: Node) -> void:
 		who = p_who
 		rings_from = p_rings
+		sound = p_sound
+		world = p_world
 
 	func _attach() -> bool:
 		if who == null or not is_instance_valid(who):
@@ -499,13 +508,153 @@ class CarChange:
 			ring.material_override = Art.glow_mat(VIOLET if i != 1 else TEAL)
 			ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			rings.add_child(ring)
+		# the cyber skin: every plain-painted part of the car (its new wings too) wears it
+		if cyber_shader == null:
+			cyber_shader = Shader.new()
+			cyber_shader.code = CYBER_SHADER
+		cyber = ShaderMaterial.new()
+		cyber.shader = cyber_shader
+		cyber.set_shader_parameter("tint", Art.tint)
+		swapped.clear()
+		var stack: Array = [root]
+		while not stack.is_empty():
+			var n: Node = stack.pop_back()
+			stack.append_array(n.get_children())
+			var mi := n as MeshInstance3D
+			if mi != null and mi.material_override is StandardMaterial3D \
+					and (mi.material_override as StandardMaterial3D).vertex_color_use_as_albedo \
+					and not (mi.material_override as StandardMaterial3D).emission_enabled:
+				swapped.append([mi, mi.material_override])
+				mi.material_override = cyber
+		# the particles: thrown into the world (they don't follow the car once they're out)
+		inflow = _emitter(48, 0.55, 0.11)
+		inflow.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+		inflow.emission_sphere_radius = 2.6
+		inflow.radial_accel_min = -14.0            # pulled in to the car...
+		inflow.radial_accel_max = -10.0
+		inflow.tangential_accel_min = 6.0          # ...swirling round it
+		inflow.tangential_accel_max = 9.0
+		inflow.gravity = Vector3.ZERO
+		inflow.color_ramp = _ramp([Color(0.3, 0.95, 1.0, 0.0), Color(0.6, 0.7, 1.0, 1.0), Color(1.0, 0.6, 1.0, 1.0)])
+		inflow.position = Vector3(0.0, 0.6, 0.0)
+		sparks = _emitter(40, 0.9, 0.07)
+		sparks.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+		sparks.emission_box_extents = Vector3(0.7, 0.05, 0.8)
+		sparks.direction = Vector3.UP
+		sparks.spread = 65.0
+		sparks.initial_velocity_min = 2.0
+		sparks.initial_velocity_max = 4.5
+		sparks.gravity = Vector3(0.0, -9.8, 0.0)   # (real arcs: up, over and down)
+		sparks.color_ramp = _ramp([Color(1.0, 1.0, 0.9, 1.0), Color(1.0, 0.75, 0.3, 1.0), Color(1.0, 0.3, 0.1, 0.0)])
+		sparks.position = Vector3(0.0, 0.3, 0.0)
+		trail = _emitter(70, 0.6, 0.16)
+		trail.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+		trail.emission_box_extents = Vector3(0.45, 0.12, 0.1)
+		trail.direction = Vector3(0.0, 0.0, 1.0)   # out behind
+		trail.spread = 12.0
+		trail.initial_velocity_min = 3.0
+		trail.initial_velocity_max = 6.0
+		trail.gravity = Vector3(0.0, 0.6, 0.0)
+		trail.damping_min = 2.0
+		trail.damping_max = 4.0
+		trail.color_ramp = _ramp([Color(1.0, 1.0, 1.0, 1.0), Color(0.9, 0.45, 1.0, 0.9), Color(0.3, 0.95, 1.0, 0.0)])
+		trail.position = Vector3(0.0, 0.45, 1.2)
 		return true
+
+	## A stream of glowing motes on the car, left behind in the world.
+	func _emitter(n: int, life: float, size: float) -> CPUParticles3D:
+		var p := CPUParticles3D.new()
+		p.amount = n
+		p.lifetime = life
+		p.local_coords = false
+		p.mesh = Fx._quad(size, Color.WHITE)
+		p.emitting = false
+		p.scale_amount_min = 0.6
+		p.scale_amount_max = 1.4
+		root.add_child(p)
+		return p
+
+	static func _ramp(cols: Array) -> Gradient:
+		var g := Gradient.new()
+		var offs := PackedFloat32Array()
+		var cs := PackedColorArray()
+		for i in range(cols.size()):
+			offs.append(float(i) / float(cols.size() - 1))
+			cs.append(cols[i])
+		g.offsets = offs
+		g.colors = cs
+		return g
+
+	## A one-off burst into the world: dust thrown out flat along the ground, or sparks and
+	## shards of crystal flung up that tumble and fall back under their weight.
+	func _burst(at: Vector3, cols: Array, n: int, speed: float, grav: float, life: float, size: float, flat: bool, shards := false) -> void:
+		if world == null or not is_instance_valid(world):
+			return
+		var p := CPUParticles3D.new()
+		p.one_shot = true
+		p.explosiveness = 0.95
+		p.amount = n
+		p.lifetime = life
+		p.local_coords = false
+		if shards:
+			if chunk_mesh == null:
+				chunk_mesh = BoxMesh.new()
+				chunk_mesh.size = Vector3(0.09, 0.16, 0.06)
+				var m := StandardMaterial3D.new()
+				m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				m.vertex_color_use_as_albedo = true
+				m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				chunk_mesh.material = m
+			p.mesh = chunk_mesh
+			p.angular_velocity_min = -720.0
+			p.angular_velocity_max = 720.0
+			p.angle_min = 0.0
+			p.angle_max = 360.0
+		else:
+			p.mesh = Fx._quad(size, Color.WHITE)
+		if flat:                                   # out along the ground, every way
+			p.direction = Vector3(1.0, 0.0, 0.0)
+			p.spread = 180.0
+			p.flatness = 1.0
+			p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+			p.emission_ring_axis = Vector3.UP
+			p.emission_ring_radius = 0.9
+			p.emission_ring_inner_radius = 0.5
+			p.emission_ring_height = 0.05
+			p.damping_min = speed * 0.9
+			p.damping_max = speed * 1.3
+		else:
+			p.direction = Vector3.UP
+			p.spread = 75.0
+			p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+			p.emission_sphere_radius = 0.5
+		p.initial_velocity_min = speed * 0.5
+		p.initial_velocity_max = speed
+		p.gravity = Vector3(0.0, -grav, 0.0)
+		p.scale_amount_min = 0.6
+		p.scale_amount_max = 1.5
+		p.color_ramp = _ramp(cols)
+		world.add_child(p)
+		p.global_position = at
+		p.emitting = true
+		var tw := p.create_tween()
+		tw.tween_interval(life + 0.3)
+		tw.tween_callback(p.queue_free)
+
+	func _play(sound_name: String, pitch: float, db: float) -> void:
+		if sound.is_valid():
+			sound.call(sound_name, pitch, db)
 
 	## The car at a point in its change: wheels folded flat (0-1), wings out, lifted, rings of
 	## light, thrusters burning.
-	func pose(delta: float, t: float, k_fold: float, k_wing: float, k_lift: float, k_ring: float, burning: bool) -> void:
+	func pose(delta: float, t: float, k_fold: float, k_wing: float, k_lift: float, k_ring: float, burning: bool,
+			k_skin := 0.0, charging := false, folding := false) -> void:
 		if not _attach():
 			return
+		cyber.set_shader_parameter("amount", k_skin)
+		inflow.emitting = charging
+		sparks.emitting = folding
+		trail.emitting = burning and k_wing > 0.5
 		var lift := k_lift * 0.75 + sin(t * 5.0) * 0.06 * k_lift
 		root.position.y = lift
 		if rider != null and is_instance_valid(rider):
@@ -551,15 +700,65 @@ class CarChange:
 	## The change at time t of the way out (t up to TF_CROSS).
 	func pose_out(delta: float, t: float) -> void:
 		var k_ring := smoothstep(0.9, 1.5, t) * (1.0 - smoothstep(TF_CROSS - 0.15, TF_CROSS, t) * 0.5)
-		pose(delta, t, smoothstep(0.1, 0.7, t), smoothstep(0.45, 1.15, t), smoothstep(0.6, 1.4, t), k_ring, t >= TF_RISE)
+		pose(delta, t, smoothstep(0.1, 0.7, t), smoothstep(0.45, 1.15, t), smoothstep(0.6, 1.4, t), k_ring, t >= TF_RISE,
+			smoothstep(0.0, 0.9, t), t > 0.6 and t < TF_CROSS - 0.1, t > 0.1 and t < 0.75)
+		var prev := last_t
+		last_t = t
+		if root == null:
+			return
+		var at := who.position
+		if prev < 0.0:                             # it starts: the servos whine, plates shift
+			_play("car_servo", 1.0, -2.0)
+			_burst(at + Vector3(0.0, 0.5, 0.0), [Color(0.3, 0.95, 1.0, 1.0), Color(0.85, 0.45, 1.0, 0.0)], 24, 3.0, 0.0, 0.5, 0.1, false)
+		if prev < 0.6 and t >= 0.6:                # wheels locked flat: it charges
+			_play("car_charge", 1.0, -3.0)
+		if prev < 0.75 and t >= 0.75:              # lift-off: dust blown out flat all round
+			_burst(at + Vector3(0.0, 0.1, 0.0), [Color(0.6, 0.52, 0.42, 0.9), Color(0.5, 0.42, 0.55, 0.5), Color(0.4, 0.35, 0.45, 0.0)],
+				36, 7.0, -0.4, 1.1, 0.4, true)
+		if prev < TF_RISE and t >= TF_RISE:        # the thrusters fire: away
+			_play("car_jet", 1.0, -1.0)
+			_burst(at + Vector3(0.0, 0.6, 0.0) - who.basis.z * -1.2, [Color(1.0, 1.0, 1.0, 1.0), Color(0.85, 0.45, 1.0, 0.8), Color(0.3, 0.95, 1.0, 0.0)],
+				30, 5.0, 0.0, 0.5, 0.25, false)
+		if prev < TF_CROSS - 0.12 and t >= TF_CROSS - 0.12:   # through: crystal shards and sparks fly everywhere
+			_play("car_warp", 1.0, 0.0)
+			_burst(at + Vector3(0.0, 0.8, 0.0), [Color(0.95, 0.75, 1.0, 1.0), Color(0.3, 0.95, 1.0, 1.0), Color(0.5, 0.3, 0.9, 0.0)],
+				30, 7.0, 9.8, 1.4, 0.1, false, true)
+			_burst(at + Vector3(0.0, 0.8, 0.0), [Color(1.0, 1.0, 1.0, 1.0), Color(0.85, 0.45, 1.0, 0.8), Color(0.3, 0.95, 1.0, 0.0)],
+				50, 9.0, 4.0, 0.9, 0.16, false)
 
 	## The change back, k from 0 (just through) to 1 (a plain car).
 	func pose_back(delta: float, t: float, k: float) -> void:
 		pose(delta, t, 1.0 - smoothstep(0.55, 1.0, k), 1.0 - smoothstep(0.3, 0.85, k), 1.0 - smoothstep(0.1, 0.7, k),
-			1.0 - smoothstep(0.0, 0.35, k), k < 0.4)
+			1.0 - smoothstep(0.0, 0.35, k), k < 0.4, 1.0 - smoothstep(0.45, 1.0, k), false, k > 0.55 and k < 0.9)
+		var prev := last_k
+		last_k = k
+		if root == null:
+			return
+		var at := who.position
+		if prev < 0.0:                             # out the other side in a spray of light
+			_burst(at + Vector3(0.0, 0.8, 0.0), [Color(1.0, 1.0, 1.0, 1.0), Color(0.3, 0.95, 1.0, 0.8), Color(0.85, 0.45, 1.0, 0.0)],
+				50, 8.0, 3.0, 0.9, 0.16, false)
+			_burst(at + Vector3(0.0, 0.8, 0.0), [Color(0.95, 0.75, 1.0, 1.0), Color(0.5, 0.3, 0.9, 0.0)], 18, 5.0, 9.8, 1.2, 0.1, false, true)
+		if prev < 0.4 and k >= 0.4:                # folding back up: the servos again, lower
+			_play("car_servo", 0.85, -3.0)
+		if prev < 0.7 and k >= 0.7:                # down on its wheels: a hiss, a clunk, dust
+			_play("car_land", 1.0, -2.0)
+			_burst(at + Vector3(0.0, 0.1, 0.0), [Color(0.6, 0.52, 0.42, 0.9), Color(0.4, 0.35, 0.45, 0.0)], 30, 5.0, -0.3, 1.0, 0.35, true)
 
 	## Back to a plain car: the new parts off, the rest as it was.
 	func clear() -> void:
+		for pair in swapped:
+			if is_instance_valid(pair[0]):
+				(pair[0] as MeshInstance3D).material_override = pair[1]
+		swapped.clear()
+		for p in [inflow, sparks, trail]:
+			if p != null and is_instance_valid(p):
+				(p as Node).queue_free()
+		inflow = null
+		sparks = null
+		trail = null
+		last_t = -1.0
+		last_k = -1.0
 		if root != null and is_instance_valid(root):
 			root.position.y = 0.0
 			for n in wings + jets:
@@ -590,7 +789,42 @@ class CarChange:
 func _new_change(who: Entity) -> CarChange:
 	if _ring_meshes.is_empty():
 		_new_portal().queue_free()                 # (makes the ring meshes)
-	return CarChange.new(who, _ring_meshes)
+	var snd := func(sound_name: String, pitch: float, db: float) -> void:
+		if who == game.hero:
+			_sound(sound_name, pitch, db)
+		elif is_instance_valid(who):
+			game.sound(sound_name, who.position, pitch, db - 4.0)
+	return CarChange.new(who, _ring_meshes, snd, game)
+
+
+## The cyber skin the Riftrunner wears while it changes: a wipe of white light runs from bonnet to
+## tail, and behind it the paint turns to dark chrome laced with a glowing grid of circuit lines,
+## pulses of violet and teal running along them.
+const CYBER_SHADER := """
+shader_type spatial;
+uniform float amount = 0.0;
+uniform vec4 tint : source_color = vec4(1.0);
+varying vec3 p;
+void vertex() {
+	p = VERTEX;
+}
+void fragment() {
+	vec3 base = COLOR.rgb * tint.rgb;
+	float edge = mix(-1.5, 1.7, amount);
+	float on = step(p.z, edge);
+	float band = (1.0 - smoothstep(0.0, 0.12, abs(p.z - edge))) * step(0.001, amount) * step(amount, 0.999);
+	vec3 g = abs(fract(p * 6.0) - 0.5);
+	float line = 1.0 - smoothstep(0.0, 0.06, min(min(g.x, g.y), g.z));
+	float pulse = 0.5 + 0.5 * sin(p.z * 14.0 - TIME * 9.0 + p.y * 6.0);
+	float lum = dot(base, vec3(0.3, 0.59, 0.11));
+	vec3 skin = mix(vec3(0.03, 0.02, 0.07), vec3(0.16, 0.12, 0.26), lum);
+	vec3 neon = mix(vec3(0.3, 0.95, 1.0), vec3(0.95, 0.35, 1.0), 0.5 + 0.5 * sin(p.x * 5.0 + TIME * 2.0));
+	ALBEDO = mix(base, skin, on);
+	METALLIC = 0.8 * on;
+	ROUGHNESS = mix(0.9, 0.25, on);
+	EMISSION = neon * line * (0.5 + 1.5 * pulse) * on * 1.4 + vec3(1.0, 0.9, 1.0) * band * 3.0;
+}
+"""
 
 
 func _tf_clear() -> void:
@@ -770,8 +1004,6 @@ func _trip_step(trip: Dictionary, delta: float) -> void:
 			elif not bool(trip["dash"]) or who.path.is_empty():
 				trip["dash"] = true
 				who.go_to((trip["at"] as Vector3) + (trip["dir"] as Vector3) * 6.0)
-				if game.in_view(who.position, 3.0):
-					_sound("whoosh", 1.3, -9.0)
 			change.pose_out(delta, t)
 			trip["spark"] = float(trip["spark"]) - delta
 			if float(trip["spark"]) <= 0.0:

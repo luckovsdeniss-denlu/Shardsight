@@ -3,6 +3,22 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.9.3
+- The Riftrunner's change, bigger:
+  - A cyber skin: a wipe of white light runs over the car from bonnet to tail, and behind it the
+    violet paint turns to dark chrome laced with a glowing grid of circuit lines, pulses of violet
+    and teal running along them (wings too); on the other side it wipes back to paint as it lands.
+  - Particles with weight: sparks thrown up off the folding wheels arc over and fall; on lift-off
+    a ring of dust is blown out flat all round and slows; while it charges, motes of energy are
+    pulled in from all round, swirling into the car; the thrusters stream a long glowing trail
+    behind it as it shoots away; going through, shards of crystal fly out, tumbling, and fall
+    back under their weight with a spray of light; out the other side, another spray, and dust
+    again as it drops onto its wheels.
+  - Its own sounds: servos whining over a ratchet of clicks and heavy clunks as the plates
+    lock; a charging hum climbing and buzzing; the thrusters lighting with a thump into a roar;
+    the warp - a sucked-in swell, a sub-bass drop and a crackling zap; and a hydraulic hiss and
+    the wheels clunking down on landing. The adventurers' cars too (heard when near).
+
 ## 1.9.2
 - Player bars (experimental mode, "Player bars", on by default): a health bar over every player -
   you and every adventurer - all the time, not only when hurt or fighting; and a blue casting bar
