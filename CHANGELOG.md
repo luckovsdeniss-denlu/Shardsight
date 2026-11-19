@@ -3,6 +3,12 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 1.8.3
+- Fixed: in the Shardveil the towns still kept the peace - nobody could fight in them. Now no
+  town is a refuge there: near you in the Shardveil anyone can fight anyone, in town or out, and
+  the monsters come into town after you too. At home the towns are safe as ever.
+- Fixed: "Hide corpse names" didn't hide them (they came straight back every moment).
+
 ## 1.8.2
 - The adventurers' cars change too: when one of them heads off to the Shardveil, their car stops,
   folds its wheels into hover pads, swings its wings out, lifts off in its whirling rings of light

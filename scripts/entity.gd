@@ -2410,6 +2410,8 @@ func _settle_crimes(killer: Entity) -> void:
 
 
 func _in_town() -> bool:
+	if game != null and game.chaos_at(position):
+		return false                       # (the Shardveil's free-for-all: no town is a refuge)
 	return world.is_town(world.to_tile(position))
 
 
@@ -2433,8 +2435,8 @@ func town_protects(from: Entity) -> bool:
 ## Monsters keep out of the towns (and give up a chase at the edge). Players of any repute may
 ## come in: towns are safe for everyone.
 func _avoids_town() -> bool:
-	if dead:
-		return false
+	if dead or game.chaos_at(position):
+		return false                       # (the Shardveil: monsters come into town too)
 	return kind == Kind.MONSTER
 
 

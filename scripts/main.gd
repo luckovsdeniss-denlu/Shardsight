@@ -5476,7 +5476,7 @@ func _process(delta: float) -> void:
 		property.refresh()             # the owner or a co-owner nearby keeps it from decaying
 	for c in corpses.duplicate():
 		c.tick(delta)
-		c.label.visible = movie == null and c.life >= 2.5   # (no loot labels over the bodies in the movie)
+		c.label.visible = property.corpse_names_on and movie == null and c.life >= 2.5   # (as you've set it; none in the movie)
 		if c.life <= 0.0:
 			corpses.erase(c)
 			c.queue_free()
