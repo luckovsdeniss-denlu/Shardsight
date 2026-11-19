@@ -6159,6 +6159,11 @@ func _show_title(layer: CanvasLayer) -> void:
 		close.call()
 		movie = MovieShort.new()                   # about 30 seconds of the best of it, cut on the beat
 		movie.start(self))
+	var film_rift := _menu_button("Riftrunner trailer", func() -> void:
+		start_mode = "classic"
+		close.call()
+		movie = MovieRift.new()                    # the experimental mode's story: the car, the jump, the Shardveil
+		movie.start(self))
 	var film_phone := _menu_button("Phone format", func() -> void:
 		start_mode = "classic"
 		close.call()
@@ -6179,6 +6184,7 @@ func _show_title(layer: CanvasLayer) -> void:
 	row.add_child(film)
 	row.add_child(film2)
 	row.add_child(film_short)
+	row.add_child(film_rift)
 	row.add_child(film_phone)
 	row.add_child(again)
 	# the trailer as a video file to keep or share: opens its download in the browser

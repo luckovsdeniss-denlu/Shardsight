@@ -74,6 +74,12 @@ func enabled() -> bool:
 	return Experiments.on("dimension_car")
 
 
+## A trailer that films the car and the Shardveil (the Riftrunner trailer): the other world, its
+## chaos and the jumps play out for its cameras as they do in the game.
+func _movie_veil() -> bool:
+	return game.movie != null and game.movie.has_method("shows_veil") and bool(game.movie.shows_veil())
+
+
 # --- the pieces --------------------------------------------------------------------------------
 
 ## The ring of light the car drives through: a glowing violet ring standing on the road, a
@@ -192,7 +198,7 @@ func step(delta: float) -> void:
 	if _check <= 0.0:
 		_check = 1.0
 		_keep_car()
-	if game.movie != null:
+	if game.movie != null and not _movie_veil():
 		if active or veil > 0.0:
 			_set_world(false, false)               # (the trailers show the world as it is)
 		if not _trips.is_empty():
@@ -200,9 +206,10 @@ func step(delta: float) -> void:
 		_chaos_step(delta)                         # (and no chaos: everyone's own weapons)
 		_buttons(false)
 		return
-	_buttons(true)
+	_buttons(game.movie == null)
 	_sweep_changes(delta)
-	_npc_step(delta)
+	if game.movie == null:
+		_npc_step(delta)
 	_chaos_step(delta)
 	_cool = maxf(_cool - delta, 0.0)
 	if _jump_t >= 0.0:
@@ -1068,6 +1075,8 @@ func _set_world(on: bool, announce: bool) -> void:
 		_portal.visible = false
 	game._music_timer = 0.0                        # (its music at once)
 	game._apply_daylight()
+	if announce and game.movie != null:
+		return                                     # (a trailer has its own words)
 	if announce:
 		game.score.sting("rift")
 		var vs: Vector2 = game.get_viewport().get_visible_rect().size
@@ -1308,7 +1317,7 @@ var _meteor_src: Entity
 
 
 func _chaos_step(delta: float) -> void:
-	var want: bool = active and Experiments.on("veil_chaos") and game.movie == null
+	var want: bool = active and Experiments.on("veil_chaos") and (game.movie == null or _movie_veil())
 	if want != chaos:
 		chaos = want
 		if chaos:
@@ -2313,10 +2322,11 @@ func _apoc_start() -> void:
 	_ash.emitting = not game._max_opt               # (Max optimization: no ash or embers, no red glow)
 	_embers.emitting = not game._max_opt
 	_apoc_glow.visible = not game._max_opt
-	var vs: Vector2 = game.get_viewport().get_visible_rect().size
-	var word := Title3D.make_flying("APOCALYPSE", minf(vs.x * 0.75, 1100.0), Title3D.GOLD, vs)
-	_layer.add_child(word)
-	word.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if game.movie == null:                         # (a trailer has its own words)
+		var vs: Vector2 = game.get_viewport().get_visible_rect().size
+		var word := Title3D.make_flying("APOCALYPSE", minf(vs.x * 0.75, 1100.0), Title3D.GOLD, vs)
+		_layer.add_child(word)
+		word.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	game.log_event("The Shardveil is ending: the sky burns, the ground splits, the dead pour out of the rifts. But the spoils are rich - gold three times over, double drops, chests five times as often - and you learn three times as fast.")
 	_sound("braam", 0.6, 2.0)
 

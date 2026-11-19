@@ -3,6 +3,16 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.14.0-b392
+- A new trailer, "Riftrunner trailer" on the start screen: the story of experimental mode in
+  about a minute. Out in the meadows a car of violet metal hums into being beside the hero ("The
+  Riftrunner"); the hero gets in and drives; Rift jump - the car changes, wings out, the cyber skin
+  spreading, lifting off - and tears through; the Shardveil, the same land in another dimension;
+  everyone with a gun; the apocalypse - an earthquake and a storm of fire on cue, a fight in the
+  middle of it; one more jump home; and "Try it now: Main Menu > Experiments". The other trailers
+  are as they were; the Shardveil now plays out for a trailer that asks for it (this one), the
+  game's own flying words staying out of every trailer's picture.
+
 ## 2.13.3-b391
 - Follow story is a switch: press it and the button reads "Stop following"; press it again and the
   hero stops where they are - and Auto leaves the story be too - until you press Follow story
