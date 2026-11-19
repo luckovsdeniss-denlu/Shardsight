@@ -360,7 +360,8 @@ func _ready() -> void:
 	else:
 		log_event("Welcome to Shardsight. Tap a monster to attack it.")
 		_tips_left = TIPS.duplicate()        # first launch: a few tips over the first minute
-	_update_corner_buttons()                 # the saved switches: stats, map
+	property.stats_on = false                # the stats always start hidden (Show stats brings them up)
+	_update_corner_buttons()                 # the saved switches: map and the rest
 	loading.step(0.96, "Opening the wider world")
 	await get_tree().process_frame
 	frontier = Frontier.new()
@@ -5029,6 +5030,8 @@ func _update_rings() -> void:
 		return
 	if select_ring != null and select_ring.visible and selected_player != null and is_instance_valid(selected_player):
 		select_ring.position = selected_player.position + Vector3(0.0, 0.04, 0.0)
+		if not selected_player.visible or selected_player.parked or selected_player.dead:
+			select_ring.visible = false            # (gone off - through a rift, say: no ring left on the ground)
 	hero_ring.position = hero.position + Vector3(0.0, 0.04, 0.0)
 	var t := hero.target
 	var show := t != null and is_instance_valid(t) and not t.dead and t.visible

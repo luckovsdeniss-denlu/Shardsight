@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.3.2
+- The stats always start hidden (Show stats, top left, brings them up).
+- Nothing left behind by the Riftrunners: every two seconds any car change no longer in use (a
+  jump or a trip that ended some other way) is put away - its wings, thrusters, rings of light and
+  particles removed - and the blue ring under a selected player no longer stays on the ground when
+  that player drives off through a rift.
+
 ## 2.3.1
 - The Riftrunner leaves its marks on the ground when it jumps between worlds: a burnt ring of
   jagged cracks where it lifts off, two glowing tracks under its hover pads as it shoots away, a

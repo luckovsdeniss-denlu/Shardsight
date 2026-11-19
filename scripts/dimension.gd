@@ -201,6 +201,7 @@ func step(delta: float) -> void:
 		_buttons(false)
 		return
 	_buttons(true)
+	_sweep_changes(delta)
 	_npc_step(delta)
 	_chaos_step(delta)
 	_cool = maxf(_cool - delta, 0.0)
@@ -873,6 +874,31 @@ class CarChange:
 		wheel_base.clear()
 
 
+var _changes: Array = []                       # every car change made, until it's put away
+var _sweep_t := 0.0
+
+
+## Every two seconds: any car change no longer in use (its jump or trip ended some other way) is
+## put away - its wings, thrusters, rings and particles off - so nothing is ever left behind.
+func _sweep_changes(delta: float) -> void:
+	_sweep_t -= delta
+	if _sweep_t > 0.0:
+		return
+	_sweep_t = 2.0
+	var live: Array = []
+	if _change != null and _jump_t >= 0.0:
+		live.append(_change)
+	for trip: Dictionary in _trips:
+		if trip.get("change") != null:
+			live.append(trip["change"])
+	for c in _changes.duplicate():
+		if not live.has(c):
+			(c as CarChange).clear()
+			_changes.erase(c)
+	if _change != null and not live.has(_change):
+		_change = null
+
+
 func _new_change(who: Entity) -> CarChange:
 	if _ring_meshes.is_empty():
 		_new_portal().queue_free()                 # (makes the ring meshes)
@@ -881,7 +907,9 @@ func _new_change(who: Entity) -> CarChange:
 			_sound(sound_name, pitch, db)
 		elif is_instance_valid(who):
 			game.sound(sound_name, who.position, pitch, db - 4.0)
-	return CarChange.new(who, _ring_meshes, snd, game)
+	var change := CarChange.new(who, _ring_meshes, snd, game)
+	_changes.append(change)
+	return change
 
 
 ## The marks the Riftrunner leaves on the ground: a track (glowing in the middle, soft at its
