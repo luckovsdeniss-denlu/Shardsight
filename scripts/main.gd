@@ -5022,6 +5022,8 @@ func _build_environment() -> void:
 	add_child(music)
 	add_child(score)
 	music.prebuild("trailer")                # the trailer's score, written while the game loads
+	music.prebuild("rift_intro")             # (and the Riftrunner trailer's two)
+	music.prebuild("rift_epic")
 	add_child(rain_sound)
 	rain_sound.volume_db = -14.0
 	rain_sound.bus = "Ambience"

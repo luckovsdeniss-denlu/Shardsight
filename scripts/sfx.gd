@@ -617,6 +617,22 @@ func _build_trailer() -> void:
 ## (a sucked-in reverse swell, a sub-bass drop and a crackling zap) and the landing (a hydraulic
 ## hiss, then the wheels clunking down).
 func _build_car() -> void:
+	# the Riftrunner trailer's cuts: a tech hit (a sub drop under a bright digital stab that glitches
+	# into bits) and a tech sweep (a filtered rush up with a stutter of blips)
+	var thl := [0.0]
+	_pending["tech_hit"] = [_make(1.0, func(t: float) -> float:
+		var drop := sin(TAU * (38.0 + 120.0 * exp(-t * 14.0)) * t) * exp(-t * 4.0) * 0.9
+		var f := 880.0 * (1.0 if fmod(t, 0.06) < 0.03 else 1.5)
+		var stab := (1.0 if fmod(f * t, 1.0) < 0.5 else -1.0) * exp(-t * 9.0) * 0.25
+		thl[0] = lerpf(float(thl[0]), randf_range(-1.0, 1.0), 0.6)
+		var crush := float(thl[0]) * exp(-t * 25.0) * 0.6
+		return clampf(drop + stab + crush, -1.0, 1.0))]
+	var tsl := [0.0]
+	_pending["tech_sweep"] = [_make(0.9, func(t: float) -> float:
+		var k := t / 0.9
+		tsl[0] = lerpf(float(tsl[0]), randf_range(-1.0, 1.0), 0.05 + 0.6 * k * k)
+		var blip := sin(TAU * (1200.0 + 2400.0 * k) * t) * (1.0 if fmod(t, 0.07) < 0.025 else 0.0) * 0.15 * k
+		return clampf((float(tsl[0]) * 1.3 + blip) * k * k, -1.0, 1.0))]
 	_pending["car_servo"] = [_make(1.0, func(t: float) -> float:
 		var k := t / 1.0
 		var f := 320.0 + 520.0 * sin(PI * minf(k * 1.3, 1.0))      # the servo's whine, up and back

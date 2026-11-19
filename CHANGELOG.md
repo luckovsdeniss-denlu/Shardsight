@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.14.2-b394
+- The Riftrunner trailer has music of its own, high-tech:
+  - Over its loading screen, a calm synth loop: a soft pad, a glassy arpeggio, quiet ticks and a
+    low pulse.
+  - The moment the first scene comes up, the drop into an epic electronic score: a driving kick
+    and snare, sixteenth hi-hats, a buzzing saw bass in eighths, a fast arpeggio, a choir under
+    it, a soaring detuned synth lead that comes and goes, a fill and a riser into every phrase and
+    a hard hit on its first beat (on the same beat as the trailer's words and cuts).
+  - Its own sound effects: every cut lands on a tech hit - a sub drop under a bright digital
+    stab glitching into bits - and a filtered sweep with a stutter of blips rushes up into each.
+
 ## 2.14.1-b393
 - The Riftrunner trailer as a video to download: "Record trailer video" can record it ("rift", or
   "all" three), publishing shardsight-trailer-rift.mp4 to the "trailer" release; and a "Download

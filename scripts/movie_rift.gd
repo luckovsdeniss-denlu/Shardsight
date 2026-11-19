@@ -21,6 +21,21 @@ func start(p_game) -> void:
 	_exp_was = Experiments.active
 	Experiments.active = true          # (the experiments' world, for this trailer: the car, the Shardveil, its chaos)
 	super.start(p_game)
+	game.music.play_area("rift_intro")             # its own music: calm and high-tech over the loading screen...
+
+
+## ...and the score's drop the moment the first scene comes up: epic and electronic.
+func _begin() -> void:
+	game.music.play_area("rift_epic")
+	_sound("tech_hit", 0.8, 0.0)
+	super._begin()
+
+
+## Every cut lands on a tech hit, and a sweep rushes up into the next.
+func _next() -> void:
+	super._next()
+	if running and i > 0 and i < shots.size():
+		_sound("tech_hit", 1.0 + 0.04 * (i % 3), -3.0)
 
 
 ## Lets the Shardveil, its chaos and the car's jumps play out for this trailer's cameras.
@@ -163,6 +178,10 @@ func _clear_stage(sh: Dictionary) -> void:
 
 
 func tick(delta: float) -> bool:
+	if running and i >= 0 and i < shots.size() - 1:
+		var dur := float(shots[i]["dur"])
+		if t < dur - 0.9 and t + delta >= dur - 0.9:
+			_sound("tech_sweep", 1.0, -6.0)            # (a sweep up into the cut)
 	var d0 := _dim()
 	if d0 != null and d0.car != null and is_instance_valid(d0.car) and not d0.car.parked:
 		d0.car._update_cull()                      # (the world off camera holds still in a trailer: the car must still show when it comes into view)

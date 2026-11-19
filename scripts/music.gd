@@ -77,6 +77,16 @@ const PLANS := {
 	"sea": {"beat": 0.55, "chords": [[50, "maj"], [47, "min"], [55, "maj"], [57, "maj"], [50, "maj"], [54, "min"], [55, "maj"], [57, "maj"],
 			[55, "maj"], [57, "maj"], [50, "maj"], [47, "min"], [55, "maj"], [52, "min"], [57, "maj"], [50, "maj"]],
 		"scale": [62, 64, 66, 69, 71, 74, 76, 78], "melody": 0.42, "lead": "flute", "lute": true},
+	# the Riftrunner trailer: high-tech. Its loading screen - a calm synth loop (a soft pad, a
+	# glassy arpeggio, ticks and a low pulse); then the score - epic and electronic (a driving kick
+	# and snare, sixteenth hats, a buzzing saw bass, a soaring detuned lead, a choir under it all,
+	# a riser into every phrase and a hit on its first beat). Same beat as the other trailers.
+	"rift_intro": {"beat": 0.5, "synth": "intro", "chords": [[57, "min"], [53, "maj"], [60, "maj"], [55, "maj"], [57, "min"], [53, "maj"], [62, "min"], [64, "maj"],
+			[57, "min"], [53, "maj"], [60, "maj"], [55, "maj"], [57, "min"], [53, "maj"], [64, "maj"], [57, "min"]],
+		"scale": [69, 72, 74, 76, 79, 81]},
+	"rift_epic": {"beat": 0.5, "synth": "epic", "chords": [[50, "min"], [46, "maj"], [53, "maj"], [48, "maj"], [50, "min"], [46, "maj"], [41, "maj"], [45, "maj"],
+			[50, "min"], [46, "maj"], [53, "maj"], [48, "maj"], [43, "min"], [46, "maj"], [45, "maj"], [50, "min"]],
+		"scale": [62, 64, 65, 67, 69, 72, 74, 77]},
 	"cemetery": {"beat": 0.85, "chords": [[44, "min"], [44, "min"], [40, "maj"], [43, "maj"], [44, "min"], [41, "dim"], [40, "maj"], [44, "min"],
 			[44, "min"], [47, "maj"], [40, "maj"], [43, "maj"], [44, "min"], [41, "dim"], [43, "maj"], [44, "min"]],
 		"scale": [56, 59, 61, 63, 64, 66], "melody": 0.14, "lead": "choir", "choir": true, "bells": true},
@@ -138,7 +148,7 @@ func play_area(area: String) -> void:
 	player.stream = _tracks[area]
 	player.volume_db = -40.0
 	player.play()
-	var quick := area in ["battle", "boss"]           # a fight starts at once; peace returns slowly
+	var quick := area in ["battle", "boss", "rift_epic"]   # a fight (or the score's drop) starts at once; peace returns slowly
 	var tw := create_tween().set_parallel(true)
 	tw.tween_property(player, "volume_db", VOLUME_DB, 0.8 if quick else 2.5)
 	tw.tween_property(old, "volume_db", -60.0, 1.0 if quick else 2.5)
@@ -184,6 +194,8 @@ static func _triad(root: int, kind: String) -> Array[int]:
 ## Writes one piece into a sample buffer and packs it as a looping WAV.
 static func _compose(area: String) -> AudioStreamWAV:
 	var plan: Dictionary = PLANS[area]
+	if plan.has("synth"):
+		return _compose_synth(plan)
 	var beat := float(plan["beat"])
 	var bar := 4.0 * beat
 	var n := int(BARS * bar * RATE)
@@ -284,6 +296,97 @@ static func _compose(area: String) -> AudioStreamWAV:
 	s.loop_begin = 0
 	s.loop_end = n
 	return s
+
+
+## The high-tech pieces (the Riftrunner trailer): "intro" calm, "epic" driving.
+static func _compose_synth(plan: Dictionary) -> AudioStreamWAV:
+	var beat := float(plan["beat"])
+	var bar := 4.0 * beat
+	var n := int(BARS * bar * RATE)
+	var c := Composer.new(n)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = String(plan["synth"]).hash()
+	var chords: Array = plan["chords"]
+	var scale: Array = plan["scale"]
+	var epic := String(plan["synth"]) == "epic"
+	for b in range(BARS):
+		var root := int(chords[b][0])
+		var tri := _triad(root, String(chords[b][1]))
+		var t0 := b * bar
+		for note in tri:                                 # the pad (a choir too, in the score)
+			c.pad(t0, bar, _freq(note - 12), 0.035 if epic else 0.045)
+			if epic:
+				c.choir(t0, bar, _freq(note), 0.03)
+		if epic:
+			# drums: a kick on every beat, a snare on two and four, sixteenth hats (louder on the off-beats)
+			for q in range(4):
+				c.drum_low(t0 + q * beat, 0.55)
+				if q % 2 == 1:
+					c.snare(t0 + q * beat, 0.32)
+				for s16 in range(4):
+					c.hat(t0 + q * beat + s16 * beat * 0.25, 0.07 if s16 % 2 == 0 else 0.11)
+			if b % 4 == 3:                               # a fill, and a riser into the next phrase
+				for k in range(4):
+					c.snare(t0 + 3.0 * beat + k * beat * 0.25, 0.14 + 0.05 * k)
+				c.riser(t0, bar, 0.09)
+			if b % 4 == 0:
+				c.drum_low(t0, 0.7)                      # the phrase's first beat lands hard
+				c.sub(t0, beat * 2.0, _freq(root - 24), 0.25)
+			# the buzzing saw bass: driving eighths, up an octave on the off-beats
+			for e in range(8):
+				c.saw(t0 + e * beat * 0.5, beat * 0.42, _freq(root - 24 + (12 if e % 2 == 1 else 0)), 0.055, 1200.0)
+			# a fast arpeggio over it all
+			var arp := [tri[0], tri[1], tri[2], int(tri[0]) + 12]
+			for s16 in range(16):
+				c.blip(t0 + s16 * beat * 0.25, _freq(int(arp[s16 % 4]) + 12), 0.028)
+		else:
+			# calm: a glassy arpeggio in eighths, soft ticks, a low pulse on each beat
+			var arp2 := [tri[0], tri[2], int(tri[1]) + 12, tri[2], int(tri[0]) + 12, tri[2], int(tri[1]) + 12, tri[2]]
+			for e in range(8):
+				c.blip(t0 + e * beat * 0.5, _freq(int(arp2[e]) + 12), 0.045)
+			for q in range(4):
+				c.sub(t0 + q * beat, beat * 0.6, _freq(root - 24), 0.07)
+				c.hat(t0 + q * beat + beat * 0.5, 0.035)
+	# the lead: a detuned saw, soaring in the score (in the intro, sparse high bells)
+	var prev := 2
+	for k in range(BARS * 4):
+		var t := k * beat
+		if epic:
+			if (k / 16) % 2 == 0 and k % 16 < 8:
+				continue                                 # (the lead comes and goes: room for the drums)
+			if rng.randf() > 0.7 and k % 4 != 0:
+				continue
+		else:
+			if rng.randf() > 0.25 or k % 2 == 1:
+				continue
+		prev = clampi(prev + rng.randi_range(-2, 2), 0, scale.size() - 1)
+		var note := int(scale[prev]) + (0 if epic else 12)
+		if k % 16 == 15:
+			note = int(chords[k / 4][0]) + 24
+		if epic:
+			c.saw(t, beat * (1.5 if k % 4 == 0 else 0.9), _freq(note), 0.05, 2600.0)
+			c.saw(t, beat * (1.5 if k % 4 == 0 else 0.9), _freq(note - 12), 0.025, 1800.0)
+		else:
+			c.bell(t, _freq(note), 0.04)
+	var data := PackedByteArray()
+	data.resize(n * 2)
+	var peak := 0.001
+	for i in range(n):
+		peak = maxf(peak, absf(c.buf[i]))
+	var gain := minf(0.92 / peak, 3.0)
+	for i in range(n):
+		var v := c.buf[i] * gain
+		v = v / (1.0 + absf(v) * 0.3)
+		data.encode_s16(i * 2, int(clampf(v, -1.0, 1.0) * 32767.0))
+	var st := AudioStreamWAV.new()
+	st.format = AudioStreamWAV.FORMAT_16_BITS
+	st.mix_rate = RATE
+	st.stereo = false
+	st.data = data
+	st.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	st.loop_begin = 0
+	st.loop_end = n
+	return st
 
 
 ## Holds the sample buffer while a piece is written (one per worker task). Notes that run past
@@ -410,3 +513,72 @@ class Composer:
 		for i in range(int(0.08 * r)):
 			var t := float(i) / r
 			_put(s0 + i, noise.randf_range(-1.0, 1.0) * exp(-t * 50.0) * amp * minf(t / 0.01, 1.0))
+
+
+	## A detuned saw, through a simple low-pass (`cutoff` Hz): the synth bass and lead.
+	func saw(start: float, length: float, freq: float, amp: float, cutoff: float) -> void:
+		var r := Music.RATE
+		var s0 := int(start * r)
+		var count := int((length + 0.08) * r)
+		var lp := 0.0
+		var k := clampf(cutoff / r * TAU, 0.0, 1.0)
+		for i in range(count):
+			var t := float(i) / r
+			var env := minf(t / 0.008, 1.0) * (1.0 if t < length else maxf(0.0, 1.0 - (t - length) / 0.08))
+			var v := (fmod(freq * t, 1.0) * 2.0 - 1.0) + (fmod(freq * 1.007 * t + 0.3, 1.0) * 2.0 - 1.0) * 0.8
+			lp += (v - lp) * k
+			_put(s0 + i, lp * amp * env)
+
+	## A short glassy square blip, its brightness dying fast: the arpeggios.
+	func blip(start: float, freq: float, amp: float) -> void:
+		var r := Music.RATE
+		var s0 := int(start * r)
+		var count := int(0.22 * r)
+		var lp := 0.0
+		for i in range(count):
+			var t := float(i) / r
+			var sq := 1.0 if fmod(freq * t, 1.0) < 0.5 else -1.0
+			var k := clampf((600.0 + 5000.0 * exp(-t * 30.0)) / r * TAU, 0.0, 1.0)
+			lp += (sq - lp) * k
+			_put(s0 + i, lp * amp * exp(-t * 14.0) * minf(t / 0.002, 1.0))
+
+	## A deep sine, quick in and out: the sub-bass pulse.
+	func sub(start: float, length: float, freq: float, amp: float) -> void:
+		var r := Music.RATE
+		var s0 := int(start * r)
+		var count := int((length + 0.05) * r)
+		for i in range(count):
+			var t := float(i) / r
+			var env := minf(t / 0.01, 1.0) * (1.0 if t < length else maxf(0.0, 1.0 - (t - length) / 0.05))
+			_put(s0 + i, sin(TAU * freq * t) * amp * env)
+
+	## A hi-hat: bright noise (the low part taken out), gone in an instant.
+	func hat(start: float, amp: float) -> void:
+		var r := Music.RATE
+		var s0 := int(start * r)
+		var lo := 0.0
+		for i in range(int(0.06 * r)):
+			var t := float(i) / r
+			var nz := noise.randf_range(-1.0, 1.0)
+			lo += (nz - lo) * 0.35
+			_put(s0 + i, (nz - lo) * amp * exp(-t * 70.0))
+
+	## A snare: a snap of noise over a short tone.
+	func snare(start: float, amp: float) -> void:
+		var r := Music.RATE
+		var s0 := int(start * r)
+		for i in range(int(0.22 * r)):
+			var t := float(i) / r
+			_put(s0 + i, (noise.randf_range(-1.0, 1.0) * exp(-t * 20.0) + sin(TAU * 185.0 * t) * exp(-t * 30.0) * 0.6) * amp)
+
+	## A riser: noise brightening and swelling over `length`, cut off at its peak.
+	func riser(start: float, length: float, amp: float) -> void:
+		var r := Music.RATE
+		var s0 := int(start * r)
+		var lp := 0.0
+		for i in range(int(length * r)):
+			var t := float(i) / r
+			var k := t / length
+			var nz := noise.randf_range(-1.0, 1.0)
+			lp += (nz - lp) * (0.03 + 0.5 * k * k)
+			_put(s0 + i, (lp * 1.5 + sin(TAU * (300.0 + 1500.0 * k * k) * t) * 0.15) * amp * k * k)
