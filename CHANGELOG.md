@@ -3,6 +3,11 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.4.3
+- Fixed: tapping a monster sometimes didn't attack it - near a spot where you (or someone near
+  you) had fallen, the "No death loops" caution made your hero drop the target and run off, on
+  Auto. That caution is now for the computer players only: tap a monster and you fight it.
+
 ## 2.4.2
 - Follow story goes smoothly: the walk there is pulled tight into long straight runs (no zigzag
   from square to square), and on the way the hero heads straight on to the furthest point it can

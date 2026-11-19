@@ -549,8 +549,8 @@ func tick(delta: float) -> void:
 func _think(delta: float) -> void:
 	if _loops_on():
 		_loops_tick(delta)
-		if kind == Kind.PLAYER and (not is_hero or ai_enabled) and not shun.is_empty() and _shun_step():
-			return                             # (running from where we fell)
+		if kind == Kind.PLAYER and not is_hero and not shun.is_empty() and _shun_step():
+			return                             # (running from where we fell - the others; you go where you're told)
 	if role == "escort":
 		_escort_follow()
 		return
@@ -2590,8 +2590,8 @@ func _is_fair_target(e: Entity) -> bool:
 		return false                       # a mount under its rider
 	if _sheltered() or e._sheltered():
 		return false                       # (by a shrine, or just raised: no fight)
-	if not shun.is_empty() and _shunned(e.position):
-		return false                       # (not over there: that's where we fell)
+	if not is_hero and not shun.is_empty() and _shunned(e.position):
+		return false                       # (not over there: that's where we fell - the others only)
 	if e.is_vehicle:
 		return false                       # (a car: nothing to fight)
 	if game.chaos_at(position):
