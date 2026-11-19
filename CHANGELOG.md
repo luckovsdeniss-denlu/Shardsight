@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.8.0
+- First person, cleaner and more cinematic:
+  - A clean picture: no stats text, map or world log while in first person (your own log stays,
+    softer); thin letterbox bars top and bottom.
+  - A small dot for a crosshair, with four fine ticks that open as you strike or cast (red on a
+    foe); the one in your sights named under it on a slim bar that fades in and out.
+  - Your health, mana and stamina as three slim lines at the lower left that fade almost away
+    while full and out of a fight; a red rim that flashes when you're hurt and pulses near death.
+  - The camera breathes when you stand, sways with your stride, leans into turns, widens with
+    speed (running, riding, driving), tightens a touch on the foe you're fighting, and jolts when
+    you're hit; the weapon in your hand lags a little behind a turn and settles.
+
 ## 2.7.1
 - The Shardveil apocalypse pays: monsters there drop three times the gold (six times home's, with
   the Shardveil's double), twice the reagents and two chances at every item, treasure chests

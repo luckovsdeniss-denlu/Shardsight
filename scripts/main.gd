@@ -5579,8 +5579,11 @@ func _update_corner_buttons() -> void:
 	corpse_button.text = "Hide corpse names" if property.corpse_names_on else "Show corpse names"
 	magic_button.text = "Hide magic" if property.magic_label_on else "Show magic"
 	_apply_view()
-	hud.visible = property.stats_on
-	minimap.visible = property.minimap_on
+	var fp := property.first_person            # (first person: a clean picture - no stats, map or world log)
+	hud.visible = property.stats_on and not fp
+	minimap.visible = property.minimap_on and not fp
+	world_label.visible = not fp
+	log_label.modulate.a = 0.75 if fp else 1.0
 
 
 ## Mute silences both music and sound effects; Unmute turns both back on.
@@ -6459,12 +6462,18 @@ var _press_pos := Vector2.ZERO
 var _dragging := false
 var _bob_t := 0.0
 var _bob := 0.0
+var _fp_roll := 0.0                    # the view leaning into a turn (radians)
+var _fp_fov := 72.0
+var _fp_kick := 0.0                    # a jolt when hit (1 -> 0)
+var _fp_hp := -1.0
+var _fp_last := Vector3.ZERO
 var aimed: Entity                      # whoever is under the crosshair (first person)
 var _aim_acc := 0.0
 var fp_overlay: FpOverlay
 var _viewmodel: Node3D
 var _vm_mesh: MeshInstance3D
 var _vm_weapon := "#"
+var _vm_sway := 0.0
 
 
 func _fp_forward() -> Vector3:
@@ -6484,18 +6493,38 @@ func _fp_step(delta: float) -> void:
 	if fp_overlay != null:
 		fp_overlay.visible = fp and not hero.dead
 		if fp_overlay.visible:
-			fp_overlay.queue_redraw()
+			fp_overlay.step(delta)
 	if not fp:
 		aimed = null
 		if _viewmodel != null:
 			_viewmodel.visible = false
 		return
 	var now := Time.get_ticks_msec() / 1000.0
+	var yaw_before := _fp_yaw
 	if not _dragging and now > _fp_free_until:
-		_fp_yaw = lerp_angle(_fp_yaw, hero.rotation.y, minf(1.0, 5.0 * delta))
+		_fp_yaw = lerp_angle(_fp_yaw, hero.rotation.y, minf(1.0, 4.0 * delta))
 	var walking := not hero.path.is_empty() and not hero.dead
+	var in_car := hero.mounted_on != null and hero.mounted_on.is_vehicle
 	_bob_t += delta * (1.0 if walking else 0.0)
-	_bob = lerpf(_bob, sin(_bob_t * 9.0) * 0.035 if walking else 0.0, minf(1.0, 10.0 * delta))
+	var bob_amp := 0.012 if in_car else (0.028 if hero.mounted_on != null else 0.035)
+	_bob = lerpf(_bob, sin(_bob_t * 9.0) * bob_amp if walking else sin(now * 1.6) * 0.006, minf(1.0, 8.0 * delta))   # (still: just breathing)
+	# cinematic: lean into turns and sway with the stride; the lens widens with speed, tightens on a
+	# foe in your sights, and jolts when you're hit
+	var turn := wrapf(_fp_yaw - yaw_before, -PI, PI) / maxf(delta, 0.001)
+	var sway := sin(_bob_t * 4.5) * (0.006 if walking and not in_car else 0.0)
+	_fp_roll = lerpf(_fp_roll, clampf(-turn * 0.035, -0.07, 0.07) + sway, minf(1.0, 6.0 * delta))
+	var moved := Vector2(hero.position.x - _fp_last.x, hero.position.z - _fp_last.z).length() / maxf(delta, 0.001)
+	_fp_last = hero.position
+	var fov := 72.0 + clampf(moved - 2.5, 0.0, 10.0) * 1.1
+	if aimed != null and aimed.kind == Entity.Kind.MONSTER and hero.target == aimed:
+		fov -= 4.0
+	if hero.hp < _fp_hp - 0.5:
+		_fp_kick = 1.0
+	_fp_hp = hero.hp
+	_fp_kick = maxf(_fp_kick - delta * 3.0, 0.0)
+	_fp_fov = lerpf(_fp_fov, fov - _fp_kick * 5.0, minf(1.0, 3.0 * delta))
+	if _cine_phase == 0:
+		cam.fov = _fp_fov
 	_aim_acc -= delta
 	if _aim_acc <= 0.0:                     # who's in the sights, ten times a second
 		_aim_acc = 0.1
@@ -6525,8 +6554,10 @@ func _update_viewmodel(_delta: float, walking: bool) -> void:
 	if hero.swing_anim > 0.0:
 		k = sin(hero.swing_anim / Entity.SWING_ANIM * PI)
 	var cast_lift := 0.25 + 0.05 * sin(Time.get_ticks_msec() * 0.008) if hero.casting_id != "" else 0.0
-	_viewmodel.position = Vector3(0.34, -0.2 + _bob * 0.5 + cast_lift * 0.3, -0.05 - 0.12 * k)
-	_viewmodel.rotation = Vector3(1.25 + 0.9 * k - cast_lift, 0.15, 0.1)
+	# it lags a little behind a turn and settles back - weight in the hand
+	_vm_sway = lerpf(_vm_sway, clampf(_fp_roll * 3.0, -0.2, 0.2), minf(1.0, 5.0 * _delta))
+	_viewmodel.position = Vector3(0.34 + _vm_sway * 0.25, -0.2 + _bob * 0.5 + cast_lift * 0.3, -0.05 - 0.12 * k)
+	_viewmodel.rotation = Vector3(1.25 + 0.9 * k - cast_lift, 0.15 + _vm_sway, 0.1 - _vm_sway * 0.5)
 
 
 ## The hero's eyes (higher in the saddle), a touch ahead of the head so it doesn't show.
@@ -6534,7 +6565,8 @@ func _eye() -> Vector3:
 	var h := 1.55 * hero.visual_scale + _bob
 	if hero.mounted_on != null:
 		h += hero.mounted_on.saddle * hero.mounted_on.visual_scale
-	return hero.position + Vector3(0.0, h, 0.0) + _fp_forward() * 0.2
+	var right := Vector3(cos(_fp_yaw), 0.0, -sin(_fp_yaw))
+	return hero.position + Vector3(0.0, h, 0.0) + _fp_forward() * 0.2 + right * sin(_bob_t * 4.5) * 0.02
 
 
 func _toggle_view() -> void:
@@ -6550,7 +6582,9 @@ func _apply_view() -> void:
 		_fp_pitch = -0.17
 	else:
 		_fp_step(0.0)                                     # hides the crosshair and the weapon
-	cam.fov = 75.0 if fp else 50.0
+	cam.fov = 72.0 if fp else 50.0
+	_fp_fov = 72.0
+	_fp_last = hero.position
 	cam.far = 80.0 if fp else VIEW_FAR
 	hero.hide_self = fp
 	if hero.rig != null:
@@ -7307,6 +7341,10 @@ func _follow_camera() -> void:
 			hero.rig.visible = false        # the hero's own body stays out of view
 	cam.position = _hero_cam_pos()
 	cam.look_at(_hero_cam_look(), Vector3.UP)
+	if property.first_person:
+		cam.rotate_object_local(Vector3.FORWARD, _fp_roll)
+		if _fp_kick > 0.0:
+			cam.rotate_object_local(Vector3.RIGHT, randf_range(-1.0, 1.0) * 0.02 * _fp_kick)
 	view_planes = cam.get_frustum()
 
 
