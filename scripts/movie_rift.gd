@@ -22,10 +22,30 @@ func start(p_game) -> void:
 	Experiments.active = true          # (the experiments' world, for this trailer: the car, the Shardveil, its chaos)
 	super.start(p_game)
 	game.music.silence()                           # no music over the loading screen (not the other trailers' score either)...
+	game.music.prebuild("rift_epic")
+	for bus in ["SFX", "Ambience"]:                # ...and no sound of the world either: silence
+		var b := AudioServer.get_bus_index(bus)
+		if b >= 0:
+			AudioServer.set_bus_mute(b, true)
 
 
-## ...and the new score the moment the first scene comes up: epic and electronic.
+var _waited := 0.0
+
+
+## ...and the new score the moment the first scene comes up: epic and electronic. (If it isn't
+## written yet - a slow phone, or the recording - the loading screen waits for it, up to half a
+## minute, so the score is there from the first scene.)
 func _begin() -> void:
+	if running or _intro == null:
+		return
+	if not game.music.is_ready("rift_epic") and _waited < 30.0:
+		_waited += 0.25
+		get_tree().create_timer(0.25).timeout.connect(_begin)
+		return
+	for bus in ["SFX", "Ambience"]:
+		var b := AudioServer.get_bus_index(bus)
+		if b >= 0:
+			AudioServer.set_bus_mute(b, false)
 	game.music.play_area("rift_epic")
 	_sound("tech_hit", 0.8, 0.0)
 	super._begin()
@@ -207,4 +227,8 @@ func _back_to_title() -> void:
 	if hero.mounted_on != null:
 		hero.dismount()
 	Experiments.active = _exp_was
+	for bus in ["SFX", "Ambience"]:                # (in case it ended before the loading screen did)
+		var b := AudioServer.get_bus_index(bus)
+		if b >= 0:
+			AudioServer.set_bus_mute(b, false)
 	super._back_to_title()

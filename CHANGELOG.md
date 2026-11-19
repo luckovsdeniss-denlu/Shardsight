@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.14.4-b396
+- The Riftrunner trailer, checked as a recorded video: the new score wasn't written yet when the
+  first scene came up (a slow phone, or the recording), so its first scenes had no music. Now the
+  loading screen waits (up to half a minute) until the score is ready, so it drops in with the
+  first scene; the loading screen is truly silent (the world's own sounds muted till then); and no
+  "Level ..." pops over the hero in any trailer.
+
 ## 2.14.3-b395
 - The Riftrunner trailer opens in silence: no music over its loading screen (the old trailers'
   score no longer plays there either) - then the new high-tech soundtrack drops in with the first

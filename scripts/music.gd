@@ -155,6 +155,11 @@ func play_area(area: String) -> void:
 	tw.chain().tween_callback(old.stop)
 
 
+## Whether a piece is written and ready to play.
+func is_ready(area: String) -> bool:
+	return _tracks.has(area)
+
+
 ## Nothing playing, and nothing waiting to (a trailer's silent opening).
 func silence() -> void:
 	_wanted = ""

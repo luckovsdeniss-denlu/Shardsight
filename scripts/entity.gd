@@ -5866,8 +5866,8 @@ func _on_level_up(lv: int) -> void:
 	if _announced_level == 0:              # first gain this session (a loaded hero may be high)
 		_announced_level = floori(maxi(lv - 2, 0) / 5.0) * 5
 	var mark := floori(lv / 5.0) * 5
-	if mark <= _announced_level:
-		return
+	if mark <= _announced_level or game.movie != null:
+		return                                 # (no level pops in a trailer's picture)
 	_announced_level = mark
 	lv = mark
 	_pop("Level %d!" % lv, Color(1.0, 0.85, 0.3))
