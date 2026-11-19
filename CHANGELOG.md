@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.13.0-b388
+- Versions now carry a build too: MAJOR.MINOR.PATCH, then a letter for the stage (b: beta) and
+  the build number - this is 2.13.0, beta, build 388. The release page is v2.13.0-b388.
+- Max optimization is on by default (Performance): a fresh start, or Reset to default, comes up
+  at its cheapest, locked at a steady 30; turn it off there for every look (it's remembered). The
+  trailers keep every look regardless.
+
 ## 2.12.0
 - First person in the Riftrunner: you sit in it - low, in the driver's seat, the violet bonnet and
   the shard ahead of you - and see it change round you on Rift jump (the cyber skin, the wings,

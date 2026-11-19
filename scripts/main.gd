@@ -1211,8 +1211,8 @@ func _set_quality(level: int) -> void:
 ## Whether a look is on: chosen by the frame-rate keeper (Auto-optimize), or by the player
 ## in the Performance panel.
 func _feat(id: String) -> bool:
-	if _max_opt:
-		return false
+	if _max_opt and movie == null:
+		return false                              # (the trailers keep every look)
 	if not _auto_opt:
 		return bool(_perf.get(id, true))
 	return _q < int(FEATURE_LEVEL[id])
@@ -1352,6 +1352,7 @@ func _reset_graphics() -> void:
 	_apply_features()
 	(_fps_label.get_parent() as CanvasLayer).visible = true
 	DirAccess.remove_absolute(GRAPHICS_PATH)           # (nothing kept any more)
+	_set_max_opt(true)                                 # (as it comes: Max optimization on)
 	# and everything else about how the game looks, back to how it comes
 	property.first_person = false                      # the camera above the hero
 	property.names_on = false                          # a clean screen: no names over heads
@@ -1363,7 +1364,7 @@ func _reset_graphics() -> void:
 	for e in creatures:
 		e.show_name(property.names_on)
 	_update_corner_buttons()
-	log_event("All graphics settings reset to default: Auto-optimize off, every look on, the starting resolution, the camera above, the map, stats and weather on.")
+	log_event("All graphics settings reset to default: Max optimization on, the camera above, the map, stats and weather on.")
 	_refresh_perf()
 
 
@@ -1397,6 +1398,8 @@ func _keep_graphics() -> void:
 func _load_graphics() -> void:
 	var cf := ConfigFile.new()
 	if cf.load(GRAPHICS_PATH) != OK:
+		if not _recording_trailer():
+			_set_max_opt(true)                     # (as it comes: Max optimization on)
 		return
 	_auto_opt = bool(cf.get_value("graphics", "auto", false))
 	var f: Variant = cf.get_value("graphics", "features", {})
@@ -1409,8 +1412,8 @@ func _load_graphics() -> void:
 		get_viewport().scaling_3d_scale = _render_scale
 	if _fps_label != null:
 		(_fps_label.get_parent() as CanvasLayer).visible = bool(cf.get_value("graphics", "counter", true))
-	if bool(cf.get_value("graphics", "max", false)):
-		_set_max_opt(true)
+	if bool(cf.get_value("graphics", "max", true)) and not _recording_trailer():
+		_set_max_opt(true)                         # (on unless you've turned it off)
 		return
 	_apply_features()
 
@@ -5631,7 +5634,13 @@ func _toggle_map() -> void:
 
 # --- frame -----------------------------------------------------------------
 
+var _was_movie := false
+
+
 func _process(delta: float) -> void:
+	if (movie != null) != _was_movie:
+		_was_movie = movie != null
+		_apply_features()                         # (a trailer starting or ending: its looks, or yours, again)
 	if paused and movie != null and movie.running:
 		paused = false                            # nothing stops the movie (its interface is hidden: a panel would freeze it)
 	if paused:
