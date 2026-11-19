@@ -360,6 +360,63 @@ func _clear_run(from: Vector3, dir: Vector3, length: float) -> bool:
 	return true
 
 
+## First person in the Riftrunner, as it tears through: light streaking past from a point ahead, a
+## violet and teal vortex swirling open in front of you, the lens flung wide and the view rising
+## with the car - then the white flash, and on the other side it all falls away behind you.
+const FP_RIFT_SHADER := """
+shader_type canvas_item;
+uniform float power = 0.0;
+uniform float aspect = 1.78;
+float hash(float n) { return fract(sin(n * 12.9898) * 43758.5453); }
+void fragment() {
+	vec2 uv = (UV - 0.5) * vec2(aspect, 1.0);
+	float r = length(uv);
+	float a = atan(uv.y, uv.x);
+	float sector = floor((a + 3.14159) / 6.28318 * 90.0);
+	float h = hash(sector);
+	float run = fract(r * (1.5 + h * 2.0) - TIME * (2.5 + h * 3.0) * (0.5 + power));
+	float streak = step(0.55, h) * smoothstep(0.0, 0.15, run) * (1.0 - smoothstep(0.15, 0.5, run)) * smoothstep(0.08, 0.5, r);
+	float swirl = 0.5 + 0.5 * sin(a * 3.0 + r * 14.0 - TIME * 7.0);
+	float hole = (1.0 - smoothstep(0.0, 0.45 * power, r)) * power;
+	float ring = (1.0 - smoothstep(0.0, 0.05, abs(r - 0.34 * power))) * power;
+	vec3 violet = vec3(0.85, 0.45, 1.0);
+	vec3 teal = vec3(0.3, 0.95, 1.0);
+	vec3 col = mix(violet, teal, swirl);
+	col = mix(col, vec3(1.0), hole * 0.6);
+	float alpha = streak * 0.7 * power + hole * (0.35 + 0.35 * swirl) + ring * 0.8;
+	alpha += smoothstep(0.55, 1.1, r) * power * 0.35;          // the edges darken into a tunnel
+	col = mix(col, vec3(0.05, 0.0, 0.1), smoothstep(0.55, 1.1, r) * (1.0 - streak));
+	COLOR = vec4(col, clamp(alpha, 0.0, 1.0));
+}
+"""
+var _fp_rift: ColorRect = null
+var _fp_rift_mat: ShaderMaterial = null
+
+
+func _fp_rift_power(p: float) -> void:
+	var fp: bool = game.property.first_person and game.hero.mounted_on == car and game.movie == null
+	if not fp:
+		p = 0.0
+	game.fp_rift_fov = 26.0 * p
+	if _fp_rift == null:
+		if p <= 0.0:
+			return
+		_fp_rift = ColorRect.new()
+		_fp_rift.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sh := Shader.new()
+		sh.code = FP_RIFT_SHADER
+		_fp_rift_mat = ShaderMaterial.new()
+		_fp_rift_mat.shader = sh
+		_fp_rift.material = _fp_rift_mat
+		_layer.add_child(_fp_rift)
+		_layer.move_child(_fp_rift, 0)             # (under the white flash)
+		_fp_rift.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fp_rift.visible = p > 0.005
+	var vs: Vector2 = game.get_viewport().get_visible_rect().size
+	_fp_rift_mat.set_shader_parameter("power", p)
+	_fp_rift_mat.set_shader_parameter("aspect", vs.x / maxf(vs.y, 1.0))
+
+
 func _jump_step(delta: float) -> void:
 	var hero: Entity = game.hero
 	_jump_t += delta
@@ -378,8 +435,10 @@ func _jump_step(delta: float) -> void:
 			_change = _new_change(hero)
 		_change.pose_out(delta, _jump_t)
 		var k_lift := smoothstep(0.6, 1.4, _jump_t)
+		game.fp_car_lift = k_lift * 0.75
+		_fp_rift_power(smoothstep(0.8, TF_CROSS, _jump_t))   # (first person: the rift opening in front of you)
 		_spark -= delta
-		if _spark <= 0.0:
+		if _spark <= 0.0 and not game.property.first_person:   # (first person: the rift's own light instead)
 			_spark = 0.12 if _jump_t > 0.9 else 0.25
 			Fx.sparkle(game, hero.position + Vector3(randf_range(-1.0, 1.0), 0.6 + k_lift, randf_range(-1.0, 1.0)),
 				VIOLET if randf() < 0.5 else TEAL, 8)
@@ -397,6 +456,8 @@ func _jump_step(delta: float) -> void:
 	if _change == null:
 		_change = _new_change(hero)
 	_change.pose_back(delta, _jump_t, k)
+	game.fp_car_lift = (1.0 - smoothstep(0.1, 0.7, k)) * 0.75
+	_fp_rift_power(1.0 - smoothstep(0.0, 0.55, k))     # (and falling away behind you on the other side)
 	if k >= 1.0 or hero.mounted_on != car:
 		_tf_clear()
 		_jump_t = -1.0
@@ -590,7 +651,7 @@ class CarChange:
 	## A one-off burst into the world: dust thrown out flat along the ground, or sparks and
 	## shards of crystal flung up that tumble and fall back under their weight.
 	func _burst(at: Vector3, cols: Array, n: int, speed: float, grav: float, life: float, size: float, flat: bool, shards := false) -> void:
-		if world == null or not is_instance_valid(world):
+		if world == null or not is_instance_valid(world) or _from_inside():
 			return
 		var p := CPUParticles3D.new()
 		p.one_shot = true
@@ -722,14 +783,20 @@ class CarChange:
 
 	## The car at a point in its change: wheels folded flat (0-1), wings out, lifted, rings of
 	## light, thrusters burning.
+	## Seen from the driver's seat (first person): the particles would be right at the eye, great
+	## blots - the rift in front of the view takes their place.
+	func _from_inside() -> bool:
+		return who != null and is_instance_valid(who) and who.is_hero and bool(who.game.property.first_person)
+
 	func pose(delta: float, t: float, k_fold: float, k_wing: float, k_lift: float, k_ring: float, burning: bool,
 			k_skin := 0.0, charging := false, folding := false) -> void:
 		if not _attach():
 			return
 		cyber.set_shader_parameter("amount", k_skin)
-		inflow.emitting = charging
-		sparks.emitting = folding
-		trail.emitting = burning and k_wing > 0.5
+		var inside := _from_inside()
+		inflow.emitting = charging and not inside
+		sparks.emitting = folding and not inside
+		trail.emitting = burning and k_wing > 0.5 and not inside
 		var lift := k_lift * 0.75 + sin(t * 5.0) * 0.06 * k_lift
 		root.position.y = lift
 		if rider != null and is_instance_valid(rider):
@@ -762,7 +829,7 @@ class CarChange:
 			j.scale = Vector3.ONE * maxf(k_wing, 0.01)
 			var fire := j.get_child(1) as CPUParticles3D
 			if fire != null:
-				fire.emitting = k_wing > 0.5
+				fire.emitting = k_wing > 0.5 and not inside
 				fire.scale = Vector3.ONE * (1.8 if burning else 1.0)
 		if rings == null:
 			return
@@ -977,6 +1044,8 @@ void fragment() {
 
 
 func _tf_clear() -> void:
+	_fp_rift_power(0.0)
+	game.fp_car_lift = 0.0
 	if _change != null:
 		_change.clear()
 	_change = null

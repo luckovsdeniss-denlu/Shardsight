@@ -6468,6 +6468,8 @@ var _fp_fov := 72.0
 var _fp_kick := 0.0                    # a jolt when hit (1 -> 0)
 var _fp_hp := -1.0
 var _fp_last := Vector3.ZERO
+var fp_rift_fov := 0.0                  # the lens flung wide as the Riftrunner tears through (set by the dimension)
+var fp_car_lift := 0.0                  # the view rising with the car as it lifts off
 var aimed: Entity                      # whoever is under the crosshair (first person)
 var _aim_acc := 0.0
 var fp_overlay: FpOverlay
@@ -6523,7 +6525,7 @@ func _fp_step(delta: float) -> void:
 		_fp_kick = 1.0
 	_fp_hp = hero.hp
 	_fp_kick = maxf(_fp_kick - delta * 3.0, 0.0)
-	_fp_fov = lerpf(_fp_fov, fov - _fp_kick * 5.0, minf(1.0, 3.0 * delta))
+	_fp_fov = lerpf(_fp_fov, fov - _fp_kick * 5.0 + fp_rift_fov, minf(1.0, 3.0 * delta))
 	if _cine_phase == 0:
 		cam.fov = _fp_fov
 	_aim_acc -= delta
@@ -6566,6 +6568,8 @@ func _eye() -> Vector3:
 	var h := 1.55 * hero.visual_scale + _bob
 	if hero.mounted_on != null:
 		h += hero.mounted_on.saddle * hero.mounted_on.visual_scale
+		if hero.mounted_on.is_vehicle:
+			h = 1.18 * hero.visual_scale + _bob + fp_car_lift   # (in the driver's seat, low, the bonnet ahead)
 	var right := Vector3(cos(_fp_yaw), 0.0, -sin(_fp_yaw))
 	return hero.position + Vector3(0.0, h, 0.0) + _fp_forward() * 0.2 + right * sin(_bob_t * 4.5) * 0.02
 
@@ -6590,6 +6594,8 @@ func _apply_view() -> void:
 	hero.hide_self = fp
 	if hero.rig != null:
 		hero.rig.visible = not fp
+		if not fp and hero.model.has("root"):
+			(hero.model["root"] as Node3D).visible = true   # (the rider back, out of first person)
 	hero.show_name(property.names_on)
 	if hero_ring != null:
 		hero_ring.visible = not fp
@@ -7338,8 +7344,12 @@ func _close_settings() -> void:
 func _follow_camera() -> void:
 	if property.first_person:
 		_fp_step(get_process_delta_time())
-		if hero.rig != null and hero.rig.visible:
-			hero.rig.visible = false        # the hero's own body stays out of view
+		if hero.rig != null:
+			# the hero's own body stays out of view - but in the Riftrunner you see the car round you
+			var in_car := hero.mounted_on != null and hero.mounted_on.is_vehicle and not hero.dead
+			hero.rig.visible = in_car
+			if in_car and hero.model.has("root"):
+				(hero.model["root"] as Node3D).visible = false
 	cam.position = _hero_cam_pos()
 	cam.look_at(_hero_cam_look(), Vector3.UP)
 	if property.first_person:

@@ -3,6 +3,14 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.12.0
+- First person in the Riftrunner: you sit in it - low, in the driver's seat, the violet bonnet and
+  the shard ahead of you - and see it change round you on Rift jump (the cyber skin, the wings,
+  the thrusters), the view rising as it lifts off. As it tears through, the rift opens in front of
+  you: streaks of light rushing past from a point ahead, a violet and teal vortex swirling wider,
+  a bright ring, the edges darkening into a tunnel and the lens flung wide - then the white flash,
+  and on the other side it all falls away behind you as the car settles.
+
 ## 2.11.1
 - Auto-optimize is off by default (Performance): the game starts with every look on and leaves
   them as you set them; switch Auto-optimize on there if you want the game to lower the
