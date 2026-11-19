@@ -5715,6 +5715,9 @@ func _process(delta: float) -> void:
 		pass                                      # a story scene has the camera
 	elif not _flyby_step(delta):
 		_follow_camera()
+		if cam_shake > 0.0:                       # (an earthquake: the picture shakes, settling)
+			cam.position += Vector3(randf_range(-1.0, 1.0), randf_range(-0.6, 0.6), randf_range(-1.0, 1.0)) * cam_shake * 0.25
+			cam_shake = maxf(cam_shake - delta * 0.7, 0.0)
 	_update_rings()
 	_cull_fx(delta)
 	_adapt_resolution(delta)
@@ -5739,6 +5742,7 @@ func _process(delta: float) -> void:
 
 var _hud_timer := 0.0
 var _tick_n := 0
+var cam_shake := 0.0                    # how hard the picture shakes (an earthquake), 0 = still
 
 
 ## The warband (the "Warband" experiment): the hero raises a guild of their own - for free - and

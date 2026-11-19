@@ -3,6 +3,18 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.7.0
+- The Shardveil apocalypse (experimental mode, "Shardveil apocalypse", on by default, with the
+  chaos): the Shardveil at the end of the world.
+  - "APOCALYPSE" flies in; the light turns to a burning red, a blood-dark glow pulses and
+    flickers at the edges of the picture, ash drifts down and embers rise all round you.
+  - Meteors fall twice as thick, and every half minute or so in a storm of seven; where they
+    land the ground is left burning (a flame on a scorch mark, a dozen seconds, eight at most).
+  - Earthquakes every 30-45 seconds: the picture shakes, four glowing fissures split the ground
+    near you - hurting whoever stands on them - cool and close, and two rifts tear open at once.
+  - Every minute a wave of the Veilborn pours out of three rifts together.
+  - All of it capped (and thinner with fewer particles), so the frame rate holds.
+
 ## 2.6.0
 - The warband (experimental mode, "Warband", on by default):
   - The hero raises a guild of their own - "<name>'s Warband", free - and declares war on every

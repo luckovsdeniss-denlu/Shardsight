@@ -1246,9 +1246,11 @@ func _chaos_step(delta: float) -> void:
 			_arm_check = 0.0
 			_meteor_t = 1.2
 			_action_start()
+			_apoc_start()
 			game.log_event("In the Shardveil it's every one for themselves: everyone has a gun, and the sky is falling.")
 		else:
 			_action_end()
+			_apoc_end()
 			_disarm_all()
 	if not chaos:
 		return
@@ -1259,9 +1261,11 @@ func _chaos_step(delta: float) -> void:
 	_car_turrets(delta)
 	_meteor_t -= delta
 	if _meteor_t <= 0.0:
-		_meteor_t = randf_range(0.9, 2.2)
+		_meteor_t = randf_range(0.45, 1.2) if _apoc else randf_range(0.9, 2.2)
 		_meteor()
 	_action_step(delta)
+	if _apoc:
+		_apoc_step(delta)
 
 
 ## Everyone near you gets a gun (and keeps it while near) - every monster too, and the pets; a
@@ -1398,6 +1402,8 @@ func _meteor_lands(at: Vector3) -> void:
 	_meteor_src.position = at
 	if randf() < 0.35:
 		_drop_pickup(at)                           # (a shard left glowing in the crater)
+	if _apoc:
+		_burning_patch(at)                         # (and the ground left burning)
 	for item in game.creatures:
 		var e := item as Entity
 		if e == null or e.dead or e.parked or e.is_vehicle or e.kind == Entity.Kind.NPC:
@@ -2140,3 +2146,243 @@ func _nova() -> void:
 		if e == null or e == hero or e.dead or e.position.distance_to(hero.position) > 6.0 or not hero._chaos_fair(e):
 			continue
 		e.take_damage(randf_range(20.0, 35.0) * (2.0 if overcharge > 0.0 else 1.0), hero)
+
+
+# --- the apocalypse (the "Shardveil apocalypse" experiment, with the chaos) ----------------------
+# The Shardveil at the end of the world: the light turns to a burning red under a blood-dark
+# glow at the edges of the picture; ash drifts down and embers rise all round you; the meteors
+# fall twice as thick, now and then in a storm, and leave the ground burning where they land;
+# every half minute or so the earth heaves - the picture shakes, glowing fissures split the ground
+# and rifts tear open all at once; and every minute a wave of the Veilborn pours out of three
+# rifts together. Everything is capped, so it never chokes the frame rate.
+
+const APOC_TINT := Color(1.0, 0.7, 0.62)        # the light of a burning world
+const APOC_SHADER := """
+shader_type canvas_item;
+uniform float strength = 1.0;
+void fragment() {
+	vec2 uv = UV - 0.5;
+	float r = length(uv * vec2(1.6, 1.0));
+	float pulse = 0.85 + 0.15 * sin(TIME * 1.7);
+	float edge = smoothstep(0.35, 0.95, r) * pulse;
+	float flicker = 0.5 + 0.5 * sin(TIME * 9.0 + uv.x * 13.0) * sin(TIME * 6.3 + uv.y * 11.0);
+	vec3 col = mix(vec3(0.55, 0.05, 0.02), vec3(0.95, 0.35, 0.05), flicker * 0.4);
+	COLOR = vec4(col, edge * 0.55 * strength);
+}
+"""
+const MAX_FIRES := 8
+var _apoc := false
+var _apoc_glow: ColorRect = null
+var _apoc_glow_mat: ShaderMaterial = null
+var _ash: CPUParticles3D = null
+var _embers: CPUParticles3D = null
+var _fires: Array = []                         # [node, seconds left]
+var _quake_t := 20.0
+var _wave_t := 45.0
+var _storm_t := 30.0
+var _storm_left := 0
+
+
+func _apoc_on() -> bool:
+	return Experiments.on("veil_apocalypse")
+
+
+func _apoc_start() -> void:
+	if not _apoc_on():
+		return
+	_apoc = true
+	_quake_t = randf_range(15.0, 25.0)
+	_wave_t = 40.0
+	_storm_t = randf_range(20.0, 30.0)
+	Art.set_tint(APOC_TINT)
+	if _apoc_glow == null:
+		_apoc_glow = ColorRect.new()
+		_apoc_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sh := Shader.new()
+		sh.code = APOC_SHADER
+		_apoc_glow_mat = ShaderMaterial.new()
+		_apoc_glow_mat.shader = sh
+		_apoc_glow.material = _apoc_glow_mat
+		var under := CanvasLayer.new()
+		under.layer = 1                            # (over the world, under the buttons and text)
+		add_child(under)
+		under.add_child(_apoc_glow)
+		_apoc_glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_apoc_glow.visible = true
+	if _ash == null:
+		_ash = CPUParticles3D.new()               # ash drifting down
+		_ash.amount = 70
+		_ash.lifetime = 4.0
+		_ash.local_coords = false
+		_ash.mesh = Fx._quad(0.09, Color.WHITE)
+		_ash.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+		_ash.emission_box_extents = Vector3(16.0, 0.5, 16.0)
+		_ash.direction = Vector3(0.3, -1.0, 0.1)
+		_ash.spread = 25.0
+		_ash.gravity = Vector3(0.4, -0.6, 0.2)
+		_ash.initial_velocity_min = 0.3
+		_ash.initial_velocity_max = 0.9
+		_ash.color_ramp = CarChange._ramp([Color(0.4, 0.38, 0.38, 0.0), Color(0.55, 0.5, 0.5, 0.8), Color(0.3, 0.28, 0.28, 0.0)])
+		game.add_child(_ash)
+		_embers = CPUParticles3D.new()            # embers rising
+		_embers.amount = 40
+		_embers.lifetime = 2.6
+		_embers.local_coords = false
+		_embers.mesh = Fx._quad(0.07, Color.WHITE)
+		_embers.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+		_embers.emission_box_extents = Vector3(12.0, 0.2, 12.0)
+		_embers.direction = Vector3.UP
+		_embers.spread = 20.0
+		_embers.gravity = Vector3(0.0, 0.8, 0.0)
+		_embers.initial_velocity_min = 0.6
+		_embers.initial_velocity_max = 1.6
+		_embers.color_ramp = CarChange._ramp([Color(1.0, 0.9, 0.5, 1.0), Color(1.0, 0.45, 0.1, 0.9), Color(0.5, 0.1, 0.05, 0.0)])
+		game.add_child(_embers)
+	_ash.amount = maxi(int(70 * Fx.thin), 20)
+	_embers.amount = maxi(int(40 * Fx.thin), 12)
+	_ash.emitting = true
+	_embers.emitting = true
+	var vs: Vector2 = game.get_viewport().get_visible_rect().size
+	var word := Title3D.make_flying("APOCALYPSE", minf(vs.x * 0.75, 1100.0), Title3D.GOLD, vs)
+	_layer.add_child(word)
+	word.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	game.log_event("The Shardveil is ending: the sky burns, the ground splits, the dead pour out of the rifts.")
+	_sound("braam", 0.6, 2.0)
+
+
+func _apoc_end() -> void:
+	if not _apoc:
+		return
+	_apoc = false
+	Art.set_tint(TINT if active else Color.WHITE)
+	if _apoc_glow != null:
+		_apoc_glow.visible = false
+	if _ash != null:
+		_ash.emitting = false
+		_embers.emitting = false
+	for f in _fires:
+		if is_instance_valid(f[0]):
+			(f[0] as Node).queue_free()
+	_fires.clear()
+	game.cam_shake = 0.0
+
+
+func _apoc_step(delta: float) -> void:
+	var hero: Entity = game.hero
+	if _ash != null:
+		_ash.global_position = hero.position + Vector3(0.0, 9.0, 0.0)
+		_embers.global_position = hero.position + Vector3(0.0, 0.2, 0.0)
+	# the fires burn down
+	for i in range(_fires.size() - 1, -1, -1):
+		var f: Array = _fires[i]
+		f[1] = float(f[1]) - delta
+		if float(f[1]) <= 0.0 or not is_instance_valid(f[0]):
+			if is_instance_valid(f[0]):
+				(f[0] as Node).queue_free()
+			_fires.remove_at(i)
+	# a storm of meteors now and then
+	_storm_t -= delta
+	if _storm_t <= 0.0:
+		_storm_t = randf_range(25.0, 40.0)
+		_storm_left = 7
+		game.log_event("A storm of fire falls out of the burning sky!")
+	if _storm_left > 0 and randf() < delta * 4.0:
+		_storm_left -= 1
+		_meteor()
+	# the earth heaves
+	_quake_t -= delta
+	if _quake_t <= 0.0:
+		_quake_t = randf_range(28.0, 45.0)
+		_quake()
+	# a wave of the Veilborn
+	_wave_t -= delta
+	if _wave_t <= 0.0:
+		_wave_t = randf_range(55.0, 70.0)
+		game.log_event("A wave of the Veilborn pours out of the rifts!")
+		for k in range(3):
+			_spawn_rift()
+
+
+## The ground left burning where a meteor struck: a flame and a scorch, for a dozen seconds (eight
+## at most at once: the oldest goes out first).
+func _burning_patch(at: Vector3) -> void:
+	if _fires.size() >= MAX_FIRES:
+		var old: Array = _fires.pop_front()
+		if is_instance_valid(old[0]):
+			(old[0] as Node).queue_free()
+	var node := Node3D.new()
+	game.add_child(node)
+	node.global_position = Vector3(at.x, game.world.height_at(at) + 0.03, at.z)
+	var fire := Fx.flame(0.7, 16, 0.9)
+	node.add_child(fire)
+	fire.emitting = true
+	var scorch := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(2.2, 2.2)
+	q.orientation = PlaneMesh.FACE_Y
+	scorch.mesh = q
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(0.08, 0.04, 0.03, 0.65)
+	scorch.mesh.material = m
+	scorch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.add_child(scorch)
+	_fires.append([node, randf_range(9.0, 13.0)])
+
+
+## An earthquake: the picture shakes, glowing fissures split the ground near you, and rifts tear
+## open (two at once); everyone standing on a fissure as it opens is hurt.
+func _quake() -> void:
+	var hero: Entity = game.hero
+	game.cam_shake = 1.4
+	game.sound("impact", hero.position, 0.5, 4.0)
+	game.sound("thunder", hero.position, 0.7, 2.0)
+	game.log_event("The ground heaves and splits open!")
+	var c := hero.position + Vector3(randf_range(-6.0, 6.0), 0.0, randf_range(-6.0, 6.0))
+	if _quake_src == null or not is_instance_valid(_quake_src):
+		_quake_src = _make_src("the splitting ground")
+	_quake_src.position = c
+	var holder := Node3D.new()
+	game.add_child(holder)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(1.0, 0.45, 0.1, 0.95)
+	var lines: Array = []
+	for k in range(4):
+		var a := randf() * TAU
+		var dir := Vector3(cos(a), 0.0, sin(a))
+		var length := randf_range(5.0, 9.0)
+		var mid := c + dir * length * 0.5
+		var crack := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2(0.35, length)
+		q.orientation = PlaneMesh.FACE_Y
+		crack.mesh = q
+		crack.material_override = mat
+		crack.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		holder.add_child(crack)
+		crack.global_position = Vector3(mid.x, game.world.height_at(mid) + 0.04, mid.z)
+		crack.rotation.y = atan2(dir.x, dir.z)
+		lines.append([c, dir, length])
+		Fx.sparkle(game, mid + Vector3(0.0, 0.3, 0.0), Color(1.0, 0.5, 0.15), 14)
+	for item in game.creatures:                    # whoever stands on a fissure is thrown about
+		var e := item as Entity
+		if e == null or e.dead or e.parked or e.is_vehicle or e.kind == Entity.Kind.NPC:
+			continue
+		for l in lines:
+			var rel: Vector3 = e.position - (l[0] as Vector3)
+			var along := rel.dot(l[1])
+			if along > 0.0 and along < float(l[2]) and (rel - (l[1] as Vector3) * along).length() < 0.8:
+				e.take_damage(randf_range(6.0, 14.0), _quake_src)
+				break
+	var tw := holder.create_tween()                # the fissures glow, cool and close
+	tw.tween_property(mat, "albedo_color", Color(0.2, 0.05, 0.02, 0.8), 6.0)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 4.0)
+	tw.tween_callback(holder.queue_free)
+	_spawn_rift()
+	_spawn_rift()
+
+
+var _quake_src: Entity = null
