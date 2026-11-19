@@ -432,6 +432,11 @@ class CarChange:
 	var trail: CPUParticles3D = null           # a streaming trail behind it as it shoots away
 	var last_t := -1.0
 	var last_k := -1.0
+	var scar: Node3D = null                    # the marks it leaves on the ground (they outlive the change)
+	var scar_mat: ShaderMaterial = null          # the tracks
+	var ring_mat: ShaderMaterial = null          # the rings
+	var last_drop := Vector3.INF
+	static var scar_shader: Shader = null
 
 	func _init(p_who: Entity, p_rings: Array, p_sound: Callable, p_world: Node) -> void:
 		who = p_who
@@ -641,6 +646,79 @@ class CarChange:
 		tw.tween_interval(life + 0.1)
 		tw.tween_callback(p.queue_free)            # (gone the moment it's done: no trace)
 
+	# --- the marks on the ground: two glowing tracks behind it as it shoots away, and a burnt ring
+	# of cracks where it lifts off and where it lands - violet-hot at first, cooling to a dark
+	# scorch, then gone
+
+	func _scar_root() -> Node3D:
+		if scar != null and is_instance_valid(scar):
+			return scar
+		if world == null or not is_instance_valid(world):
+			return null
+		if scar_shader == null:
+			scar_shader = Shader.new()
+			scar_shader.code = SCAR_SHADER
+		scar = Node3D.new()
+		world.add_child(scar)
+		var tw := scar.create_tween()            # hot, cooling, then fading away
+		var first := true
+		for r: float in [0.0, 1.0]:
+			var m := ShaderMaterial.new()
+			m.shader = scar_shader
+			m.set_shader_parameter("ring", r)
+			m.set_shader_parameter("heat", 1.0)
+			m.set_shader_parameter("fade", 1.0)
+			if r > 0.5:
+				ring_mat = m
+			else:
+				scar_mat = m
+			if not first:
+				tw.parallel()
+			tw.tween_property(m, "shader_parameter/heat", 0.0, 6.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+			first = false
+		tw.tween_interval(10.0)
+		tw.tween_property(scar_mat, "shader_parameter/fade", 0.0, 6.0)
+		tw.parallel().tween_property(ring_mat, "shader_parameter/fade", 0.0, 6.0)
+		tw.tween_callback(scar.queue_free)
+		return scar
+
+	func _ground(p: Vector3) -> Vector3:
+		return Vector3(p.x, who.world.height_at(p) + 0.025, p.z)
+
+	## A flat mark on the ground: a ring of cracks (`ring`), or a stretch of track.
+	func _mark(at: Vector3, size: Vector2, yaw: float, ring: bool) -> void:
+		var root := _scar_root()
+		if root == null:
+			return
+		var q := QuadMesh.new()
+		q.size = size
+		q.orientation = PlaneMesh.FACE_Y
+		var mi := MeshInstance3D.new()
+		mi.mesh = q
+		mi.material_override = ring_mat if ring else scar_mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(mi)
+		mi.global_position = _ground(at) + Vector3(0.0, 0.004 if ring else 0.0, 0.0)
+		mi.rotation.y = yaw
+
+	## While it shoots away: the two tracks under its hover pads, a stretch at a time.
+	func _drop_tracks() -> void:
+		var p := who.position
+		if last_drop == Vector3.INF:
+			last_drop = p
+			return
+		var step := Vector3(p.x - last_drop.x, 0.0, p.z - last_drop.z)
+		var d := step.length()
+		if d < 0.3:
+			return
+		var dir := step / d
+		var right := Vector3(-dir.z, 0.0, dir.x)
+		var mid := (p + last_drop) * 0.5
+		var yaw := atan2(dir.x, dir.z)
+		for side: float in [-0.62, 0.62]:
+			_mark(mid + right * side, Vector2(0.2, d + 0.06), yaw, false)
+		last_drop = p
+
 	func _play(sound_name: String, pitch: float, db: float) -> void:
 		if sound.is_valid():
 			sound.call(sound_name, pitch, db)
@@ -712,6 +790,10 @@ class CarChange:
 			_burst(at + Vector3(0.0, 0.5, 0.0), [Color(0.3, 0.95, 1.0, 1.0), Color(0.85, 0.45, 1.0, 0.0)], 24, 3.0, 0.0, 0.5, 0.1, false)
 		if prev < 0.6 and t >= 0.6:                # wheels locked flat: it charges
 			_play("car_charge", 1.0, -3.0)
+		if prev < 0.75 and t >= 0.75:              # lift-off: a burnt ring of cracks left under it
+			_mark(at, Vector2(2.6, 2.6), randf() * TAU, true)
+		if t >= TF_RISE:
+			_drop_tracks()                         # (and two glowing tracks as it shoots away)
 		if prev < 0.75 and t >= 0.75:              # lift-off: dust blown out flat all round
 			_burst(at + Vector3(0.0, 0.35, 0.0), [Color(0.6, 0.52, 0.42, 0.7), Color(0.5, 0.42, 0.55, 0.25), Color(0.4, 0.35, 0.45, 0.0)],
 				30, 6.0, -1.5, 0.6, 0.35, true)   # (rising as it spreads, gone in a moment: nothing left on the ground)
@@ -721,6 +803,7 @@ class CarChange:
 				30, 5.0, 0.0, 0.5, 0.25, false)
 		if prev < TF_CROSS - 0.12 and t >= TF_CROSS - 0.12:   # through: crystal shards and sparks fly everywhere
 			_play("car_warp", 1.0, 0.0)
+			_mark(at, Vector2(3.4, 3.4), randf() * TAU, true)  # (the rift's scar where it went through)
 			_burst(at + Vector3(0.0, 0.8, 0.0), [Color(0.95, 0.75, 1.0, 1.0), Color(0.3, 0.95, 1.0, 1.0), Color(0.5, 0.3, 0.9, 0.0)],
 				30, 7.0, 9.8, 0.7, 0.1, false, true)
 			_burst(at + Vector3(0.0, 0.8, 0.0), [Color(1.0, 1.0, 1.0, 1.0), Color(0.85, 0.45, 1.0, 0.8), Color(0.3, 0.95, 1.0, 0.0)],
@@ -743,6 +826,8 @@ class CarChange:
 			_play("car_servo", 0.85, -3.0)
 		if prev < 0.7 and k >= 0.7:                # down on its wheels: a hiss, a clunk, dust
 			_play("car_land", 1.0, -2.0)
+			scar = null                            # (a fresh set of marks on this side)
+			_mark(at, Vector2(2.4, 2.4), randf() * TAU, true)
 			_burst(at + Vector3(0.0, 0.35, 0.0), [Color(0.6, 0.52, 0.42, 0.7), Color(0.4, 0.35, 0.45, 0.0)], 24, 5.0, -1.5, 0.55, 0.3, true)
 
 	## Back to a plain car: the new parts off, the rest as it was.
@@ -759,6 +844,8 @@ class CarChange:
 		trail = null
 		last_t = -1.0
 		last_k = -1.0
+		last_drop = Vector3.INF
+		scar = null                                # (the marks stay, fading on their own)
 		if root != null and is_instance_valid(root):
 			root.position.y = 0.0
 			for n in wings + jets:
@@ -795,6 +882,42 @@ func _new_change(who: Entity) -> CarChange:
 		elif is_instance_valid(who):
 			game.sound(sound_name, who.position, pitch, db - 4.0)
 	return CarChange.new(who, _ring_meshes, snd, game)
+
+
+## The marks the Riftrunner leaves on the ground: a track (glowing in the middle, soft at its
+## edges, flickering with energy) or a ring of cracks (a burnt circle with jagged cracks running
+## out of it). `heat` cools them from violet-hot to a dark scorch; `fade` takes them away.
+const SCAR_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform float heat = 1.0;
+uniform float fade = 1.0;
+uniform float ring = 0.0;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void fragment() {
+	vec2 uv = UV * 2.0 - 1.0;
+	float a;
+	float glow;
+	if (ring > 0.5) {
+		float r = length(uv);
+		float ang = atan(uv.y, uv.x);
+		float band = smoothstep(0.62, 0.72, r) * (1.0 - smoothstep(0.82, 0.95, r));
+		float cracks = pow(abs(sin(ang * 7.0 + sin(ang * 3.0) * 1.5)), 40.0) * (1.0 - smoothstep(0.3, 1.0, r)) * smoothstep(0.15, 0.3, r);
+		float inner = (1.0 - smoothstep(0.0, 0.65, r)) * 0.35;
+		a = max(max(band, cracks), inner);
+		glow = max(band, cracks);
+	} else {
+		float across = 1.0 - smoothstep(0.35, 1.0, abs(uv.x));
+		float flick = 0.75 + 0.25 * sin(uv.y * 9.0 + TIME * 12.0);
+		a = across;
+		glow = across * flick * (1.0 - smoothstep(0.0, 0.6, abs(uv.x)));
+	}
+	vec3 hot = mix(vec3(0.95, 0.45, 1.0), vec3(0.3, 0.95, 1.0), 0.5 + 0.5 * sin(TIME * 2.0 + UV.y * 4.0));
+	vec3 scorch = vec3(0.06, 0.04, 0.08);
+	ALBEDO = mix(scorch, hot * (1.0 + glow), heat * (0.4 + 0.6 * glow));
+	ALPHA = a * fade * mix(0.55, 0.95, heat);
+}
+"""
 
 
 ## The cyber skin the Riftrunner wears while it changes: a wipe of white light runs from bonnet to

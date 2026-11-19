@@ -3,6 +3,13 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.3.1
+- The Riftrunner leaves its marks on the ground when it jumps between worlds: a burnt ring of
+  jagged cracks where it lifts off, two glowing tracks under its hover pads as it shoots away, a
+  wider scar where it tears through, and another ring where it lands on the other side. They glow
+  violet-hot, flickering, then cool to a dark scorch over a few seconds, stay a while, and fade
+  away. The adventurers' cars leave them too.
+
 ## 2.3.0
 - A "Follow story" button on the screen, in the top right corner under the map: tap it and the hero
   sets off for wherever the main story leads now - the person to speak with, the nearest shrine,
