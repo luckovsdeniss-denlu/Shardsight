@@ -6166,6 +6166,16 @@ func _show_title(layer: CanvasLayer) -> void:
 		close.call()
 		movie = MovieRift.new()                    # the experimental mode's story: the car, the jump, the Shardveil
 		movie.start(self))
+	var film_action := _menu_button("Action trailer", func() -> void:
+		start_mode = "classic"
+		close.call()
+		movie = MovieAction.new()                  # the hero with company: battles with the land's adventurers and folk
+		movie.start(self))
+	var film_action_short := _menu_button("Action short", func() -> void:
+		start_mode = "classic"
+		close.call()
+		movie = MovieActionShort.new()             # half a minute of it
+		movie.start(self))
 	var film_phone := _menu_button("Phone format", func() -> void:
 		start_mode = "classic"
 		close.call()
@@ -6187,6 +6197,8 @@ func _show_title(layer: CanvasLayer) -> void:
 	row.add_child(film2)
 	row.add_child(film_short)
 	row.add_child(film_rift)
+	row.add_child(film_action)
+	row.add_child(film_action_short)
 	row.add_child(film_phone)
 	row.add_child(again)
 	# the trailer as a video file to keep or share: opens its download in the browser

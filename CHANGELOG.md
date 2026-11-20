@@ -3,6 +3,17 @@
 Version lives in `project.godot` (`application/config/version`). Bump it there; CI stamps it
 into the Android `version/name` and derives `version/code` from it (major*10000 + minor*100 + patch).
 
+## 2.15.0-b397
+- Two new trailers on the start screen, all action, the hero never fighting alone:
+  - "Action trailer" (about a minute): the land's adventurers charging in at the hero's side
+    against an orc warband; the town crying the alarm and the company running for the gate; a
+    named wolf and its pack against three hunters; Ravenhollow at midnight, four holding the line
+    against the dead; a champion in the arena; a raid on the yetis in the snow; the Shardveil's
+    free-for-all with guns; and the whole land against a giant - then the logo.
+  - "Action short" (about half a minute): the best of it, cut on the beat.
+  - The adventurers borrowed for the cameras go back where they were when it ends; the hero
+    stays on foot all through; group fights are filmed wider, with blades only (no spell glare).
+
 ## 2.14.4-b396
 - The Riftrunner trailer, checked as a recorded video: the new score wasn't written yet when the
   first scene came up (a slow phone, or the recording), so its first scenes had no music. Now the
